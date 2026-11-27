@@ -7,6 +7,7 @@ import SwiftUI
 /// Markdown as `ContextMarkdown` reads it, drawn in the app's type.
 struct MarkdownView: View {
     let text: String
+    @Environment(\.dynamicTypeSize) private var size
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
@@ -17,7 +18,7 @@ struct MarkdownView: View {
     @ViewBuilder private func draw(_ block: ContextBlock) -> some View {
         switch block {
         case .heading(let level, let runs): InkText(text: runs.attributed).font(level == 2 ? .rowTitle : .header)
-        case .paragraph(let runs): InkText(text: runs.attributed)
+        case .paragraph(let runs): InkText(text: runs.attributed(bold: TypeStep.bodyBold.font(at: size)))
         case .list(let items): ListView(items: items)
         case .quote(let runs, let source):
             VStack(alignment: .leading, spacing: 2) {
@@ -71,10 +72,17 @@ extension URL {
 
 extension [Inline] {
     /// The runs as one styled text. A web or system link opens; a `life:` name is bold and opens (`life-open:`, handled by `AnswerView`).
-    var attributed: AttributedString {
+    var attributed: AttributedString { attributed(bold: nil) }
+
+    /// `bold`: the font of a bold run, where the text's own font is a fixed weight of the one variable face, which the
+    /// strong mark alone leaves unchanged.
+    func attributed(bold: Font?) -> AttributedString {
         reduce(into: AttributedString()) { text, run in
             var piece = AttributedString(run.text)
-            if run.isBold { piece.inlinePresentationIntent = .stronglyEmphasized }
+            if run.isBold {
+                piece.inlinePresentationIntent = .stronglyEmphasized
+                if let bold { piece.font = bold }
+            }
             if run.isItalic {
                 piece.inlinePresentationIntent = (piece.inlinePresentationIntent ?? []).union(.emphasized)
             }

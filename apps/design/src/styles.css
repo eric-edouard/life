@@ -162,3 +162,12 @@ body {
     transition: none !important;
   }
 }
+
+/* The home-screen app never scrolls or bounces as a whole: only a box meant to scroll does (the list, a note). */
+html.standalone,
+html.standalone body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #000;
+}

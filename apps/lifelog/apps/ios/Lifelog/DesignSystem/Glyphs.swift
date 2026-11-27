@@ -5,7 +5,7 @@ import SwiftUI
 struct Glyph: View {
     enum Mark {
         case search, mic, send, close, fold, offline, mac, open, tick, bubble, calendar, pin, doc, person, undo, back,
-            stop, clock, card, wave, life
+            stop, clock, card, wave, life, bank
 
         fileprivate var path: (d: String, weight: CGFloat) {
             switch self {
@@ -42,6 +42,7 @@ struct Glyph: View {
                     "M5.5 5.5h13A2.5 2.5 0 0 1 21 8v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16V8a2.5 2.5 0 0 1 2.5-2.5ZM3 10h18M7 15h4",
                     1.8
                 )
+            case .bank: ("M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18", 1.8)
             case .wave: ("M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2", 1.8)
             // Life's own mark (`assets/brand/life-l.svg`), filled: a fix of Life's.
             case .life:

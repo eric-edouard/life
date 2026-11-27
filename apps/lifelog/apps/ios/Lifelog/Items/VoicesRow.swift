@@ -21,7 +21,7 @@ struct VoicesRow: View {
         if let check = current {
             ThreadItemRow(
                 title: isOpen ? "Who is this?" : asks.count == 1 ? "Name one voice" : "Name \(asks.count) voices",
-                state: .needsYou, icon: .person, line: isOpen ? heard(check) : "Voices from your conversations",
+                state: .needsYou, icon: .person, line: isOpen ? heard(check) : "From your conversations",
                 isOpen: isOpen, ref: OpeningScreen.voices,
                 pill: RowPill(title: "Later", id: nil) { Task { for ask in asks { await life.later(ask.ref) } } },
                 toggle: {
@@ -102,21 +102,20 @@ struct VoicesRow: View {
         return VStack(spacing: Metrics.Spacing.s) {
             if let guess {
                 let name = guess.isOwner ? "me" : String(guess.name.split(separator: " ").first ?? "")
-                pill("It’s \(name)", .filled, id: "is-them", isFull: true) {
+                pill("It’s \(name)", .filled, id: "is-them") {
                     let option = check.options.first { $0.id == "is-them" }
                     Task { await life.answerVoice(check, option.flatMap(check.answer), who: guess.name) }
                 }
             } else {
-                pill("Say who it is", .filled, id: "else", isFull: true) { startNaming(check) }
+                pill("Say who it is", .filled, id: "else") { startNaming(check) }
             }
-            HStack(spacing: Metrics.Spacing.s) {
+            PillRow {
                 if guess != nil { pill("Someone else", .quiet, id: "else") { startNaming(check) } }
                 pill("Not a person", .quiet, id: "media") {
                     Task { await life.answerVoice(check, check.answerMedia, who: nil) }
                 }
                 pill("Later", .quiet, id: "later") { Task { await life.later(check.ref) } }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -125,22 +124,12 @@ struct VoicesRow: View {
         check.options.contains { $0.id == "is-them" } ? check.likelyPeople.first : nil
     }
 
-    /// A pill sized to its words, so the four answers stay on one line.
+    /// A pill filling its share of the row (the prototype's full-width answers).
     private func pill(
-        _ title: String, _ kind: PillStyle.Kind, id: String, isFull: Bool = false, action: @escaping () -> Void
+        _ title: String, _ kind: PillStyle.Kind, id: String, action: @escaping () -> Void
     ) -> some View {
-        let isFilled = kind == .filled
-        return Button(action: action) {
-            Text(title).font(.heading).lineLimit(typeSize > .large ? nil : 1).foregroundStyle(
-                isFilled ? Palette.on : Palette.fg
-            )
-            .padding(.horizontal, Metrics.Spacing.m).frame(
-                maxWidth: isFull ? .infinity : nil, minHeight: isFull ? 48 : 44
-            )
-            .background(isFilled ? Palette.fg : Palette.tint, in: .capsule)
-        }
-        .buttonStyle(.plain).fixedSize(horizontal: !isFull && typeSize <= .large, vertical: false)
-        .identified(AID.voicesAnswer(id))
+        Button(action: action) { Text(title).font(.heading).minimumScaleFactor(0.8) }
+            .buttonStyle(.pill(kind, size: .row)).identified(AID.voicesAnswer(id))
     }
 
     private func startNaming(_ check: Check) {
@@ -171,9 +160,9 @@ struct VoicesRow: View {
                     }
                 }
             }
-            HStack(spacing: Metrics.Spacing.s) {
-                pill("Back", .quiet, id: "back", isFull: true) { life.naming = nil }
-                pill("Leave unnamed", .quiet, id: "unnamed", isFull: true) {
+            PillRow {
+                pill("Back", .quiet, id: "back") { life.naming = nil }
+                pill("Leave unnamed", .quiet, id: "unnamed") {
                     Task { await life.answerVoice(check, check.answerDontName, who: nil) }
                 }
             }

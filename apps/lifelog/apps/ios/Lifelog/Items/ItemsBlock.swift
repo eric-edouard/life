@@ -10,12 +10,15 @@ struct ItemsBlock: View {
 
     /// The prototype's `.fc` list: one row per ask, top to bottom (`rowHTML`); a single ask in an answer arrives unfolded.
     var body: some View {
-        let asks = refs.compactMap { life.ask($0) }
+        // Every voice to name folds into the one row, last, as on the opening screen.
+        let asks = refs.compactMap { life.ask($0) }.filter { $0.check?.group != .voice }
+        let hasVoices = refs.contains { life.ask($0)?.check?.group == .voice } || refs.contains(OpeningScreen.voices)
         // The prototype's rows sit 7 pt above and below with 2 between (`.fc .fr`): about 12 from row to row.
         VStack(spacing: Metrics.Spacing.m) {
             ForEach(asks) {
                 ItemRow(ask: $0, isOnTheirMatter: isOnTheirMatter, startsOpen: asks.count == 1 && $0.isAnswerable)
             }
+            if hasVoices { VoicesRow() }
         }
     }
 }

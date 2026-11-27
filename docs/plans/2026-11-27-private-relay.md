@@ -65,7 +65,7 @@ and how much data moves. Addresses are random ids, never names, because the cert
 ## Where the relay runs
 
 On Fly.io (chosen 28 Nov 2026), the one developer-friendly host found that passes raw TCP on port 443 under our own
-wildcard domain without holding a certificate: a service with `handlers = []` behind one dedicated anycast IPv4, so
+wildcard domain without holding a certificate: a raw TCP service (only Fly's `proxy_proto` handler, which adds the visitor's address) behind one dedicated anycast IPv4, so
 a phone anywhere reaches the nearest region. About $9 a month for three regions (three 256 MB machines and the IPv4),
 egress $0.02 per GB in Europe and North America, $0.04 in Asia. Users pay nothing. Railway, Render, Koyeb,
 Northflank, Zeabur, DigitalOcean's App Platform and Cloudflare's proxy were ruled out: each decrypts, or allows only
@@ -77,7 +77,7 @@ HTTP, or gives a random port.
 - Fly's removal of TCP idle timeouts is a forum post, not its docs: test a connection idle for hours before launch.
 - A user who wants their own relay runs `fly launch --from <this repository>`, allocates a dedicated IPv4 and points
   their own wildcard record at it; the relay's `fly.toml` keeps passthrough. Fly has no one-click button.
-- DNS stays on Cloudflare in DNS-only mode, so Cloudflare never carries the traffic.
+- DNS stays at Porkbun, where the domain is registered; the relay edits only its ACME records, with a key limited to DNS on hostedbyme.app.
 
 ## The relay software
 
@@ -92,6 +92,7 @@ What we change or check before launch:
 - Certificates: it issues a certificate per tunnel over DNS-01 from the Mac's CSR, so it never holds the key but does
   hold our DNS. Prefer the Mac's own TLS-ALPN-01 (the server replays the ClientHello untouched, so it should pass;
   untested). Either way, steps 3 and 4 hold.
+- Open creation: until the domain is on the Public Suffix List, tunnel creation is slowed in `apps/relay/fly.toml` (3 an hour per address); those four limits go once it is listed.
 - Its MySQL dependency (PlanetScale in its production): pick the smallest database Fly can run beside it.
 - Size and age: about 18,000 lines of Rust, eight months old, one main maintainer. We pin a commit we reviewed and
   read each upgrade's diff before taking it.
@@ -113,7 +114,8 @@ mesh and limits OpenTunnel has).
 - [x] Domain: hostedbyme.app.
 - [x] Host: Fly.io.
 - [x] Relay software: OpenTunnel.
-- [ ] OpenTunnel self-hosted on Fly, keypair ownership patch, TLS-ALPN-01 from the Mac tested.
+- [x] OpenTunnel self-hosted on Fly (Singapore), a test tunnel served end to end (28 Nov 2026).
+- [ ] Keypair ownership patch; TLS-ALPN-01 from the Mac tested; two more regions.
 - [ ] Mac side: key, random id, outbound connection, TLS-ALPN-01 certificate and renewal.
 - [ ] iPhone app: key fingerprint in the pairing code, pinning.
 - [ ] Certificate log watch and its warning.

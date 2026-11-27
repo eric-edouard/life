@@ -159,6 +159,7 @@ struct AskBody: View {
         default:
             // An answer that takes a person: the people it may be, as cards in the thread.
             if check.options.contains(where: { $0.takes == .person }) {
+                if !check.question.isEmpty { Text(check.question).font(.bodyBold) }
                 PersonCards(people: Array(check.likelyPeople.prefix(3)), pick: pick)
             }
         }

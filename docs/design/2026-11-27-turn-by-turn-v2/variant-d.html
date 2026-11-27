@@ -1,8 +1,9 @@
 <!doctype html>
-<!-- Turn by turn v2, variant D, "Cards on the table": Life's answer is a few objects it lays out in front of him. While
-     it works, each object it fetches lies face down in its future place, its step written on its back, and turns over
-     when the step ends: the loading state is the layout itself. Tap a face-up object to pick it up; drag it down or tap
-     outside to put it back. Built on shell.js, edge.js and data.js; only this file is D's. -->
+<!-- Turn by turn v2, variant D, "Cards on the table", on the real flow (2026-11-28-real-flow.md). While Life works the
+     table stays empty: his words small at the top, one quiet step line under them, replaced at each read. When the
+     answer is ready it arrives whole: the words ink in and Life deals the answer's objects onto the table in one motion.
+     Tap an object to pick it up; drag it down or tap outside to put it back. Drafts are cards, Send is his one tap.
+     A proposed block carries a quiet "new block" mark. Built on shell.js, edge.js and data.js; only this file is D's. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -14,99 +15,97 @@
 <style>
 .ph{
   --obj:color-mix(in srgb,var(--fg) 8%,var(--bg));
-  --obj-back:color-mix(in srgb,var(--fg) 4.5%,var(--bg));
   --obj-up:color-mix(in srgb,var(--fg) 11%,var(--bg));
   --shade:color-mix(in srgb,var(--bg) 85%,transparent);
   --lay:0 1px 2px var(--shade),0 12px 28px -10px var(--shade);
   --held:0 30px 60px -12px var(--bg),0 8px 20px var(--shade)}
-.d-wrap{position:relative;flex:1 0 auto;display:flex;flex-direction:column;padding:8px 0 24px}
+.d-wrap{position:relative;isolation:isolate;flex:1 0 auto;display:flex;flex-direction:column;padding:8px 0 24px}
+/* the table: a faint pool of light that comes up when he asks, and stays */
+.d-wrap::before{content:"";position:absolute;z-index:-1;inset:60px -20px 0;background:radial-gradient(70% 45% at 50% 40%,var(--wash),transparent 72%);opacity:0;transition:opacity 1.4s ease}
+.d-wrap.lit::before{opacity:1}
 /* his words: small, above the table, on his side */
 .d-his{text-align:right;min-height:20px;margin-top:4px}
 .d-his span{display:inline-block;max-width:86%;transform-origin:0 0;font-size:var(--text-line);font-weight:600;color:var(--muted);line-height:1.4}
+.d-his small{display:block;font-size:var(--text-meta);color:var(--faint);margin-top:2px}
 /* his voice, while he speaks: big words, each dim, then cream */
 .d-live{position:absolute;left:4px;right:4px;top:34%;font-size:var(--text-profile);font-weight:650;line-height:1.25;text-align:center;text-wrap:balance}
 .d-live .w{color:var(--muted);transition:color .35s}
 .d-live .w.on{color:var(--fg)}
-/* the one-line answer, on top of the table */
+/* while Life works: one quiet line, and after a long while a second one with a still ring */
+.d-steps{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.d-steps:empty{margin-top:0}
+.d-step{font-size:var(--text-line);font-weight:600;line-height:1.35;color:var(--muted);width:fit-content;
+  background:linear-gradient(100deg,var(--muted) 40%,var(--fg) 50%,var(--muted) 60%) 0 0/250% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:d-shim 3.2s linear infinite}
+@keyframes d-shim{from{background-position:100% 0}to{background-position:-150% 0}}
+.d-still{display:flex;align-items:center;gap:8px;font-size:var(--text-line);color:var(--faint)}
+.pie{width:16px;height:16px;flex:none}
+/* the answer's words, on top of the table */
 .d-lead{font-size:var(--text-header);font-weight:650;line-height:1.3;margin-top:12px;text-wrap:balance}
 .d-lead:empty{margin-top:0}
-.d-lead .d-dot{display:inline-block;width:8px;height:8px;border-radius:4px;background:var(--flag);margin:0 8px 2px 0}
-.d-table{position:relative;display:flex;flex-direction:column;margin-top:16px}
-.d-wrap.hush .d-table,.d-wrap.hush .d-lead,.d-wrap.hush .d-his{opacity:.25;filter:blur(3px);scale:.97;transition:opacity .3s,filter .3s,scale .3s}
-/* an object: its back while Life fetches it, its front once the step ends */
-.d-obj{position:relative;perspective:1100px;transition:scale .35s cubic-bezier(.2,.8,.2,1),opacity .3s,filter .3s}
+.d-table{position:relative;display:flex;flex-direction:column;margin-top:18px}
+.d-table.edge-of{margin-top:auto}
+/* an object on the table */
+.d-obj{position:relative;transition:scale .35s cubic-bezier(.2,.8,.2,1),opacity .3s,filter .3s}
+.d-obj+.d-obj,.d-obj+.d-pair{margin-top:14px}
 .d-obj.can{cursor:pointer}
-.d-in{position:relative;transform-style:preserve-3d}
-.d-in.down{transform:rotateY(180deg)}
-.d-in.blurred .d-front{filter:blur(7px);opacity:.35}
-.d-in.blurred .d-back{opacity:1}
-.d-sharp .d-back{opacity:0;transform:none}
-.d-face{border-radius:var(--block-radius);-webkit-backface-visibility:hidden;backface-visibility:hidden;box-shadow:var(--lay)}
-.d-front{position:relative;background:var(--obj);padding:16px}
-.d-back{position:absolute;inset:0;transform:rotateY(180deg);background:var(--obj-back);padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between;gap:6px;overflow:hidden}
-.d-back .d-glyph{color:var(--faint);display:flex}
-.d-back .d-glyph img{width:28px;height:28px;border-radius:14px;filter:blur(3px) grayscale(.6);opacity:.6}
-.d-step{margin:0;font-size:var(--text-line);font-weight:600;color:var(--fg);line-height:1.35;
-  background:linear-gradient(100deg,var(--fg) 40%,var(--muted) 50%,var(--fg) 60%) 0 0/250% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:d-shim 2.2s linear infinite}
-.d-step i{font-style:normal;-webkit-text-fill-color:var(--muted)}
-.d-det{margin:0;font-size:var(--text-line);color:var(--muted)}
-.d-det:empty{display:none}
-@keyframes d-shim{from{background-position:100% 0}to{background-position:-150% 0}}
-.d-obj.failed .d-glyph{color:var(--flag)}
-.d-obj.failed .d-back{background:color-mix(in srgb,var(--fg) 3%,var(--bg))}
-/* the small ones: chips */
-.d-obj.d-chip{align-self:flex-start;margin-top:16px}
-.d-chip .d-face{border-radius:999px}
-.d-chip .d-front{padding:10px 16px;display:flex;align-items:center;gap:8px;font-size:var(--text-line);font-weight:600;min-height:44px}
-.d-chip .d-back{flex-direction:row;align-items:center;justify-content:flex-start;padding:0 16px}
-.d-chip .d-back .d-det{display:none}
-/* contents */
+.d-face{position:relative;border-radius:var(--block-radius);background:var(--obj);padding:16px;box-shadow:var(--lay)}
 .d-obj small,.d-lift small{display:block;font-size:var(--text-line);color:var(--muted);line-height:1.35}
-.d-meta{font-size:var(--text-meta);color:var(--muted);font-weight:600}
-.d-ev{display:grid;grid-template-columns:50px 1fr;gap:12px;padding:8px 0}
-.d-ev:first-child{padding-top:0}.d-ev:last-child{padding-bottom:0}
+.d-meta{display:block;font-size:var(--text-meta);color:var(--muted);font-weight:600;margin-bottom:6px}
+.d-title{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}
+/* the mark on a proposed block */
+.d-new{display:flex;align-items:center;gap:6px;margin-top:12px;font-style:normal;font-size:10.5px;font-weight:600;color:var(--faint);opacity:.75}
+.d-new::before{content:"";width:7px;height:7px;border-radius:2px;border:1px dashed currentColor}
+/* the day */
+.d-ev{display:grid;grid-template-columns:50px 1fr;gap:12px;padding:7px 0}
+.d-ev:last-of-type{padding-bottom:0}
 .d-at{font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums}
 .d-ev b:not(.d-at){display:block;font-size:var(--text-title);font-weight:650}
-.d-flag{display:inline-flex;align-items:center;margin-top:8px;padding:4px 10px;border-radius:999px;font-size:var(--text-line);font-weight:650;color:var(--flag);background:color-mix(in srgb,var(--flag) 16%,transparent)}
-.d-pair{display:flex;align-items:flex-start;margin-top:-12px}
-.d-pair>.d-obj:first-child{flex:1.35;min-width:0;z-index:2}
-.d-pair>.d-obj:last-child{flex:1;min-width:0;margin:22px 0 0 -12px;z-index:3}
+/* a place: one tap opens Maps */
+.d-chip .d-face{padding:10px 14px;border-radius:16px}
+.d-obj.d-under{margin:-10px 18px 0 auto;width:78%;z-index:0}
+.d-place{display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;min-height:40px}
+.d-place b{display:block;font-size:var(--text-body);font-weight:650}
+.d-pin{display:flex;color:var(--muted)}
+/* two objects side by side, one over the other's edge */
+.d-pair{display:flex;align-items:flex-start}
+.d-pair>.d-obj:first-child{flex:1.3;min-width:0;z-index:2}
+.d-pair>.d-obj:last-child{flex:1;min-width:0;margin:26px 0 0 -12px;z-index:3}
+.d-amount{display:block;font-size:var(--text-profile);font-weight:650;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.d-msg{margin:8px 0 6px;font-size:var(--text-line);line-height:1.4}
+/* a person: face and words */
 .d-who{display:flex;align-items:center;gap:12px}
 .d-who b{display:block;font-size:var(--text-title);font-weight:650}
 .d-face-img{width:40px;height:40px;border-radius:20px;flex:none}
-.d-msg{margin:12px 0 0;font-size:var(--text-line);line-height:1.4}
-.d-amount{display:block;font-size:var(--text-profile);font-weight:650;margin:4px 0 2px;font-variant-numeric:tabular-nums}
-.d-pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:22px;background:var(--tint);font-size:var(--text-body);font-weight:650;margin-top:16px;transition:background .3s,color .3s}
+.d-big .d-face-img{width:52px;height:52px;border-radius:26px}
+.d-big .d-who b{font-size:var(--text-header)}
+.d-bubble{margin:12px 0 0;padding:10px 14px;border-radius:18px 18px 18px 6px;background:var(--tint);font-size:var(--text-body);line-height:1.4;width:fit-content;max-width:94%}
+/* a draft card: dashed until sent; tucked under its person when it answers them */
+.d-draft .d-face{outline:1.5px dashed color-mix(in srgb,var(--fg) 34%,transparent);outline-offset:-1.5px;transition:outline-color .4s}
+.d-draft.sent .d-face{outline-color:transparent}
+.d-obj.d-tucked{margin:-18px 10px 0 14px;z-index:1}
+.d-tucked .d-face{padding-top:30px}
+.d-ctx{margin-bottom:14px}
+.d-ctx .d-bubble{margin-top:6px}
+.d-draft-text{margin:8px 0 0;font-size:var(--text-title);font-weight:600;line-height:1.4}
+.d-edits{display:flex;gap:8px;margin-top:10px}
+.d-edits span{padding:5px 12px;border-radius:999px;background:var(--wash);font-size:var(--text-line);color:var(--muted);font-weight:600}
+.d-pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:22px;background:var(--tint);font-size:var(--text-body);font-weight:650;margin-top:12px}
 .d-pill.cream{background:var(--fg);color:var(--on)}
 .d-pill.wide{display:flex;width:100%}
-.d-pill.done{background:none;color:var(--ok);padding:0;justify-content:flex-start}
-.d-row{display:flex;gap:8px}.d-row .d-pill{flex:1}
-.d-big .d-who{gap:16px}.d-big .d-face-img{width:64px;height:64px;border-radius:32px}
-.d-big .d-who b{font-size:var(--text-profile)}
-.d-bubble{margin:16px 0 0;padding:10px 14px;border-radius:18px 18px 18px 6px;background:var(--tint);font-size:var(--text-body);line-height:1.4;max-width:92%}
-.d-bubble.mine{margin:8px 0 0 auto;border-radius:18px 18px 6px 18px;background:var(--fg);color:var(--on);width:fit-content}
-.d-draft .d-front{outline:1.5px dashed color-mix(in srgb,var(--fg) 40%,transparent);outline-offset:-1.5px}
-.d-draft-text{margin:0;font-size:var(--text-title);font-weight:600;line-height:1.4}
-.d-draft-text span{display:inline-block;white-space:pre}
-.d-sent{display:flex;align-items:center;gap:8px;margin-top:16px;color:var(--ok);font-size:var(--text-line);font-weight:650}
-.d-map{display:block;width:100%;height:auto;margin:-4px 0 12px;border-radius:12px;background:var(--wash)}
-.d-place b{display:block;font-size:var(--text-header);font-weight:650}
-.d-route{display:block;width:100%;height:auto;margin:12px 0 8px}
-.d-ends{display:flex;justify-content:space-between;gap:12px}
-.d-ends div:last-child{text-align:right}
-.d-ends b{display:block;font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums}
-.d-title{display:block;font-size:var(--text-title);font-weight:650}
+.d-pill:disabled{cursor:default}
+.d-sent{display:flex;align-items:center;gap:8px;min-height:44px;margin-top:12px;color:var(--ok);font-size:var(--text-line);font-weight:650}
+.d-undo{margin-left:auto;min-height:44px;padding:0 6px;color:var(--fg);font-weight:650;font-size:var(--text-line)}
 /* earlier turns: filed cards */
-.d-file .d-front{padding:14px 16px}
-.d-file .d-ask{font-size:var(--text-line);color:var(--muted);font-weight:600;margin:4px 0 6px}
+.d-file .d-face{padding:14px 16px}
+.d-file .d-ask{font-size:var(--text-line);color:var(--muted);font-weight:600;margin:0 0 6px}
 .d-file b{font-size:var(--text-title);font-weight:650;line-height:1.35}
-.d-table.deck{gap:0}.d-table.deck .d-obj+.d-obj{margin-top:-6px}
+.d-table.deck .d-obj+.d-obj{margin-top:-6px}
 /* idle */
 .d-hi{margin:auto 0;padding-bottom:48px;text-align:center}
 .d-hi b{display:block;font-size:var(--text-profile);font-weight:650}
 .d-hi small{display:block;margin-top:4px;font-size:var(--text-line);color:var(--muted)}
 /* picked up: the object lifts into its full view, the rest recede */
-.d-wrap.lifted .d-obj:not(.held),.d-wrap.lifted .d-lead,.d-wrap.lifted .d-his,.d-wrap.lifted .d-sent{opacity:.22;filter:blur(2px);scale:.95;transition:opacity .3s,filter .3s,scale .35s}
+.d-wrap.lifted .d-obj:not(.held),.d-wrap.lifted .d-lead,.d-wrap.lifted .d-his{opacity:.22;filter:blur(2px);scale:.95;transition:opacity .3s,filter .3s,scale .35s}
 .d-obj.held{opacity:0}
 .d-scrim{position:absolute;inset:0;z-index:3}
 .d-lift{position:absolute;left:16px;right:16px;top:76px;max-height:calc(100% - 76px - 104px);overflow-y:auto;z-index:4;padding:8px 20px 20px;border-radius:var(--panel-radius);background:var(--obj-up);box-shadow:var(--held);transform-origin:0 0;touch-action:none;scrollbar-width:none}
@@ -115,8 +114,6 @@
 .d-lift .d-ev{grid-template-columns:56px 1fr;padding:12px 0}
 .d-lift .d-at{font-size:var(--text-header)}
 .d-lift h2{margin:0 0 12px;font-size:var(--text-header);font-weight:650}
-/* long work: app v4's still ring, filled at each milestone of the send, never a spinner */
-.pie{width:18px;height:18px}
 </style>
 </head>
 <body>
@@ -124,23 +121,16 @@
 <script src="data.js"></script>
 <script src="shell.js"></script>
 <script>
-var D=DATA,RM=matchMedia('(prefers-reduced-motion: reduce)').matches,CTX=null;
+var D=DATA,RM=matchMedia('(prefers-reduced-motion: reduce)').matches,CTX=null,held=null;
 /* springs: a soft one for settling, one with a little overshoot for objects landing on the table */
 var SETTLE='linear(0,.009,.035 2.1%,.141 4.4%,.723 12.9%,.938 16.7%,1.017 19.4%,1.067,1.099 24.3%,1.108 26%,1.1 27.6%,1.078 30.1%,1.049 32.5%,.994 37.3%,.981 40.2%,.974 43.4%,.975 50.2%,.997 62.5%,1.003 69.4%,1)';
 var SOFT='linear(0,.006,.025 2.8%,.101 6.1%,.539 18.9%,.721 25.3%,.849 31.5%,.937 38.1%,.968 41.8%,.991 45.7%,1.006 50.1%,1.015 55%,1.017 63.9%,1.001 85.9%,1)';
 var INK='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
-var G={ /* 1.5 stroke marks for an object's back */
-  cal:'<path d="M4 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M4 10h16M8 3v4M16 3v4"/>',
-  bill:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2Z"/><path d="M9 8h6M9 12h6"/>',
-  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
-  pen:'<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z"/>',
-  mail:'<path d="M3 6h18v12H3Z"/><path d="m3 7 9 6 9-6"/>',
-  bike:'<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16 9.5 9h6l2.5 7M9.5 9 12 16h-6M14 6h2.5"/>',
-  bank:'<path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>'};
-function glyph(k){return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+G[k]+'</svg>';}
 var CHECK='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+var PIN='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
 
 function h(parent,cls,html,tag){var e=document.createElement(tag||'div');if(cls)e.className=cls;if(html!=null)e.innerHTML=html;if(parent)parent.appendChild(e);return e;}
+function esc(s){return String(s).replace(/[&<>"]/g,function(x){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[x];});}
 /* every motion goes through here: under Reduce Motion it becomes a cross-fade */
 function anim(el,kf,o){if(RM){var a=kf[0].opacity,b=kf[kf.length-1].opacity;if(a==null)a=b==null?.4:1;if(b==null)b=1;
     return el.animate([{opacity:a},{opacity:b}],{duration:200,delay:o.delay||0,fill:o.fill||'none'});}
@@ -148,124 +138,101 @@ function anim(el,kf,o){if(RM){var a=kf[0].opacity,b=kf[kf.length-1].opacity;if(a
 function ink(el,delay){return anim(el,[{opacity:0,filter:'blur(8px)',transform:'translateY(6px)'},{opacity:1,filter:'blur(0)',transform:'none'}],{duration:480,easing:INK,delay:delay||0,fill:'backwards'});}
 /* a rect in the phone's own points, whatever the page's scale */
 function rel(el){var p=CTX.phone.getBoundingClientRect(),k=p.width/390,r=el.getBoundingClientRect();return {x:(r.left-p.left)/k,y:(r.top-p.top)/k,w:r.width/k,h:r.height/k};}
-/* what sits below something that grows slides instead of jumping */
-function slideAfter(els,change){var before=els.map(function(e){return e.getBoundingClientRect().top;});change();
-  els.forEach(function(e,i){var d=before[i]-e.getBoundingClientRect().top;if(Math.abs(d)>1)anim(e,[{transform:'translateY('+d/(CTX.phone.getBoundingClientRect().width/390)+'px)'},{transform:'none'}],{duration:450,easing:SOFT});});}
+/* the quiet mark on a proposed block: what needs building */
+function tag(){var kinds=[].slice.call(arguments).filter(function(p){return p&&p.block==='new';}).map(function(p){return p.kind;});
+  return kinds.length?'<i class="d-new">new block · '+kinds.join(', ')+'</i>':'';}
 
-function begin(c){CTX=c;document.querySelectorAll('.d-lift,.d-scrim').forEach(function(e){e.remove();});
-  var w=h(c.stage,'d-wrap','');w.his=h(w,'d-his','');w.lead=h(w,'d-lead','');w.lead.setAttribute('aria-live','polite');w.table=h(w,'d-table','');return w;}
+function begin(c){CTX=c;held=null;document.querySelectorAll('.d-lift,.d-scrim').forEach(function(e){e.remove();});
+  var w=h(c.stage,'d-wrap','');w.his=h(w,'d-his','');w.steps=h(w,'d-steps','');w.steps.setAttribute('aria-live','polite');
+  w.lead=h(w,'d-lead','');w.lead.setAttribute('aria-live','polite');w.table=h(w,'d-table','');return w;}
 
 /* ---------- objects ---------- */
-/* o: {glyph, front, full, cls, tilt, sharpen}; it starts face down unless up */
-function obj(parent,o,up){var e=h(parent,'d-obj '+(o.cls||''),'<div class="d-in"><div class="d-face d-front">'+o.front+'</div><div class="d-face d-back" aria-live="polite"><span class="d-glyph">'+(o.face?'<img alt="" src="'+o.face+'">':glyph(o.glyph))+'</span><div><p class="d-step"></p><p class="d-det"></p></div></div></div>');
-  e.o=o;e.inner=e.firstChild;e.front=e.inner.firstChild;e.back=e.inner.lastChild;e.style.rotate=(o.tilt||0)+'deg';
-  if(o.sharpen){e.classList.add('d-sharp');}
-  if(!up){e.inner.classList.add(o.sharpen?'blurred':'down');e.front.setAttribute('aria-hidden','true');}else face(e);
-  return e;}
-function face(e){if(e.o.full){e.classList.add('can');e.tabIndex=0;e.setAttribute('role','button');}e.front.removeAttribute('aria-hidden');}
-/* laid on the table: slides up from under the field, tilted, and settles with a little overshoot */
-function deal(e,delay){var t=(Math.random()<.5?-1:1)*(4+Math.random()*4);
-  anim(e,[{transform:'translateY(260px) rotate('+t+'deg) scale(.9)'},{transform:'none'}],{duration:760,easing:SETTLE,delay:delay||0,fill:'backwards'});
-  anim(e,[{opacity:0},{opacity:1}],{duration:220,delay:delay||0,fill:'backwards'});}
-function stepOn(e,s){var p=e.back.querySelector('.d-step'),words=s.t.split(' ');p.innerHTML='<i>'+words[0]+'</i> '+words.slice(1).join(' ');
-  e.back.querySelector('.d-det').textContent='';ink(p);}
-function detailOn(e,text){var d=e.back.querySelector('.d-det');d.textContent=text;ink(d);}
-/* turns over (or, for a chip, sharpens) and becomes tappable */
-function reveal(e){var i=e.inner;
-  if(e.o.sharpen){i.classList.remove('blurred');anim(e.front,[{filter:'blur(7px)',opacity:.35},{filter:'blur(0)',opacity:1}],{duration:500,easing:INK});anim(e.back,[{opacity:1},{opacity:0}],{duration:220});}
-  else{i.classList.remove('down');anim(i,[{transform:'rotateY(180deg)'},{transform:'rotateY(0)'}],{duration:700,easing:SOFT});
-    anim(e,[{transform:'none'},{transform:'translateY(-10px) scale(1.035)',offset:.35},{transform:'none'}],{duration:700,easing:'ease-in-out'});}
-  face(e);}
-/* the table clears: the old turn's objects slide off the bottom, faster than they came */
-function sweep(w){var all=[].slice.call(w.table.querySelectorAll('.d-obj'));
-  all.forEach(function(e,i){var t=(i%2?1:-1)*(6+i*2);anim(e,[{transform:'none',opacity:1},{transform:'translateY(320px) rotate('+t+'deg)',opacity:0}],{duration:260,easing:OUT,delay:i*35,fill:'forwards'});});
-  [w.his,w.lead].forEach(function(x){if(x.textContent)anim(x,[{opacity:1,filter:'blur(0)'},{opacity:0,filter:'blur(6px)',transform:'translateY(-8px)'}],{duration:200,easing:OUT,fill:'forwards'});});
-  return all.length+2;}
-async function clearTurn(c,w){sweep(w);await c.wait(360);w.table.innerHTML='';w.lead.textContent='';w.his.innerHTML='';
-  [w.his,w.lead].forEach(function(x){x.getAnimations().forEach(function(a){a.cancel();});});w.classList.remove('hush');}
+/* o: {front, full, tilt, cls}; full is what he sees when he picks it up (true: the front, bigger) */
+function obj(parent,o){var e=h(parent,'d-obj '+(o.cls||''),'<div class="d-face">'+o.front+'</div>');
+  e.o=o;e.front=e.firstChild;e.style.rotate=(o.tilt||0)+'deg';
+  if(o.full){e.classList.add('can');e.tabIndex=0;e.setAttribute('role','button');}return e;}
+/* dealt: thrown from under his thumb, spinning a little, landing with weight and settling at its tilt */
+function deal(e,delay){var r=rel(e),dx=195-(r.x+r.w/2),dy=844-r.y+30,t=(dx>0?-1:1)*(9+Math.random()*6);
+  anim(e,[{transform:'translate('+dx+'px,'+dy+'px) rotate('+t+'deg) scale(.92)'},{transform:'none'}],{duration:860,easing:SETTLE,delay:delay,fill:'backwards'});
+  anim(e,[{opacity:0},{opacity:1}],{duration:140,delay:delay,fill:'backwards'});
+  anim(e.front,[{boxShadow:'0 40px 60px -14px #000, 0 10px 24px rgba(0,0,0,.7)'},{boxShadow:'0 40px 60px -14px #000, 0 10px 24px rgba(0,0,0,.7)',offset:.4},{boxShadow:'0 1px 2px rgba(0,0,0,.6), 0 12px 28px -10px rgba(0,0,0,.8)'}],{duration:860,delay:delay,fill:'backwards'});}
+
+/* the answer arrives whole: the step line goes, the words ink in, the objects are dealt in one motion */
+async function arrive(c,w,lead,make){var gone=[].slice.call(w.steps.children);
+  gone.forEach(function(x){anim(x,[{opacity:1},{opacity:0,filter:'blur(4px)'}],{duration:180,fill:'forwards'});});
+  await c.wait(180);w.steps.innerHTML='';
+  w.lead.innerHTML=lead;ink(w.lead);var objs=make?make(w.table):[];
+  objs.forEach(function(e,i){deal(e,140+i*120);});
+  await c.wait(objs.length?520:260);c.edge.set('landed');}
+
+/* ---------- pieces ---------- */
+function dayCard(t){var a=D.asks.day.answer;
+  var rows=function(full){return a.events.map(function(e){return '<div class="d-ev"><span class="d-at">'+e.at+'</span><div><b>'+e.t+'</b><small>'+(full?e.where:e.where.split(',')[0])+'</small></div></div>';}).join('');};
+  return obj(t,{tilt:-.7,cls:'d-day',front:'<span class="d-meta">Today</span>'+rows()+tag(a.events[0]),full:'<h2>'+D.now.day+'</h2>'+rows(true)+tag(a.events[0])});}
+function placeCard(t,p,tilt){var url='https://maps.apple.com/?q='+encodeURIComponent(p.address);
+  return obj(t,{tilt:tilt,cls:'d-chip',front:'<a class="d-place" href="'+url+'" target="_blank" rel="noopener"><span class="d-pin">'+PIN+'</span><span><b>'+esc(p.name)+'</b><small>'+esc(p.address)+'</small></span></a>'});}
+function waitingCard(t){var x=D.asks.day.answer.waiting;
+  return obj(t,{tilt:-1.6,front:'<span class="d-meta">Waits on you</span><b class="d-title">'+x.who+', '+x.about+'</b><p class="d-msg">“'+esc(x.last)+'”</p><small>'+x.at+'</small><button type="button" class="d-pill wide" data-act="reply">Reply</button>',full:true});}
+function payCard(t){var p=D.asks.day.answer.payment;
+  return obj(t,{tilt:2.2,cls:'d-pay',front:'<small>'+p.t+'</small><span class="d-amount">'+p.amount+'</span><small>Due '+p.due+'</small>'+tag(p)});}
+function dayObjects(t){var a=D.asks.day.answer,day=dayCard(t),pl=placeCard(t,a.place,1.1);pl.classList.add('d-under');
+  var pair=h(t,'d-pair','');return [day,pl,waitingCard(pair),payCard(pair)];}
+/* Jade: her face and her words, her ready draft tucked under */
+function jadeObjects(t){var a=D.asks.jade.answer;
+  var front='<div class="d-who"><img class="d-face-img" alt="" src="'+a.who.face+'"><div><b>'+a.who.name+'</b><small>'+a.reply.app+', '+a.reply.at+'</small></div></div><p class="d-bubble">'+esc(a.reply.t)+'</p>'+tag(a.who,a.reply);
+  var j=obj(t,{tilt:-.9,cls:'d-big',front:front,full:true});j.style.zIndex=2;
+  var d=draftCard(t,a.card,1.3);d.classList.add('d-tucked');return [j,d];}
+/* a draft card: an agent's, or one Life prepared on his words; Send is his one tap */
+function draftCard(t,k,tilt){var ctx=k.context;
+  var e=obj(t,{tilt:tilt||0,cls:'d-draft',front:
+    (ctx?'<div class="d-ctx"><small>'+ctx.who+', '+ctx.app+', '+ctx.at+'</small><p class="d-bubble">'+esc(ctx.t)+'</p>'+tag(ctx)+'</div>':'')+
+    '<span class="d-meta">'+k.app+' to '+k.to+'</span><small>'+k.made+'</small><p class="d-draft-text">'+esc(k.draft)+'</p>'+
+    (k.edits?'<div class="d-edits">'+k.edits.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div>':'')+
+    '<button type="button" class="d-pill cream wide" data-act="send">'+k.send+'</button>'});
+  e.k=k;return e;}
 
 /* ---------- his turn ---------- */
-/* typed: the words leave the field and land, small, above the table */
 async function typed(c,w,text){await c.type(c.field.input,text);await c.wait(260);
   anim(c.field.send,[{transform:'scale(1)'},{transform:'scale(.86)'},{transform:'scale(1)'}],{duration:240});
   await typedLand(c,w,text);}
-/* spoken: his words write in big as he says them, then fly up into his place */
+/* typed words fly from the field to his place, small */
+async function typedLand(c,w,text){var from=rel(c.field.input);c.field.clear();
+  var s=h(w.his,'',null,'span');s.textContent=text;var to=rel(s),k=16/13.5;
+  anim(s,[{transform:'translate('+(from.x-to.x)+'px,'+(from.y+(from.h-to.h*k)/2-to.y)+'px) scale('+k+')',color:getComputedStyle(c.field.input).color},{transform:'none',color:getComputedStyle(s).color}],{duration:620,easing:SOFT});
+  await c.wait(420);}
+/* spoken: his words write in big as he says them (the field hears them too), then fly up into his place */
 async function spoken(c,w,text){var words=text.split(' '),live=h(w,'d-live',''),prev=null;live.setAttribute('aria-live','polite');
-  c.field.live(true);c.edge.set('listen');if(w.table.children.length)w.classList.add('hush');
+  c.field.live(true);c.edge.set('listen');
   for(var i=0;i<words.length;i++){c.field.heard.textContent=words.slice(0,i+1).join(' ');if(prev)prev.classList.add('on');
     prev=h(live,'w',words[i]+' ','span');ink(prev);
     for(var j=0;j<6;j++){c.edge.level(.45+.55*Math.random());await c.wait(55);}}
-  prev.classList.add('on');c.edge.level(1);await c.wait(300);c.field.live(false);c.field.heard.textContent='';
-  if(w.table.children.length)await clearTurn(c,w);
+  prev.classList.add('on');c.edge.level(1);await c.wait(300);c.field.live(false);c.field.heard.textContent='';c.edge.set('rest');
   var s=h(w.his,'',null,'span');s.textContent=text;var a=rel(live),b=rel(s);
   anim(live,[{transform:'none',opacity:1},{transform:'translateY('+(b.y-a.y)+'px) scale(.52)',opacity:0}],{duration:380,easing:OUT,fill:'forwards'});
   anim(s,[{opacity:0,transform:'translateY(14px)'},{opacity:1,transform:'none'}],{duration:420,easing:SOFT,delay:160,fill:'backwards'});
   await c.wait(420);live.remove();}
+/* the table clears for a new turn: the old objects slide off the bottom, faster than they came */
+async function clearTurn(c,w){[].slice.call(w.table.querySelectorAll('.d-obj')).forEach(function(e,i){var t=(i%2?1:-1)*(6+i*2);
+    anim(e,[{transform:'none',opacity:1},{transform:'translateY(320px) rotate('+t+'deg)',opacity:0}],{duration:260,easing:OUT,delay:i*35,fill:'forwards'});});
+  [w.his,w.lead].forEach(function(x){anim(x,[{opacity:1},{opacity:0,filter:'blur(6px)',transform:'translateY(-8px)'}],{duration:200,easing:OUT,fill:'forwards'});});
+  await c.wait(380);w.table.innerHTML='';w.lead.innerHTML='';w.his.innerHTML='';
+  [w.his,w.lead].forEach(function(x){x.getAnimations().forEach(function(a){a.cancel();});});}
 
-/* ---------- Life works: one object per step, face down in its place, turned over when its step ends ---------- */
-async function work(c,w,a,makers,keys){c.edge.set('work');var made={},cur=null;
-  for(var i=0;i<a.steps.length;i++){var s=a.steps[i],k=keys[i],e=made[k];
-    if(!e){e=made[k]=makers[k]();deal(e);}
-    stepOn(e,s);cur=e;
-    if(s.slow){await c.wait(5000);detailOn(e,s.d);await c.wait(s.ms-5000);}
-    else if(s.d){await c.wait(s.ms*.55);detailOn(e,s.d);await c.wait(s.ms*.45);}
-    else await c.wait(s.ms);
-    if(s.fails)return {failed:e,made:made};
-    if(keys[i+1]!==k)reveal(e);}
-  await c.wait(350);return {made:made};}
-/* the one line on top, inked in; the table slides down to make room */
-async function say(c,w,html){slideAfter([w.table],function(){w.lead.innerHTML=html;});ink(w.lead);}
+/* ---------- Life works: Thinking…, then one quiet line replaced at each read; nothing on the table yet ---------- */
+function thinking(c,w){c.edge.set('work');w.classList.add('lit');var line=h(w.steps,'d-step','Thinking…');ink(line);return line;}
+async function work(c,w,a){var line=thinking(c,w),t=0,still=null;
+  async function hold(ms){if(a.stillAfter&&!still&&t+ms>a.stillAfter){await c.wait(a.stillAfter-t);ms-=a.stillAfter-t;t=a.stillAfter;
+      still=h(w.steps,'d-still',ring()+'<span>'+a.still+'</span>');ink(still);}
+    await c.wait(ms);t+=ms;}
+  await hold(a.first);for(var s of a.steps){line.textContent=s.t;ink(line);await hold(s.ms);}}
+/* app v4's still ring: a ring that never spins, p of it filled (the send's milestones; empty for a long turn) */
+function ring(p){var r=37.7;return '<svg class="pie" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="2.2"/>'+(p?'<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="'+(r*p).toFixed(1)+' '+r+'" transform="rotate(-90 8 8)" stroke-linecap="round"/>':'')+'</svg>';}
+async function turn(c,a,how,make,lead){var w=begin(c);
+  if(how==='voice')await spoken(c,w,a.ask);else if(how==='typed')await typed(c,w,a.ask);else h(w.his,'',null,'span').textContent=a.ask;
+  await work(c,w,a);await arrive(c,w,lead!=null?lead:esc(a.answer.lead),make);return w;}
 
-/* ---------- the day ---------- */
-function dayMakers(t,up){var a=D.asks.day.answer,pair;
-  function row(){if(!pair)pair=h(t,'d-pair','');return pair;}
-  return {
-    day:function(){var ev=a.events.map(function(e){return '<div class="d-ev"><span class="d-at">'+e.at+'</span><div><b>'+e.t+'</b><small>'+e.where.split(',')[0]+'</small>'+(e.leave?'<span class="d-flag">'+e.leave.split(',')[0]+'</span>':'')+'</div></div>';}).join('');
-      var full='<h2>'+D.now.day+'</h2>'+a.events.map(function(e){return '<div class="d-ev"><span class="d-at">'+e.at+'</span><div><b>'+e.t+'</b><small>'+e.where+'</small>'+(e.leave?'<span class="d-flag">'+e.leave+'</span>':'')+(/viewing/i.test(e.t)?'<small style="margin-top:6px">'+a.weather.split(', ').pop().replace(/^./,function(x){return x.toUpperCase();})+'</small>':'')+'</div></div>';}).join('');
-      return obj(t,{glyph:'cal',front:ev,full:full,tilt:-.6},up);},
-    jade:function(){var x=a.waiting,face=D.asks.jade.answer.who.face;
-      return obj(row(),{face:face,tilt:-1.6,
-        front:'<div class="d-who"><img class="d-face-img" alt="" src="'+face+'"><div><b>'+x.who+'</b><small>'+x.at+'</small></div></div><p class="d-msg">'+x.last+'</p><button type="button" class="d-pill wide" data-act="reply">Reply</button>',
-        full:'<div class="d-big"><div class="d-who"><img class="d-face-img" alt="" src="'+face+'"><div><b>'+x.who+'</b><small>WhatsApp, '+x.at+'</small></div></div><p class="d-bubble">'+x.last+'</p><div class="d-row"><button type="button" class="d-pill" data-act="later">Later</button><button type="button" class="d-pill cream" data-act="reply">Reply</button></div></div>'},up);},
-    bill:function(){var p=a.payment;
-      return obj(row(),{glyph:'bill',tilt:2.2,
-        front:'<small>'+p.t+'</small><span class="d-amount">'+p.amount+'</span><small>Due '+p.due+'</small><button type="button" class="d-pill wide" data-act="later">Pay later</button>',
-        full:'<small>'+p.t+'</small><span class="d-amount">'+p.amount+'</span><small>Due '+p.due+'</small><button type="button" class="d-pill cream wide" data-act="later">Pay later</button>'},up);},
-    weather:function(){return obj(t,{glyph:'sun',cls:'d-chip',sharpen:true,tilt:-1.2,
-        front:'<span class="d-glyph" style="display:flex">'+glyph('sun')+'</span>14°, rain from 18:00',
-        full:'<span style="display:flex;color:var(--muted)">'+glyph('sun')+'</span><span class="d-amount">14°</span><p class="d-msg" style="font-size:var(--text-body)">'+a.weather+'</p>'},up);}};}
-var DAY_KEYS=['day','jade','bill','weather'];
-function dayLaid(c,w){var m=dayMakers(w.table,true);DAY_KEYS.forEach(function(k){m[k]();});w.lead.textContent=D.asks.day.answer.lead;}
-
-/* ---------- Jade ---------- */
-function jadeMakers(t){var a=D.asks.jade.answer;
-  return {
-    jade:function(){return obj(t,{face:a.who.face,tilt:-.8,
-      front:'<div class="d-who"><img class="d-face-img" alt="" src="'+a.who.face+'"><div><b>'+a.who.name+'</b><small>'+a.reply.app+', '+a.reply.at+'</small></div></div><p class="d-bubble">'+a.reply.t+'</p>',
-      full:true});},
-    draft:function(){var e=obj(t,{glyph:'pen',cls:'d-draft',tilt:1.4,
-      front:'<p class="d-draft-text">'+a.draft.split(' ').map(function(x){return '<span>'+x+' </span>';}).join('')+'</p><button type="button" class="d-pill cream wide" data-act="send">'+a.send+'</button>'});
-      e.style.marginTop='-10px';e.style.zIndex=2;return e;}};}
-
-/* ---------- the slow ask, the follow-up, the failure ---------- */
-var MAP='<svg class="d-map" viewBox="0 0 310 120" aria-hidden="true" fill="none" stroke-linecap="round"><path d="M0 84 C70 70 120 96 190 80 S280 60 310 70" stroke="var(--tint)" stroke-width="14"/><g stroke="var(--glass)" stroke-width="3"><path d="M0 34H310M40 0V120M140 0 118 120M226 0 250 120M0 104 310 98"/></g><circle cx="182" cy="40" r="16" fill="var(--tint)"/><circle cx="182" cy="40" r="6" fill="var(--fg)"/></svg>';
-var ROUTE='<svg class="d-route" viewBox="0 0 310 70" aria-hidden="true" fill="none" stroke-linecap="round"><path d="M146 0V70" stroke="var(--tint)" stroke-width="16"/><path d="M138 52h16" stroke="var(--flag)" stroke-width="3"/><path d="m141 46 10 12m0-12-10 12" stroke="var(--flag)" stroke-width="2"/><path d="M12 52H100C120 52 118 16 140 16H156C176 16 174 52 196 52H298" stroke="var(--fg)" stroke-width="3"/><circle cx="12" cy="52" r="6" fill="var(--fg)"/><circle cx="298" cy="52" r="6" fill="var(--fg)"/></svg>';
-function slowMakers(t){var v=D.asks.day.answer.events[2];
-  return {cal:function(){return obj(t,{glyph:'cal',tilt:-1,front:'<div class="d-ev"><span class="d-at">'+v.at+'</span><div><b>'+v.t+'</b><small>'+v.where.split(', ')[1]+'</small></div></div>'});},
-    mail:function(){var e=obj(t,{glyph:'mail',tilt:1.2,
-      front:MAP+'<div class="d-place"><b>8 Rue Vauban</b><small>Third floor</small></div>',
-      full:MAP+'<div class="d-place"><b>8 Rue Vauban</b><small>Third floor, Ben meets you downstairs</small></div><div class="d-ev" style="margin-top:12px"><span class="d-at">'+v.at+'</span><div><b>'+v.t+'</b><small>'+v.where.split(', ')[1]+'</small></div></div>'});
-      e.style.marginTop='-8px';e.style.zIndex=2;return e;}};}
-function routeMakers(t){var e0=D.asks.day.answer.events[0];
-  var body='<b class="d-title">18 min by bike</b><small>The long way round</small>'+ROUTE+'<div class="d-ends"><div><b>9:55</b><small>Home</small></div><div><b>10:13</b><small>'+e0.where.split(',')[0]+'</small></div></div>';
-  return {route:function(){return obj(t,{glyph:'bike',tilt:-.8,front:body,full:body+'<small style="margin-top:16px">The bridge is closed. Dentist at '+e0.at+'.</small>'});}};}
-function failMakers(t){var p=D.asks.day.answer.payment;
-  return {bill:function(){return obj(t,{glyph:'bill',tilt:-1,front:'<small>'+p.t+'</small><span class="d-amount">'+p.amount+'</span><small>Due '+p.due+'</small>'});},
-    bank:function(){var e=obj(t,{glyph:'bank',tilt:1.6,front:'<div style="height:72px"></div>'});e.style.marginTop='-8px';e.style.zIndex=2;return e;}};}
-
-/* ---------- picking an object up ---------- */
-var held=null;
-function lift(e){if(held||!e.o.full||e.inner.classList.contains('down'))return;
+/* ---------- picking an object up; drag down (or tap outside) to put it back ---------- */
+function lift(e){if(held||!e.o.full)return;
   var ph=CTX.phone,w=e.closest('.d-wrap'),from=rel(e);
   var scrim=h(ph,'d-scrim',''),L=h(ph,'d-lift','<button type="button" class="d-grab" aria-label="Put back"></button>'+(e.o.full===true?'<div class="d-big">'+e.front.innerHTML+'</div>':e.o.full));
   L.setAttribute('role','dialog');L.setAttribute('aria-modal','true');held={e:e,L:L,scrim:scrim,w:w,from:from};
@@ -274,7 +241,7 @@ function lift(e){if(held||!e.o.full||e.inner.classList.contains('down'))return;
   e.classList.add('held');w.classList.add('lifted');
   scrim.onclick=putBack;L.querySelector('.d-grab').onclick=putBack;L.querySelector('.d-grab').focus({preventScroll:true});
   var y0=null,dy=0;
-  L.addEventListener('pointerdown',function(ev){if(ev.target.closest('.d-pill'))return;y0=ev.clientY;dy=0;L.setPointerCapture(ev.pointerId);});
+  L.addEventListener('pointerdown',function(ev){if(ev.target.closest('button:not(.d-grab),a'))return;y0=ev.clientY;dy=0;L.setPointerCapture(ev.pointerId);});
   L.addEventListener('pointermove',function(ev){if(y0==null)return;dy=Math.max(0,(ev.clientY-y0)/(ph.getBoundingClientRect().width/390));L.style.transform='translateY('+dy+'px) scale('+(1-dy/2400)+')';});
   L.addEventListener('pointerup',function(){if(y0==null)return;y0=null;if(dy>80){putBack();return;}
     var t=L.style.transform;L.style.transform='';if(dy>2)anim(L,[{transform:t},{transform:'none'}],{duration:420,easing:SETTLE});});}
@@ -285,60 +252,52 @@ function putBack(){if(!held)return;var x=held;held=null;var to=rel(x.L),now=x.L.
 addEventListener('keydown',function(ev){if(ev.key==='Escape')putBack();if((ev.key==='Enter'||ev.key===' ')&&ev.target.classList&&ev.target.classList.contains('can')){ev.preventDefault();lift(ev.target);}});
 
 /* taps on what lies on the table */
-document.addEventListener('click',async function(ev){var b=ev.target.closest('.d-pill'),o=ev.target.closest('.d-obj');
+document.addEventListener('click',async function(ev){if(ev.target.closest('a'))return;
+  var b=ev.target.closest('[data-act]'),o=ev.target.closest('.d-obj');
   if(!b){if(o)lift(o);return;}
   var act=b.dataset.act,c=CTX;
   try{
     if(act==='reply'){putBack();c.field.input.value='Tell Jade ';c.field.sync();c.field.input.focus();anim(c.field.el,[{transform:'scale(1)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],{duration:320,easing:SOFT});}
-    else if(act==='later'){b.disabled=true;b.innerHTML=CHECK+'Friday 9:00';b.classList.remove('cream');b.classList.add('done');ink(b);}
     else if(act==='send')await send(c,b);
+    else if(act==='undo')undo(b);
   }catch(e){if(!e||!e.cancelled)throw e;}});
-/* the draft goes: the button turns, the words move into her chat, the draft card leaves */
-/* app v4's pieSVG: a still ring, p of it filled */
-function pie(p){var r=37.7;return '<svg class="pie" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="'+(r*p).toFixed(1)+' '+r+'" transform="rotate(-90 8 8)" stroke-linecap="round"/></svg>';}
-async function send(c,b){var a=D.asks.jade.answer,draft=b.closest('.d-obj'),w=draft.closest('.d-wrap'),card=w.table.firstChild;
-  b.disabled=true;b.setAttribute('aria-label','Sending');anim(b,[{opacity:.6},{opacity:1}],{duration:200});
-  for(var p of [1/3,2/3,1]){b.innerHTML=pie(p);await c.wait(300);}
-  var hgt=draft.offsetHeight;anim(draft,[{height:hgt+'px',opacity:1,transform:'none'},{height:'0px',opacity:0,transform:'translateY(-30px) scale(.9)'}],{duration:280,easing:OUT,fill:'forwards'});
-  var mine=h(card.front,'d-bubble mine',a.draft,'p');
-  anim(mine,[{transform:'translateY(60px) scale(.85)',opacity:0},{transform:'none',opacity:1}],{duration:620,easing:SETTLE});
-  await c.wait(300);draft.remove();
-  var done=h(w.table,'d-sent',CHECK+a.sent);ink(done);c.edge.set('landed');}
+/* Send: the still ring fills at each milestone, then Sent, with Undo (WhatsApp deletes for everyone) */
+async function send(c,b){var e=b.closest('.d-obj'),k=e.k,n=3;b.disabled=true;
+  for(var i=1;i<=n;i++){b.innerHTML=ring(i/n)+'<span>'+k.sending+'</span>';await c.wait(k.sendMs/n);}
+  var done=h(null,'d-sent',CHECK+'<span>'+k.sent+'</span><button type="button" class="d-undo" data-act="undo">'+k.undo+'</button>');
+  b.replaceWith(done);ink(done);e.classList.add('sent');c.edge.set('landed');}
+function undo(b){var row=b.closest('.d-sent'),e=row.closest('.d-obj');e.classList.remove('sent');
+  var s=h(null,'d-pill cream wide',e.k.send,'button');s.type='button';s.dataset.act='send';row.replaceWith(s);ink(s);}
 
 /* ---------- the scenes ---------- */
+function hi(w){return w.insertBefore(h(null,'d-hi','<b>Hi</b><small>'+D.now.day+'</small>'),w.table);}
 Shell.mount({title:'Turn by turn v2: D, cards on the table',scenes:[
-  {id:'idle',label:'Idle',run:function(c){var w=begin(c),hi=h(w,'d-hi','<b>Hi</b><small>'+D.now.day+'</small>');ink(hi);}},
-  {id:'type-send',label:'He types an ask',run:async function(c){var w=begin(c),a=D.asks.day;
-    await typed(c,w,a.ask);c.edge.set('work');var m=dayMakers(w.table),e=m.day();deal(e);stepOn(e,a.steps[0]);}},
-  {id:'voice-send',label:'He says an ask',run:async function(c){var w=begin(c),a=D.asks.jade;dayLaid(c,w);w.his.innerHTML='<span>'+D.asks.day.ask+'</span>';
-    await c.wait(900);await spoken(c,w,a.ask);c.edge.set('work');var e=jadeMakers(w.table).jade();deal(e);stepOn(e,a.steps[0]);}},
-  {id:'working',label:'Life works',run:async function(c){var w=begin(c),a=D.asks.day;w.his.innerHTML='<span>'+a.ask+'</span>';
-    await c.wait(300);await work(c,w,a,dayMakers(w.table),DAY_KEYS);await say(c,w,a.answer.lead);c.edge.set('landed');}},
-  {id:'slow',label:'A slow step',run:async function(c){var w=begin(c),a=D.slow;w.his.innerHTML='<span>'+a.ask+'</span>';
-    await c.wait(300);await work(c,w,a,slowMakers(w.table),['cal','mail']);await say(c,w,a.answer.lead);c.edge.set('landed');}},
-  {id:'answer-day',label:'Answer: the day',run:async function(c){var w=begin(c),a=D.asks.day;
-    await typed(c,w,a.ask);await work(c,w,a,dayMakers(w.table),DAY_KEYS);await say(c,w,a.answer.lead);c.edge.set('landed');}},
-  {id:'answer-jade',label:'Answer: Jade (voice)',run:async function(c){var w=begin(c),a=D.asks.jade;
-    await spoken(c,w,a.ask);var r=await work(c,w,a,jadeMakers(w.table),['jade','jade','draft']);
-    r.made.draft.querySelectorAll('.d-draft-text span').forEach(function(s,i){anim(s,[{opacity:0,filter:'blur(6px)'},{opacity:1,filter:'blur(0)'}],{duration:380,delay:250+i*60,easing:INK,fill:'backwards'});});
-    await say(c,w,a.answer.lead);c.edge.set('landed');}},
-  {id:'follow-up',label:'A follow-up',run:async function(c){var w=begin(c),a=D.followUp;dayLaid(c,w);w.his.innerHTML='<span>'+D.asks.day.ask+'</span>';
-    await c.wait(1500);await c.type(c.field.input,a.ask);await c.wait(200);await clearTurn(c,w);await typedLand(c,w,a.ask);
-    await work(c,w,a,routeMakers(w.table),['route']);await say(c,w,a.answer.lead);c.edge.set('landed');}},
-  {id:'history',label:'Earlier turns',run:async function(c){var w=begin(c);w.table.classList.add('deck');
-    D.history.forEach(function(x,i){var e=obj(w.table,{cls:'d-file',tilt:[-1.2,.9,-.4][i%3],front:'<span class="d-meta">'+x.at+'</span><p class="d-ask">'+x.ask+'</p><b>'+x.answer+'</b>'},true);e.style.zIndex=i+1;
+  {id:'idle',label:'Idle',run:function(c){ink(hi(begin(c)));}},
+  {id:'type-send',label:'He types an ask',run:async function(c){var w=begin(c);await typed(c,w,D.asks.day.ask);thinking(c,w);}},
+  {id:'voice-send',label:'He holds to talk',run:async function(c){var w=begin(c);await spoken(c,w,D.asks.jade.ask);thinking(c,w);}},
+  {id:'working',label:'Life works',run:function(c){return turn(c,D.asks.day,'shown',dayObjects);}},
+  {id:'answer-day',label:'Answer: the day',run:function(c){return turn(c,D.asks.day,'typed',dayObjects);}},
+  {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(c,D.asks.jade,'voice',jadeObjects);}},
+  {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){var a=D.asks.tell;
+    return turn(c,a,'typed',function(t){return [draftCard(t,a.answer.card,-.6)];});}},
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var w=begin(c),x=hi(w);ink(x);await c.wait(D.arrives.arriveMs);
+    anim(x,[{opacity:1},{opacity:.45}],{duration:600,fill:'forwards'});
+    var e=draftCard(w.table,D.arrives.card,.8);w.table.classList.add('edge-of');
+    anim(e,[{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1}],{duration:900,easing:SOFT});}},
+  {id:'slow',label:'A slow ask',run:function(c){var a=D.slow;return turn(c,a,'shown',function(t){return [placeCard(t,a.answer.place,-.8)];});}},
+  {id:'failure',label:'A read fails',run:function(c){var a=D.failure;return turn(c,a,'shown',null,esc(a.error.t));}},
+  {id:'history',label:'Earlier turns',run:function(c){var w=begin(c);w.table.classList.add('deck');
+    D.history.forEach(function(x,i){var e=obj(w.table,{cls:'d-file',tilt:[-1.2,.9,-.4][i%3],front:'<span class="d-meta">'+x.at+'</span><p class="d-ask">'+esc(x.ask)+'</p><b>'+esc(x.answer)+'</b>'});e.style.zIndex=i+1;
       anim(e,[{transform:'translateY(-140px) rotate('+(i%2?6:-6)+'deg) scale(.94)',opacity:0},{transform:'none',opacity:1}],{duration:720,easing:SETTLE,delay:i*110,fill:'backwards'});});}},
-  {id:'failure',label:'A step fails',run:async function(c){var w=begin(c),a=D.failure;w.his.innerHTML='<span>'+a.ask+'</span>';
-    await c.wait(300);var r=await work(c,w,a,failMakers(w.table),['bill','bank']);
-    if(r.failed){var e=r.failed;anim(e,[{transform:'none'},{transform:'translateX(-7px)'},{transform:'translateX(6px)'},{transform:'translateX(-3px)'},{transform:'none'}],{duration:380,easing:'ease-out'});
-      var st=e.back.querySelector('.d-step');anim(st,[{opacity:1},{opacity:0,filter:'blur(6px)'}],{duration:200,fill:'forwards'});
-      e.classList.add('failed');await c.wait(260);st.parentNode.remove();
-      await say(c,w,'<span class="d-dot" aria-hidden="true"></span>'+a.error.t);c.edge.set('rest');}}}]});
-/* typed words, in the field: they fly from it to his place, small */
-async function typedLand(c,w,text){var from=rel(c.field.input);c.field.clear();
-  var s=h(w.his,'',null,'span');s.textContent=text;var to=rel(s),k=16/13.5;
-  anim(s,[{transform:'translate('+(from.x-to.x)+'px,'+(from.y+(from.h-to.h*k)/2-to.y)+'px) scale('+k+')',color:getComputedStyle(c.field.input).color},{transform:'none',color:getComputedStyle(s).color}],{duration:620,easing:SOFT});
-  await c.wait(420);}
+  {id:'follow-up',label:'A follow-up',run:async function(c){var w=begin(c),a=D.followUp;h(w.his,'',null,'span').textContent=D.asks.day.ask;
+    w.lead.textContent=D.asks.day.answer.lead;dayObjects(w.table);w.classList.add('lit');
+    await c.wait(1500);await c.type(c.field.input,a.ask);await c.wait(200);await clearTurn(c,w);await typedLand(c,w,a.ask);
+    await work(c,w,a);await arrive(c,w,esc(a.answer.lead));}},
+  {id:'hey-life',label:'Hey Life, from the pendant',run:async function(c){var x=D.heyLife;c.lock();c.edge.set('still');
+    await c.wait(x.heardMs);c.lock(x.heardAt);c.notify(x.heard);await c.wait(x.answerMs);
+    await Promise.race([c.notify(x.done),c.wait(4000)]); /* his tap, or on its own for Play all */
+    c.lock(false);c.edge.set('rest');var w=begin(c);w.his.innerHTML='<span>'+esc(x.ask)+'</span><small>To your pendant, '+x.heardAt+'</small>';w.classList.add('lit');
+    await c.wait(250);await arrive(c,w,esc(x.answer.lead));}}]});
 </script>
 </body>
 </html>

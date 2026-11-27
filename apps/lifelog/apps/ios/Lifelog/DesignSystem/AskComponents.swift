@@ -252,6 +252,18 @@ struct SettingSwitchRow: View {
     }
 }
 
+/// Pills filling one row side by side, stacked when large text does not fit them.
+struct PillRow<Pills: View>: View {
+    @ViewBuilder var pills: Pills
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Metrics.Spacing.s) { pills }
+            VStack(spacing: Metrics.Spacing.s) { pills }
+        }
+    }
+}
+
 /// A value pill row: the title and its choices as pills, the chosen one filled.
 struct SettingValueRow: View {
     let title: String
@@ -267,14 +279,17 @@ struct SettingValueRow: View {
                 Spacer(minLength: 0)
                 if isTicked { Glyph(.tick, size: 13).foregroundStyle(Palette.ok) }
             }
-            HStack(spacing: Metrics.Spacing.s) {
-                ForEach(choices, id: \.self) { choice in
-                    Button(choice) { set(choice) }
-                        .buttonStyle(.pill(choice == selection ? .filled : .quiet, size: .compact))
-                }
-            }
+            PillRow { pills }
         }
         .padding(.vertical, Metrics.Spacing.m)
+    }
+
+    private var pills: some View {
+        ForEach(choices, id: \.self) { choice in
+            Button(choice) { set(choice) }
+                .buttonStyle(.pill(choice == selection ? .filled : .quiet, size: .row))
+                .frame(maxWidth: .infinity)
+        }
     }
 }
 

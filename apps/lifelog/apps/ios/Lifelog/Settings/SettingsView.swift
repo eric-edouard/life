@@ -202,6 +202,7 @@ struct SettingsView: View {
     private var sending: some View {
         RowGroup(label: "Sending", surface: .sheet) {
             FaceIDRow()
+            AppearanceRow()
         }
     }
 
