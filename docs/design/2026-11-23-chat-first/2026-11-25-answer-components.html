@@ -1,0 +1,151 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Answer components</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap">
+<link rel="stylesheet" href="../components.css">
+<style>
+:root{--page:#121316;--ink:#fff8ea;--soft:#b9b4aa;color-scheme:dark}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--page:#121316;--ink:#fff8ea;--soft:#b9b4aa}}
+:root[data-theme="light"],:root[data-theme="dark"]{--page:#121316;--ink:#fff8ea;--soft:#b9b4aa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{padding:28px 16px 48px;display:flex;flex-direction:column;align-items:center;gap:22px}
+.intro{max-width:1240px;width:100%;font-size:14.5px;line-height:1.55;color:var(--soft)}
+.intro b{color:var(--ink)}
+.row3{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;max-width:1260px}
+.col{display:flex;flex-direction:column;gap:12px;width:390px;max-width:100%}
+.cap{font-size:13px;color:var(--soft);line-height:1.5}
+
+.ph{--fg:#fff8ea;--muted:#8a867e;--flag:#f0896f;--tint:rgba(255,248,234,.08);--card:#111214;position:relative;width:390px;max-width:100%;height:844px;border-radius:54px;background:#000;overflow:hidden;font-size:16px;line-height:1.45;font-weight:450;box-shadow:inset 0 0 0 2.5px rgba(255,248,234,.22),0 0 18px rgba(255,248,234,.06)}
+.sb{position:absolute;top:16px;left:34px;right:30px;display:flex;justify-content:space-between;font-size:15px;font-weight:650;z-index:4}
+.pills{position:absolute;top:58px;left:16px;right:16px;display:flex;justify-content:space-between;z-index:4}
+.pill{width:40px;height:40px;border-radius:20px;background:rgba(26,27,32,.8);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;box-shadow:inset 0 0 0 .5px rgba(255,248,234,.1)}
+.pill i{width:9px;height:9px;border-radius:5px;background:var(--fg);box-shadow:0 0 10px rgba(255,248,234,.5)}
+.th{position:absolute;left:16px;right:16px;top:110px;bottom:100px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:12px;padding-bottom:8px;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 26px);mask-image:linear-gradient(to bottom,transparent,#000 26px)}
+.th::-webkit-scrollbar{display:none}
+.th>.sp{margin-top:auto}
+.bm{align-self:flex-end;max-width:286px;padding:10px 14px;border-radius:20px 20px 6px 20px;background:rgba(255,248,234,.11);font-size:15px}
+.md{font-size:15.5px;line-height:1.5}
+.md p{margin:0 0 10px}.md p:last-child{margin-bottom:0}
+.md b{font-weight:700}
+.md h4{margin:6px 0 6px;font-size:13px;font-weight:650;color:var(--muted);letter-spacing:.01em}
+.cite{color:var(--muted);font-size:13px}
+
+/* rows: the item shape, as everywhere */
+.list{display:flex;flex-direction:column;gap:2px}
+.fr{display:flex;align-items:center;gap:12px;padding:7px 0}
+.disc{width:40px;height:40px;border-radius:20px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none;color:var(--fg)}
+.disc svg{width:19px;height:19px}
+.tx{flex:1;min-width:0}.tx b{display:block;font-size:16px;font-weight:650}.tx small{display:block;font-size:13.5px;color:var(--muted)}
+.td{color:var(--flag);font-style:normal}
+.lt{height:32px;padding:0 13px;border-radius:16px;background:var(--tint);color:#b9b4aa;font-size:13px;font-weight:600;display:flex;align-items:center;flex:none}
+
+/* pictures */
+.pics{display:flex;gap:6px;overflow:hidden;border-radius:14px}
+.pic{flex:1;height:112px;position:relative;border-radius:4px;overflow:hidden}
+.pic:first-child{border-radius:14px 4px 4px 14px}.pic:last-child{border-radius:4px 14px 14px 4px}
+.pic span{position:absolute;left:8px;bottom:6px;font-size:11.5px;font-weight:650;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.p1{background:linear-gradient(160deg,#e9e4da 0%,#cfc8bb 55%,#8f8779 100%)}
+.p2{background:linear-gradient(170deg,#f1eee8 0%,#d9d3c8 50%,#5c5a57 51%,#77736c 100%)}
+.p3{background:linear-gradient(150deg,#b9b1a3,#6f6a60 60%,#3b3935)}
+.p1::after{content:"";position:absolute;left:18%;top:22%;width:52%;height:16%;border-radius:4px;background:#fbfaf7;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.more{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff}
+
+/* a table, Markdown's own */
+table{width:100%;border-collapse:collapse;font-size:14.5px;font-variant-numeric:tabular-nums}
+th{text-align:left;font-size:12.5px;font-weight:600;color:var(--muted);padding:0 0 6px}
+td{padding:4.5px 0;border-top:1px solid #1d1e22}
+td:last-child,th:last-child{text-align:right}
+tr.tot td{font-weight:700;border-top:1px solid #34353b}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:7px;vertical-align:0}
+
+/* say this: words for someone in front of him */
+.say{border-radius:20px;background:#111214;padding:16px 16px 14px;display:flex;flex-direction:column;gap:10px}
+.say .th-t{font-size:22px;line-height:1.45;font-weight:600;letter-spacing:.005em}
+.say .en{font-size:13.5px;color:var(--muted);line-height:1.4}
+.say .k{display:flex;gap:8px}
+.ib{width:40px;height:40px;border-radius:20px;background:var(--tint);display:flex;align-items:center;justify-content:center;color:var(--fg)}
+.ib svg{width:18px;height:18px}
+
+/* a receipt, a picture of what they sent */
+.rc{border-radius:16px;background:#f4f1ea;color:#1a1a1a;padding:12px 14px;font-size:12.5px;line-height:1.5;font-family:ui-monospace,'SF Mono',Menlo,monospace;position:relative}
+.rc b{font-family:Manrope,sans-serif;font-size:13px}
+.rc .src{position:absolute;right:10px;top:10px;font-family:Manrope,sans-serif;font-size:11px;font-weight:650;color:#5a5a5a}
+
+/* a place */
+.gm{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px 0 7px;border-radius:15px;background:rgba(255,255,255,.07);font-size:12.5px;font-weight:650;flex:none}
+.gm svg{width:16px;height:16px}
+
+.cmp{position:absolute;left:16px;right:16px;bottom:30px;height:52px;padding:8px 8px 8px 18px;border-radius:26px;background:rgba(26,27,32,.85);box-shadow:inset 0 0 0 .5px rgba(255,248,234,.09);display:flex;align-items:center;gap:8px;z-index:4}
+.stx{flex:1;min-width:0;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ss{width:24px;height:24px;border-radius:12px;box-shadow:inset 0 0 0 1.3px rgba(255,248,234,.35);display:flex;align-items:center;justify-content:center;color:rgba(255,248,234,.6);flex:none}
+.ss svg{width:13px;height:13px}
+.mic{width:36px;height:36px;border-radius:18px;background:var(--tint);display:flex;align-items:center;justify-content:center;flex:none}
+.mic svg{width:18px;height:18px}
+@media (max-width:440px){.ph{height:780px}}
+
+.cat{max-width:1240px;width:100%;display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px}
+.cc{border-radius:20px;background:#17181c;padding:16px;display:flex;flex-direction:column;gap:10px}
+.cc h3{margin:0;font-size:16px;font-weight:700;display:flex;gap:8px;align-items:baseline}
+.cc h3 code{font-size:13px;color:var(--soft);font-weight:500}
+.cc p{margin:0;font-size:13.5px;line-height:1.5;color:var(--soft)}
+.cc .props{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:12px;line-height:1.55;color:#d8d3c8;background:#0d0e10;border-radius:12px;padding:10px 12px;white-space:pre-wrap}
+.cc .demo{background:#000;border-radius:16px;padding:14px 16px;font-size:16px;line-height:1.45;--fg:#fff8ea;--muted:#8a867e;--flag:#f0896f;--tint:rgba(255,248,234,.08)}
+.tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:9px;background:rgba(255,248,234,.08);color:var(--soft)}
+.tag.own{background:rgba(154,168,236,.16);color:#c3cbf3}
+h2{max-width:1240px;width:100%;margin:18px 0 0;font-size:19px;font-weight:700}
+details{width:390px;max-width:100%}
+summary{cursor:pointer;font-size:13px;color:var(--soft);font-weight:600}
+pre.js{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11.5px;line-height:1.5;color:#d8d3c8;background:#0d0e10;border-radius:12px;padding:10px 12px;white-space:pre-wrap;word-break:break-word;margin:8px 0 0}
+.fs{position:fixed;inset:0;background:#000;z-index:50;display:flex;align-items:center;justify-content:center;padding:24px;cursor:pointer}
+.fs .th-t{font-size:40px;line-height:1.4;font-weight:650;color:#fff8ea;text-align:center}
+.say .ib,.pic{cursor:pointer}
+.md a.ln{color:var(--fg);text-decoration:none;font-weight:650;border-bottom:1px solid rgba(255,248,234,.3)}
+</style></head><body><main>
+<div class="intro"><b>The starting library: six components, from today's three answers.</b> The agent writes a short JSON spec per answer; the app draws each component in Life's brand. It never writes layout, style or HTML. Values it writes (a table, a translation) carry <code>from</code>, the source they are checked against; what Life already holds goes as a ref the app reads. Below, the three answers are drawn from their JSON alone by a renderer that knows only these six.</div>
+<h2>The components</h2>
+<div class="cat" id="cat"></div>
+<h2>Today's answers, drawn from JSON only</h2>
+<div class="row3" id="phones"></div>
+<div class="intro" id="tok" style="margin-top:4px"></div>
+</main>
+<script>
+var SPECS={"house": {"q": "Where are we with the flat?", "suggest": "Nudge Tomas about the rail", "blocks": [{"id": "b1", "text": "Tomas has gone **silent** since his question yesterday at 9:42, even after your two marked-up photos at 10:49 and your dad's spirit-level photos at 14:20.\n\nThe work goes on: [Ben](life:person:ben)'s photos last night show the ceilings painted and the air conditioners in."}, {"id": "b2", "pictures": ["life:file:img_1", "life:file:img_2", "life:file:img_3", "life:file:img_4", "life:file:img_5", "life:file:img_6"]}, {"id": "b3", "text": "The rest hasn't moved:"}, {"id": "b4", "items": ["life:step:rail", "life:step:notice", "life:step:lawyer"]}]}, "order": {"q": "What was the order for Nora's beads?", "suggest": "What do I say when I get there?", "blocks": [{"id": "b1", "text": "**12 bags** at Bead House, ordered on 20 Nov for **4,820 ฿** (about 125 €, inside Nora's 130 €)."}, {"id": "b2", "table": {"from": "life:msg:messenger|1042", "columns": ["", "Bags"], "groups": [{"label": "Round", "rows": [["#12", 2], ["#40", 2], ["#58", 3]]}, {"label": "Flat", "rows": [["#40", 2], [{"t": "#77", "note": "all they had"}, 1], ["#93", 2]]}], "total": ["Total", 12]}}, {"id": "b3", "text": "Nothing to do until you pick them up, before Nora takes them at Christmas."}]}, "shop": {"q": "What do I say to the guy when I arrive there?", "suggest": "How do I get there from home?", "blocks": [{"id": "b1", "text": "Show him this:"}, {"id": "b2", "phrase": {"lang": "th", "text": "สวัสดีครับ มารับของที่สั่งทาง Messenger ครับ ลูกปัด 12 ถุง 4,820 บาท", "mine": "Hello, I'm here to pick up my Messenger order: 12 bags of beads, 4,820 baht."}}, {"id": "b3", "text": "and their receipt:"}, {"id": "b4", "document": {"from": "life:msg:messenger|1042", "title": "Bead House", "lines": ["R-1180-0042", "12 × 10 g glass beads"], "total": "Total 4,820 ฿", "kind": "receipt"}}, {"id": "b5", "text": "You haven't paid yet, so **pay 4,820 ฿ there**, and count the bags: **12**, with only 1 of Flat #77."}, {"id": "b6", "place": {"ref": "life:place:bead-house"}}]}};
+var READS={"life:step:rail": {"face": "T", "title": "Where the rail ends", "line": "Waiting on Tomas · since yesterday"}, "life:step:notice": {"face": "doc", "title": "Send the notice letter", "line": "Not sent yet"}, "life:step:lawyer": {"face": "M", "title": "The lawyer's answer", "line": "Waiting on Maître Garnier"}, "life:msg:messenger|1042": {"app": "Messenger", "at": "15 Nov"}, "life:place:bead-house": {"name": "Bead House", "line": "12 Sukhumvit 31, the city"}, "photo": {"by": "Ben", "at": "18:39"}};
+var CAT=[
+ {n:'text',own:0,line:'Life\'s words. Markdown: paragraphs, lists, bold, quotes, code, headings, links; a life: link is a name that unfolds.',props:'"text": string (Markdown)'},
+ {n:'items',own:1,line:'Life\'s own, not composed: asks, matters and their steps as rows in their states; they unfold and act. Refs only.',props:'"items": [ref, …]'},
+ {n:'pictures',own:0,line:'Photos Life holds, up to three in a strip, then a count; a tap shows one full screen. Refs only; who and when are read from them.',props:'"pictures": [photo ref, …]'},
+ {n:'table',own:0,line:'Rows of values, optionally in groups, with a total. Numbers align; a cell can carry a short note. Checked against `from` before it shows.',props:'"table": {\n  "from": ref,\n  "columns": [label, …],\n  "groups": [{"label", "rows": [[cell, …]]}] | "rows",\n  "total"?: [cell, …]\n}\ncell: string | number | {"t", "note"}'},
+ {n:'phrase',own:0,line:'Words for someone in front of him, large, in their language, his under it. Says it aloud; shows it full screen to hold up.',props:'"phrase": {"lang", "text", "mine"}'},
+ {n:'document',own:0,line:'A paper as it was sent (a receipt, a booking, a ticket): its own type, where it came from, its key lines. Checked against `from`.',props:'"document": {"from": ref, "title",\n  "lines": [string], "total"?: string}'},
+ {n:'place',own:0,line:'A place, with Maps. A ref Life holds, or a name and address from the web.',props:'"place": ref | {"name", "address"}'}
+];
+var DOC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>';
+var PIN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.3"/></svg>';
+var GM='<svg viewBox="0 0 24 24"><path d="M12 22.5s-7.5-7.2-7.5-13a7.5 7.5 0 0 1 15 0c0 5.8-7.5 13-7.5 13Z" fill="#34A853"/><circle cx="12" cy="9.5" r="2.8" fill="#fff"/></svg>';
+var SPK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>';
+var FULL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function md(t){return esc(t).split(/\n\n+/).map(function(p){return '<p>'+p.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\[(.+?)\]\(life:[^)]+\)/g,'<a class="ln" href="#">$1</a>')+'</p>';}).join('');}
+function cell(c){return typeof c==='object'?esc(c.t)+' <span class="cite">· '+esc(c.note)+'</span>':esc(c);}
+var R={
+ text:function(v){return '<div class="md">'+md(v)+'</div>';},
+ items:function(v){return '<div class="list">'+v.map(function(r){var d=READS[r];return '<div class="fr"><span class="disc">'+(d.face==='doc'?DOC:esc(d.face))+'</span><span class="tx"><b>'+esc(d.title)+'</b><small>'+esc(d.line)+'</small></span></div>';}).join('')+'</div>';},
+ pictures:function(v){var p=READS.photo,cls=['p1','p2','p3'];return '<div class="pics">'+v.slice(0,3).map(function(r,i){return '<div class="pic '+cls[i]+'">'+(i===2&&v.length>3?'<div class="more">+'+(v.length-2)+'</div>':'<span>'+esc(p.by)+' · '+esc(p.at)+'</span>')+'</div>';}).join('')+'</div>';},
+ table:function(v){var h='<table>';var groups=v.groups||[{label:v.columns[0],rows:v.rows}];
+   groups.forEach(function(g,gi){h+='<tr><th'+(gi?' style="padding-top:12px"':'')+'>'+esc(g.label||v.columns[0])+'</th>'+v.columns.slice(1).map(function(c){return '<th>'+(gi?'':esc(c))+'</th>';}).join('')+'</tr>';
+     g.rows.forEach(function(r){h+='<tr>'+r.map(function(c){return '<td>'+cell(c)+'</td>';}).join('')+'</tr>';});});
+   if(v.total)h+='<tr class="tot">'+v.total.map(function(c){return '<td>'+cell(c)+'</td>';}).join('')+'</tr>';return h+'</table>';},
+ phrase:function(v){return '<div class="say"><div class="th-t" lang="'+esc(v.lang)+'">'+esc(v.text)+'</div><div class="en">'+esc(v.mine)+'</div><div class="k"><span class="ib" aria-label="Say it aloud">'+SPK+'</span><span class="ib fsb" aria-label="Show it large" data-t="'+esc(v.text)+'">'+FULL+'</span></div></div>';},
+ document:function(v){var s=READS[v.from]||{};return '<div class="rc"><span class="src">'+esc(s.app||'')+(s.at?' · '+esc(s.at):'')+'</span><b>'+esc(v.title)+'</b><br>'+v.lines.map(esc).join('<br>')+(v.total?'<br><b>'+esc(v.total)+'</b>':'')+'</div>';},
+ place:function(v){var d=v.ref?READS[v.ref]:typeof v==='string'?READS[v]:{name:v.name,line:v.address};return '<div class="list"><div class="fr"><span class="disc">'+PIN+'</span><span class="tx"><b>'+esc(d.name)+'</b><small>'+esc(d.line)+'</small></span><span class="gm">'+GM+'Maps ↗</span></div></div>';}
+};
+function block(b){var k=Object.keys(b).filter(function(x){return x!=='id';})[0];return R[k](b[k]);}
+var EX={text:{text:'Léa tends to go **quiet** when he is stretched, then answers in one long message.\n\nYour last three calls ran past an hour.'},items:{items:['life:step:rail']},pictures:{pictures:['p','p','p','p']},table:{table:{from:'x',columns:['','Bags'],rows:[['#420',3],[{t:'#2315',note:'all they had'},3]],total:['Total',6]}},phrase:{phrase:SPECS.shop.blocks[1].phrase},document:{document:SPECS.shop.blocks[3].document},place:{place:'life:place:bead-house'}};
+document.getElementById('cat').innerHTML=CAT.map(function(c){return '<div class="cc"><h3>'+c.n+(c.own?' <span class="tag own">Life\'s own, acts</span>':' <span class="tag">composed</span>')+'</h3><p>'+esc(c.line)+'</p><div class="props">'+esc(c.props)+'</div><div class="demo">'+block(EX[c.n])+'</div></div>';}).join('');
+var UPI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 6-6 6 6"/><path d="M12 8v10"/></svg>',MICI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>';
+var tok=[];
+document.getElementById('phones').innerHTML=['house','order','shop'].map(function(k){var s=SPECS[k];var j=JSON.stringify(s.blocks);tok.push(Math.round(j.length/3.5));
+ return '<div class="col"><div class="ph"><div class="sb"><span>9:41</span><span>●●● ▮</span></div><div class="pills"><div class="pill">5</div><div class="pill"><i></i></div></div><div class="th"><div class="sp"></div><div class="bm">'+esc(s.q)+'</div>'+s.blocks.map(block).join('')+'</div><div class="cmp"><span class="stx">'+esc(s.suggest)+'</span><span class="ss">'+UPI+'</span><span class="mic">'+MICI+'</span></div></div><details><summary>Its JSON · about '+Math.round(j.length/3.5)+' tokens</summary><pre class="js">'+esc(JSON.stringify(s.blocks,null,1))+'</pre></details></div>';}).join('');
+document.getElementById('tok').innerHTML='<b>What it costs:</b> the three specs are about '+tok.join(', ')+' tokens, Life\'s words included; the components\' look, spacing and brand cost the agent nothing. The house rows and the photos are refs the app reads: their titles and lines here are stand-ins. Tap a phrase\'s full-screen button to see it held up.';
+document.addEventListener('click',function(e){var b=e.target.closest('.fsb');if(b){var d=document.createElement('div');d.className='fs';d.innerHTML='<div class="th-t">'+b.dataset.t+'</div>';d.onclick=function(){d.remove();};document.body.appendChild(d);}});
+</script></body></html>

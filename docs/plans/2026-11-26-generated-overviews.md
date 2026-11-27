@@ -77,7 +77,7 @@ What every situation must answer, in this order, in plain sentences:
 
 What the model is free to choose: whether there is any history, a list or a timeline, a quote, how long (a matter of
 two steps is two sentences), and for a friend whether to say anything practical at all. The prompt carries the rules of
-"Start from his seat" (`docs/design/chat-first/2026-11-26-original-components.md`, on `origin/v41-integrate-2`): every
+"Start from his seat" (`docs/design/2026-11-23-chat-first/2026-11-26-original-components.md`, on `origin/v41-integrate-2`): every
 fact once, no numbers the owner does not need, and a sentence wins over a component.
 
 What stays code, drawn live and never written by the model: asks, open matters, reach, details, the birthday. A stored

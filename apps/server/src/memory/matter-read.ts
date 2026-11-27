@@ -30,6 +30,7 @@ import {
   importantIdsOf,
   pinnedOf,
 } from "./matter-pins";
+import { offeredNowOf, successorsOf } from "./re-read-succession";
 import { OWNER } from "./read-truth";
 import { dayStart, localDate } from "./zones";
 
@@ -72,7 +73,7 @@ type StepObservation = Pick<
   | "type"
   | "unit"
   | "when"
->;
+> & { succeeds?: readonly string[] };
 type StepTodoItem = Pick<
   LedgerTodoItem,
   "at" | "closedAt" | "fields" | "key" | "ref"
@@ -127,8 +128,6 @@ type StepEnding = { at: string } & (
 
 export interface MatterStepNow {
   at: string;
-  /** An observation a mailer said (`isMailer`: a no-reply notice or his agents' report): owed to no one. */
-  byMailer?: true;
   day: string;
   /** How it ended; none while it is open (or for an episode or a list entry, which never end). */
   ending?: StepEnding;
@@ -225,8 +224,9 @@ function indexOf(rec: MatterRecords, offered: ReadonlySet<string>) {
       (t) => t.ref as string
     ),
     byUnit: Map.groupBy(rec.observations, (o) => o.unit),
-    offered,
+    offered: offeredNowOf(offered, rec.observations),
     rec,
+    successors: successorsOf(rec.observations),
     todo: new Map(rec.todoItems.map((t) => [t.key, t])),
   };
 }
@@ -237,7 +237,10 @@ function recordsOf(line: Line, ix: Index) {
   const episodes = new Map<string, Episode>();
   const observations = new Map<string, StepObservation>();
   const items = new Map<string, StepTodoItem>();
-  for (const { ref } of line.steps) {
+  for (const ref of line.steps.flatMap((s) => [
+    s.ref,
+    ...(ix.successors.get(s.ref) ?? []),
+  ])) {
     const observation = ix.byId.get(ref);
     // A unit step is a unit's ref and brings its episode; an observation step is the step itself.
     const episode = observation ? undefined : ix.rec.episodeOf.get(ref);
@@ -336,7 +339,6 @@ function stepsOf(
     ...observations.map(
       (o): MatterStepNow => ({
         at: o.at,
-        ...(rec.isMailer(o.speaker) ? { byMailer: true as const } : {}),
         day: o.date,
         ending: endingOf(o.id, rec),
         kind: o.type,
@@ -495,12 +497,11 @@ export const isRunning = (
     Partial<Pick<MatterView, "important">>
 ) => v.open && (v.status !== "dormant" || v.important === true);
 
-/** What a lone observation is: his own promise, wait or to-do, at the top importance. */
+/** What a lone observation is: his own promise or to-do at any importance (his decision of 27 Nov 2026: every open one gets a row), or a wait at the top importance. */
 const isOpenKind = (o: StepObservation) =>
-  o.importance === TOP_AT &&
-  (o.type === "promise" ||
-    o.type === "waiting_on_someone" ||
-    (o.type === "to_do" && o.speaker === OWNER));
+  o.type === "promise" ||
+  (o.type === "to_do" && o.speaker === OWNER) ||
+  (o.type === "waiting_on_someone" && o.importance === TOP_AT);
 
 /** What a matter is to its finder: its id and its steps' ids. */
 
@@ -812,10 +813,11 @@ export function matterBookOf(
   return book
     .map((v) => {
       const d = directions.get(v);
-      // Life's latest draft reads it over, and nothing came since: probably done, like a link's ending (his word of 21 Nov 2026).
+      const hasProof = Boolean(d?.latest?.endingRecords?.length);
+      // Life's latest draft reads it over citing a record (none is no evidence, his rule of 27 Nov 2026), and nothing came since: probably done, like a link's ending (his word of 21 Nov 2026).
       const over =
         d?.latest?.by === "life" &&
-        d.latest.endingRecords !== undefined &&
+        hasProof &&
         !isNewerThan(v, d.latest, today);
       const ownerIcon = icons.get(v.id);
       const project = projects.get(v.id);
@@ -827,9 +829,7 @@ export function matterBookOf(
         ...(project ? { projects: [project] } : {}),
         ...(d?.goal ? { goal: d.goal } : {}),
         ...(d?.nextStep ? { nextStep: d.nextStep } : {}),
-        ...(d?.latest?.endingRecords
-          ? { endingRecords: d.latest.endingRecords }
-          : {}),
+        ...(hasProof ? { endingRecords: d?.latest?.endingRecords } : {}),
         ...(ownerIcon ? { ownerIcon } : {}),
       };
     })

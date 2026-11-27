@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Parity Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..750&display=swap">
+<style>
+/* Life's brand (assets/brand/tokens.css): one column of rows, changed first; each row a pair and its checks. */
+:root{--bg:#f3f4f5;--fg:#0d0e11;--card:#e8e9eb;--muted:#57544f;--line:#d8d9dc;--flag:#b3412b;--ok:#1a7f3c;--on:#f3f4f5;
+  --sans:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#000;--fg:#fff8ea;--card:#0b0c0e;--muted:#8a867e;--line:#1f2024;--flag:#f0896f;--ok:#30d158;--on:#000;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#000;--fg:#fff8ea;--card:#0b0c0e;--muted:#8a867e;--line:#1f2024;--flag:#f0896f;--ok:#30d158;--on:#000;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--sans);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+main{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+.head{display:flex;flex-direction:column;gap:6px}
+.count{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.sub{color:var(--muted);font-size:13.5px;max-width:62ch}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.filters button{font:inherit;font-size:13px;border:0;border-radius:12px;padding:6px 12px;background:var(--card);color:var(--fg);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+.row{display:flex;flex-direction:column;gap:12px;padding-top:20px;border-top:1px solid var(--line);scroll-margin-top:16px}
+.row:target{outline:2px solid var(--fg);outline-offset:8px;border-radius:4px}
+.title{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.title h2{font-size:16px;font-weight:700;margin:0;text-wrap:balance}
+.pill{font-size:11.5px;font-weight:650;border-radius:9px;padding:2px 8px;background:var(--card);color:var(--muted)}
+.pill.green{background:var(--ok);color:var(--on)}.pill.red{background:var(--flag);color:var(--on)}.pill.new{background:var(--fg);color:var(--on)}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:520px}
+.pair figure{margin:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pair figcaption{font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.pair img{width:100%;border-radius:14px;background:var(--card);aspect-ratio:390/844;object-fit:cover;object-position:top}
+.checks{display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+.check{border-radius:9px;padding:3px 9px;background:var(--card)}
+.check b{font-weight:700}.check.pass b{color:var(--ok)}.check.fail b{color:var(--flag)}
+details{font-size:13px;color:var(--muted)}details pre{font:12px/1.5 var(--mono);white-space:pre-wrap;overflow-x:auto;margin:6px 0 0}
+.verdict{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.verdict button{font:inherit;font-size:14px;font-weight:650;border:0;border-radius:12px;padding:9px 14px;background:var(--card);color:var(--fg);cursor:pointer}
+.verdict button[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+.verdict input{font:inherit;font-size:14px;flex:1 1 220px;min-width:0;border:0;border-radius:12px;padding:9px 12px;background:var(--card);color:var(--fg)}
+.saved{font-size:12px;color:var(--muted)}
+.idle{color:var(--muted);font-size:13.5px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+@media (max-width:420px){.pair{gap:8px}}
+</style>
+</head>
+<body>
+<main>
+  <div class="head">
+    <div class="count" id="count">Loading the board…</div>
+    <div class="sub" id="sub">Each row is a state of the approved prototype beside the app reaching it with the same made-up data. A row turns green on its checks; your look is for taste only and never blocks. “Not right” with a note becomes the row's failing note for the next batch.</div>
+  </div>
+  <div class="filters" role="group" aria-label="Show">
+    <button type="button" data-f="changed" aria-pressed="true">Changed</button>
+    <button type="button" data-f="filled" aria-pressed="false">All pairs</button>
+    <button type="button" data-f="all" aria-pressed="false">Every row</button>
+  </div>
+  <div id="rows"></div>
+</main>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+let board = null, verdicts = {}, filter = "changed", db = null;
+try { const f = localStorage.getItem("parity.filter"); if (f) filter = f; } catch {}
+
+function checks(r) {
+  const c = [];
+  const looks = r.review ? r.review.score >= 8 : null;
+  c.push(["Looks", looks === null ? "needs review" : `${r.review.score}/10`, looks]);
+  if (r.works !== null) c.push(["Works", r.works ? "passes" : "fails", r.works]);
+  if (r.taps) c.push(["Taps", `${r.taps.app ?? "?"} vs ${r.taps.proto}`, r.taps.app !== null && r.taps.app <= r.taps.proto]);
+  // His rule of 27 Nov 2026: only clipped text, or an issue the prototype's state lacks, blocks; contrast and text size are shown.
+  if (r.a11y) { const n = (r.a11yBlocking ?? r.a11y).length, shown = r.a11y.length - n;
+    c.push(["Accessibility", n ? `${n} blocking${shown ? `, ${shown} shown` : ""}` : shown ? `${shown} shown, none blocking` : "clean", n === 0]); }
+  return c;
+}
+
+function rowHtml(r) {
+  const v = verdicts[r.id];
+  const state = r.status !== "filled" ? `<span class="pill">not built</span>` : r.green ? `<span class="pill green">green</span>` : `<span class="pill red">not green</span>`;
+  const pair = r.status === "filled" ? `<div class="pair">
+    <figure><figcaption>Prototype</figcaption><img loading="lazy" src="${esc(r.id)}.proto.jpg" alt="Prototype: ${esc(r.title)}"></figure>
+    <figure><figcaption>App</figcaption><img loading="lazy" src="${esc(r.id)}.app.jpg" alt="App: ${esc(r.title)}"></figure></div>
+    <div class="checks">${checks(r).map(([k, t, ok]) => `<span class="check ${ok === null ? "" : ok ? "pass" : "fail"}">${k} <b>${esc(t)}</b></span>`).join("")}</div>
+    ${r.review?.note ? `<div class="sub">Reviewer: ${esc(r.review.note)}</div>` : ""}
+    <details><summary>${r.gaps.length} words-and-boxes gaps${r.a11y?.length ? `, ${r.a11y.length} accessibility issues` : ""}</summary><pre>${esc([...r.gaps, ...(r.a11y || [])].join("\n"))}</pre></details>
+    <div class="verdict" data-id="${esc(r.id)}">
+      <button type="button" data-v="looks right" aria-pressed="${v?.verdict === "looks right"}">Looks right</button>
+      <button type="button" data-v="not right" aria-pressed="${v?.verdict === "not right"}">Not right</button>
+      <input id="note-${esc(r.id)}" placeholder="What's off? (optional)" value="${esc(v?.note)}" aria-label="Note on ${esc(r.title)}">
+      <span class="saved">${v ? "Saved" : ""}</span>
+    </div>` : `<div class="idle">The app can't reach this state yet: its scenario comes in a later batch.</div>`;
+  return `<section class="row" id="${esc(r.id)}"><div class="title"><h2>${esc(r.title)}</h2>${state}${r.changed ? `<span class="pill new">changed</span>` : ""}</div>${pair}</section>`;
+}
+
+function render() {
+  if (!board) return;
+  const was = board.was ?? null;
+  $("#count").textContent = `${board.green} of ${board.total} green` + (was !== null && was !== board.green ? `, was ${was}` : "");
+  for (const b of document.querySelectorAll("[data-f]")) b.setAttribute("aria-pressed", String(b.dataset.f === filter));
+  let rows = board.rows;
+  if (filter === "changed") rows = rows.filter((r) => r.changed && r.status === "filled");
+  if (filter === "filled") rows = rows.filter((r) => r.status === "filled");
+  $("#rows").innerHTML = rows.length ? rows.map(rowHtml).join("") : `<p class="idle">Nothing changed since the last run.</p>`;
+  if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView();
+}
+
+document.addEventListener("click", async (e) => {
+  const f = e.target.closest("[data-f]");
+  if (f) { filter = f.dataset.f; try { localStorage.setItem("parity.filter", filter); } catch {} render(); return; }
+  const b = e.target.closest(".verdict button");
+  if (!b) return;
+  const box = b.closest(".verdict"), id = box.dataset.id;
+  const note = $("input", box).value.trim();
+  await save(id, b.dataset.v, note);
+});
+document.addEventListener("change", async (e) => {
+  const box = e.target.closest(".verdict");
+  if (!box || e.target.tagName !== "INPUT") return;
+  const id = box.dataset.id, v = verdicts[id];
+  await save(id, v?.verdict ?? "not right", e.target.value.trim());
+});
+
+async function save(id, verdict, note) {
+  const box = document.querySelector(`.verdict[data-id="${CSS.escape(id)}"]`);
+  const said = box && $(".saved", box);
+  if (!db) { if (said) said.textContent = "Can't save here: open the board signed in"; return; }
+  const doc = { verdict, note, at: new Date().toISOString() };
+  try {
+    await db.doc(`verdicts/${id}`).set(doc);
+    verdicts[id] = doc;
+    for (const btn of box.querySelectorAll("button")) btn.setAttribute("aria-pressed", String(btn.dataset.v === verdict));
+    if (said) said.textContent = "Saved";
+  } catch { if (said) said.textContent = "Not saved: try again"; }
+}
+
+fetch("board.json").then((r) => r.json()).then((b) => { board = b; render(); })
+  .catch(() => { $("#count").textContent = "The board's data didn't load"; });
+
+(async () => {
+  db = await window.claude?.use?.("db");
+  if (!db) return;
+  db.collection("verdicts").onSnapshot((snap) => {
+    verdicts = {};
+    for (const d of snap.docs) verdicts[d.id] = d.data();
+    render();
+  }, () => {});
+})();
+</script>
+</body>
+</html>

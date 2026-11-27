@@ -124,7 +124,7 @@ test("a pure wait on someone, a closed matter, a parked project or an open decis
   }
 });
 
-test("an agent working on it holds it; an agent waiting on him shows his move; a closed try or the desk off still shows it; Start only where an agent could take it", () => {
+test("an active agent working on it holds it; an agent waiting on him shows his move; a stopped agent, a closed try or the desk off still shows it; Start only where an agent could take it", () => {
   const held = { heldByAgents: [holdOn(WAIT.ref)] };
   expect(moves(held)).toEqual([]);
   const waits = moves({
@@ -134,6 +134,12 @@ test("an agent working on it holds it; an agent waiting on him shows his move; a
     ],
   });
   expect(waits.map(idsOf)).toEqual([["done", "not-now", "drop"]]);
+  // A stopped agent's open assignment can't work on it: his move shows, with no Start (it is still held).
+  expect(
+    moves({ heldByAgents: [holdOn(WAIT.ref, { status: "stopped" })] }).map(
+      idsOf
+    )
+  ).toEqual([["done", "not-now", "drop"]]);
   const closed = [holdOn(WAIT.ref, { closedAt: "2026-10-22T00:00:00Z" })];
   expect(moves({ heldByAgents: closed }).map(idsOf)).toEqual([
     ["done", "start", "not-now", "drop"],
@@ -153,7 +159,7 @@ test("an agent working on it holds it; an agent waiting on him shows his move; a
   ]);
 });
 
-test("its step due first is shown, due to the last instant of its own day; a date long past is no deadline; an appointment's place is a place need with its map links", () => {
+test("its step due first is shown, due to the last instant of its own day, a missed day first; an appointment's place is a place need with its map links", () => {
   const due = {
     ...OWN,
     ref: "obs_000000000084",
@@ -162,7 +168,7 @@ test("its step due first is shown, due to the last instant of its own day; a dat
   };
   const old = { ...OWN, ref: "obs_000000000085", when: "2026-09-01" };
   const [card] = moves({
-    matters: [{ ...MATTER, openSteps: [old, OWN, due, WAIT] }],
+    matters: [{ ...MATTER, openSteps: [OWN, due, WAIT] }],
     places: placesOf([{ observations: [due.ref], place: "Paint shop" }]),
   });
   expect(card?.question).toBe("Pay the paint shop");
@@ -177,9 +183,10 @@ test("its step due first is shown, due to the last instant of its own day; a dat
       name: "Paint shop",
     },
   ]);
-  // Only a date long past: no deadline, the newest step shown.
-  const [late] = moves({ matters: [{ ...MATTER, openSteps: [old, OWN] }] });
-  expect(late).toMatchObject({ deadline: null, question: OWN.text });
+  // A day long missed still asks, first, with its day as the deadline.
+  const [late] = moves({ matters: [{ ...MATTER, openSteps: [OWN, old] }] });
+  expect(late).toMatchObject({ subject: old.ref });
+  expect(localDate(late?.deadline ?? "")).toBe("2026-09-01");
   // An observation at two places has none; a place `redact` would hide part of is not shown at all.
   expect(
     placesOf([
@@ -193,96 +200,18 @@ test("its step due first is shown, due to the last instant of its own day; a dat
   expect(hidden?.needs).toEqual([]);
 });
 
-// Inbox audit of 22 Nov 2026: a card asked him to mark done a pitch call six days past, and a third of the cards were
-// steps read from no-reply notices and his agents' reports, or quiet for months. Such a step parks: no card for now, but
-// it is never ended or forgotten. It stays open on its matter, any newer step on the matter brings it back, and it comes
-// back by itself for 3 days ("Still on?") every 30 days. Made-up matters.
-const at = (day: string) => `${day}T09:00:00.000Z`;
-/** One matter whose steps are `steps`, the open ones those he owes, on `today`. */
-const parkedCards = (
-  today: string,
-  ...steps: (typeof OWN & { byMailer?: true; when?: string })[]
-) =>
-  moves({
-    matters: [
-      {
-        ...MATTER,
-        newestOpenStep: steps.at(-1) ?? OWN,
-        openSteps: steps,
-        steps,
-      },
-    ],
-    today,
-  });
-const dayStep = (n: number, day: string, over: object = {}) => ({
-  ...OWN,
-  at: at(day),
-  day,
-  ref: `obs_00000000007${n}`,
-  ...over,
-});
-
-test("can't be forgotten: a step dated more than 2 days ago parks, a newer step on its matter brings it back, and it comes back every 30 days", () => {
-  const call = dayStep(1, "2026-11-14", { when: "2026-11-16" });
-  // A deadline missed yesterday still asks; 3 days on, it parks.
-  expect(parkedCards("2026-11-17", call)).toHaveLength(1);
-  expect(parkedCards("2026-11-22", call)).toEqual([]);
-  // New evidence after its date: back, no longer due.
-  const later = dayStep(2, "2026-11-20", { kind: "waiting_on_someone" });
-  expect(parkedCards("2026-11-22", call, later)).toMatchObject([
-    { deadline: null, subject: call.ref },
-  ]);
-  // Parked since 19 Nov: back 16 to 18 Dec, asking "still on?", then parked again.
-  expect(parkedCards("2026-12-15", call)).toEqual([]);
-  expect(parkedCards("2026-12-16", call)).toMatchObject([
-    {
-      context: expect.stringContaining(
-        "Still on? Nothing new on it since 14 Nov."
-      ),
-    },
-  ]);
-  expect(parkedCards("2026-12-19", call)).toEqual([]);
-});
-
-test("can't be forgotten: a mailer's step parks from its day, comes back on a newer step and every 30 days", () => {
-  const bill = dayStep(3, "2026-11-10", { byMailer: true });
-  expect(parkedCards("2026-11-12", bill)).toEqual([]);
-  const reply = dayStep(4, "2026-11-11", { kind: "waiting_on_someone" });
-  expect(parkedCards("2026-11-12", bill, reply)).toHaveLength(1);
-  expect(parkedCards("2026-12-07", bill)).toHaveLength(1);
-  // Due ahead: never parked, it asks with its deadline.
-  expect(
-    parkedCards("2026-11-12", { ...bill, when: "2026-11-20" })
-  ).toMatchObject([{ deadline: expect.any(String) }]);
-});
-
-test("can't be forgotten: a step on a matter quiet more than 30 days parks; a new step or its review brings it back", () => {
-  const old = dayStep(5, "2026-10-01");
-  expect(parkedCards("2026-10-31", old)).toHaveLength(1);
-  expect(parkedCards("2026-11-01", old)).toEqual([]);
-  expect(parkedCards("2026-11-28", old)).toMatchObject([
-    {
-      context: expect.stringContaining(
-        "Still on? Nothing new on it since 1 Oct."
-      ),
-    },
-  ]);
-  expect(
-    parkedCards("2026-11-10", { ...old, when: "2026-11-11" })
-  ).toHaveLength(1);
-  const fresh = dayStep(6, "2026-11-05", { kind: "waiting_on_someone" });
-  expect(parkedCards("2026-11-10", old, fresh)).toHaveLength(1);
-});
-
-test("a to-do item open in his list makes no card (his list holds it); his own task beside it still does", () => {
-  const item = dayStep(7, "2026-11-15", {
+// A step of his stays asked until it ended or his word (his rule of 27 Nov 2026): its age, a missed day or its sender
+// never hides it; the walk over every path is `open-steps-asked.test.ts`. Made-up matters.
+test("a to-do item open in his list is his move, like his own task", () => {
+  const item = {
+    ...OWN,
     kind: "todo_item" as const,
-    ref: "rem_000000000001",
-  });
-  expect(parkedCards("2026-11-16", item)).toEqual([]);
+    ref: "entry_000000000001",
+    text: "Renew the bike papers",
+  };
   expect(
-    parkedCards("2026-11-16", item, dayStep(8, "2026-11-14"))
-  ).toMatchObject([{ subject: "obs_000000000078" }]);
+    moves({ matters: [{ ...MATTER, openSteps: [item], steps: [item] }] })
+  ).toMatchObject([{ question: item.text, subject: item.ref }]);
 });
 
 test("a card due today counts in deadlinesToday on its day", () => {

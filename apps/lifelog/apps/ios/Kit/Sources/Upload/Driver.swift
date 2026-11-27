@@ -118,7 +118,7 @@ public struct Driver: Sendable {
         }
         let mayUpload = unpulled == nil ? true : try await library.hasPulledWholeFeed()
         if let capture, mayUpload {
-            try await capture.uploader.run(savedThrough: savedThrough)
+            try await capture.uploader.run(savedThrough: savedThrough, savedPage: status.backlog?.value.savedPage)
             done("upload")
         }
         if let unpulled { throw unpulled }

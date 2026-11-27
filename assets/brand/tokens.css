@@ -44,7 +44,7 @@
   --text-line: 13.5px;
   --text-heading: 13px;
   --text-meta: 11.5px;
-  /* The aura's ten colours (docs/design/chat-first/2026-11-25-app-v4-design-system.md), each at least 3:1 on `bg`.
+  /* The aura's ten colours (docs/design/2026-11-23-chat-first/2026-11-25-app-v4-design-system.md), each at least 3:1 on `bg`.
      Never red or bright green: those mean `flag` and `ok`. Life blue is `ai`, cream is `fg`. */
   --aura-rose: light-dark(#a3345e, #ee8fb1);
   --aura-amber: light-dark(#8f5510, #f2ad5b);
