@@ -1,12 +1,14 @@
 import LifeConnector
 import SwiftUI
 
-/// Every voice to name, folded into one row ("Name 3 voices", the voice mark, never a face). Unfolded, one voice at a
-/// time: one short moment to read along, the one suggestion first, answers on one line; "Someone else" hands the name
+/// Every voice to name, folded into one row ("Name 3 voices", an empty face: no one yet). Unfolded, one voice at a
+/// time, "Who is this?": one short moment to read along (no duration, no count: his rules of 26 Nov 2026), the one suggestion first, answers on one line; "Someone else" hands the name
 /// to the Ask Life field and lists his people that match what he types (owner, 26 Nov 2026).
 struct VoicesRow: View {
     @Environment(LifeStore.self) private var life
     @Environment(\.calendar) private var calendar
+    /// Past the default text sizes the answers and names wrap, so no words are cut.
+    @Environment(\.dynamicTypeSize) private var typeSize
     @State private var isOpen = false
     @State private var clip = 0
 
@@ -18,10 +20,10 @@ struct VoicesRow: View {
     var body: some View {
         if let check = current {
             ThreadItemRow(
-                title: isOpen ? "Who is this voice?" : asks.count == 1 ? "Name one voice" : "Name \(asks.count) voices",
-                state: .needsYou, icon: .wave, line: isOpen ? heard(check) : "Voices from your conversations",
+                title: isOpen ? "Who is this?" : asks.count == 1 ? "Name one voice" : "Name \(asks.count) voices",
+                state: .needsYou, icon: .person, line: isOpen ? heard(check) : "Voices from your conversations",
                 isOpen: isOpen, ref: OpeningScreen.voices,
-                later: { Task { for ask in asks { await life.later(ask.ref) } } },
+                pill: RowPill(title: "Later", id: nil) { Task { for ask in asks { await life.later(ask.ref) } } },
                 toggle: {
                     Motion.animate { isOpen.toggle() }
                     if isOpen {
@@ -38,15 +40,14 @@ struct VoicesRow: View {
         }
     }
 
-    /// "Heard Tue at 14:20 · 3 times": when the newest moment was said, and how many conversations hold the voice.
+    /// "Heard Tue at 14:20": when the newest moment was said.
     private func heard(_ check: Check) -> String {
         let at = check.clips.compactMap(\.at).max()
         let day = at.map {
             calendar.isDate($0, inSameDayAs: life.now()) ? "today" : $0.formatted(.dateTime.weekday(.abbreviated))
         }
         let when = [day, at?.clock].compactMap(\.self).joined(separator: " at ")
-        let times = (check.conversations ?? 0) > 1 ? " · \(check.conversations ?? 0) times" : ""
-        return when.isEmpty ? "Heard" + times : "Heard " + when + times
+        return when.isEmpty ? "Heard" : "Heard " + when
     }
 
     @ViewBuilder private func detail(_ check: Check) -> some View {
@@ -67,12 +68,10 @@ struct VoicesRow: View {
         .motion(Motion.standard, value: isNaming).motion(Motion.standard, value: check.ref)
     }
 
-    /// "Clara Hart: named in 3 conversations · Undo" (Undo only while Life holds one for that answer).
+    /// "Clara Hart: named · Undo" (Undo only while Life holds one for that answer).
     private func lastLine(_ last: LifeStore.NamedVoice) -> some View {
-        let n = last.conversations ?? 0
-        let words = "\(last.who): named in \(max(n, 1)) conversation\(n > 1 ? "s" : "")"
-        return HStack(spacing: 0) {
-            Text(words).foregroundStyle(Palette.muted)
+        HStack(spacing: 0) {
+            Text("\(last.who): named").foregroundStyle(Palette.muted)
             if life.ask(last.ref)?.undoLine != nil {
                 Text(" · ").foregroundStyle(Palette.muted)
                 Button("Undo") { Task { await life.undo(last.ref) } }.foregroundStyle(Palette.fg)
@@ -82,20 +81,15 @@ struct VoicesRow: View {
         .font(.line)
     }
 
-    /// One moment in a tinted box: the clip, then its length and, with more clips, "Another moment".
+    /// One moment in a tinted box: the clip, then, with more clips, "Another moment".
     private func moment(_ check: Check) -> some View {
         let shown = check.clips[clip % check.clips.count].trimmed()
         return VStack(alignment: .leading, spacing: Metrics.Spacing.xs) {
             ReadAlong(clip: shown).id("\(check.ref)-\(clip)")
-            HStack(spacing: 0) {
-                if let length = shown.lengthText { Text(length) }
-                if check.clips.count > 1 {
-                    if shown.lengthText != nil { Text(" · ") }
-                    Button("Another moment") { clip += 1 }.fontWeight(.semibold).foregroundStyle(Palette.fg)
-                        .identified(AID.voicesAnother)
-                }
+            if check.clips.count > 1 {
+                Button("Another moment") { clip += 1 }.font(.line).fontWeight(.semibold).foregroundStyle(Palette.fg)
+                    .identified(AID.voicesAnother).padding(.leading, Metrics.tapTarget + Metrics.Spacing.m)
             }
-            .font(.line).foregroundStyle(Palette.muted).padding(.leading, Metrics.tapTarget + Metrics.Spacing.m)
         }
         .padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
         .background(Palette.tint, in: .rect(cornerRadius: 18))
@@ -137,13 +131,16 @@ struct VoicesRow: View {
     ) -> some View {
         let isFilled = kind == .filled
         return Button(action: action) {
-            Text(title).font(.heading).lineLimit(1).foregroundStyle(isFilled ? Palette.on : Palette.fg)
-                .padding(.horizontal, Metrics.Spacing.m).frame(
-                    maxWidth: isFull ? .infinity : nil, minHeight: isFull ? 48 : 44
-                )
-                .background(isFilled ? Palette.fg : Palette.tint, in: .capsule)
+            Text(title).font(.heading).lineLimit(typeSize > .large ? nil : 1).foregroundStyle(
+                isFilled ? Palette.on : Palette.fg
+            )
+            .padding(.horizontal, Metrics.Spacing.m).frame(
+                maxWidth: isFull ? .infinity : nil, minHeight: isFull ? 48 : 44
+            )
+            .background(isFilled ? Palette.fg : Palette.tint, in: .capsule)
         }
-        .buttonStyle(.plain).fixedSize(horizontal: !isFull, vertical: false).identified(AID.voicesAnswer(id))
+        .buttonStyle(.plain).fixedSize(horizontal: !isFull && typeSize <= .large, vertical: false)
+        .identified(AID.voicesAnswer(id))
     }
 
     private func startNaming(_ check: Check) {
@@ -189,7 +186,7 @@ struct VoicesRow: View {
         Button(action: pick) {
             HStack(spacing: Metrics.Spacing.m) {
                 face.frame(width: 36, height: 36).background(Palette.fg.opacity(Metrics.Opacity.wash), in: .circle)
-                Text(name).font(.bodyStrong).fontWeight(.semibold).lineLimit(1)
+                Text(name).font(.bodyStrong).fontWeight(.semibold).lineLimit(typeSize > .large ? nil : 1)
                 Spacer(minLength: 0)
                 if let note { Text(note).font(.line).foregroundStyle(Palette.muted) }
             }

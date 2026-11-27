@@ -46,6 +46,8 @@ extension Check.Draft {
         public let file: Recent.File?
         public let isMine: Bool
         public let sender: Sender?
+        /// When it was written: the time on its bubble.
+        public let at: Date
         /// The day it opens, only when it is not the day of the line before.
         public let newDay: Date?
     }
@@ -85,7 +87,7 @@ extension Check.Draft {
                 : nil
             return ChatLine(
                 text: message.text, file: message.file, isMine: message.sender.isOwner, sender: sender,
-                newDay: newDay)
+                at: message.at, newDay: newDay)
         }
     }
 

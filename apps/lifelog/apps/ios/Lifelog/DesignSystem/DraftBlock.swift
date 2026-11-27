@@ -88,7 +88,11 @@ struct DraftBlock: View {
                 if let file = line.file {
                     fileRow(file.name, size: file.size, glyph: file.kind.glyph)
                 }
-                if let text = line.text { Text(text) }
+                // Its words, its time at their last line's foot (the prototype's `.tm`).
+                HStack(alignment: .lastTextBaseline, spacing: Metrics.Spacing.s) {
+                    if let text = line.text { Text(text) }
+                    Text(line.at.clock).font(.meta).foregroundStyle(Palette.muted)
+                }
             }
             .font(.line).foregroundStyle(Palette.fg)
             .padding(.horizontal, 11).padding(.vertical, 7)
@@ -146,13 +150,12 @@ struct DraftBlock: View {
             topTrailingRadius: r)
     }
 
-    /// One message on its side, leaving the other side's room open as the platform does.
+    /// One message on its side, wrapping at about 80% of the strip's width (the prototype's `.cm`): 72% of the
+    /// thread's, the container SwiftUI measures from.
     private func side(isMine: Bool, @ViewBuilder _ content: () -> some View) -> some View {
-        HStack(spacing: 0) {
-            if isMine { Spacer(minLength: Metrics.Spacing.xxl) }
-            content()
-            if !isMine { Spacer(minLength: Metrics.Spacing.xxl) }
-        }
+        content().fixedSize(horizontal: false, vertical: true)
+            .containerRelativeFrame(.horizontal, alignment: isMine ? .trailing : .leading) { width, _ in width * 0.72 }
+            .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
     }
 
     // MARK: Mail
@@ -331,7 +334,7 @@ struct ChatLook {
         case "imessage":
             solid(
                 Palette.token(dark: 0x0b84ff, light: 0x0b84ff), shade: (0.18, 0.14),
-                bar: Palette.token(dark: 0xcfe6ff, light: 0xe6f2ff), radius: 18, tail: 6, isCaptionApart: true,
+                bar: Palette.token(dark: 0x64b0ff, light: 0x0b84ff), radius: 18, tail: 6, isCaptionApart: true,
                 app: "Messages")
         case "line":
             solid(

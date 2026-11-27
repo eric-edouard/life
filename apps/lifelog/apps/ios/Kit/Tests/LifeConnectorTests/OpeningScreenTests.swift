@@ -41,7 +41,7 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
         ],
         opening: ["d5", "d1", "d6", "d2", "d3", "d4"], state: { $0 == "d6" ? "later" : "needs_you" })
     #expect(page.owner == "Kit")
-    o.take(page)
+    o.take(page, at: .now)
     #expect(o.broken == ["fix:a", "fix:b"])
     // Life's order, an ask his Later holds left out.
     #expect(o.top == ["d5", "d1", "d2"] && o.more == ["d3", "d4"])
@@ -50,15 +50,19 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
 @Test func rowsKeepTheirPlaceWhileHeAnswersAndANewFixShowsAtOnce() throws {
     var o = OpeningScreen()
     o.came(at: t0)
-    o.take(try read([("d1", "decision"), ("d2", "decision")], opening: ["d1", "d2"]))
+    o.take(try read([("d1", "decision"), ("d2", "decision")], opening: ["d1", "d2"]), at: .now)
     // d1 answered: it leaves Life's opening, its row stays; LINE breaks meanwhile.
-    o.take(try read([("fix:line", "fix"), ("d1", "decision"), ("d2", "decision")], opening: ["d2"]))
+    o.take(try read([("fix:line", "fix"), ("d1", "decision"), ("d2", "decision")], opening: ["d2"]), at: .now)
     #expect(o.top == ["d1", "d2"] && o.broken == ["fix:line"])
+    // A new ask: Life brings it to the bottom, once.
+    o.take(try read([("d2", "decision"), ("d3", "decision")], opening: ["d2", "d3"]), at: t0)
+    o.take(try read([("d2", "decision"), ("d3", "decision")], opening: ["d2", "d3"]), at: t0)
+    #expect(o.brought == [.init(ref: "d3", at: t0)])
     // The next opening starts over from Life's read.
     o.left(at: t0 + minute)
     o.came(at: t0 + 7 * minute)
-    o.take(try read([("d2", "decision")], opening: ["d2"]))
-    #expect(o.top == ["d2"] && o.broken.isEmpty)
+    o.take(try read([("d2", "decision")], opening: ["d2"]), at: .now)
+    #expect(o.top == ["d2"] && o.broken.isEmpty && o.brought.isEmpty)
 }
 
 @Test func showEarlierBringsBackTheThreadADayAtATime() {
@@ -83,6 +87,6 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
 @Test func voicesFoldIntoOneRowAtTheEndOfTheRest() throws {
     var o = OpeningScreen()
     o.came(at: t0)
-    o.take(try read([("d1", "decision"), ("v1", "voice"), ("v2", "voice")], opening: ["d1"]))
+    o.take(try read([("d1", "decision"), ("v1", "voice"), ("v2", "voice")], opening: ["d1"]), at: .now)
     #expect(o.top == ["d1"] && o.more == [OpeningScreen.voices])
 }

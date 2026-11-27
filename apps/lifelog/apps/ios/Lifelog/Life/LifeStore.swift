@@ -42,13 +42,12 @@ final class LifeStore {
     /// The voice ask being named (the Ask Life field is where he types or says the name), and the words typed so far.
     var naming: String?
     var namingWords = ""
-    /// The voice he named last: the line above the next one ("Clara Hart: named in 3 conversations · Undo").
+    /// The voice he named last: the line above the next one ("Clara Hart: named · Undo").
     private(set) var namedVoice: NamedVoice?
 
     struct NamedVoice: Equatable {
         let ref: String
         let who: String
-        let conversations: Int?
     }
 
     /// The sign-in a fix card's tap asked for (`Check.Option.signsIn`): `RootView` opens its sheet and clears it.
@@ -437,7 +436,7 @@ final class LifeStore {
         guard let request else { return }
         naming = nil
         namingWords = ""
-        if let who { namedVoice = NamedVoice(ref: check.ref, who: who, conversations: check.conversations) }
+        if let who { namedVoice = NamedVoice(ref: check.ref, who: who) }
         await answer(request)
     }
 

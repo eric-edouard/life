@@ -221,13 +221,17 @@ struct ThreadItemRow<Detail: View>: View {
     var isOpen = false
     /// The ask's ref, when the row is a live ask: the end-to-end tests find its controls by it (`AID`).
     var ref: String?
-    /// Puts a task off without opening it; nil on a row that has no such tap.
-    var later: (() -> Void)?
+    /// The one tap beside the folded row (a task's Later, a send's Undo); nil on a row that has none.
+    var pill: RowPill?
+    /// The fold button once open; none on an ask Life brought to the bottom (the prototype's page).
+    var canFold = true
     let toggle: () -> Void
     @ViewBuilder var detail: Detail
     /// The disc grows with the text size, so a mark or an initial stays inside it.
     @ScaledMetric private var disc = Metrics.disc
     @ScaledMetric private var askDisc = Metrics.askDisc
+    @Environment(\.dynamicTypeSize) private var typeSize
+    private var isLargeText: Bool { typeSize > .large }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.s) {
@@ -238,10 +242,11 @@ struct ThreadItemRow<Detail: View>: View {
                         faceView
                         VStack(alignment: .leading, spacing: Metrics.Spacing.xs / 2) {
                             // Two lines at most on the row, ending "…" (the prototype's `rows2`); whole once open.
+                            // Past the default text sizes both wrap whole, so no words are cut.
                             Text(title).font(isOpen ? .header : .rowTitle).multilineTextAlignment(.leading)
-                                .lineLimit(isOpen ? nil : 2)
+                                .lineLimit(isOpen || isLargeText ? nil : 2)
                             // The line under it stays one line, ending "…".
-                            lineView.lineLimit(1)
+                            lineView.lineLimit(isLargeText ? nil : 1)
                         }
                         .fixedSize(horizontal: false, vertical: true)
                         // A long title wraps before the fold button, never under it.
@@ -256,17 +261,17 @@ struct ThreadItemRow<Detail: View>: View {
                     Color.clear.frame(width: 1, height: 1).accessibilityLabel("Goes when Life is back")
                         .accessibilityIdentifier(AID.askQueued(ref))
                 }
-                // A task's row puts it off in one tap, 32 high (the prototype's `.lt`).
-                if let later, !isOpen {
-                    Button("Later", action: later).font(.heading).foregroundStyle(Palette.muted)
+                // One tap beside the row, 32 high (the prototype's `.lt`).
+                if let pill, !isOpen {
+                    Button(pill.title, action: pill.tap).font(.heading).foregroundStyle(Palette.muted)
                         .padding(.horizontal, Metrics.Spacing.m).frame(minHeight: 32)
-                        .background(Palette.tint, in: .capsule).buttonStyle(.plain)
+                        .background(Palette.tint, in: .capsule).buttonStyle(.plain).identified(pill.id)
                 }
             }
             if isOpen { detail }
         }
         .overlay(alignment: .topTrailing) {
-            if isOpen {
+            if isOpen, canFold {
                 Button(action: toggle) {
                     Glyph(.fold, size: 16).foregroundStyle(Palette.muted)
                         .frame(width: Metrics.tapTarget * 0.7, height: Metrics.tapTarget * 0.7)
@@ -335,6 +340,13 @@ struct ThreadItemRow<Detail: View>: View {
             return Text("\(all)\(i > 0 ? Text(" · ") : Text(verbatim: ""))\(piece)")
         }
     }
+}
+
+/// The one tap beside a folded row: its words, its id for the end-to-end tests, what it does.
+struct RowPill {
+    let title: String
+    let id: String?
+    let tap: () -> Void
 }
 
 /// One quiet line over asks that were held (a meeting, a Focus, Sleep): "While you were in your meeting". Words only.

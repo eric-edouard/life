@@ -135,33 +135,15 @@ class FlowTest: XCTestCase {
         }
     }
 
-    /// The waiting list's draft: unfolded, shot at the draft, then sent and settled.
-    func sendTheListedDraft(shooting row: String) {
-        openWaiting()
-        // The ask is in the opening and, listed, at the bottom: the listed one unfolds.
-        let rows = app.buttons.matching(identifier: AID.askRow(Self.ask))
-        appears(rows.firstMatch, "the ask in the list")
-        let listed = rows.count > 1 ? rows.element(boundBy: 1) : rows.firstMatch
+    /// The draft Life brings once the screen is open (the scenario's step 1 adds it): it lands at the bottom unfolded,
+    /// shot at the draft, then sent in one tap and settled.
+    func sendTheBroughtDraft(shooting row: String) {
+        appears(field, "the thread")
+        step(1)
         let send = element(AID.askAnswer(Self.ask, "send"))
-        // Send, the unfolded ask's end, is brought to the lower half, above the field, so the whole ask is in view:
-        // the thread is read a short way at a time toward it; a fold on the way unfolds again.
-        let half = app.frame.midY
-        func reach() {
-            for _ in 0..<6 where !send.exists || !send.isHittable || send.frame.midY < half {
-                if !send.exists { unfold(listed, until: send) }
-                let isAbove = send.exists && send.frame.midY < half
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: isAbove ? 0.4 : 0.7)).press(
-                    forDuration: 0.1,
-                    thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: isAbove ? 0.6 : 0.5)))
-                Thread.sleep(forTimeInterval: 1)
-            }
-        }
-        reach()
-        XCTAssertTrue(send.exists, "Send")
+        appears(send, "the draft Life brought, unfolded")
         shoot(row)
-        reach()
-        send.tap()
-        taps += 1
+        tap(AID.askAnswer(Self.ask, "send"))
         appears(element(AID.askSettled(Self.ask)), "Settled")
     }
 
@@ -206,7 +188,9 @@ class FlowTest: XCTestCase {
         if let root = try? app.snapshot() { walk(root) }
         var audit: [String] = []
         try? app.performAccessibilityAudit { issue in
-            audit.append("\(issue.auditType): \(issue.compactDescription)")
+            // The element it is about, by its words, so the board says which text.
+            let on = issue.element.map { " (\($0.label.isEmpty ? $0.identifier : $0.label))" } ?? ""
+            audit.append("\(issue.auditType): \(issue.compactDescription)\(on)")
             return true  // recorded on the board, never a failed flow
         }
         let window = app.windows.firstMatch.frame
