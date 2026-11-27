@@ -21,6 +21,8 @@
   "scripts": {
     "bench": "bun scripts/bench.ts",
     "check": "bun scripts/check.ts",
+    "design": "bun run --cwd apps/design dev",
+    "design:deploy": "bun run --cwd apps/design deploy",
     "e2e:demo": "bun scripts/e2e-demo.ts",
     "e2e:phone": "bun scripts/e2e-phone.ts",
     "events": "bun apps/lifelog/scripts/events.ts",

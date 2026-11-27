@@ -1,15 +1,14 @@
 # Chat-first prototypes
 
 Explanation: the HTML prototypes of the chat-first app as they stood on 25 Nov 2026, copied from the owner's private
-artifacts so a new design session can open them, change them and publish them again. Every person, place, business and
-order in them is made up: the live artifacts use the owner's real questions, these copies do not. Keep it that way
+artifacts; these files are now the only source. Every person, place, business and order in them is made up. Keep it that way
 (`AGENTS.md`: nothing personal is committed here).
 
-| File | What it is | Its live artifact (private to the owner) |
-|---|---|---|
-| `2026-11-25-app-v4.html` | The interactive phone: the thread, the field, the edge, asks, profiles, answers to real questions, failures, notifications, and since 25 Nov (v4) long work handed off, redrafts, reactions, "How am I doing?", Undo after a send, settings in the thread, held asks and the spending stop. The side panel drives it. | [app v4](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF); before v4: [Life shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg) |
-| `2026-11-25-answer-components.html` | The answer components side by side (text, items, pictures, table, phrase, document, place) | [Answer components](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R) |
-| `2026-11-25-settings-board.html` | Settings: 9 proposals, not decided (below) | [Settings proposals](https://claude.ai/artifact/WajtHgFc6Z1PLE2izdBjzo) |
+| File | What it is |
+|---|---|
+| `2026-11-25-app-v4.html` | The interactive phone: the thread, the field, the edge, asks, profiles, answers to real questions, failures, notifications, and since 25 Nov (v4) long work handed off, redrafts, reactions, "How am I doing?", Undo after a send, settings in the thread, held asks and the spending stop. The side panel drives it. |
+| `2026-11-25-answer-components.html` | The answer components side by side (text, items, pictures, table, phrase, document, place) |
+| `2026-11-25-settings-board.html` | Settings: 9 proposals, not decided (below) |
 
 ## Read first
 
@@ -28,9 +27,9 @@ order in them is made up: the live artifacts use the owner's real questions, the
 
 ## Working on a prototype
 
-- Edit the file here, then render it with Playwright (Chromium is preinstalled) to check, and publish it as an artifact
-  for the owner to try on his phone. In the owner's own session, the live artifact may use his real data; never copy
-  that back here without replacing every name, place, business and number.
+- Edit the file here, check it in the designs app (`bun run design`, see [the index](../README.md)), and deploy it
+  (`bun run design:deploy`) for the owner to try on his phone. Never publish a copy elsewhere: these files are the
+  source. Every name, place, business and number in them stays made up.
 - The shell is one file: CSS first, then a script with the asks (`ASKS`), the questions he tries (`TRY`), the failures
   (`SYSD`) and the profiles (`PEOPLE`). Its side panel lists every scenario.
 
