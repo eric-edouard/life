@@ -206,6 +206,8 @@ enum ItemFace: Equatable {
     case network(String)
     /// The matter's icon (an SF Symbol), when no one is behind the ask.
     case symbol(String)
+    /// The matter's icon the prototype draws with its own mark (a place's pin, a bank).
+    case mark(Glyph.Mark)
 }
 
 /// One item of the thread as a bare row that unfolds: its round face, the title, a line under it that says how it
@@ -299,6 +301,7 @@ struct ThreadItemRow<Detail: View>: View {
             case .network(let network): NetworkMark(network: network, size: isOpen ? 24 : 22)
             case .symbol(let name):
                 Image(systemName: name).font(.system(size: isOpen ? 19 : 17)).foregroundStyle(Palette.muted)
+            case .mark(let mark): Glyph(mark, size: isOpen ? 22 : 20).foregroundStyle(Palette.muted)
             case nil: Glyph(icon, size: isOpen ? 22 : 20).foregroundStyle(Palette.muted)
             }
         }

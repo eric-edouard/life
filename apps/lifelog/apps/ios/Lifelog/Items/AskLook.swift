@@ -14,8 +14,6 @@ struct AskLook {
         if check.group == .voice { return has("is-them") }
         return [.samePerson, .contactsCard, .atOrganization, .ending, .newMatter].contains(check.group)
     }
-    /// An ask whose answer is one of two or more people, drawn as cards under its question (the prototype's "Which one?").
-    var isPersonPick: Bool { check.group != .voice && check.options.contains { $0.takes == .person } }
     var isLookedFor: Bool { check.isPaymentLookedFor && check.doneSeen?.state != .notFound }
 
     /// The row's title: the question a card of Life's puts, as a person's own sentence.
@@ -160,7 +158,7 @@ struct AskBody: View {
             }
         default:
             // An answer that takes a person: the people it may be, as cards in the thread.
-            if look.isPersonPick {
+            if check.options.contains(where: { $0.takes == .person }) {
                 if !check.question.isEmpty { Text(check.question).font(.bodyBold) }
                 PersonCards(people: Array(check.likelyPeople.prefix(3)), pick: pick)
             }
