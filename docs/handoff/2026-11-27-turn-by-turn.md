@@ -46,11 +46,18 @@ An investigation on 27 Nov 2026 found three things:
 
 The page answers each one. There is a "heard" notification as early as Life can hear the ask, every ask ends in a
 visible outcome (failures included), and timing is honest while the words are written down. Its "When it doesn't",
-"How it moves" and "Decisions for you" sections hold the details and the owner's four open decisions.
+"How it moves" and "Decided" sections hold the details.
+
+The owner decided on 27 Nov 2026:
+
+- A notification, replaced by the answer. A Live Activity is parked for later.
+- The answer is not read aloud.
+- No live listening: "hey Life" is found in the written words, which Life makes as fast as it can. The 33 minutes came
+  from something being offline, not from the normal path; the "heard late" state covers that case.
+- The pendant only: the owner's phone works differently and is not part of this flow.
 
 ## Still open
 
-- The owner's four "hey Life" decisions, listed at the end of the page.
 - What turn by turn must solve before it ships: the "What it loses" section of
   [the proposal](../design/2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md). The arrivals rule comes first.
 - The build order: the proposal's slices.
@@ -78,6 +85,5 @@ When you change a shared file, screenshot every state of every page that links i
 
 - Merged in [PR 1504](https://github.com/eric-edouard/life/pull/1504): the "hey Life" page, `2026-11-27-turns.css`,
   the shared CSS fix and this note.
-- Next, on the owner's word: the four "hey Life" decisions above, then the arrivals rule. Only after those comes the
-  first build slice in the app (`Thread/ThreadView.swift` and one mesh view).
+- Next: the arrivals rule (the owner's four "hey Life" decisions are made). Only after it comes the first build slice in the app (`Thread/ThreadView.swift` and one mesh view).
 - Nothing turn by turn is approved; the app is still built to app v4.
