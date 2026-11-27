@@ -27,13 +27,16 @@ test.skipIf(!(Bun.which("say") && Bun.which("ffmpeg")))(
 );
 
 test.skipIf(!Bun.which("ffmpeg"))(
-  "a file ffmpeg refuses (no audio it can read) is null, never asked again",
+  "a file with no audio (not media, or a video stream only) is null, never asked again",
   async () => {
     const dir = mkdtempSync(join(tmpdir(), "voice-note-"));
     try {
       const fake = join(dir, "note.m4a");
       await Bun.write(fake, "not audio at all");
       expect(await toOggOpus(fake, "audio/mp4")).toBeNull();
+      const video = join(dir, "video.m4a");
+      await Bun.$`ffmpeg -loglevel error -f lavfi -i color=s=32x32:d=1 -c:v mpeg4 -f mp4 ${video}`.quiet();
+      expect(await toOggOpus(video, "audio/mp4")).toBeNull();
     } finally {
       rmSync(dir, { force: true, recursive: true });
     }
