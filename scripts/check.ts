@@ -12,6 +12,7 @@ await hold("check", process.cwd(), 5000);
 const lifelog = "apps/lifelog";
 const ios = `${lifelog}/apps/ios`;
 const mac = `${lifelog}/apps/mac-quiet`;
+const lifeMac = "apps/mac";
 
 // The gate builds Debug only, and install:phone builds Release, so a preview using a DEBUG-only
 // helper (`.previewProcessing()`, `.preview()`) breaks the phone install. Every #Preview sits
@@ -85,7 +86,7 @@ const steps: Record<string, string[]> = {
   ],
 };
 
-// The phone and the Mac helper (Lifelog Host) build on a Mac only, and only when a branch touches them or what they
+// The phone, the Mac helper (Lifelog Host) and Life.app build on a Mac only, and only when a branch touches them or what they
 // read; otherwise the gate says it skipped them. The Android app is parked: its own gradle build, outside the gate.
 const macSteps: Record<string, string[]> = {
   "debug previews": [
@@ -95,6 +96,12 @@ const macSteps: Record<string, string[]> = {
   ],
   // The rows green on the Mac's last parity board still pass their flows (scripts/parity.ts).
   "parity gate": ["bun", "scripts/parity.ts", "--gate"],
+  // Life.app's Swift (Sparkle fetched first, as `scripts/app.ts` does).
+  "swift build life": [
+    "sh",
+    "-c",
+    `bun scripts/app.ts --sparkle && swift build --package-path ${lifeMac} --scratch-path .build/life-mac --quiet`,
+  ],
   "swift format": [
     "swift",
     "format",
@@ -104,6 +111,7 @@ const macSteps: Record<string, string[]> = {
     "--parallel",
     ios,
     mac,
+    lifeMac,
   ],
   "swift test": [
     "swift",
@@ -129,9 +137,9 @@ const macSteps: Record<string, string[]> = {
     `cd '${ios}' && xcodegen generate --quiet && xcodebuild -project Lifelog.xcodeproj -scheme Lifelog -destination 'generic/platform=iOS Simulator' -derivedDataPath '${process.cwd()}/.build/DerivedData' -quiet build CODE_SIGNING_ALLOWED=NO`,
   ],
 };
-// The phone's and the helper's Swift, and what they read from the server (its wire fixtures and openapi.json).
+// The phone's, the helper's and Life.app's Swift, and what they read from the server (its wire fixtures and openapi.json).
 const SWIFT =
-  /^apps\/lifelog\/(apps\/ios|apps\/mac-quiet|fixtures|apps\/server\/openapi\.json)/;
+  /^apps\/(mac\/|lifelog\/(apps\/ios|apps\/mac-quiet|fixtures|apps\/server\/openapi\.json))/;
 // And every server file the phone's tests read by path (ContractTests' mirrored enums): a change there can break them.
 const testReads = new Set(
   Array.from(new Bun.Glob(`${ios}/Kit/Tests/**/*.swift`).scanSync())
@@ -180,7 +188,13 @@ if (passed) {
 } else if (swift) {
   // The two swift tests, xcodebuild and the parity gate's simulators each take every core: one after another, so they
   // and the server tests are not all starved at once (load 188 with 0% idle at a landing, 21 Nov).
-  const SERIAL = ["swift test", "swift test mac", "xcodebuild", "parity gate"];
+  const SERIAL = [
+    "swift test",
+    "swift test mac",
+    "swift build life",
+    "xcodebuild",
+    "parity gate",
+  ];
   const quoted = (cmd: string[]) =>
     cmd.map((a) => `'${a.replaceAll("'", "'\\''")}'`).join(" ");
   for (const [name, cmd] of Object.entries(macSteps)) {
