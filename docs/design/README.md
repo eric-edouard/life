@@ -30,12 +30,16 @@ is baked into it.
 
 ## Design system
 
-Drawn from `assets/brand/tokens.css`, with the notes and catalogs built on it.
+Three pages the designs app draws itself, never copies:
 
-| Design | What it is |
-|---|---|
-| [Answers](2026-11-23-chat-first/2026-11-25-answer-components.html) | Every kind of answer the app can give, as its blocks |
-| [Design system notes](2026-11-23-chat-first/2026-11-25-app-v4-design-system.md) | The parts, sizes and motion of app v4 |
+- **Brand:** every value of [`tokens.css`](../../assets/brand/tokens.css) and the mark, with the rules of
+  [`docs/brand.md`](../brand.md) and the [app v4 notes](2026-11-23-chat-first/2026-11-25-app-v4-design-system.md).
+- **Glow:** the edge round every screen, live in each of its states.
+- **Components:** every component of the approved prototype, live, its variations side by side, the
+  [Answers](2026-11-23-chat-first/2026-11-25-answer-components.html) among them. The list is
+  [`components.json`](components.json): each variation's scene, the part it draws, its parity board row and its status.
+  "In the app" is never typed: it shows while that row is green. Every side-panel scene is a variation's or in its
+  `leftOut` with why, so the board and the list cover the same scenes (`components.test.ts` checks).
 
 ## Philosophy and guidelines
 

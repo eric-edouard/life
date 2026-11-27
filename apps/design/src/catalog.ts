@@ -73,3 +73,16 @@ export const filesIn = (paths: string[], folder: string) =>
   paths.filter((p) => p.startsWith(folder));
 
 export const urlOf = (path: string) => `/${ROOT}${path}`;
+
+/** A variation of a component in docs/design/components.json. */
+export interface Variation {
+  name: string;
+  on?: string;
+  /** Another design page to draw instead of the prototype. */
+  page?: string;
+  /** The part of the phone it draws, the latest match; none: the whole phone. */
+  part?: string;
+  row: string | null;
+  scene?: string[];
+  status: string;
+}
