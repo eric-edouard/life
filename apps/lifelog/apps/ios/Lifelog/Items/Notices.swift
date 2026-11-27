@@ -20,7 +20,8 @@ struct Notices: View {
                     title: title, message: line, mark: mark, isOpen: true, id: AID.noticeOutOfReach
                 ) {
                     LiveSettingsBlock(
-                        keys: life.isOffline ? ["faceid", "appear"] : ["faceid", "appear", "pair"], openSettings: openSettings)
+                        keys: life.isOffline ? ["faceid", "appear"] : ["faceid", "appear", "pair"],
+                        openSettings: openSettings)
                 }
                 .transition(Motion.appears)
                 .onAppear { was = (title, mark) }

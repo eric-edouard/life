@@ -195,7 +195,9 @@ struct AskCard: View {
                 }
             }
             // Why it asks, Markdown (a guess's quoted words and where they were said): the prototype's `.why`.
-            if let why, look?.isPersonPick != true { MarkdownView(text: why).font(.line).foregroundStyle(Palette.muted) }
+            if let why, look?.isPersonPick != true {
+                MarkdownView(text: why).font(.line).foregroundStyle(Palette.muted)
+            }
             if let amounts { Text(amounts).font(.meta).foregroundStyle(Palette.faint) }
             if let check, let draft = DraftBlock(check: check, isBoxed: false) {
                 draft

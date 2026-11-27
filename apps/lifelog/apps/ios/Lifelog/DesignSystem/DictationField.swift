@@ -119,7 +119,11 @@ struct DictationField: View {
                 }
                 Group {
                     // At rest the field sits in the row, one line like the prototype's idle capsule, growing up to 5.
-                    if dictation.phase == .rest { field.lineLimit(1...5) } else { DictationStream(dictation: dictation) }
+                    if dictation.phase == .rest {
+                        field.lineLimit(1...5)
+                    } else {
+                        DictationStream(dictation: dictation)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if let stop {
