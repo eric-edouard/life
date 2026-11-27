@@ -111,7 +111,9 @@ case "create":
   e.availability = .free
   e.isAllDay = named["all-day"] != nil
   let parse = { (s: String) in instant(s) ?? isoDay.date(from: String(s.prefix(10))) }
-  guard let start = parse(named["from"] ?? ""), let end = parse(named["to"] ?? "") else { fail("from and to are dates") }
+  guard let start = parse(named["from"] ?? ""), let end = parse(named["to"] ?? "") else {
+    fail("from and to are dates")
+  }
   e.startDate = start
   // Life's all-day end is the day after (exclusive); EventKit's is the last day itself.
   e.endDate = e.isAllDay ? end.addingTimeInterval(-1) : end

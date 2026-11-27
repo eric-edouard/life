@@ -1,4 +1,5 @@
 import AppKit
+import CoreImage.CIFilterBuiltins
 import SwiftUI
 
 /// The menu-bar panel under Life's L: how Life stands at a glance (the parts in trouble, the night, the memory, the
@@ -7,7 +8,8 @@ struct Panel: View {
   let supervisor: Supervisor
   let openSettings: () -> Void
   let openStatus: () -> Void
-  @State private var code: String?
+  /// Life's pair link (`life pair --link`): Life's origin and a code, with voice's address and the phone's token.
+  @State private var link: URL?
 
   /// The parts the panel shows at a glance, when the status snapshot has them.
   private static let glance = ["nightly", "memory", "engine"]
@@ -17,9 +19,11 @@ struct Panel: View {
       if supervisor.info?.started == true {
         header
         if let snapshot = supervisor.snapshot {
-          rows(snapshot.troubled + Self.glance.compactMap { id in
-            snapshot.cards.first { $0.id == id && !snapshot.trouble.contains(id) }
-          })
+          rows(
+            snapshot.troubled
+              + Self.glance.compactMap { id in
+                snapshot.cards.first { $0.id == id && !snapshot.trouble.contains(id) }
+              })
           VStack(alignment: .leading, spacing: 8) {
             Text("24 h").label()
             DayStrip(ticks: snapshot.today, now: snapshot.observedAt, height: 26)
@@ -91,7 +95,10 @@ struct Panel: View {
             .background(Brand.ink, in: .rect(cornerRadius: Brand.control)).foregroundStyle(Brand.ground)
         }
         Button {
-          Task { code = await Helper.run(["pair"]).out.trimmingCharacters(in: .whitespacesAndNewlines) }
+          Task {
+            link = URL(
+              string: await Helper.run(["pair", "--link"]).out.trimmingCharacters(in: .whitespacesAndNewlines))
+          }
         } label: {
           Text("Pair an app").frame(maxWidth: .infinity).padding(.vertical, 9)
             .background(Brand.card, in: .rect(cornerRadius: Brand.control))
@@ -99,7 +106,15 @@ struct Panel: View {
       }
       .buttonStyle(.plain)
       .font(Brand.serif(13.5, .semibold))
-      if let code {
+      if let link,
+        let code = URLComponents(url: link, resolvingAgainstBaseURL: false)?
+          .queryItems?.first(where: { $0.name == "code" })?.value
+      {
+        // The iPhone's Camera opens the link (one scan pairs Life and voice); an app on a computer takes the code.
+        if let qr = qrCode(link.absoluteString) {
+          Image(nsImage: qr).interpolation(.none).resizable().frame(width: 180, height: 180)
+            .frame(maxWidth: .infinity)
+        }
         HStack {
           Text(code).font(Brand.mono(13, .medium)).textSelection(.enabled)
           Spacer()
@@ -128,6 +143,17 @@ struct Panel: View {
     .padding(6)
     .overlay(alignment: .top) { Rectangle().fill(Brand.rule).frame(height: 1) }
   }
+}
+
+/// `text` as a QR code, its modules whole pixels.
+private func qrCode(_ text: String) -> NSImage? {
+  let filter = CIFilter.qrCodeGenerator()
+  filter.message = Data(text.utf8)
+  guard let output = filter.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)) else { return nil }
+  let rep = NSCIImageRep(ciImage: output)
+  let image = NSImage(size: rep.size)
+  image.addRepresentation(rep)
+  return image
 }
 
 /// A menu item in the panel: highlighted under the pointer, like a menu's.

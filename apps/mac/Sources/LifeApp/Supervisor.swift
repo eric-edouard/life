@@ -41,6 +41,10 @@ final class Supervisor {
     guard info?.started == true else { return }
     if services.isEmpty {
       for args in kept { keep(args) }
+      // Voice's launchd jobs as the settings now say (`life voice start`): at launch and after every change. They
+      // outlive the app; a job whose launch is unchanged is left running. Not awaited: nothing above may wait (two
+      // starts at once would keep two watchers).
+      Task { _ = await Helper.run(["voice", "start"]) }
     }
     if timer == nil {
       tick()

@@ -84,7 +84,8 @@ struct SettingsView: View {
   @State private var name = ""
   @State private var email = ""
   /// The language his memory is written in (`memoryLanguage`): the Mac's own, named in English, until he changes it.
-  @State private var language = Locale(identifier: "en")
+  @State private var language =
+    Locale(identifier: "en")
     .localizedString(forLanguageCode: Locale.current.language.languageCode?.identifier ?? "en") ?? "English"
   @State private var engine = "claude"
   @State private var keys: [String: String] = [:]
@@ -94,8 +95,6 @@ struct SettingsView: View {
   @State private var personal: [String: Any] = [:]
   /// remctl's download and installer, or an import, are under way: the controls they touch wait.
   @State private var installing = false
-  @State private var lifelogURL = ""
-  @State private var lifelogToken = ""
   @State private var origin = ""
   @State private var status = ""
   @State private var loginItem = SMAppService.mainApp.status == .enabled
@@ -142,7 +141,8 @@ struct SettingsView: View {
             ForEach(skillKeyNames, id: \.self) { name in
               SecureField(name, text: Binding(get: { keys[name] ?? "" }, set: { keys[name] = $0 }))
             }
-            Text("Your agents may ask to run Apify's paid scrapers, with the cost; nothing runs without your yes.").caption()
+            Text("Your agents may ask to run Apify's paid scrapers, with the cost; nothing runs without your yes.")
+              .caption()
           }
         }
         Section("Sources") {
@@ -158,13 +158,13 @@ struct SettingsView: View {
           }
           if sources.contains(where: { $0.on && $0.fullDisk }) {
             Button("Open Full Disk Access") {
-              NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
+              NSWorkspace.shared.open(
+                URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
             }
             Text("Turn Life on there, then come back: it checks again.").caption()
           }
-          TextField("lifelog address", text: $lifelogURL)
-          SecureField("lifelog token", text: $lifelogToken)
         }
+        VoiceSettings()
         if supervisor.info?.todoList == "google" {
           // Google Tasks is the backend (set in his settings): shown on, never switched from here.
           Section("Actions") {
@@ -173,28 +173,35 @@ struct SettingsView: View {
           }
         } else if let r = supervisor.info?.reminders {
           Section("Reminders") {
-            Toggle("Use your Reminders", isOn: Binding(
-              get: { r.on },
-              set: { on in Task { await setReminders(on, r) } }
-            ))
+            Toggle(
+              "Use your Reminders",
+              isOn: Binding(
+                get: { r.on },
+                set: { on in Task { await setReminders(on, r) } }
+              )
+            )
             .disabled(installing)
             if r.on, !r.ready {
               // An update of Life moved the pin: remctl is behind (or gone) while Reminders is on.
               Button("Install remctl \(r.release.version)") { Task { await installRemctl(r) } }
                 .disabled(installing)
             }
-            Text(r.ready
-              ? "Life adds reminders when you ask and reads your changes back."
-              : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer.")
-              .caption()
+            Text(
+              r.ready
+                ? "Life adds reminders when you ask and reads your changes back."
+                : "Life uses remctl for Reminders: this installs remctl \(r.release.version) with its own installer."
+            )
+            .caption()
           }
         }
         Section("About you and the people close to you") {
           ForEach(AddOn.all, id: \.key) { a in
-            Toggle(a.title, isOn: Binding(
-              get: { personal[a.key] != nil },
-              set: { on in Task { await setAddOn(a.key, on) } }
-            ))
+            Toggle(
+              a.title,
+              isOn: Binding(
+                get: { personal[a.key] != nil },
+                set: { on in Task { await setAddOn(a.key, on) } }
+              ))
             Text(a.caption).caption()
           }
         }
@@ -247,9 +254,7 @@ struct SettingsView: View {
     let settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
     engine = settings["engine"] as? String ?? "claude"
     personal = settings["personal"] as? [String: Any] ?? [:]
-    lifelogURL = (settings["lifelog"] as? [String: Any])?["url"] as? String ?? ""
     origin = (settings["connector"] as? [String: Any])?["origin"] as? String ?? ""
-    lifelogToken = Keychain.read("LIFELOG_TOKEN") ?? ""
     readKeys()
   }
 
@@ -258,8 +263,11 @@ struct SettingsView: View {
   }
 
   private func start() async {
-    if !firstKey.isEmpty { Keychain.write(supervisor.info?.engineKeys["openrouter"]?.first ?? "OPENROUTER_API_KEY", firstKey) }
-    let r = await Helper.run(["init", "--name", name, "--language", language] + (email.isEmpty ? [] : ["--email", email]))
+    if !firstKey.isEmpty {
+      Keychain.write(supervisor.info?.engineKeys["openrouter"]?.first ?? "OPENROUTER_API_KEY", firstKey)
+    }
+    let r = await Helper.run(
+      ["init", "--name", name, "--language", language] + (email.isEmpty ? [] : ["--email", email]))
     status = r.code == 0 ? "Life is set up." : r.err
     await supervisor.start()
     await load()
@@ -277,10 +285,7 @@ struct SettingsView: View {
     for name in keyNames + skillKeyNames {
       Keychain.write(name, keys[name] ?? "")
     }
-    Keychain.write("LIFELOG_TOKEN", lifelogToken)
-    var parts: [String: Any] = ["engine": engine]
-    if !lifelogURL.isEmpty { parts["lifelog"] = ["url": lifelogURL] }
-    await set(parts)
+    await set(["engine": engine])
     await supervisor.restart()
   }
 
@@ -304,7 +309,8 @@ struct SettingsView: View {
       next.removeValue(forKey: key)
     } else if next[key] == nil {
       let from = Calendar.current.date(byAdding: .year, value: -AddOn.historiesYearsBack, to: Date()) ?? Date()
-      next[key] = key == "histories" ? ["from": String(from.formatted(.iso8601.year().month()).prefix(7))] : [String: Any]()
+      next[key] =
+        key == "histories" ? ["from": String(from.formatted(.iso8601.year().month()).prefix(7))] : [String: Any]()
     }
     guard await set(["personal": next.isEmpty ? NSNull() : next]) else { return }
     personal = next

@@ -25,6 +25,8 @@ enum Helper {
     env["LIFE_EVENTKIT"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-eventkit").path
     env["LIFE_FOUNDATION_MODEL"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-foundation-model").path
     env["LIFE_LLAMA_SERVER"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/llama/llama-server").path
+    // The commit the app was built from (`scripts/app.ts`): voice's server reports its errors under it.
+    env["LIFE_BUILD"] = Bundle.main.object(forInfoDictionaryKey: "LifeCommit") as? String
     env.merge(Keychain.all()) { _, kept in kept }
     return env
   }
@@ -38,15 +40,22 @@ enum Helper {
     return p
   }
 
-  /// One command to its end: its exit code, what it printed (JSON for the app's reads) and its errors apart.
-  static func run(_ args: [String]) async -> (code: Int32, out: String, err: String) {
+  /// One command to its end: its exit code, what it printed (JSON for the app's reads) and its errors apart. `input`
+  /// goes to its stdin (a key, never an argument other processes could list).
+  static func run(_ args: [String], input: String? = nil) async -> (code: Int32, out: String, err: String) {
     try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
     let p = process(args)
     let out = Pipe()
     let err = Pipe()
     p.standardOutput = out
     p.standardError = err
+    let stdin = Pipe()
+    if input != nil { p.standardInput = stdin }
     do { try p.run() } catch { return (-1, "", error.localizedDescription) }
+    if let input {
+      stdin.fileHandleForWriting.write(Data(input.utf8))
+      try? stdin.fileHandleForWriting.close()
+    }
     async let o = Task.detached { out.fileHandleForReading.readDataToEndOfFile() }.value
     async let e = Task.detached { err.fileHandleForReading.readDataToEndOfFile() }.value
     let (od, ed) = await (o, e)

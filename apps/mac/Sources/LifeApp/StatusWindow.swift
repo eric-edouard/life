@@ -92,8 +92,11 @@ struct StatusWindow: View {
 
   private func column(_ group: StatusSnapshot.Group, _ cards: [Card], trouble: [String]) -> some View {
     let open = unfolded.contains(group.id)
-    let visible = open ? cards : cards.enumerated().filter { $0.offset < Self.shown || trouble.contains($0.element.id) }
-      .map(\.element)
+    let visible =
+      open
+      ? cards
+      : cards.enumerated().filter { $0.offset < Self.shown || trouble.contains($0.element.id) }
+        .map(\.element)
     return VStack(alignment: .leading, spacing: 8) {
       HStack {
         Text(group.name).label()
