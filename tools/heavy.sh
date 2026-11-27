@@ -7,6 +7,9 @@
 # HEAVY_LANE=release: an owner-facing build (Life.app, the phone install); it starts at once and queued jobs wait for it (its lock holds its pid; a dead holder blocks no one).
 # HEAVY_LANE=light: a job under a minute (one test file, one tsc): its own lane, no load wait, one at a time.
 # The locks are shared by every session's builders.
+# A job already inside a slot (HEAVY_HELD) runs at once: waiting would deadlock on its own parent's lock (28 Nov: a
+# build-and-swap wrapped in heavy.sh waited 35 minutes on the release lock it held, and every push queued behind it).
+[ -n "${HEAVY_HELD:-}" ] && exec "$@"
 D=${LIFE_TOOLS_STATE:-/private/tmp/life-tools}
 Q="$D/queue"; mkdir -p "$Q"
 # Swift and Xcode compile on every core, so they are never light, even with a test filter.
