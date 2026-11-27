@@ -20,7 +20,7 @@ struct LiveSettingsBlock: View {
     var body: some View {
         SettingsBlock {
             ForEach(Array(shown.enumerated()), id: \.element) { index, key in
-                if index > 0 { Rectangle().fill(Palette.tint).frame(height: 1) }
+                if index > 0 { Hairline() }
                 row(key)
             }
             if let offer {
@@ -41,16 +41,8 @@ struct LiveSettingsBlock: View {
         case "aura":
             AuraBlock()
         default:
-            Button(action: openSettings) {
-                HStack(spacing: Metrics.Spacing.m) {
-                    Text("Pair again with your Mac").font(.rowTitle)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.forward").font(.system(size: 14, weight: .semibold))
-                        .frame(width: 36, height: 36).background(Palette.tint, in: .circle)
-                }
-                .frame(minHeight: Metrics.tapTarget + Metrics.Spacing.s).contentShape(.rect)
-            }
-            .buttonStyle(.plain).foregroundStyle(Palette.fg)
+            Button(action: openSettings) { Row(title: "Pair again with your Mac") { RowValue(isRound: true) } }
+                .buttonStyle(.plain)
         }
     }
 
