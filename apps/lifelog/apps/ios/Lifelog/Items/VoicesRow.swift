@@ -131,11 +131,13 @@ struct VoicesRow: View {
     ) -> some View {
         let isFilled = kind == .filled
         return Button(action: action) {
-            Text(title).font(.heading).lineLimit(typeSize > .large ? nil : 1).foregroundStyle(isFilled ? Palette.on : Palette.fg)
-                .padding(.horizontal, Metrics.Spacing.m).frame(
-                    maxWidth: isFull ? .infinity : nil, minHeight: isFull ? 48 : 44
-                )
-                .background(isFilled ? Palette.fg : Palette.tint, in: .capsule)
+            Text(title).font(.heading).lineLimit(typeSize > .large ? nil : 1).foregroundStyle(
+                isFilled ? Palette.on : Palette.fg
+            )
+            .padding(.horizontal, Metrics.Spacing.m).frame(
+                maxWidth: isFull ? .infinity : nil, minHeight: isFull ? 48 : 44
+            )
+            .background(isFilled ? Palette.fg : Palette.tint, in: .capsule)
         }
         .buttonStyle(.plain).fixedSize(horizontal: !isFull && typeSize <= .large, vertical: false)
         .identified(AID.voicesAnswer(id))

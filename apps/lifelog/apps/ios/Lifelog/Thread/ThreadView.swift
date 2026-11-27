@@ -104,7 +104,8 @@ struct ThreadView: View {
     @ViewBuilder private func broughtRows(after: Date?, upTo: Date?) -> some View {
         let newest = opening.brought.last?.ref
         ForEach(
-            opening.brought.filter { b in after.map { b.at >= $0 } ?? true && upTo.map { b.at < $0 } ?? true }, id: \.ref
+            opening.brought.filter { b in after.map { b.at >= $0 } ?? true && upTo.map { b.at < $0 } ?? true },
+            id: \.ref
         ) { b in
             if let ask = life.ask(b.ref) {
                 ItemRow(ask: ask, startsOpen: b.ref == newest, isBrought: true).appears(Motion.arrives)
