@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hey Life, turn by turn</title>
-<!-- A proposal (27 Nov 2026), not approved: "hey Life" from the owner's seat, in the turn by turn direction
+<!-- A proposal (27 Nov 2026), not approved; the owner's four decisions of 27 Nov are on it: "hey Life" from the owner's seat, in the turn by turn direction
      (2026-11-27-v5-turns.html). Every state and how it moves into the next. Made-up data. Design only. -->
 <link rel="stylesheet" href="../../../assets/brand/tokens.css">
 <link rel="stylesheet" href="2026-11-27-turns.css">
@@ -61,7 +61,7 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 <body>
 <div class="page">
 <h1>Hey Life, turn by turn</h1>
-<p class="lead">A proposal, not approved. You say <b>“hey Life”</b> and your ask to the pendant or the phone. Your phone tells you it was heard. A tap opens the app on that ask, as your turn, and Life answers it there. Made-up people.</p>
+<p class="lead">A proposal, not approved. You say <b>“hey Life”</b> and your ask to your pendant. Your phone tells you it was heard. A tap opens the app on that ask, as your turn, and Life answers it there. Made-up people.</p>
 
 <h2 class="sec">When it works</h2>
 <div class="grid" id="ok"></div>
@@ -71,7 +71,7 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 
 <h2 class="sec">How it moves</h2>
 <ol class="txt">
-<li><b>Heard:</b> the notification comes in as soon as Life hears the ask: within seconds once “hey Life” is heard live, later today (see Honest timing). It quotes your ask, so you know it was heard right.</li>
+<li><b>Heard:</b> the notification comes in as soon as your words are written down and Life finds the ask in them. It quotes your ask, so you know it was heard right.</li>
 <li><b>One notification, never two:</b> when the answer is ready, the same notification is replaced by the answer’s first line. Not tapped, it is still one item on your lock screen.</li>
 <li><b>The tap:</b> the app opens straight on your turn: your words, centred, with where you said them (“To your pendant · 14:02”). Nothing from before shows; the last turns are one scroll up.</li>
 <li><b>Life working:</b> the light gathers in the centre under your words, and one line says what Life is reading (“Reading your chat with Jade”). The line changes in place, a cross-fade, never a list.</li>
@@ -80,7 +80,7 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 <li><b>Not heard right:</b> what was caught shows as your turn, the unclear part faded, with Say it again first and Type it beside it. Your words are never guessed.</li>
 <li><b>Offline:</b> your ask is kept, never lost and never to be repeated. It shows as your turn with “Waiting for your Mac”, the edge goes still, and Life answers on its own when the Mac is back.</li>
 <li><b>Every ask ends somewhere you can see:</b> answered, done, or couldn’t, with why and what next. Silence is never an outcome.</li>
-<li><b>Honest timing:</b> “heard” comes as early as Life can hear it. Today that is when your words are written down, which can take half an hour, so the notification and your turn say when you said it. Until then, the app says it is still writing down, never that it is working on your ask.</li>
+<li><b>Honest timing:</b> “heard” comes as early as Life can hear it. That is when your words are written down: usually soon, much later when something was offline, and then the notification and your turn say when you said it. Until then, the app says it is still writing down, never that it is working on your ask.</li>
 <li>Under Reduce Motion every step is a cross-fade.</li>
 </ol>
 
@@ -90,12 +90,12 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 <div class="play"><button type="button" id="play">Say “hey Life”</button><button type="button" id="again">Start again</button></div>
 </div>
 
-<h2 class="sec">Decisions for you</h2>
+<h2 class="sec">Decided</h2>
 <ol class="txt">
-<li><b>A notification, or a Live Activity?</b> Drawn as one notification replaced by the answer. A Live Activity would show Life working on the lock screen too, with the line that changes; it costs more to build and stays on screen until the answer.</li>
-<li><b>Answer read aloud?</b> When you asked by voice with the phone locked, Life could read the answer’s first line through your earphones. Drawn without it.</li>
-<li><b>Hear “hey Life” live?</b> Today Life finds it in the written words, minutes after you spoke. Hearing it live (the pendant or the phone listening for it) would make “heard” come within seconds; it is a build of its own.</li>
-<li><b>From the phone too?</b> Drawn for the pendant, and the phone’s own “hey Life” the same way, with “To your phone” under your words.</li>
+<li><b>A notification.</b> One notification, replaced by the answer. A Live Activity is parked for later.</li>
+<li><b>Not read aloud.</b> The answer is only shown.</li>
+<li><b>No live listening.</b> “Hey Life” is found in your written words, which Life makes as fast as it can. The 33 minutes seen on 27 Nov came from something being offline; the heard late state is for that case.</li>
+<li><b>The pendant only.</b> The phone works differently and is not part of this flow.</li>
 </ol>
 </div>
 
@@ -152,8 +152,8 @@ var KO=[
  ['8','Slow','Still working after about 20 seconds.',F.slow,['The line says you can leave. Nothing else changes.']],
  ['9','Life couldn’t do it','Your list was down.',F.failedLock,['Every ask ends with an outcome you can see, a failure too: what went wrong, in your words, and what Life does next.']],
  ['9b','Its tap','The answer is the failure, plainly.',F.failed,['Try now first only when trying makes sense; Life keeps the ask and does it when the list is back, and tells you.']],
- ['10','Heard late','Today your words are found once they are written down, which can take a while.',F.lateLock,['<b>Honest timing:</b> the notification says when you said it, so a late one never reads as an instant answer.']],
- ['10b','Its tap','Your turn shows both times.',F.late,['Said at, then heard at. Once Life hears “hey Life” live, the second time goes.']],
+ ['10','Heard late','Something was offline, so writing your words down took a while.',F.lateLock,['<b>Honest timing:</b> the notification says when you said it, so a late one never reads as an instant answer.']],
+ ['10b','Its tap','Your turn shows both times.',F.late,['Said at, then heard at: shown only when hearing was late.']],
  ['11','Still writing it down','You open the app before your words are written down.',F.writing,['One quiet line instead of the greeting: Life doesn’t yet know what you asked, so it promises only what it will do.']]
 ];
 function fig(s){return '<figure><figcaption>'+s[0]+'. '+s[1]+'<span>'+s[2]+'</span></figcaption>'+s[3]+'<ul class="notes">'+s[4].map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></figure>';}
