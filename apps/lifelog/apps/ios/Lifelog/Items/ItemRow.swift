@@ -10,6 +10,8 @@ struct ItemRow: View {
     var isOnTheirMatter = false
     /// Arrives unfolded: a single ask in an answer.
     var startsOpen = false
+    /// Life brought it to the bottom of the thread on its own: led by why it asks, with no fold button.
+    var isBrought = false
     @Environment(LifeStore.self) private var life
     @State private var isOpen = false
     @State private var words = ""
@@ -120,10 +122,20 @@ struct ItemRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+            if isBrought, let lead { Text(lead).font(.body15).foregroundStyle(Palette.fg) }
             row
+            if isConfirmingUndo || (action.isRunning && ask.undoLine != nil) { undo.appears(Motion.fade) }
             if hasRating { rating.appears() }
         }
         .motion(Motion.standard, value: hasRating)
+    }
+
+    /// Why Life brought it, as the line that leads it in: "Jade asked about Saturday:".
+    private var lead: String? {
+        (ask.check ?? keptCheck)?.context.map { words in
+            let line = words.trimmingCharacters(in: .whitespacesAndNewlines)
+            return (line.hasSuffix(".") ? String(line.dropLast()) : line) + ":"
+        }
     }
 
     /// "How am I doing?" shows under one ask a day at most: the first to show it keeps the day until its mark.
@@ -145,8 +157,7 @@ struct ItemRow: View {
             state: state, icon: icon,
             face: face,
             line: line, isOpen: isOpen, ref: ask.ref,
-            later: state == .needsYou && ask.check?.isTask == true && ask.isAnswerable
-                ? { Task { await life.later(ask.ref) } } : nil,
+            pill: pill, canFold: !isBrought,
             toggle: {
                 Motion.animate { isOpen.toggle() }
                 if isOpen { life.opened = ask.ref } else if life.opened == ask.ref { life.opened = nil }
@@ -155,6 +166,8 @@ struct ItemRow: View {
             detail.transition(Motion.appears)
         }
         .onAppear { isOpen = startsOpen || life.focused == ask.ref }
+        // A newer ask Life brings folds the one before it.
+        .onChange(of: startsOpen) { if !startsOpen { Motion.animate { isOpen = false } } }
         .onChange(of: hasRating, initial: true) {
             guard hasRating else { return }
             let defaults = UserDefaults.standard
@@ -187,12 +200,20 @@ struct ItemRow: View {
                 question
             }
             if case .failed(let failure, _) = action, let why = reason(of: failure) {
-                Text(why).font(.line).foregroundStyle(Palette.muted).accessibilityIdentifier(AID.askFailure(ask.ref))
+                Text(why).font(.line).foregroundStyle(Palette.muted).fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier(AID.askFailure(ask.ref))
             }
-            if ask.undoLine != nil { undo.appears(Motion.fade) }
         }
-        .motion(Motion.standard, value: ask.undoLine != nil)
         .motion(Motion.standard, value: action.isRunning)
+    }
+
+    /// The one tap on the folded row: a task's Later, or a send's Undo (the prototype's line, "Sent to Lena · Undo").
+    private var pill: RowPill? {
+        if state == .needsYou, ask.check?.isTask == true, ask.isAnswerable {
+            return .init(title: "Later", id: nil) { Task { await life.later(ask.ref) } }
+        }
+        guard ask.undoLine != nil, !isConfirmingUndo, !action.isRunning else { return nil }
+        return .init(title: "Undo", id: AID.askUndo(ask.ref)) { undoTapped() }
     }
 
     private var question: some View { Text(ask.question).font(.line).foregroundStyle(Palette.muted) }
@@ -268,7 +289,7 @@ struct ItemRow: View {
 
     /// Why it asks (Markdown), after the step itself on his own move, whose title is its matter.
     private func why(_ check: Check) -> String? {
-        [check.group == .yourMove ? check.question.nilIfEmpty : nil, check.context].compactMap(\.self)
+        [check.group == .yourMove ? check.question.nilIfEmpty : nil, isBrought ? nil : check.context].compactMap(\.self)
             .joined(separator: "\n\n").nilIfEmpty
     }
 
@@ -288,23 +309,19 @@ struct ItemRow: View {
     }
 
     /// His Undo: first what the other side will see, when Life says there is something to see, then the deletion.
+    private func undoTapped() {
+        if ask.undoLine?.isEmpty == false, !isConfirmingUndo {
+            isConfirmingUndo = true
+        } else {
+            isConfirmingUndo = false
+            Task { await life.undo(ask.ref) }
+        }
+    }
+
+    /// Under the row once he tapped Undo: what the other side will see and Delete for both, then Undoing….
     private var undo: some View {
-        let warning = ask.undoLine.flatMap { $0.isEmpty ? nil : $0 }
-        return SentLine(
-            phase: action.isRunning ? .undoing : isConfirmingUndo ? .confirming(warning ?? "") : .sent(canUndo: true),
-            undo: {
-                if warning != nil, !isConfirmingUndo {
-                    isConfirmingUndo = true
-                } else {
-                    isConfirmingUndo = false
-                    Task { await life.undo(ask.ref) }
-                }
-            },
+        SentLine(
+            phase: action.isRunning ? .undoing : .confirming(ask.undoLine ?? ""), undo: undoTapped,
             keep: { isConfirmingUndo = false }, undoID: AID.askUndo(ask.ref))
     }
-}
-
-extension Date {
-    /// The 24-hour clock, as the design writes times ("17:00").
-    var clock: String { formatted(Date.FormatStyle(locale: Locale(identifier: "en_GB")).hour().minute()) }
 }

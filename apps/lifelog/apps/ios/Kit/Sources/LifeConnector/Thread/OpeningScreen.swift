@@ -21,6 +21,13 @@ public struct OpeningScreen: Equatable, Sendable {
     public private(set) var broken: [String] = []
     public private(set) var top: [String] = []
     public private(set) var more: [String] = []
+    /// The asks Life brought since the opening (an ask new to `openingAsks` in a later read), each with when it came:
+    /// the newest shows unfolded at the bottom of the thread, led by its context (the prototype's `bring`).
+    public private(set) var brought: [Brought] = []
+    public struct Brought: Equatable, Sendable {
+        public let ref: String
+        public let at: Date
+    }
     private var hasRows = false
     private var leftAt: Date?
 
@@ -36,13 +43,13 @@ public struct OpeningScreen: Equatable, Sendable {
         if at != nil, leftAt.map({ now.timeIntervalSince($0) < Self.cleanAfter }) ?? true { return false }
         if let at { earlierGreetings.append(at) }
         (at, shownFrom, hasRows) = (now, now, false)
-        (broken, top, more) = ([], [], [])
+        (broken, top, more, brought) = ([], [], [], [])
         return true
     }
 
-    /// Takes a read of the thread: the first after an opening sets its rows; a later one only adds what broke since, so
-    /// a fix shows at once and nothing he is answering moves.
-    public mutating func take(_ read: ThreadRead) {
+    /// Takes a read of the thread: the first after an opening sets its rows; a later one only adds what broke since and
+    /// the asks Life brings, so a fix or a new ask shows at once and nothing he is answering moves.
+    public mutating func take(_ read: ThreadRead, at now: Date) {
         let fixes = read.broken.map(\.ref)
         guard hasRows else {
             let asks = read.openingAsks.filter { read.ask($0)?.isAnswerable == true }
@@ -52,6 +59,9 @@ public struct OpeningScreen: Equatable, Sendable {
             return
         }
         broken += fixes.filter { !broken.contains($0) }
+        let shown = Set(broken + top + more + brought.map(\.ref))
+        brought += read.openingAsks.filter { !shown.contains($0) && read.ask($0)?.isAnswerable == true }
+            .map { Brought(ref: $0, at: now) }
     }
 
     public func isShown(_ date: Date) -> Bool { shownFrom.map { !(date < $0) } ?? true }

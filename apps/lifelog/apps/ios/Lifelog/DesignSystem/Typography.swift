@@ -115,3 +115,8 @@ extension DynamicTypeSize {
         }
     }
 }
+
+extension Date {
+    /// The 24-hour clock, as the design writes times ("17:00").
+    var clock: String { formatted(Date.FormatStyle(locale: Locale(identifier: "en_GB")).hour().minute()) }
+}

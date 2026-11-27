@@ -44,9 +44,3 @@ private func said(_ json: String) throws -> Check.Said {
     #expect(text.ranges(ofNames: ["Marc"]).map { String(text[$0]) } == ["Marc", "MARC"])
     #expect(text.ranges(ofNames: ["Anne Marie"]).map { String(text[$0]) } == ["anne marie"])
 }
-
-@Test func aClipSaysItsLengthAndOneWithoutAudioSaysNone() throws {
-    let json = #"{"text":"x","audio":{"jobId":"j","start":1.2,"end":9.2}}"#
-    #expect(try JSONDecoder().decode(Check.Clip.self, from: Data(json.utf8)).lengthText == "0:08")
-    #expect(try JSONDecoder().decode(Check.Clip.self, from: Data(#"{"text":"x"}"#.utf8)).lengthText == nil)
-}

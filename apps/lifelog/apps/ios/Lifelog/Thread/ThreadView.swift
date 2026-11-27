@@ -99,6 +99,19 @@ struct ThreadView: View {
         }
     }
 
+    /// The asks Life brought between two rows of the sitting (`upTo` nil: after the last), the newest unfolded, each led
+    /// by why it asks (the prototype's `bring`).
+    @ViewBuilder private func broughtRows(after: Date?, upTo: Date?) -> some View {
+        let newest = opening.brought.last?.ref
+        ForEach(
+            opening.brought.filter { b in after.map { b.at >= $0 } ?? true && upTo.map { b.at < $0 } ?? true }, id: \.ref
+        ) { b in
+            if let ask = life.ask(b.ref) {
+                ItemRow(ask: ask, startsOpen: b.ref == newest, isBrought: true).appears(Motion.arrives)
+            }
+        }
+    }
+
     /// A quiet line: a day, or an earlier greeting's time.
     private func mark(_ words: String) -> some View {
         Text(words).font(.line).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
@@ -170,8 +183,11 @@ struct ThreadView: View {
                     }
                     let sitting = all.filter { !($0.entry.at < at) }
                     ForEach(Array(sitting.enumerated()), id: \.element.id) { i, row in
-                        rowView(row, after: i == 0 ? opening.at : sitting[i - 1].entry.at, proxy: proxy)
+                        let previous = i == 0 ? opening.at : sitting[i - 1].entry.at
+                        broughtRows(after: previous, upTo: row.entry.at)
+                        rowView(row, after: previous, proxy: proxy)
                     }
+                    broughtRows(after: sitting.last?.entry.at ?? opening.at, upTo: nil)
                     // An ask he was sent to (a notification, a link) that is no row above: Life brings it to the bottom,
                     // unfolded with its answers.
                     if let ask = life.focused.flatMap(life.ask), row(of: ask.ref) == nil,
@@ -235,11 +251,17 @@ struct ThreadView: View {
                 if phase == .background { opening.left(at: life.now()) }
                 guard phase == .active, opening.came(at: life.now()) else { return }
                 showsMore = false
-                if let read = life.items.value { opening.take(read) }
+                if let read = life.items.value { opening.take(read, at: life.now()) }
                 seenRows = 0
                 Task { proxy.scrollTo(Self.greeting, anchor: .top) }
             }
-            .onChange(of: life.items.value) { if let read = life.items.value { opening.take(read) } }
+            // A new ask lands at the bottom: after every row already there.
+            // An ask Life brings is unfolded at the bottom: brought fully into view above the field.
+            .onChange(of: opening.brought.last?.ref) { if let ref = opening.brought.last?.ref { life.opened = ref } }
+            .onChange(of: life.items.value) {
+                guard let read = life.items.value else { return }
+                opening.take(read, at: max(life.now(), thread.entries.last?.at ?? .distantPast))
+            }
             // An ask he opens is brought fully into view above the field, once it has unfolded.
             .onChange(of: life.opened) {
                 openedAt = life.opened == nil ? nil : life.now()

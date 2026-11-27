@@ -6,6 +6,11 @@
   "steps": [
     {
       "reads": {
+        "read_thread": "parity/opening.json"
+      }
+    },
+    {
+      "reads": {
         "read_thread": "parity/read_thread_draft.json"
       }
     },

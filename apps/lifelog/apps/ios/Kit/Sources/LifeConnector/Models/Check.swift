@@ -99,14 +99,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
                 at: at, until: until, text: (text as NSString).substring(to: end), audio: shorter,
                 words: words.prefix(kept).map { $0 })
         }
-
-        /// How long it plays, "0:08": from its recording's span; nil when the clip holds no audio.
-        public var lengthText: String? {
-            audio.map { audio in
-                let seconds = Int((audio.end - audio.start).rounded())
-                return "\(seconds / 60):" + String(format: "%02d", seconds % 60)
-            }
-        }
     }
 
     /// One line said: who, to whom, when, where, verbatim.
@@ -307,8 +299,6 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     /// Life that predates it.
     public let preTicked: String?
     public let clips: [Clip]
-    /// A voice: in how many conversations it was heard; nil from a Life that predates it.
-    public let conversations: Int?
     public let likelyPeople: [Party]
     /// A voice: the people the voice naming guessed, each with Life's reason in a few words (`why`, nil when none was
     /// recorded); nil from a Life that predates it.

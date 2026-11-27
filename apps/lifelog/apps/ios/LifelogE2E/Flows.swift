@@ -33,7 +33,7 @@ import XCTest
 @MainActor final class C1SendADraftTests: FlowTest {
     func testSendADraft() {
         launch("C1")
-        sendTheListedDraft(shooting: "draft")
+        sendTheBroughtDraft(shooting: "draft")
         XCTAssertEqual(answers().count, 1)
         XCTAssertFalse((answers()[0]["key"] as? String ?? "").isEmpty)
     }
@@ -73,9 +73,7 @@ import XCTest
 @MainActor final class C10NoUndoOnAnIMessageTests: FlowTest {
     func testNoUndoOnAnIMessage() {
         launch("C10")
-        sendTheListedDraft(shooting: "imessage-no-undo")
-        unfold(element(AID.askRow(Self.ask)), until: app.staticTexts["Send Nora the message?"])
-        appears(app.staticTexts["Send Nora the message?"], "the unfolded ask")
+        sendTheBroughtDraft(shooting: "imessage-no-undo")
         XCTAssertFalse(element(AID.askUndo(Self.ask)).exists)
         XCTAssertEqual(answers().count, 1)
     }
@@ -85,16 +83,14 @@ import XCTest
 @MainActor final class C11UndoThenDeleteTests: FlowTest {
     func testUndoThenDelete() {
         launch("C11")
-        sendTheListedDraft(shooting: "undo-whatsapp")
-        unfold(element(AID.askRow(Self.ask)), until: element(AID.askUndo(Self.ask)))
-        // The thread redraws the row after each tap and it folds: each try unfolds it, asks, and confirms if it can.
-        for _ in 0..<4 where undos().isEmpty {
-            unfold(element(AID.askRow(Self.ask)), until: element(AID.askUndo(Self.ask)))
-            element(AID.askUndo(Self.ask)).tap()
-            let confirm = app.buttons["Delete for both"]
-            if confirm.waitForExistence(timeout: 2) { confirm.tap() }
-        }
-        taps += 2
+        sendTheBroughtDraft(shooting: "undo-whatsapp")
+        // Undo is on the settled row, then Delete for both: the Undo's own taps (the prototype's 2).
+        taps = 0
+        tap(AID.askUndo(Self.ask))
+        let confirm = app.buttons["Delete for both"]
+        appears(confirm, "Delete for both")
+        confirm.tap()
+        taps += 1
         poll("the undo reached Life") { !undos().isEmpty }
         XCTAssertEqual(undos().count, 1)
     }

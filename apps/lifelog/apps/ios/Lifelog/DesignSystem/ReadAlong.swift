@@ -85,7 +85,9 @@ struct ReadAlong: View {
             }
             .padding(.top, Metrics.Spacing.s).accessibilityElement(children: .ignore).accessibilityLabel(text)
         } else {
-            Text(text).font(.body15).padding(.top, Metrics.Spacing.s).frame(maxWidth: .infinity, alignment: .leading)
+            // No timings: dim until played, then whole.
+            Text(text).font(.body15).foregroundStyle(isCurrent ? Palette.fg : Palette.muted)
+                .padding(.top, Metrics.Spacing.s).frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

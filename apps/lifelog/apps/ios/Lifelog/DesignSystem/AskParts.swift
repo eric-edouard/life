@@ -79,7 +79,8 @@ struct PersonCards: View {
                 } label: {
                     VStack(spacing: Metrics.Spacing.xs + 2) {
                         Face(party: party)
-                        Text(party.name).font(.bodyBold).lineLimit(1)
+                        // Wraps rather than cuts a name (a narrow card, larger text).
+                        Text(party.name).font(.bodyBold).multilineTextAlignment(.center)
                         if let line = party.line {
                             Text(line).font(.meta).foregroundStyle(Palette.muted).multilineTextAlignment(.center)
                         }
