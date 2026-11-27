@@ -337,6 +337,9 @@ final class LifeStore {
     /// How many asks block him, less those he answered meanwhile: the round button's count and the app's badge.
     var waitingCount: Int? { waitingRefs.map(\.count) }
 
+    /// The owner's temporary variant of 27 Nov 2026: every open ask waiting on him (the thread read's answerable asks), less those he answered meanwhile.
+    var openCount: Int? { items.value.map { read in read.asks.filter { $0.isAnswerable && !queued.holds($0.ref) }.count } }
+
     /// Those asks' refs, in Life's order.
     var waitingRefs: [String]? {
         items.value.map { read in read.blocking.filter { !queued.holds($0.ref) }.map(\.ref) }

@@ -9,7 +9,7 @@ import XCTest
         launch("OP1")
         appears(field, "the thread")
         appears(
-            app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "waiting on you")).firstMatch, "the count")
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Waiting on you")).firstMatch, "the count")
         shoot("open-clean")
     }
 }
