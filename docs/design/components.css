@@ -1,5 +1,5 @@
-/* The app v4 family's shared parts: Life's brand first, then every rule two or more of its pages had copied.
-   A page links this file before its own <style>; what only one page uses stays in that page. */
+/* The app v4 family's shared parts: Life's brand first, then the rules two or more of its pages had
+   copied that no other linking page's markup or scripts could pick up. A page links this file before its own <style>. */
 @import url("../../assets/brand/tokens.css");
 @property --a1{syntax:'<angle>';inherits:false;initial-value:0deg}
 @property --a2{syntax:'<angle>';inherits:false;initial-value:120deg}
