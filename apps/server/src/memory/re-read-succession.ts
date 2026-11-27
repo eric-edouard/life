@@ -43,18 +43,26 @@ export function inheritEndings<T extends { at: string; replacedBy?: string }>(
 }
 
 /**
- * Each current observation with the earlier readings of its source line it takes over (`succeeds`): every current fact
- * citing the same line (`eventKey`), whatever its kind, takes each earlier one's place in its matter. Pure.
+ * Each current observation with the earlier readings of its source line it takes over (`succeeds`), only where it is
+ * plain which (an ambiguous one takes over nothing, and the night places it afresh): the one current fact on its line
+ * takes over every earlier one there; of several, each takes over the earlier ones of its kind when it is that line's
+ * only current fact of its kind. Lines are compared by `eventKey`. Pure.
  */
-export function succeedsOf<O extends Pick<Observation, "id" | "source">>(
+export function succeedsOf<
+  O extends Pick<Observation, "id" | "source" | "type">,
+>(
   current: readonly O[],
-  earlier: readonly Pick<Observation, "id" | "source">[]
+  earlier: readonly Pick<Observation, "id" | "source" | "type">[]
 ): (O & Succeeding)[] {
   const lineOf = (o: Pick<Observation, "source">) =>
     eventKey({ id: o.source.ref, source: o.source.channel });
-  const byLine = Map.groupBy(earlier, lineOf);
+  const before = Map.groupBy(earlier, lineOf);
+  const now = Map.groupBy(current, lineOf);
   return current.map((o) => {
-    const succeeds = (byLine.get(lineOf(o)) ?? [])
+    const mates = now.get(lineOf(o)) ?? [];
+    const sameKind = mates.filter((m) => m.type === o.type).length === 1;
+    const succeeds = (before.get(lineOf(o)) ?? [])
+      .filter((e) => mates.length === 1 || (sameKind && e.type === o.type))
       .map((e) => e.id)
       .filter((id) => id !== o.id);
     return succeeds.length > 0 ? { ...o, succeeds } : o;

@@ -60,6 +60,7 @@ import {
   offeredNowOf,
   READ_AGAIN,
   succeedsOf,
+  successorsOf,
 } from "./re-read-succession";
 import { TRUTH } from "./read-truth";
 import { outdatedBy, reopenedAtOf } from "./retirements";
@@ -225,7 +226,15 @@ const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
  * a Life draft reading a matter over is dropped once he reopened one of its steps after it (`matter-reopened`). Both files are folded incrementally (`readAppended`): a read parses only
  * the lines appended since the last.
  */
-export function readMatterPins() {
+export function readMatterPins(
+  successors: ReadonlyMap<string, readonly string[]> = new Map()
+) {
+  // A pin on an earlier reading pins its re-read too (`successorsOf`).
+  const pinned = <P extends { steps: readonly string[] }>(list: readonly P[]) =>
+    list.map((p) => ({
+      ...p,
+      steps: p.steps.flatMap((r) => [r, ...(successors.get(r) ?? [])]),
+    }));
   const drafts = readAppended(
     MATTER_DIRECTIONS,
     MatterDirectionBatch,
@@ -271,14 +280,20 @@ export function readMatterPins() {
   );
   // A Life draft reading a matter over before his Reopen of one of its steps is lifted: the latest of his words wins.
   const reopened = reopenedAtOf(his.reopened);
-  const standing = drafts.filter(
+  const standing = pinned(drafts).filter(
     (d) =>
       !(
         d.endingRecords &&
         d.steps.some((ref) => (reopened.get(ref) ?? "") > d.at)
       )
   );
-  return { ...his, directions: [...standing, ...his.directions] };
+  return {
+    ...his,
+    directions: [...standing, ...pinned(his.directions)],
+    icons: pinned(his.icons),
+    important: pinned(his.important),
+    projects: pinned(his.projects),
+  };
 }
 
 /** What his Later holds: a check's ref, but a your move card's matter whole (`move:<matter>/<step>` → `move:<matter>`). */
@@ -360,7 +375,7 @@ export async function readMatterRecords(people: People) {
   inheritEndings(linkEndings, observations, reopenedAt);
   return {
     current,
-    ...readMatterPins(),
+    ...readMatterPins(successorsOf(observations)),
     episodeOf: readBy(episodes),
     episodes,
     isMailer: (ref: string) =>
@@ -413,7 +428,7 @@ export const matterBookAgain = (
 ) =>
   matterBookOf(
     mattersNow(readMatters()),
-    { ...records, ...readMatterPins() },
+    { ...records, ...readMatterPins(successorsOf(records.observations)) },
     today
   );
 

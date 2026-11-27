@@ -151,10 +151,31 @@ test("his word on an earlier reading ends its re-read: a re-read never reopens a
   expect(again.has(reread.id)).toBe(false);
 });
 
-test("a re-read takes over each earlier reading of its line, never another line's", () => {
+test("a re-read takes over the earlier readings of its line only where it is plain which", () => {
+  const line = { channel: "whatsapp", ref: "msg-20" } as Observation["source"];
+  const [todo, promise, news] = [
+    step(20, { source: line }),
+    step(21, { source: line, type: "promise" }),
+    step(22, { source: line, type: "news" }),
+  ];
+  const [todo2, promise2, newsA, newsB] = [
+    step(23, { source: line }),
+    step(24, { source: line, type: "promise" }),
+    step(25, { source: line, type: "news" }),
+    step(26, { source: line, type: "news" }),
+  ];
   const other = step(9);
-  expect(succeedsOf([reread, other], [first]).map((o) => o.succeeds)).toEqual([
-    [first.id],
-    undefined,
-  ]);
+  expect(
+    succeedsOf(
+      [todo2, promise2, newsA, newsB, other],
+      [todo, promise, news]
+    ).map((o) => o.succeeds)
+  ).toEqual([[todo.id], [promise.id], undefined, undefined, undefined]);
+  // The one current fact on a line takes over all of it.
+  expect(
+    succeedsOf(
+      [reread],
+      [first, step(27, { source: first.source, type: "news" })]
+    )[0]?.succeeds
+  ).toHaveLength(2);
 });
