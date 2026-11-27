@@ -15,11 +15,13 @@ export function forwardToVoice(server: string) {
     c: Context<{ Bindings: { timeout?: (req: Request, s: number) => void } }>
   ) => {
     const { pathname, search } = new URL(c.req.url);
-    const path = pathname.slice("/voice".length) || "/";
-    if (MAP.test(path)) {
+    // The map is tested on the path as decoded (`/voice/%76oices` is the map too), the request forwarded as it came.
+    if (MAP.test(c.req.path.slice("/voice".length))) {
       return c.notFound();
     }
+    // No limit here: the voice server bounds its own requests (its idle limit), so the forward lasts no longer.
     c.env?.timeout?.(c.req.raw, 0);
+    const path = pathname.slice("/voice".length) || "/";
     return fetch(new Request(`${server}${path}${search}`, c.req.raw), {
       decompress: false,
       redirect: "manual",

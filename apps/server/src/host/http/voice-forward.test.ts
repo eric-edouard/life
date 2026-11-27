@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
-import { signedIn } from "./server";
+import { publicPortRoutes } from "./server";
 
 // A made-up voice server: echoes what reached it, a gzipped answer, a long wait, and its map page.
 const seen: { path: string; auth: string | null; sha: string }[] = [];
@@ -20,7 +20,7 @@ const voice = Bun.serve({
       });
     }
     if (pathname === "/changes") {
-      await Bun.sleep(15_000);
+      await Bun.sleep(4000);
     }
     return new Response("ok");
   },
@@ -32,9 +32,10 @@ const voice = Bun.serve({
 const lifeAt = (voiceAt: string) =>
   Bun.serve({
     development: false,
-    fetch: signedIn(voiceAt).fetch,
+    fetch: publicPortRoutes(voiceAt).fetch,
     hostname: "127.0.0.1",
-    maxRequestBodySize: 65 * 1024 * 1024,
+    // Life's listener as it serves, but an idle limit of 1 s, so the long poll's test is quick.
+    idleTimeout: 1,
     port: 0,
   });
 const life = lifeAt(`http://127.0.0.1:${voice.port}`);
@@ -74,13 +75,15 @@ test("the voice server's answer passes as it came, gzip included", async () => {
   );
 });
 
-test("a long poll outlasts Bun's 10 s idle limit", async () => {
-  expect((await fetch(at("/voice/changes?wait=15"))).status).toBe(200);
-}, 25_000);
+test("a long poll outlasts the listener's idle limit", async () => {
+  // Bun checks idle limits every few seconds: 4 s is past a 1 s limit for sure.
+  expect((await fetch(at("/voice/changes?wait=4"))).status).toBe(200);
+}, 10_000);
 
 test("the speaker map stays off Life's origin, a look-alike path is not the voice server's, and its absence is a 502", async () => {
   expect((await fetch(at("/voice/voices"))).status).toBe(404);
   expect((await fetch(at("/voice/voices/x.js"))).status).toBe(404);
+  expect((await fetch(at("/voice/%76oices"))).status).toBe(404);
   expect((await fetch(at("/voicex/health"))).status).toBe(404);
   const off = lifeAt("http://127.0.0.1:1");
   expect(
@@ -90,6 +93,6 @@ test("the speaker map stays off Life's origin, a look-alike path is not the voic
 });
 
 test("with no voice server set, Life has no /voice", async () => {
-  const res = await signedIn("").request("/voice/health");
+  const res = await publicPortRoutes("").request("/voice/health");
   expect(res.status).toBe(404);
 });

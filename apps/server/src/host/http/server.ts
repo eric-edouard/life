@@ -14,21 +14,23 @@ import { forwardToVoice } from "./voice-forward";
 
 // The watcher's one HTTP server, on loopback; a tunnel forwards the `connector` setting's origin to it.
 
-/** Life's own bodies: anything but what goes to the voice server. */
+/** Life's own bodies; what goes to the voice server is its own to cap. */
 const BODY = 256 * 1024;
-/** What goes to the voice server: its largest, a backup pack of 64 MiB, and room for its form. */
-const VOICE_BODY = 65 * 1024 * 1024;
 
 /**
  * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and with
  * the `connector` setting, on `PUBLIC_PORT` (where a tunnel forwards its origin) the connector, its issuer, Life's
- * brand and the voice server's routes (`/voice/*`, up to 65 MiB). The key is never taken on the public port. 404 for
+ * brand and the voice server's routes (`/voice/*`, its bodies capped by the voice server). The key is never taken on the public port. 404 for
  * any other path.
  */
 export function serve() {
   // The app's port taken (another install's watcher) only leaves the app without its status; the public one never waits on it.
   try {
-    listen(LOCAL_PORT, createStatusReads(keyRefusal()).notFound(notFound));
+    listen(
+      LOCAL_PORT,
+      createStatusReads(keyRefusal()).notFound(notFound),
+      BODY
+    );
   } catch (e) {
     console.error(
       `Life: 127.0.0.1:${LOCAL_PORT} is off: ${(e as Error).message}`
@@ -39,20 +41,21 @@ export function serve() {
     console.log(`${why}: /mcp is off`);
     return;
   }
-  listen(PUBLIC_PORT, signedIn(), VOICE_BODY);
+  // Bun's own cap only: Life's routes keep theirs (`bodyLimit`), and the voice server caps its own.
+  listen(PUBLIC_PORT, publicPortRoutes());
 }
 
 /** Any path a port's app has no route for. */
 const notFound = () => new Response("not found", { status: 404 });
 
 /** One listener on loopback, for `app`'s routes; a port it can't take throws. */
-function listen(port: number, app: Hono, maxBody = BODY) {
+function listen(port: number, app: Hono, maxRequestBodySize?: number) {
   Bun.serve({
     // No stack traces or source in an error page: much of this answers before a token.
     development: false,
     fetch: app.fetch,
     hostname: "127.0.0.1",
-    maxRequestBodySize: maxBody,
+    ...(maxRequestBodySize ? { maxRequestBodySize } : {}),
     port,
   });
   console.log(`Life: listening on 127.0.0.1:${port}`);
@@ -81,7 +84,7 @@ for (const file of BRAND) {
  * The connector's parts: its issuer, /mcp (behind Life's own tokens) and Life's brand, bodies up to 256 KiB; and, with
  * the `lifelog` setting, the voice server's routes under `/voice`.
  */
-export function signedIn(voice = settings().lifelog?.url) {
+export function publicPortRoutes(voice = settings().lifelog?.url) {
   const { origin, resource } = connector();
   const life = createIssuer(origin, resource);
   const verify = ownerTokens({
