@@ -62,6 +62,7 @@ and seen working live, first on the owner's own Photos library, then on a second
 - [Technical: the quiet line and done](./tickets/31-tech-the-quiet-line-and-done.md) — `doing` and `eta` on the wait; the done push through the card push.
 - [Technical: the cost cap](./tickets/32-tech-the-cost-cap.md) — a `budget` instruction scoped to the project, read by the spending stop, caps summed against the month.
 - [Technical: live results and batch send](./tickets/33-tech-live-results-and-batch-send.md) — an `artifact_activity` event channel; `drafts[]` on a card, sent and contested per chat.
+- [Technical: the code-for-a-project stack](./tickets/34-tech-code-for-a-project-stack.md) — script, page (Vite + React + Tailwind), live app (`Bun.serve` + `bun:sqlite`); full apps out of lane; agent-browser checks; reached at the install's `hostedbyme.app` address.
 
 ## Not yet specified
 
@@ -69,4 +70,5 @@ and seen working live, first on the owner's own Photos library, then on a second
 
 - Projects shared between two people (two people on one library): a later map.
 - Building the artifact system itself: planned elsewhere, assumed here.
+- A skill for projects that need no code (a trip plan, a CV): a separate effort.
 - Stronger or mixed models for reviews or hard steps: a later iteration (the owner, 27 Nov 2026: cost and setup).
