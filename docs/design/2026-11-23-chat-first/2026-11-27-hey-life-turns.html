@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hey Life, turn by turn</title>
+<!-- A proposal (27 Nov 2026), not approved; the owner's four decisions of 27 Nov are on it: "hey Life" from the owner's seat, in the turn by turn direction
+     (2026-11-27-v5-turns.html). Every state and how it moves into the next. Made-up data. Design only. -->
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<link rel="stylesheet" href="2026-11-27-turns.css">
+<style>
+.page{max-width:1320px;margin:0 auto;padding:32px 16px 64px}
+.page>h1{font-size:22px;font-weight:650;margin:0 0 6px}
+.lead{font-size:15px;line-height:1.5;color:#b9b4aa;max-width:660px;margin:0 0 8px}
+.lead b{color:var(--fg);font-weight:650}
+h2.sec{font-size:19px;font-weight:650;margin:56px 0 4px}
+.grid{display:flex;flex-wrap:wrap;gap:48px 40px;margin-top:28px}
+figure{margin:0;display:flex;flex-direction:column;gap:12px;width:min(390px,100%)}
+figcaption{font-size:16px;font-weight:650}
+figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted);margin-top:2px}
+.notes{font-size:13px;line-height:1.5;color:var(--muted);margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
+.notes b{color:#b9b4aa;font-weight:600}
+.txt{font-size:15px;line-height:1.55;max-width:700px;padding-left:20px;margin:0}
+.txt li{margin:0 0 8px}
+.ph{flex:none}
+/* the lock screen */
+.lock{background:radial-gradient(120% 70% at 50% 0%,#1d2233,#07080a 70%)}
+.clock{position:absolute;top:92px;left:0;right:0;text-align:center}
+.clock .d{font-size:18px;font-weight:600;color:#d8d3c8}
+.clock .t{font-size:88px;font-weight:650;letter-spacing:-.03em;line-height:1}
+.nots{position:absolute;left:12px;right:12px;top:330px;display:flex;flex-direction:column;gap:8px}
+.nt{display:flex;gap:10px;padding:12px;border-radius:22px;background:rgba(40,41,48,.72);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font-size:14.5px;line-height:1.35}
+.nt .av{flex:none;width:38px;height:38px;border-radius:10px;background:#000;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(255,248,234,.18)}
+.nt .av i{width:12px;height:12px;border-radius:6px;background:var(--fg);box-shadow:0 0 10px rgba(255,248,234,.6)}
+.nt .bd{flex:1;min-width:0}
+.nt .h{display:flex;justify-content:space-between;gap:8px}.nt .h b{font-weight:650}.nt .h span{color:var(--muted);font-size:13px}
+.nt .q{color:#d8d3c8}
+.nt .na{display:flex;gap:6px;margin-top:8px}.nt .na span{height:30px;padding:0 12px;border-radius:15px;background:rgba(255,248,234,.12);display:inline-flex;align-items:center;font-size:13px;font-weight:600}
+.tap{left:300px;top:352px;position:absolute;width:44px;height:44px;border-radius:22px;background:rgba(255,248,234,.25);box-shadow:0 0 0 8px rgba(255,248,234,.08);z-index:9}
+/* where the owner's words came from, under the owner's turn */
+.me .from{display:block;margin-top:6px;font-size:12px;font-weight:500;color:var(--muted)}
+.me .from.wait{color:var(--fg)}
+/* the owner's turn, part unclear */
+.me q s{text-decoration:none;color:var(--muted);font-weight:450}
+/* a quiet state line in the centre, under the owner's turn */
+.state{margin:auto 0;text-align:center;font-size:16px;line-height:1.45}
+.state span{display:block;color:var(--muted);font-size:13.5px;margin-top:8px}
+.state .acts{display:flex;gap:8px;justify-content:center;margin-top:18px}
+.state .acts button{height:44px;padding:0 18px;border-radius:22px;background:var(--tint);font-weight:600;font-size:14.5px}
+.state .acts button.p{background:var(--fg);color:#000}
+.still .edge{box-shadow:inset 0 0 0 1.5px rgba(255,248,234,.07)}
+/* the play-through */
+.demo .cap{font-size:16px;font-weight:650}.demo .cap span{display:block;font-size:13.5px;font-weight:450;color:var(--muted);margin-top:2px}
+.demo{display:flex;flex-direction:column;gap:12px;width:min(390px,100%);margin-top:24px}
+.play{display:flex;gap:8px;flex-wrap:wrap}
+.play button{height:38px;padding:0 16px;border-radius:19px;background:var(--tint);font-size:14px;font-weight:650}
+.fade{animation:fin .45s ease both}
+@keyframes fin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Hey Life, turn by turn</h1>
+<p class="lead">A proposal, not approved. You say <b>“hey Life”</b> and your ask to your pendant. Your phone tells you it was heard. A tap opens the app on that ask, as your turn, and Life answers it there. Made-up people.</p>
+
+<h2 class="sec">When it works</h2>
+<div class="grid" id="ok"></div>
+
+<h2 class="sec">When it doesn’t</h2>
+<div class="grid" id="ko"></div>
+
+<h2 class="sec">How it moves</h2>
+<ol class="txt">
+<li><b>Heard:</b> the notification comes in as soon as your words are written down and Life finds the ask in them. It quotes your ask, so you know it was heard right.</li>
+<li><b>One notification, never two:</b> when the answer is ready, the same notification is replaced by the answer’s first line. Not tapped, it is still one item on your lock screen.</li>
+<li><b>The tap:</b> the app opens straight on your turn: your words, centred, with where you said them (“To your pendant · 14:02”). Nothing from before shows; the last turns are one scroll up.</li>
+<li><b>Life working:</b> the light gathers in the centre under your words, and one line says what Life is reading (“Reading your chat with Jade”). The line changes in place, a cross-fade, never a list.</li>
+<li><b>The answer:</b> your words shrink to the top, the light settles, and Life’s answer rises into the middle, its card last. The next ask’s suggestion fills the field.</li>
+<li><b>Slow:</b> after about 20 seconds the line adds “You can close the app. I’ll tell you when it’s ready.” Closing it changes nothing; the notification carries the answer.</li>
+<li><b>Not heard right:</b> what was caught shows as your turn, the unclear part faded, with Say it again first and Type it beside it. Your words are never guessed.</li>
+<li><b>Offline:</b> your ask is kept, never lost and never to be repeated. It shows as your turn with “Waiting for your Mac”, the edge goes still, and Life answers on its own when the Mac is back.</li>
+<li><b>Every ask ends somewhere you can see:</b> answered, done, or couldn’t, with why and what next. Silence is never an outcome.</li>
+<li><b>Honest timing:</b> “heard” comes as early as Life can hear it. That is when your words are written down: usually soon, much later when something was offline, and then the notification and your turn say when you said it. Until then, the app says it is still writing down, never that it is working on your ask.</li>
+<li>Under Reduce Motion every step is a cross-fade.</li>
+</ol>
+
+<div class="demo">
+<div class="cap">Try it<span>From your words to the answer, at its real pace.</span></div>
+<div id="demo"></div>
+<div class="play"><button type="button" id="play">Say “hey Life”</button><button type="button" id="again">Start again</button></div>
+</div>
+
+<h2 class="sec">Decided</h2>
+<ol class="txt">
+<li><b>A notification.</b> One notification, replaced by the answer. A Live Activity is parked for later.</li>
+<li><b>Not read aloud.</b> The answer is only shown.</li>
+<li><b>No live listening.</b> “Hey Life” is found in your written words, which Life makes as fast as it can. The 33 minutes seen on 27 Nov came from something being offline; the heard late state is for that case.</li>
+<li><b>The pendant only.</b> The phone works differently and is not part of this flow.</li>
+</ol>
+</div>
+
+<script>
+(function(){
+var ASK='Did Jade answer about Saturday?';
+var MIC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+var WA='<svg viewBox="0 0 24 24"><path fill="#25D366" d="M12 1.8A10.2 10.2 0 0 0 3.3 17.2L2 22l4.9-1.3A10.2 10.2 0 1 0 12 1.8Z"/></svg>';
+function phone(cls,stage,field,top,time){
+  return '<div class="ph '+cls+'"><div class="sb"><span>'+(time||'14:02')+'</span><span>●●● ▮</span></div>'+
+   (top===false?'':'<div class="top"><span class="rb" aria-label="3 waiting on you">3</span><span class="rb" aria-label="Pendant recording"><i class="dot"></i></span></div>')+
+   '<div class="mesh"></div><div class="edge"></div><div class="stage">'+stage+'</div>'+
+   '<div class="field"><span>'+(field||'Ask Life or hold to talk')+'</span><span class="sp"></span><span class="k">'+MIC+'</span></div></div>';}
+function lock(title,body,acts,tap,time){
+  return '<div class="ph lock"><div class="sb"><span></span><span>●●● ▮</span></div><div class="clock"><div class="d">Friday 27 November</div><div class="t">'+(time||'14:02')+'</div></div>'+
+   (title?'<div class="nots"><div class="nt"><div class="av"><i></i></div><div class="bd"><div class="h"><b>'+title+'</b><span>now</span></div><div class="q">'+body+'</div>'+
+   (acts?'<div class="na">'+acts.map(function(a){return '<span>'+a+'</span>';}).join('')+'</div>':'')+'</div></div></div>':'')+
+   (tap?'<span class="tap"></span>':'')+'</div>';}
+function me(words,from,wait){return '<div class="me"><small>You</small><q>'+words+'</q><span class="from'+(wait?' wait':'')+'">'+from+'</span></div>';}
+var FROM='To your pendant · 14:02';
+var ANSWER='<div class="ans"><span class="life-lbl">Life</span><h2>Yes: dinner Saturday at 8, and she’ll book.</h2><p>She asked an hour ago. Here’s a reply, for your yes:</p>'+
+ '<div class="card"><div class="chead">'+WA+'Jade<span>Open WhatsApp ↗</span></div><div class="inq">Dinner Saturday? 8 at Café Rive, I can book</div><div class="bub">8 works, book it! 🙌</div>'+
+ '<button class="prim">Send to Jade</button><div class="two"><button>Later</button><button>Other words</button></div></div></div>';
+var F={
+ heard:lock('Life heard you','“'+ASK+'”',null,1),
+ open:phone('rising',me(ASK,FROM),''),
+ working:phone('working',me(ASK,FROM)+'<div class="step"><span>Reading your chat with</span> <b>Jade</b><em>Thinking…</em></div>',''),
+ answer:phone('answered',me(ASK,FROM)+ANSWER,'Add it to my calendar'),
+ ready:lock('Life','Yes: dinner Saturday at 8, and she’ll book. A reply is ready for Jade.',['Send to Jade','Open']),
+ unclear:phone('rising',me('Did Jade <s>…</s>',FROM)+'<div class="state">I didn’t catch all of it.<div class="acts"><button class="p">Say it again</button><button>Type it</button></div></div>',''),
+ unclearLock:lock('Life didn’t catch all of it','“Did Jade …” Tap to say it again or type it.'),
+ offline:phone('rising still',me(ASK,'To your pendant · 14:02 · waiting for your Mac',1)+'<div class="state">Your Mac hasn’t answered since 13:40.<span>Your ask is kept. I’ll answer when the Mac is back. You don’t need to ask again.</span></div>',''),
+ offlineLock:lock('Life heard you','“'+ASK+'” Your Mac isn’t answering, so I’ll answer when it’s back.'),
+ failed:phone('answered',me('Add oat milk to my list','To your pendant · 14:02')+'<div class="ans"><span class="life-lbl">Life</span><h2>I couldn’t add it to your list.</h2><p>Reminders isn’t answering on your Mac. I’ll add it as soon as it is, and tell you.</p><div class="two"><button>Try now</button><button>Never mind</button></div></div>','What else is on my list?'),
+ failedLock:lock('Life couldn’t do it','“Add oat milk to my list”: Reminders isn’t answering. I’ll add it when it is.'),
+ lateLock:lock('Life heard you','“'+ASK+'”, said at 14:02. Writing your words down took a while; on it now.',null,0,'14:35'),
+ late:phone('working',me(ASK,'To your pendant at 14:02 · heard at 14:35')+'<div class="step"><span>Reading your chat with</span> <b>Jade</b><em>Thinking…</em></div>','',true,'14:35'),
+ writing:phone('',
+  '<div class="hi"><div class="state">Writing down what you said since 14:00.<span>If you asked me something, I’ll answer it as soon as it’s written.</span></div></div>',''),
+ slow:phone('working',me(ASK,FROM)+'<div class="step"><span>Looking through your mail with</span> <b>Jade</b><em>You can close the app. I’ll tell you when it’s ready.</em></div>','')
+};
+var OK=[
+ ['1','You say it','“Hey Life, did Jade answer about Saturday?”, the phone in your pocket. Seconds later:',F.heard,['<b>New:</b> the heard notification, quoting your words.']],
+ ['2','You tap it','The app opens on your ask, as your turn.',F.open,['<b>Turn by turn:</b> your words centred, “You” above.','<b>New:</b> where you said it, under your words.']],
+ ['3','Life works','The light gathers under your words.',F.working,['<b>Turn by turn:</b> the mesh in the centre, one line of what Life reads, changing in place.']],
+ ['4','The answer','Your words go to the top; the answer fills the screen.',F.answer,['<b>Turn by turn:</b> the answer and its card, the next ask as the field’s suggestion.']],
+ ['5','You never tapped','The answer comes to the lock screen instead.',F.ready,['<b>New:</b> the heard notification, replaced by the answer. Send to Jade answers the card from here, as any card’s notification does.']]
+];
+var KO=[
+ ['6','Not heard right','Only part of your ask was clear.',F.unclearLock,['One notification, so you know at once.']],
+ ['6b','Its tap','What was caught, the rest faded; Say it again first.',F.unclear,['Your words are never guessed: a wrong ask answered costs more than asking again.']],
+ ['7','Offline','Your Mac isn’t answering.',F.offlineLock,['The heard notification says it in the same line: nothing to do.']],
+ ['7b','Its tap','Your turn waits, the edge goes still.',F.offline,['Life answers on its own when the Mac is back, and the notification carries it.']],
+ ['8','Slow','Still working after about 20 seconds.',F.slow,['The line says you can leave. Nothing else changes.']],
+ ['9','Life couldn’t do it','Your list was down.',F.failedLock,['Every ask ends with an outcome you can see, a failure too: what went wrong, in your words, and what Life does next.']],
+ ['9b','Its tap','The answer is the failure, plainly.',F.failed,['Try now first only when trying makes sense; Life keeps the ask and does it when the list is back, and tells you.']],
+ ['10','Heard late','Something was offline, so writing your words down took a while.',F.lateLock,['<b>Honest timing:</b> the notification says when you said it, so a late one never reads as an instant answer.']],
+ ['10b','Its tap','Your turn shows both times.',F.late,['Said at, then heard at: shown only when hearing was late.']],
+ ['11','Still writing it down','You open the app before your words are written down.',F.writing,['One quiet line instead of the greeting: Life doesn’t yet know what you asked, so it promises only what it will do.']]
+];
+function fig(s){return '<figure><figcaption>'+s[0]+'. '+s[1]+'<span>'+s[2]+'</span></figcaption>'+s[3]+'<ul class="notes">'+s[4].map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul></figure>';}
+document.getElementById('ok').innerHTML=OK.map(fig).join('');
+document.getElementById('ko').innerHTML=KO.map(fig).join('');
+function fit(){var w=document.querySelector('figure').clientWidth,z=Math.min(1,w/390);document.querySelectorAll('.ph').forEach(function(p){p.style.zoom=z;});}
+addEventListener('resize',fit);
+/* the play-through */
+var d=document.getElementById('demo'),timers=[];
+function put(html){d.innerHTML=html;d.firstChild.classList.add('fade');fit();}
+function reset(){timers.forEach(clearTimeout);timers=[];put(lock(''));}
+function play(){reset();[[600,F.heard],[2600,F.open],[3500,F.working],[6500,F.answer]].forEach(function(s){timers.push(setTimeout(function(){put(s[1]);},s[0]));});}
+document.getElementById('play').addEventListener('click',play);
+document.getElementById('again').addEventListener('click',reset);
+reset();fit();
+})();
+</script>
+</body>
+</html>

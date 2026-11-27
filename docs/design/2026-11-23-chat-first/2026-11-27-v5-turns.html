@@ -7,63 +7,23 @@
      Open with #1 to #5 for each state; the buttons under the phone step through them. The approved screens are
      2026-11-25-app-v4.html, untouched. -->
 <link rel="stylesheet" href="../components.css">
+<link rel="stylesheet" href="2026-11-27-turns.css">
 <style>
-:root{--bg:#000;--fg:#fff8ea;--muted:#8a867e;--tint:rgba(255,248,234,.1);--glass:rgba(255,248,234,.14);--wash:rgba(255,248,234,.05);--tile:#111214;--ai:#9aa8ec;--flag:#f0896f;color-scheme:dark}
-*{box-sizing:border-box}html,body{margin:0;background:#121316;color:var(--fg);font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
-button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
-main{display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px 16px}
-.ph{position:relative;width:390px;height:844px;border-radius:54px;background:var(--bg);overflow:hidden;box-shadow:inset 0 0 0 2px #2a2b31}
-.sb{position:absolute;top:16px;left:34px;right:30px;display:flex;justify-content:space-between;font-size:15px;font-weight:650;z-index:5}
-.top{position:absolute;top:52px;left:16px;right:16px;display:flex;justify-content:space-between;z-index:5}
-.rb{width:40px;height:40px;border-radius:20px;background:var(--glass);display:flex;align-items:center;justify-content:center;font-weight:650;font-size:15px}
-.rb .dot{width:9px;height:9px;border-radius:5px;background:var(--fg)}
-/* the edge at rest: a faint ring */
-.edge{position:absolute;inset:0;border-radius:54px;box-shadow:inset 0 0 0 1.5px rgba(255,248,234,.16),inset 0 0 18px rgba(255,248,234,.06);pointer-events:none;z-index:4;transition:opacity .6s}
-.working .edge{opacity:.35}
-/* Life working: a soft mesh of light from the centre, the aura's blue in cream (iOS: MeshGradient) */
-.mesh{position:absolute;left:50%;top:46%;width:420px;height:420px;margin:-210px 0 0 -210px;border-radius:50%;filter:blur(38px);opacity:0;transition:opacity .8s;z-index:1;
- background:radial-gradient(circle at 35% 40%,rgba(154,168,236,.55),transparent 55%),radial-gradient(circle at 65% 35%,rgba(255,248,234,.22),transparent 50%),radial-gradient(circle at 55% 68%,rgba(120,140,230,.45),transparent 55%),radial-gradient(circle at 30% 70%,rgba(197,155,240,.25),transparent 50%);animation:drift 9s ease-in-out infinite alternate}
-.working .mesh{opacity:1}.answered .mesh{opacity:.18;top:30%}
-@keyframes drift{0%{transform:rotate(0) scale(1)}50%{transform:rotate(40deg) scale(1.08)}100%{transform:rotate(80deg) scale(.96)}}
-.stage{position:absolute;top:100px;bottom:96px;left:0;right:0;overflow-y:auto;scrollbar-width:none;z-index:3;padding:0 24px;display:flex;flex-direction:column}
-.stage::-webkit-scrollbar{display:none}
-/* the empty screen */
-.hi{margin:auto 0;text-align:center}
-.hi h1{font-size:34px;font-weight:650;margin:0;letter-spacing:-.01em}
-.hi p{color:var(--muted);font-size:15px;margin:10px 0 18px}
 .pill{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:20px;background:var(--tint);font-size:14.5px;font-weight:600}
 .pill i{width:7px;height:7px;border-radius:4px;background:var(--flag)}
-/* his words: centred, his by a cue (a small "You" and the tint), never left or right */
-.me{text-align:center;transition:all .5s cubic-bezier(.2,.8,.2,1)}
-.me small,.life-lbl{display:block;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
-.me q{quotes:none;display:inline-block;background:var(--tint);border-radius:18px;padding:10px 16px;font-size:19px;font-weight:600;line-height:1.35}
-.rising .me{margin:auto 0}
-.working .me,.answered .me{margin-top:8px}.answered .me q{font-size:15px;padding:8px 14px}
-/* Life at work, in the centre */
-.step{margin:auto 0;text-align:center;font-size:17px}
-.step span{color:var(--muted)}.step b{font-weight:650}
-.step em{display:block;font-style:normal;font-size:13px;color:var(--muted);margin-top:10px}
-/* the answer fills the screen */
-.ans{margin-top:28px;text-align:center}
-.ans h2{font-size:26px;font-weight:650;line-height:1.25;margin:0 0 10px;letter-spacing:-.01em}
-.ans p{color:#b9b4aa;font-size:15px;line-height:1.45;margin:0 0 18px}
-.card{text-align:left;background:var(--tile);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:10px}
-.chead{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650}.chead svg{width:18px;height:18px}.chead span{margin-left:auto;color:#25D366;font-weight:600}
-.bub{align-self:flex-end;max-width:85%;background:#144d37;border-radius:16px 16px 4px 16px;padding:9px 12px;font-size:15px;line-height:1.4;outline:1.5px dashed rgba(255,248,234,.45);outline-offset:-1.5px}
-.inq{align-self:flex-start;max-width:85%;background:#1c1d22;border-radius:16px 16px 16px 4px;padding:9px 12px;font-size:14.5px;color:#d8d3c8}
-.prim{height:50px;border-radius:25px;background:var(--fg);color:#000;font-weight:650;font-size:15.5px;width:100%}.two button{flex:1;height:44px;border-radius:22px;background:var(--tint);font-weight:600;font-size:14.5px}
-.fu{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:18px 0 8px}.fu button{height:36px;padding:0 14px;border-radius:18px;background:var(--wash);color:#d8d3c8;font-size:13.5px;font-weight:600}
-/* scrolled up: a chronology, centred, "You" then "Life" */
+.fu{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:18px 0 8px}
+.fu button{height:36px;padding:0 14px;border-radius:18px;background:var(--wash);color:#d8d3c8;font-size:13.5px;font-weight:600}
 .hist{display:flex;flex-direction:column;gap:22px;padding:8px 0 24px;text-align:center}
 .hist .day{font-size:11.5px;font-weight:600;color:var(--muted)}
-.hist .t{display:flex;flex-direction:column;gap:4px}.hist .t .w{font-size:15px;line-height:1.45}.hist .t .w.mine{font-weight:600}
-.hist .row{display:flex;align-items:center;gap:10px;justify-content:center;font-size:14px;color:#d8d3c8}.hist .row .f{width:28px;height:28px;border-radius:14px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.hist .t{display:flex;flex-direction:column;gap:4px}
+.hist .t .w{font-size:15px;line-height:1.45}
+.hist .t .w.mine{font-weight:600}
+.hist .row{display:flex;align-items:center;gap:10px;justify-content:center;font-size:14px;color:#d8d3c8}
+.hist .row .f{width:28px;height:28px;border-radius:14px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
 .hist .now{opacity:.5}
-.field{position:absolute;left:16px;right:16px;bottom:28px;height:52px;border-radius:26px;background:var(--tile);display:flex;align-items:center;padding:0 6px 0 18px;gap:8px;z-index:5;color:var(--muted);font-size:15.5px}
-.field .sp{flex:1}.k{width:40px;height:40px;border-radius:20px;background:var(--tint);display:flex;align-items:center;justify-content:center;color:var(--fg)}.k svg{width:18px;height:18px}
+main{display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px 16px}
 .ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:420px}
 .ctl button{height:34px;padding:0 14px;border-radius:17px;background:#1d1e23;font-size:13px;font-weight:600}.ctl button[aria-pressed=true]{background:var(--fg);color:#000}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body><main>
 <div class="ph" id="ph"><div class="sb"><span>9:41</span><span>●●● ▮</span></div>
 <div class="top"><span class="rb" aria-label="3 waiting on you">3</span><span class="rb" aria-label="Pendant recording"><i class="dot"></i></span></div>

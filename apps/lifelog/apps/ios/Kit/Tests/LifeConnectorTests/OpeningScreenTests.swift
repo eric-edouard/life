@@ -51,13 +51,13 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
     var o = OpeningScreen()
     o.came(at: t0)
     o.take(try read([("d1", "decision"), ("d2", "decision")], opening: ["d1", "d2"]), at: .now)
-    // d1 answered: it leaves Life's opening, its row stays; LINE breaks meanwhile.
-    o.take(try read([("fix:line", "fix"), ("d1", "decision"), ("d2", "decision")], opening: ["d2"]), at: .now)
-    #expect(o.top == ["d1", "d2"] && o.broken == ["fix:line"])
+    // d1 answered: it leaves Life's opening, its row stays; LINE breaks meanwhile: its fix is brought, once.
+    o.take(try read([("fix:line", "fix"), ("d1", "decision"), ("d2", "decision")], opening: ["d2"]), at: t0)
+    #expect(o.top == ["d1", "d2"] && o.broken.isEmpty && o.brought == [.init(ref: "fix:line", at: t0)])
     // A new ask: Life brings it to the bottom, once.
     o.take(try read([("d2", "decision"), ("d3", "decision")], opening: ["d2", "d3"]), at: t0)
     o.take(try read([("d2", "decision"), ("d3", "decision")], opening: ["d2", "d3"]), at: t0)
-    #expect(o.brought == [.init(ref: "d3", at: t0)])
+    #expect(o.brought.map(\.ref) == ["fix:line", "d3"])
     // The next opening starts over from Life's read.
     o.left(at: t0 + minute)
     o.came(at: t0 + 7 * minute)

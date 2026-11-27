@@ -6,11 +6,18 @@
   "steps": [
     {
       "reads": {
+        "read_thread": "parity/opening.json"
+      }
+    },
+    {
+      "reads": {
         "read_thread": "parity/sign-in.json"
       }
     }
   ],
   "answers": [],
-  "items": ["fix:signed-out/whatsapp"],
+  "items": [
+    "fix:signed-out/whatsapp"
+  ],
   "signIn": "lab/sign-in-steps.json"
 }

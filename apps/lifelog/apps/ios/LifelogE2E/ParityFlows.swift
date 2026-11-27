@@ -14,12 +14,11 @@ import XCTest
     }
 }
 
-/// OP1, broken: the same opening, LINE and Messenger signed Life out, their two fixes above the asks.
+/// OP1, broken: the opening with LINE and Messenger signed Life out, their two fixes above the asks.
 @MainActor final class OP1OpeningBrokenTests: FlowTest {
     func testOpeningBroken() {
-        launch("OP1")
+        launch("OP1Broken")
         appears(field, "the thread")
-        step(1)
         appears(app.staticTexts["Sign LINE back in"], "the fix for LINE")
         appears(app.staticTexts["Sign Messenger back in"], "the fix for Messenger")
         shoot("open-broken")
@@ -60,11 +59,12 @@ import XCTest
     }
 }
 
-/// N1: WhatsApp signed Life out: the opening puts its fix row first, to sign back in.
+/// N1: WhatsApp signs Life out during the sitting: its fix row comes unfolded at the bottom, to sign back in.
 @MainActor final class N1SignBackInTests: FlowTest {
     func testSignBackIn() {
         launch("N1")
         appears(field, "the thread")
+        step(1)
         appears(app.staticTexts["Sign WhatsApp back in"], "the signed-out row")
         shoot("signed-out")
     }

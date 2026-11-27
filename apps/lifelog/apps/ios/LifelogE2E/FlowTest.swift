@@ -47,6 +47,7 @@ class FlowTest: XCTestCase {
         if let open { arguments += ["-e2eOpenURL", open] }
         if Self.isWatched { arguments += ["-e2eKeepAnimations", "YES"] }
         app.launchArguments = arguments
+        app.launchEnvironment["TZ"] = "UTC"  // the made-up times read the same on every Mac
         app.launch()
     }
 
@@ -93,10 +94,11 @@ class FlowTest: XCTestCase {
         send.tap()
         taps += 2
         // The keyboard stays up after Send; a person swipes the thread down to read it (the thread dismisses it).
-        // A drag from the thread down past the keyboard's top: a short swipe never reached it.
+        // A drag from the thread down past the keyboard's top: a short swipe never reached it. It starts in the right
+        // margin, where no row (a button that takes the touch) reaches.
         for _ in 0..<3 where app.keyboards.firstMatch.exists {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).press(
-                forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.97)))
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.3)).press(
+                forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.97)))
             Thread.sleep(forTimeInterval: 1)
         }
         vanishes(app.keyboards.firstMatch, "the keyboard put away")
