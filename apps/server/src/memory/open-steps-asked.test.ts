@@ -139,6 +139,16 @@ test("his word on an earlier reading ends its re-read: a re-read never reopens a
     [reread.id, "record"],
   ]);
   expect(v?.open).toBe(false);
+  // His Reopen of the re-read step, after that word, keeps it open.
+  const again = new Map([
+    [first.id, { at: "2026-10-02T09:00:00Z", why: "done" }],
+  ]);
+  inheritEndings(
+    again,
+    observations,
+    new Map([[reread.id, "2026-10-03T09:00:00Z"]])
+  );
+  expect(again.has(reread.id)).toBe(false);
 });
 
 test("a re-read takes over each earlier reading of its line, never another line's", () => {

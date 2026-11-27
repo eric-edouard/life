@@ -352,8 +352,8 @@ export async function readMatterRecords(people: People) {
         : { at: atOf.get(r.by) ?? r.at, replacedBy: r.by, why: r.why },
     ])
   );
-  inheritEndings(retired, observations);
-  inheritEndings(linkEndings, observations);
+  inheritEndings(retired, observations, reopenedAt);
+  inheritEndings(linkEndings, observations, reopenedAt);
   return {
     current,
     ...readMatterPins(),
@@ -370,15 +370,27 @@ export async function readMatterRecords(people: People) {
   };
 }
 
-/** Gives each observation that takes over earlier readings (`succeeds`) the first of their endings in `endings`, when it has none of its own. */
-export function inheritEndings<T>(
+/**
+ * Gives each observation that takes over earlier readings (`succeeds`) the first of their endings in `endings`, when it
+ * has none of its own: unless his Reopen of it came at or after that ending (the latest of his words wins), or the
+ * ending is its own replacement by itself.
+ */
+export function inheritEndings<T extends { at: string; replacedBy?: string }>(
   endings: Map<string, T>,
-  observations: readonly { id: string; succeeds?: readonly string[] }[]
+  observations: readonly { id: string; succeeds?: readonly string[] }[],
+  reopenedAt: ReadonlyMap<string, string> = new Map()
 ) {
   for (const o of observations) {
-    const was = o.succeeds?.find((id) => endings.has(id));
+    const was = o.succeeds
+      ?.map((id) => endings.get(id))
+      .find(
+        (e) =>
+          e !== undefined &&
+          e.replacedBy !== o.id &&
+          !(Date.parse(reopenedAt.get(o.id) ?? "") >= Date.parse(e.at))
+      );
     if (was && !endings.has(o.id)) {
-      endings.set(o.id, endings.get(was) as T);
+      endings.set(o.id, was);
     }
   }
 }
