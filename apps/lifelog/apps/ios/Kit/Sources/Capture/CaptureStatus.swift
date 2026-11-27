@@ -68,10 +68,13 @@ public struct Backlog: Sendable, Equatable {
     public var pages: UInt64
     /// An estimate from audio measured in pages saved so far; `nil` until there is data to calibrate on.
     public var estimatedDuration: Duration?
+    /// The last page of the unbroken run of pages the phone saved (as stored, `PageSink.savedIndex`); `nil` before one.
+    public var savedPage: UInt64?
 
-    public init(pages: UInt64, estimatedDuration: Duration?) {
+    public init(pages: UInt64, estimatedDuration: Duration?, savedPage: UInt64? = nil) {
         self.pages = pages
         self.estimatedDuration = estimatedDuration
+        self.savedPage = savedPage
     }
 }
 
