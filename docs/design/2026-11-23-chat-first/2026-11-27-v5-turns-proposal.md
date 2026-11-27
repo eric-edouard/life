@@ -1,9 +1,13 @@
 # v5 idea: turn by turn instead of a thread
 
 Explanation: what the owner's idea of 27 Nov 2026 gains and loses against the approved app v4, whether SwiftUI can do
-it, and a verdict. A proposal, not a decision. The mock is [`2026-11-27-v5-turns.html`](2026-11-27-v5-turns.html)
+it, and a verdict. Written as a proposal; the owner chose the direction the same day (below), and the verdict's
+slices are still the build order. The mock is [`2026-11-27-v5-turns.html`](2026-11-27-v5-turns.html)
 (states `#1` to `#5`), exported to [`2026-11-27-screens-v5-turns/`](2026-11-27-screens-v5-turns/); the approved
 screens are untouched.
+
+Update, 27 Nov 2026: the owner chose this direction later the same day. Where it stands, "hey Life" in it and what is
+still open: [the hand-over](../../handoff/2026-11-27-turn-by-turn.md).
 
 ![The five states side by side](2026-11-27-screens-v5-turns/0-all-side-by-side.png)
 
@@ -54,6 +58,9 @@ Yes, with tools already in iOS 26:
   items (`Items/`), the field and the edge are reused as they are. No server or data change.
 
 ## Verdict: adopt parts, in slices
+
+Written before the owner chose turn by turn on 27 Nov 2026. The choice settles the direction; the slices below remain
+the order to build it in, and the open points above are still to be designed first.
 
 Do not replace the thread with turns now. Arrivals and live asks rest on the thread, and v4 is being built on it. Take
 the parts that remove load and keep everything that works:
