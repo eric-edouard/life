@@ -42,9 +42,7 @@ type MoveStep = Pick<MatterStepNow, "at" | "day" | "kind" | "when">;
  * missed day comes first), else the newest; none when nothing is his to do, with `due` and `since` (the day of the
  * oldest of them: how long the matter has waited on him). Pure.
  */
-export function yourMoveOf<S extends MoveStep>(v: {
-  openSteps: readonly S[];
-}) {
+export function yourMoveOf<S extends MoveStep>(v: { openSteps: readonly S[] }) {
   const his = v.openSteps
     .filter((s) => OWED_BY_HIM.includes(s.kind))
     .map((step) => ({ due: dueOf(step.when), step }));

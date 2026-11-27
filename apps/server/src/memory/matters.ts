@@ -16,8 +16,7 @@ import {
   type MatterStep,
   type ProjectPin,
 } from "../records/matter";
-import { Correction, type Observation } from "../records/observation";
-import { eventKey } from "../records/source";
+import { Correction } from "../records/observation";
 import { SEARCHABLE_AT } from "../records/unit";
 import {
   openTodoItemsOf,
@@ -30,7 +29,6 @@ import {
   type MatterStepNow,
   type MatterView,
   matterBookOf,
-  offeredNowOf,
 } from "./matter-read";
 import {
   CONTACT_PEOPLE,
@@ -57,6 +55,12 @@ import {
 } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
+import {
+  inheritEndings,
+  offeredNowOf,
+  READ_AGAIN,
+  succeedsOf,
+} from "./re-read-succession";
 import { TRUTH } from "./read-truth";
 import { outdatedBy, reopenedAtOf } from "./retirements";
 import { begin, readsOf } from "./run";
@@ -368,56 +372,6 @@ export async function readMatterRecords(people: People) {
     retired,
     todoItems: [...todoItemsOf(ledger).values()],
   };
-}
-
-/**
- * Gives each observation that takes over earlier readings (`succeeds`) the first of their endings in `endings`, when it
- * has none of its own: unless his Reopen of it came at or after that ending (the latest of his words wins), or the
- * ending is its own replacement by itself.
- */
-export function inheritEndings<T extends { at: string; replacedBy?: string }>(
-  endings: Map<string, T>,
-  observations: readonly { id: string; succeeds?: readonly string[] }[],
-  reopenedAt: ReadonlyMap<string, string> = new Map()
-) {
-  for (const o of observations) {
-    const was = o.succeeds
-      ?.map((id) => endings.get(id))
-      .find(
-        (e) =>
-          e !== undefined &&
-          e.replacedBy !== o.id &&
-          !(Date.parse(reopenedAt.get(o.id) ?? "") >= Date.parse(e.at))
-      );
-    if (was && !endings.has(o.id)) {
-      endings.set(o.id, was);
-    }
-  }
-}
-
-/** Where an earlier reading of a line stands once its unit was read again (`replaced`) or regrouped away (`gone`): never an ending, his word or a retirement. */
-const READ_AGAIN: ReturnType<typeof observationStatusOf>["state"][] = [
-  "gone",
-  "replaced",
-];
-
-/**
- * Each current observation with the earlier readings of its source line it takes over (`succeeds`): every current fact
- * citing the same line (`eventKey`), whatever its kind, takes each earlier one's place in its matter. Pure.
- */
-export function succeedsOf<O extends Pick<Observation, "id" | "source">>(
-  current: readonly O[],
-  earlier: readonly Pick<Observation, "id" | "source">[]
-): (O & { succeeds?: string[] })[] {
-  const lineOf = (o: Pick<Observation, "source">) =>
-    eventKey({ id: o.source.ref, source: o.source.channel });
-  const byLine = Map.groupBy(earlier, lineOf);
-  return current.map((o) => {
-    const succeeds = (byLine.get(lineOf(o)) ?? [])
-      .map((e) => e.id)
-      .filter((id) => id !== o.id);
-    return succeeds.length > 0 ? { ...o, succeeds } : o;
-  });
 }
 
 /**

@@ -30,6 +30,7 @@ import {
   importantIdsOf,
   pinnedOf,
 } from "./matter-pins";
+import { offeredNowOf, successorsOf } from "./re-read-succession";
 import { OWNER } from "./read-truth";
 import { dayStart, localDate } from "./zones";
 
@@ -72,10 +73,7 @@ type StepObservation = Pick<
   | "type"
   | "unit"
   | "when"
-> & {
-  /** The earlier readings of its source line it takes over in their matters: a re-read's facts have new ids (`succeedsOf`). */
-  succeeds?: readonly string[];
-};
+> & { succeeds?: readonly string[] };
 type StepTodoItem = Pick<
   LedgerTodoItem,
   "at" | "closedAt" | "fields" | "key" | "ref"
@@ -217,26 +215,10 @@ export const openStepsOf = (
 export const isAwaitingHisWord = (v: Pick<MatterView, "open" | "status">) =>
   v.open || v.status === "probably_done";
 
-/** What a matters call was shown (`mattersNow`'s `offered`), and each observation taking over an offered one (`succeeds`): the one test of "offered", for the book and the night's matters step. Pure. */
-export const offeredNowOf = (
-  offered: ReadonlySet<string>,
-  observations: readonly Pick<StepObservation, "id" | "succeeds">[]
-): ReadonlySet<string> =>
-  new Set([
-    ...offered,
-    ...observations.flatMap((o) =>
-      o.succeeds?.some((id) => offered.has(id)) ? [o.id] : []
-    ),
-  ]);
-
 /** The lookups over the records, built once for every matter. `offered`: every record a matters call was shown (`mattersNow`). */
 function indexOf(rec: MatterRecords, offered: ReadonlySet<string>) {
   return {
     byId: new Map(rec.observations.map((o) => [o.id, o])),
-    bySucceeded: Map.groupBy(
-      rec.observations.flatMap((o) => (o.succeeds ?? []).map((id) => ({ id, o }))),
-      (s) => s.id
-    ),
     byRef: Map.groupBy(
       rec.todoItems.filter((t) => t.ref),
       (t) => t.ref as string
@@ -244,6 +226,7 @@ function indexOf(rec: MatterRecords, offered: ReadonlySet<string>) {
     byUnit: Map.groupBy(rec.observations, (o) => o.unit),
     offered: offeredNowOf(offered, rec.observations),
     rec,
+    successors: successorsOf(rec.observations),
     todo: new Map(rec.todoItems.map((t) => [t.key, t])),
   };
 }
@@ -254,7 +237,10 @@ function recordsOf(line: Line, ix: Index) {
   const episodes = new Map<string, Episode>();
   const observations = new Map<string, StepObservation>();
   const items = new Map<string, StepTodoItem>();
-  for (const { ref } of line.steps) {
+  for (const ref of line.steps.flatMap((s) => [
+    s.ref,
+    ...(ix.successors.get(s.ref) ?? []),
+  ])) {
     const observation = ix.byId.get(ref);
     // A unit step is a unit's ref and brings its episode; an observation step is the step itself.
     const episode = observation ? undefined : ix.rec.episodeOf.get(ref);
@@ -269,10 +255,6 @@ function recordsOf(line: Line, ix: Index) {
     }
     if (observation) {
       observations.set(ref, observation);
-    }
-    // A step read again (a re-read, a regrouped unit) is its source line's current facts.
-    for (const { o } of ix.bySucceeded.get(ref) ?? []) {
-      observations.set(o.id, o);
     }
     if (item) {
       items.set(ref, item);
@@ -832,9 +814,8 @@ export function matterBookOf(
   return book
     .map((v) => {
       const d = directions.get(v);
-      // Over only on a record that shows it: a draft citing none is no evidence (his rule of 27 Nov 2026).
       const hasProof = Boolean(d?.latest?.endingRecords?.length);
-      // Life's latest draft reads it over, and nothing came since: probably done, like a link's ending (his word of 21 Nov 2026).
+      // Life's latest draft reads it over citing a record (none is no evidence, his rule of 27 Nov 2026), and nothing came since: probably done, like a link's ending (his word of 21 Nov 2026).
       const over =
         d?.latest?.by === "life" &&
         hasProof &&
@@ -849,9 +830,7 @@ export function matterBookOf(
         ...(project ? { projects: [project] } : {}),
         ...(d?.goal ? { goal: d.goal } : {}),
         ...(d?.nextStep ? { nextStep: d.nextStep } : {}),
-        ...(hasProof
-          ? { endingRecords: d?.latest?.endingRecords }
-          : {}),
+        ...(hasProof ? { endingRecords: d?.latest?.endingRecords } : {}),
         ...(ownerIcon ? { ownerIcon } : {}),
       };
     })

@@ -3,7 +3,7 @@ import type { Observation } from "../records/observation";
 import { checksOf } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import { type MatterRecords, matterBookOf } from "./matter-read";
-import { inheritEndings, succeedsOf } from "./matters";
+import { inheritEndings, succeedsOf } from "./re-read-succession";
 import { OWNER } from "./read-truth";
 import { OWED_BY_HIM } from "./your-move";
 
