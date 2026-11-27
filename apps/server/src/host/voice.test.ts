@@ -20,8 +20,6 @@ import { plistOf } from "../core/service";
 import { setSettings, settings } from "../core/settings";
 import { call, readVoiceSecrets } from "../sources/lifelog-call";
 import {
-  archiveEnvOf,
-  archiveLineOf,
   embedderArgsOf,
   HOST_RUNS,
   identityEnvOf,
@@ -29,13 +27,17 @@ import {
   mintVoiceSecrets,
   pairLinkOf,
   pairTokenOf,
+  recordingsEnvOf,
+  recordingsLineOf,
   serverEnvOf,
   setVoiceKey,
   VOICE_CHILDREN,
   type VoiceInputs,
   type VoicePaths,
   voiceLineOf,
+  voiceRun,
   voiceStart,
+  voiceStatus,
 } from "./voice";
 
 /** 32 random bytes, base64url without padding. */
@@ -169,8 +171,8 @@ test("restic only when backups are on", () => {
   expect(on.RESTIC_REPOSITORY).toBe("/icloud/restic");
 });
 
-test("export and import get only the archive", () => {
-  expect(archiveEnvOf("/s")).toEqual({
+test("export and import get only the recordings", () => {
+  expect(recordingsEnvOf("/s")).toEqual({
     AUDIO_DIR: "/s/audio",
     DATABASE_PATH: "/s/archive.sqlite",
   });
@@ -250,18 +252,23 @@ test("start restarts a job only when its plist changed, stops one that can't run
     kept.length = 0;
     await voiceStart(paths, o);
     expect(kept).toEqual([]);
-    // The Claude token's restart: the Mac helper alone.
-    await voiceStart(paths, o, "quiet");
+    // A new Claude token: the Mac helper alone restarts, the token itself never in its plist.
+    setVoiceKey("claudeToken", "claude-token");
+    await voiceStart(paths, o);
     expect(kept).toEqual(["voice-quiet"]);
+    expect(
+      readFileSync(plistOf("voice-quiet", "", []).path, "utf8")
+    ).not.toContain("claude-token");
     kept.length = 0;
-    // While Lifelog Host runs voice, nothing starts or stops.
+    // voiceStart while Host runs stops Life's jobs and starts none.
     stopped.length = 0;
     const host = await voiceStart(paths, {
       ...o,
       hostRuns: () => Promise.resolve(true),
     });
     expect(Object.values(host)).toEqual(VOICE_CHILDREN.map(() => HOST_RUNS));
-    expect([kept, stopped]).toEqual([[], []]);
+    expect(kept).toEqual([]);
+    expect(stopped).toEqual(VOICE_CHILDREN.map((c) => `voice-${c}`));
     // A job whose bootstrap failed is not running, whatever its plist.
     await voiceStart(paths, { ...o, loaded: () => Promise.resolve(false) });
     expect(kept).toEqual([
@@ -356,23 +363,23 @@ test("an owner key is set or removed, every other secret kept, the file still ow
 });
 
 test("export and import say how they ended, never raw JSON", () => {
-  const done = archiveLineOf(
+  const done = recordingsLineOf(
     "export",
     0,
     'copying audio\n{"ok":true,"files":12,"bytes":2048}\n'
   );
   expect(done).toEqual({ line: "Exported 12 files.", ok: true });
   expect(
-    archiveLineOf(
+    recordingsLineOf(
       "import",
       1,
       '{"ok":false,"error":"this install isn\'t empty"}'
     ).line
   ).toBe("The import failed: this install isn't empty");
-  expect(archiveLineOf("import", 2, '{"unexpected":1}').line).toBe(
+  expect(recordingsLineOf("import", 2, '{"unexpected":1}').line).toBe(
     "The import failed: it stopped with status 2"
   );
-  expect(archiveLineOf("export", 1, "error: no space left").line).toEndWith(
+  expect(recordingsLineOf("export", 1, "error: no space left").line).toEndWith(
     "no space left"
   );
 });
@@ -399,4 +406,41 @@ test("the status line: what keeps voice from running first, then the wanted chil
     voiceLineOf(all({ embedder: { state: "waiting", why: null } }), true)
   ).toBe("Running; not running: embedder");
   expect(voiceLineOf(all({}), false)).toBe("Not answering");
+});
+
+test("a job launchd runs while Host runs voice exits and removes Life's jobs, its own last", async () => {
+  const stopped: string[] = [];
+  const stop = (job: string) => {
+    stopped.push(job);
+    return Promise.resolve();
+  };
+  expect(
+    await voiceRun("server", at, {
+      hostRuns: () => Promise.resolve(true),
+      stop,
+    })
+  ).toBe(1);
+  expect(stopped).toEqual([
+    "voice-quiet",
+    "voice-identity",
+    "voice-embedder",
+    "voice-server",
+  ]);
+});
+
+test("a server.env others can read is the status line, never a status stuck on Checking", async () => {
+  const support = mkdtempSync(join(tmpdir(), "voice-status-"));
+  const serverEnv = join(support, "server.env");
+  writeFileSync(serverEnv, "A=1\n", { mode: 0o644 });
+  chmodSync(serverEnv, 0o644);
+  try {
+    const status = await voiceStatus({ ...at, serverEnv, support }, () =>
+      Promise.resolve(false)
+    );
+    expect(status).toEqual({
+      line: expect.stringContaining("readable by others"),
+    });
+  } finally {
+    rmSync(support, { force: true, recursive: true });
+  }
 });

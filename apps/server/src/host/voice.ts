@@ -18,6 +18,7 @@ import {
   isLoaded,
   keepRunning,
   logOf,
+  plistOf,
   readJobState,
   stopRunning,
 } from "../core/service";
@@ -100,6 +101,8 @@ export interface VoiceLaunch {
   args: string[];
   binary: string;
   env: Record<string, string>;
+  /** What else it reads only at its start (the Mac helper's Claude token), as a digest: in its plist's `--launch`, never in its run. */
+  readsAtStart?: string;
 }
 
 const sha256Hex = (s: string) => digest("sha256", s, 64);
@@ -108,14 +111,14 @@ const defined = (o: Record<string, string | undefined>) =>
     Object.entries(o).filter((e): e is [string, string] => e[1] !== undefined)
   );
 
-/** The archive's file and audio under `support`: all that `lifelog-server export` and `import` need. */
-export const archiveEnvOf = (support: string) => ({
+/** The recordings (their database and audio) under `support`: all that `lifelog-server export` and `import` need. */
+export const recordingsEnvOf = (support: string) => ({
   AUDIO_DIR: join(support, "audio"),
   DATABASE_PATH: join(support, "archive.sqlite"),
 });
 
 /**
- * The server's environment: its archive, the token hashes (never the tokens), the owner's keys, the address the phone
+ * The server's environment: its recordings, the token hashes (never the tokens), the owner's keys, the address the phone
  * reaches, restic when backups are on, speaker recognition when it is on, the build, and `server.env` under them:
  * restic's and speaker recognition's keys are voice's, set or unset, so turning either off can't be undone by it.
  */
@@ -145,7 +148,7 @@ export function serverEnvOf(v: VoiceInputs): Record<string, string> {
       ([k]) => !(k.startsWith("RESTIC_") || k.startsWith("IDENTITY_"))
     )
   );
-  return { ...extra, ...archiveEnvOf(v.at.support), ...own };
+  return { ...extra, ...recordingsEnvOf(v.at.support), ...own };
 }
 
 /**
@@ -215,10 +218,11 @@ export const VOICE_LAUNCHES: Record<
           env: identityEnvOf(identityHomeOf(at), secrets),
         }
       : undefined,
-  quiet: ({ at }) => ({
+  quiet: ({ at, secrets }) => ({
     args: [],
     binary: join(at.helpers, "lifelog-quiet"),
     env: { LIFELOG_CODEX: at.codex, LIFELOG_URL: VOICE_URL },
+    readsAtStart: digest("sha256", secretOf(secrets, "claudeToken") ?? "", 16),
   }),
   server: (v) =>
     secretOf(v.secrets, "elevenLabsKey")
@@ -233,7 +237,9 @@ export const VOICE_LAUNCHES: Record<
 /** What every launch is worked out from, read now: the secrets as stored, `server.env` (owner-only), his settings. */
 export async function readVoiceInputs(
   at: VoicePaths,
-  secrets = readVoiceSecrets()
+  secrets = readVoiceSecrets(),
+  /** The build, worked out from the helper's binary: the status poll skips it. */
+  build = buildOf
 ): Promise<VoiceInputs> {
   // The same refusal as the secrets': a server.env others can read stops the run.
   const extra = parseEnv(readOwnerOnly(at.serverEnv) ?? "") as Record<
@@ -244,7 +250,7 @@ export async function readVoiceInputs(
   return {
     at,
     backups: settings().voice?.backups === true,
-    build: await buildOf(),
+    build: await build(),
     extra,
     publicUrl: origin ? `${origin}/voice` : VOICE_URL,
     secrets,
@@ -281,7 +287,6 @@ export function setVoiceKey(name: string, value: string) {
   const { [name]: _, ...rest } = readVoiceSecrets();
   const secrets = value.trim() ? { ...rest, [name]: value.trim() } : rest;
   writeSecret("voiceSecrets", JSON.stringify(secrets));
-  return secrets;
 }
 
 /**
@@ -330,7 +335,7 @@ export const jobArgsOf = (
   `--launch=${digest("sha256", JSON.stringify(launch), 16)}`,
 ];
 
-/** Why voice doesn't start: Lifelog Host runs it (same ports, archive and outbox; two Mac helpers stall processing). */
+/** Why voice doesn't start: Lifelog Host runs it (same ports, recordings and outbox; two Mac helpers stall processing). */
 export const HOST_RUNS = "Lifelog Host runs voice";
 /**
  * Whether Lifelog Host runs: a process of its app. ponytail: goes with Host in bundle 4, with `HOST_RUNS` and every use.
@@ -349,11 +354,11 @@ export async function voiceStart(
     keep: keepRunning,
     loaded: isLoaded,
     stop: stopRunning,
-  },
-  /** A child restarted even when its plist is unchanged: the Mac helper, which reads the Claude token only at launch. */
-  restart?: VoiceChild
+  }
 ): Promise<Partial<Record<VoiceChild, string>>> {
+  // Life's jobs go while Host runs: written at a login before Host's processes showed, launchd would run them at every login.
   if (await o.hostRuns()) {
+    await voiceStop(o.stop);
     return Object.fromEntries(VOICE_CHILDREN.map((c) => [c, HOST_RUNS]));
   }
   const inputs = await readVoiceInputs(at, mintVoiceSecrets());
@@ -368,10 +373,7 @@ export async function voiceStart(
       continue;
     }
     const args = jobArgsOf(child, launch, inputs.build);
-    if (
-      child !== restart &&
-      (await isKeptAs(jobOf(child), at.support, args, o.loaded))
-    ) {
+    if (await isKeptAs(jobOf(child), at.support, args, o.loaded)) {
       states[child] = "running";
       continue;
     }
@@ -380,6 +382,10 @@ export async function voiceStart(
   }
   return states;
 }
+
+/** Whether any of voice's launchd jobs is written. */
+export const hasVoiceJobs = () =>
+  VOICE_CHILDREN.some((c) => existsSync(plistOf(jobOf(c), "", []).path));
 
 /** Every child's job stopped and removed. */
 export async function voiceStop(stop = stopRunning) {
@@ -402,7 +408,20 @@ const passedWith = (own: Record<string, string>) => ({
  * steps no-ops once done, offline too), then this process replaced by it, never its parent. Returns only when it
  * can't run.
  */
-export async function voiceRun(child: VoiceChild, at = voicePathsHere()) {
+export async function voiceRun(
+  child: VoiceChild,
+  at = voicePathsHere(),
+  o = { hostRuns: isHostRunning, stop: stopRunning }
+) {
+  if (await o.hostRuns()) {
+    // Once: Life's jobs removed (its own last, which ends this process), so launchd never starts them beside Host.
+    console.error(`voice ${child}: ${HOST_RUNS}; Life's voice jobs removed`);
+    for (const job of [...VOICE_CHILDREN.filter((c) => c !== child), child]) {
+      // biome-ignore lint/performance/noAwaitInLoops: one job at a time, this one last
+      await o.stop(jobOf(job));
+    }
+    return 1;
+  }
   const inputs = await readVoiceInputs(at);
   const launch = VOICE_LAUNCHES[child](inputs);
   if (typeof launch !== "object") {
@@ -462,15 +481,23 @@ export function voiceLineOf(
 }
 
 /**
- * What Life.app's Settings shows of voice, all decided here: each child's state and why (`VOICE_LAUNCHES`), its line,
- * whether the server answers `/health` on loopback, the switches as they apply, what is set up, and each job's log.
- * Never a secret.
+ * What Life.app's Settings shows of voice, all decided here: its line (each child's why from `VOICE_LAUNCHES`, its
+ * launchd state), whether the server answers `/health` on loopback, the switches as they apply, what is set up, and
+ * each job's log. Never a secret, never the build (a binary's hash on a 5-second poll). What stops it being read (a
+ * secrets file or server.env others can read) is its line alone.
  */
 export async function voiceStatus(
   at = voicePathsHere(),
   hostRuns = isHostRunning
 ) {
-  const inputs = await readVoiceInputs(at);
+  let inputs: VoiceInputs;
+  try {
+    inputs = await readVoiceInputs(at, readVoiceSecrets(), () =>
+      Promise.resolve("")
+    );
+  } catch (e) {
+    return { line: (e as Error).message };
+  }
   const host = await hostRuns();
   const children = Object.fromEntries(
     await Promise.all(
@@ -490,24 +517,23 @@ export async function voiceStatus(
   );
   return {
     answering,
-    archive: existsSync(archiveEnvOf(at.support).DATABASE_PATH),
     backups: inputs.backups,
     chatgpt: existsSync(join(CODEX_HOME, "auth.json")),
-    children,
     claudeToken: secretOf(inputs.secrets, "claudeToken") !== undefined,
     elevenLabsKey: secretOf(inputs.secrets, "elevenLabsKey") !== undefined,
     iCloud: existsSync(dirname(dirname(at.backups))),
     line: voiceLineOf(children, answering),
     logs: Object.fromEntries(VOICE_CHILDREN.map((c) => [c, logOf(jobOf(c))])),
+    recorded: existsSync(recordingsEnvOf(at.support).DATABASE_PATH),
     speakers: inputs.speakers,
   };
 }
 
 /**
- * `lifelog-server export|import <folder>` with only the archive's paths, as one plain line. An import stops the server
+ * `lifelog-server export|import <folder>` with only the recordings' paths, as one plain line. An import stops the server
  * first (the server refuses an install that holds recordings) and starts voice again after.
  */
-export async function voiceArchive(
+export async function exportRecordings(
   verb: "export" | "import",
   folder: string,
   at = voicePathsHere()
@@ -517,17 +543,17 @@ export async function voiceArchive(
     await stopRunning(jobOf("server"));
   }
   const r = await exec([join(at.helpers, "lifelog-server"), verb, folder], {
-    env: passedWith(archiveEnvOf(at.support)),
+    env: passedWith(recordingsEnvOf(at.support)),
     timeout: 3_600_000,
   });
   if (verb === "import") {
     await voiceStart(at);
   }
-  return archiveLineOf(verb, r.code, r.stdout);
+  return recordingsLineOf(verb, r.code, r.stdout);
 }
 
 /** How `lifelog-server export|import` ended, from its last line (`{ ok, files }` or `{ ok: false, error }`): never raw JSON. */
-export function archiveLineOf(verb: string, code: number, stdout: string) {
+export function recordingsLineOf(verb: string, code: number, stdout: string) {
   const last = stdout.trim().split("\n").at(-1) ?? "";
   const stopped = `it stopped with status ${code}`;
   let result: { error?: string; files?: number; ok?: boolean };
@@ -542,7 +568,7 @@ export function archiveLineOf(verb: string, code: number, stdout: string) {
     : { line: `The ${verb} failed: ${result.error ?? stopped}`, ok: false };
 }
 
-const USAGE = `usage: life voice start | stop | status | key <${OWNER_KEYS.join("|")}> (value on stdin) | backup-password | sign-in-chatgpt | export <folder> | import <folder> | run <${VOICE_CHILDREN.join("|")}>`;
+const USAGE = `usage: life voice start [--refresh] | stop | status | key <${OWNER_KEYS.join("|")}> (value on stdin) | backup-password | sign-in-chatgpt | export <folder> | import <folder> | run <${VOICE_CHILDREN.join("|")}>`;
 
 /** `voice …`: what Life.app's Settings and launchd run. */
 export async function voiceCommand(args: string[]) {
@@ -554,6 +580,11 @@ export async function voiceCommand(args: string[]) {
     return 2;
   }
   if (verb === "start") {
+    // `--refresh` (Life.app's launch and Save): only jobs already written; the first start is Settings' or the cut-over's.
+    if (args.includes("--refresh") && !hasVoiceJobs()) {
+      console.log("voice: no jobs to refresh");
+      return 0;
+    }
     console.log(JSON.stringify(await voiceStart(), null, 2));
     return 0;
   }
@@ -567,11 +598,7 @@ export async function voiceCommand(args: string[]) {
   }
   if (verb === "key" && arg && OWNER_KEYS.includes(arg)) {
     setVoiceKey(arg, await Bun.stdin.text());
-    await voiceStart(
-      voicePathsHere(),
-      undefined,
-      arg === "claudeToken" ? "quiet" : undefined
-    );
+    await voiceStart();
     return 0;
   }
   if (verb === "backup-password") {
@@ -590,7 +617,7 @@ export async function voiceCommand(args: string[]) {
     return 1;
   }
   if ((verb === "export" || verb === "import") && arg) {
-    const r = await voiceArchive(verb, arg);
+    const r = await exportRecordings(verb, arg);
     console.log(r.line);
     return r.ok ? 0 : 1;
   }
