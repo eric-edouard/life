@@ -139,9 +139,9 @@ tt.addEventListener("click", () => {
   const w = document.getElementById("tableWrap"); w.hidden = !w.hidden;
   tt.setAttribute("aria-expanded", !w.hidden); tt.textContent = w.hidden ? "Show as table" : "Hide table";
 });
-const top = AREAS[0][1];
+const maxArea = AREAS[0][1];
 document.getElementById("areas").innerHTML = AREAS.map(([name, n]) =>
-  `<div class="row"><span>${name}</span><div class="track"><div class="fill" style="width:${(n / top) * 100}%"></div></div><span class="n">${short(n)}</span></div>`).join("");
+  `<div class="row"><span>${name}</span><div class="track"><div class="fill" style="width:${(n / maxArea) * 100}%"></div></div><span class="n">${short(n)}</span></div>`).join("");
 draw();
 </script>
 </body>
