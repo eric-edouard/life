@@ -28,13 +28,7 @@ Both turn by turn pages are proposals. Nothing is approved until the owner picks
 | [`2026-11-27-turns.css`](../design/2026-11-23-chat-first/2026-11-27-turns.css) | The turn parts both pages share: the phone, the owner's turn, the mesh, the answer, the field |
 | [`docs/design/README.md`](../design/README.md) | The index of every design, with its status |
 
-Published copies to view in one click (private to the owner):
-
-- Hey Life, turn by turn: https://claude.ai/artifact/9CkZF44cA6H2QmmBQKXGnv
-- App v4: https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF
-
-The published copies have the CSS inlined, because an artifact can't load `../` paths. The repo file is the source:
-rebuild the copy from it and publish to the same URL.
+To view them, see [the designs index](../design/README.md): every page is served from the live checkout, never a copy.
 
 ## "Hey Life"
 

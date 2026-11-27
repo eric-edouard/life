@@ -4,6 +4,9 @@ Every design of Life's app, by date. Each is plain HTML: open it in a browser, o
 (`python3 -m http.server`) for the pages that read a neighbour (the lab, the parity board). Each is named
 `YYYY-MM-DD-<name>`, by the day it was first made.
 
+To view one, from any device: https://designs.ericedouard.com/docs/design/ serves the Mac's live checkout (`main`)
+as it is, so git stays the only source. Nothing is published as a copy (no claude.ai artifacts).
+
 The pages share their parts instead of copying them. Life's brand is [`assets/brand/tokens.css`](../../assets/brand/tokens.css).
 [`components.css`](components.css) imports it and holds the rules the app v4 pages had in common that no other page's markup could pick up. The 23 Nov boards
 have their own shared file, [`boards.css`](2026-11-23-chat-first/2026-11-23-design-canvas/boards.css), because their class
