@@ -21,7 +21,9 @@ import { setSettings, settings } from "../core/settings";
 import { call, readVoiceSecrets } from "../sources/lifelog-call";
 import {
   archiveEnvOf,
+  archiveLineOf,
   embedderArgsOf,
+  HOST_RUNS,
   identityEnvOf,
   jobArgsOf,
   mintVoiceSecrets,
@@ -31,6 +33,7 @@ import {
   setVoiceKey,
   type VoiceInputs,
   type VoicePaths,
+  voiceLineOf,
   voiceStart,
 } from "./voice";
 
@@ -206,6 +209,7 @@ test("start restarts a job only when its plist changed, stops one that can't run
   const kept: string[] = [];
   const stopped: string[] = [];
   const o = {
+    hostRuns: () => Promise.resolve(false),
     keep: (job: string, dir: string, args: string[]) => {
       const { path, text } = plistOf(job, dir, args);
       mkdirSync(dirname(path), { recursive: true });
@@ -245,6 +249,18 @@ test("start restarts a job only when its plist changed, stops one that can't run
     kept.length = 0;
     await voiceStart(paths, o);
     expect(kept).toEqual([]);
+    // The Claude token's restart: the Mac helper alone.
+    await voiceStart(paths, o, "quiet");
+    expect(kept).toEqual(["voice-quiet"]);
+    kept.length = 0;
+    // While Lifelog Host runs voice, nothing starts or stops.
+    stopped.length = 0;
+    const host = await voiceStart(paths, {
+      ...o,
+      hostRuns: () => Promise.resolve(true),
+    });
+    expect(Object.values(host)).toEqual(Array(4).fill(HOST_RUNS));
+    expect([kept, stopped]).toEqual([[], []]);
     // A job whose bootstrap failed is not running, whatever its plist.
     await voiceStart(paths, { ...o, loaded: () => Promise.resolve(false) });
     expect(kept).toEqual([
@@ -336,4 +352,50 @@ test("an owner key is set or removed, every other secret kept, the file still ow
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
   }
+});
+
+test("export and import say how they ended, never raw JSON", () => {
+  const done = archiveLineOf(
+    "export",
+    0,
+    'copying audio\n{"ok":true,"files":12,"bytes":2048}\n'
+  );
+  expect(done).toEqual({ line: "Exported 12 files.", ok: true });
+  expect(
+    archiveLineOf(
+      "import",
+      1,
+      '{"ok":false,"error":"this install isn\'t empty"}'
+    ).line
+  ).toBe("The import failed: this install isn't empty");
+  expect(archiveLineOf("import", 2, '{"unexpected":1}').line).toBe(
+    "The import failed: it stopped with status 2"
+  );
+  expect(archiveLineOf("export", 1, "error: no space left").line).toEndWith(
+    "no space left"
+  );
+});
+
+test("the status line: what keeps voice from running first, then the wanted children that aren't", () => {
+  const up = { state: "running", why: null };
+  const all = (
+    c: Partial<Record<string, { state: string | null; why: string | null }>>
+  ) => ({
+    embedder: up,
+    identity: up,
+    quiet: up,
+    server: up,
+    ...c,
+  });
+  expect(voiceLineOf(all({}), true)).toBe("Running");
+  expect(
+    voiceLineOf(all({ server: { state: null, why: HOST_RUNS } }), false)
+  ).toBe(HOST_RUNS);
+  expect(
+    voiceLineOf(all({ identity: { state: null, why: "off" } }), true)
+  ).toBe("Running");
+  expect(
+    voiceLineOf(all({ embedder: { state: "waiting", why: null } }), true)
+  ).toBe("Running; not running: embedder");
+  expect(voiceLineOf(all({}), false)).toBe("Not answering");
 });

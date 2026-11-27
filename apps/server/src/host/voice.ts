@@ -255,7 +255,7 @@ export async function readVoiceInputs(
 /**
  * The secrets with what they lack minted (32 random bytes, base64url), written back only when something was: any
  * already there is kept (a new backup password would lock out every snapshot made with the old one), and so is every
- * key voice doesn't own (the Mac helper's Claude sign-in). Life's one writer of the file (`SECRETS.voiceSecrets`).
+ * key voice doesn't own (the Mac helper's Claude sign-in). With `setVoiceKey`, Life's only writes of the file (`SECRETS.voiceSecrets`).
  */
 export function mintVoiceSecrets() {
   const stored = readVoiceSecrets();
@@ -330,16 +330,32 @@ export const jobArgsOf = (
   `--launch=${digest("sha256", JSON.stringify(launch), 16)}`,
 ];
 
+/** Why voice doesn't start: Lifelog Host runs it (same ports, archive and outbox; two Mac helpers stall processing). */
+export const HOST_RUNS = "Lifelog Host runs voice";
+/**
+ * Whether Lifelog Host runs: a process of its app. ponytail: goes with Host in bundle 4, with `HOST_RUNS` and every use.
+ */
+export const isHostRunning = async () =>
+  (await exec(["pgrep", "-f", "Lifelog Host.app/Contents/"])).code === 0;
+
 /**
  * Each child's launchd job written as it should run now: (re)started only when its plist changed, stopped when it is
  * not wanted or can't run. Returns what each is: `running`, `restarted`, `off` or why it can't run.
  */
 export async function voiceStart(
   at = voicePathsHere(),
-  o = { keep: keepRunning, loaded: isLoaded, stop: stopRunning },
+  o = {
+    hostRuns: isHostRunning,
+    keep: keepRunning,
+    loaded: isLoaded,
+    stop: stopRunning,
+  },
   /** A child restarted even when its plist is unchanged: the Mac helper, which reads the Claude token only at launch. */
   restart?: VoiceChild
-) {
+): Promise<Partial<Record<VoiceChild, string>>> {
+  if (await o.hostRuns()) {
+    return Object.fromEntries(VOICE_CHILDREN.map((c) => [c, HOST_RUNS]));
+  }
   const inputs = await readVoiceInputs(at, mintVoiceSecrets());
   mkdirSync(join(at.support, "audio"), { recursive: true });
   const states: Partial<Record<VoiceChild, string>> = {};
@@ -417,15 +433,55 @@ export async function voiceRun(child: VoiceChild, at = voicePathsHere()) {
 /** The Mac helper's own ChatGPT login (`codex login`), apart from the owner's everyday Codex. */
 const CODEX_HOME = join(dirname(SECRETS.voiceSecrets), "codex");
 
+/** Each child's launchd state (none when not loaded) and why it isn't meant to run (none when it is). */
+export type VoiceChildStatus = { state: string | null; why: string | null };
+
 /**
- * What Life.app's Settings shows of voice: each job as launchd has it (`running`, or none when not loaded), whether the
- * server answers `/health` on loopback, what is set up, and each job's log. Never a secret.
+ * The status row's one line: what keeps voice from running (Lifelog Host, a missing key), else running with the
+ * wanted children that aren't, else not answering.
  */
-export async function voiceStatus(at = voicePathsHere()) {
-  const secrets = readVoiceSecrets();
-  const states = await Promise.all(
-    VOICE_CHILDREN.map(async (c) => [c, await readJobState(jobOf(c))] as const)
-  );
+export function voiceLineOf(
+  children: Record<VoiceChild, VoiceChildStatus>,
+  answering: boolean
+) {
+  const all = Object.entries(children);
+  const why = all.find(([, c]) => c.why && c.why !== "off")?.[1].why;
+  if (why) {
+    return why;
+  }
+  const down = all
+    .filter(([, c]) => !c.why && c.state !== "running")
+    .map(([name]) => name);
+  if (!answering) {
+    return "Not answering";
+  }
+  return down.length ? `Running; not running: ${down.join(", ")}` : "Running";
+}
+
+/**
+ * What Life.app's Settings shows of voice, all decided here: each child's state and why (`VOICE_LAUNCHES`), its line,
+ * whether the server answers `/health` on loopback, the switches as they apply, what is set up, and each job's log.
+ * Never a secret.
+ */
+export async function voiceStatus(
+  at = voicePathsHere(),
+  hostRuns = isHostRunning
+) {
+  const inputs = await readVoiceInputs(at);
+  const host = await hostRuns();
+  const children = Object.fromEntries(
+    await Promise.all(
+      VOICE_CHILDREN.map(async (c) => {
+        const launch = VOICE_LAUNCHES[c](inputs);
+        const why = host
+          ? HOST_RUNS
+          : typeof launch === "object"
+            ? null
+            : (launch ?? "off");
+        return [c, { state: (await readJobState(jobOf(c))) ?? null, why }];
+      })
+    )
+  ) as Record<VoiceChild, VoiceChildStatus>;
   const answering = await fetch(`${VOICE_URL}/health`, {
     signal: AbortSignal.timeout(2000),
   }).then(
@@ -435,12 +491,15 @@ export async function voiceStatus(at = voicePathsHere()) {
   return {
     answering,
     archive: existsSync(archiveEnvOf(at.support).DATABASE_PATH),
+    backups: inputs.backups,
     chatgpt: existsSync(join(CODEX_HOME, "auth.json")),
-    children: Object.fromEntries(states.map(([c, s]) => [c, s ?? null])),
-    claudeToken: secretOf(secrets, "claudeToken") !== undefined,
-    elevenLabsKey: secretOf(secrets, "elevenLabsKey") !== undefined,
+    children,
+    claudeToken: secretOf(inputs.secrets, "claudeToken") !== undefined,
+    elevenLabsKey: secretOf(inputs.secrets, "elevenLabsKey") !== undefined,
     iCloud: existsSync(dirname(dirname(at.backups))),
+    line: voiceLineOf(children, answering),
     logs: Object.fromEntries(VOICE_CHILDREN.map((c) => [c, logOf(jobOf(c))])),
+    speakers: inputs.speakers,
   };
 }
 
@@ -464,17 +523,23 @@ export async function voiceArchive(
   if (verb === "import") {
     await voiceStart(at);
   }
-  const last = r.stdout.trim().split("\n").at(-1) ?? "";
-  let result: { bytes?: number; error?: string; files?: number; ok?: boolean };
+  return archiveLineOf(verb, r.code, r.stdout);
+}
+
+/** How `lifelog-server export|import` ended, from its last line (`{ ok, files }` or `{ ok: false, error }`): never raw JSON. */
+export function archiveLineOf(verb: string, code: number, stdout: string) {
+  const last = stdout.trim().split("\n").at(-1) ?? "";
+  const stopped = `it stopped with status ${code}`;
+  let result: { error?: string; files?: number; ok?: boolean };
   try {
     result = JSON.parse(last);
   } catch {
-    result = { error: last || `it stopped with status ${r.code}` };
+    result = { error: last || stopped };
   }
   const done = verb === "export" ? "Exported" : "Imported";
-  return result.ok && r.code === 0
+  return result.ok && code === 0
     ? { line: `${done} ${result.files ?? 0} files.`, ok: true }
-    : { line: `The ${verb} failed: ${result.error ?? r.code}`, ok: false };
+    : { line: `The ${verb} failed: ${result.error ?? stopped}`, ok: false };
 }
 
 const USAGE = `usage: life voice start | stop | status | key <${OWNER_KEYS.join("|")}> (value on stdin) | backup-password | sign-in-chatgpt | export <folder> | import <folder> | run <${VOICE_CHILDREN.join("|")}>`;
