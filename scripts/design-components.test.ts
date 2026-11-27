@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Variation } from "../apps/design/src/catalog";
 import components from "../docs/design/components.json";
@@ -41,19 +41,24 @@ const rowOf = (scene: string[]) =>
   (scene.length === 1 ? notBuiltIdOf(scene[0] as string) : undefined);
 
 test("every side-panel scene is a component's or left out with why", () => {
+  const rows = new Set(variations.map((v) => v.row));
   const used = new Set([
     ...variations.flatMap((v) => v.scene ?? []),
     ...Object.keys(components.leftOut),
+    // A variation drawn elsewhere (the Glow page's edge) names its scene's row alone.
+    ...panel.filter((s) => rows.has(notBuiltIdOf(s))),
   ]);
   expect(panel.filter((s) => !used.has(s))).toEqual([]);
 });
 
 test("each variation's row is its scene's parity board row", () => {
+  const boardRows = new Set(panel.map(notBuiltIdOf));
   for (const v of variations) {
-    expect([v.name, v.row]).toEqual([
-      v.name,
-      v.scene ? (rowOf(v.scene) ?? null) : null,
-    ]);
+    if (v.scene) {
+      expect([v.name, v.row]).toEqual([v.name, rowOf(v.scene) ?? null]);
+    } else if (v.row) {
+      expect(boardRows).toContain(v.row);
+    }
   }
 });
 
@@ -64,5 +69,17 @@ test("each scene and part is the prototype's, and a status is typed, never In th
     }
     expect(["next", "waiting", "designed"]).toContain(v.status);
     expect(v.status === "waiting").toBe(Boolean(v.on));
+  }
+});
+
+test("each page a variation draws is a file of docs/design", () => {
+  for (const v of variations) {
+    const path = v.page?.split("#")[0];
+    if (path) {
+      expect([
+        v.name,
+        existsSync(join(import.meta.dir, "../docs/design", path)),
+      ]).toEqual([v.name, true]);
+    }
   }
 });

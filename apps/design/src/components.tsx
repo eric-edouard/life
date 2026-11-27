@@ -1,4 +1,4 @@
-// App v4's components and its edge, each drawn live: the prototype itself, brought to the variation's scene by its
+// App v4's components and its edge, each drawn live: the prototype itself (the edge: 2026-11-28-edge-states.html), brought to the variation's scene by its
 // side-panel buttons and cropped to the part it draws. The list is docs/design/components.json, the one source; a
 // variation shows "In the app" while its parity board row is green, read from the board's last run, else its typed status.
 import { useEffect, useRef, useState } from "react";
@@ -101,6 +101,7 @@ function Live({ v }: { v: Variation }) {
   const [crop, setCrop] = useState<Box | null>(null);
   // Brought to its scene in the frame mounted now; the last crop keeps the card's height while it is away.
   const [isDrawn, setDrawn] = useState(false);
+  const src = urlOf(v.page ?? PROTOTYPE);
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const el = box.current;
@@ -136,8 +137,7 @@ function Live({ v }: { v: Variation }) {
     // Not the `load` event: the page's web fonts hold it, slow or offline. Its own markup is enough to act on.
     const ready = () => {
       const page = el.contentDocument;
-      return page?.readyState !== "loading" &&
-        page?.location.href.endsWith(v.page ?? PROTOTYPE)
+      return page?.readyState !== "loading" && page?.location.href.endsWith(src)
         ? page
         : null;
     };
@@ -175,21 +175,22 @@ function Live({ v }: { v: Variation }) {
       stopped = true;
       clearInterval(tick);
     };
-  }, [near, v]);
+  }, [near, v, src]);
   // At most its own size, the card's width, and most of the screen's height: a whole phone shows whole.
   const scale = crop
     ? Math.min(1, width / crop.width, (innerHeight * FIT) / crop.height)
     : 0;
   return (
     <div
-      className="relative overflow-hidden rounded-block bg-card"
+      className="relative overflow-clip rounded-block bg-card"
       ref={box}
       style={{ height: crop ? crop.height * scale : 240 }}
     >
       {near ? (
-        // The drawing's own window, centred: the page around the part never shows beside it.
+        // The drawing's own window, centred: the page around the part never shows beside it. Clipped, never hidden: a
+        // scene that focuses a field would scroll a hidden box.
         <div
-          className="absolute inset-y-0 overflow-hidden"
+          className="absolute inset-y-0 overflow-clip"
           style={{
             left: crop ? (width - crop.width * scale) / 2 : 0,
             width: crop ? crop.width * scale : "100%",
@@ -198,7 +199,7 @@ function Live({ v }: { v: Variation }) {
           <iframe
             className="absolute top-0 left-0 origin-top-left transition-opacity duration-300"
             ref={frame}
-            src={urlOf(v.page ?? PROTOTYPE)}
+            src={src}
             style={{
               height: PAGE_HEIGHT,
               opacity: isDrawn ? 1 : 0,
@@ -227,27 +228,17 @@ function Badge({ on, status }: { on?: string; status: string }) {
 }
 
 /** A group: its variations side by side, lettered when there are several. */
-function GroupOf({
-  green,
-  group,
-  wide,
-}: {
-  green: Set<string>;
-  group: Group;
-  wide?: boolean;
-}) {
+function GroupOf({ green, group }: { green: Set<string>; group: Group }) {
   const many = group.variations.length > 1;
   return (
     <section className="flex flex-col gap-4">
       <h2 className="m-0 font-semibold text-heading text-muted">
         {group.name}
       </h2>
-      <div
-        className={`grid gap-6 ${wide ? "grid-cols-[repeat(auto-fill,minmax(17rem,1fr))]" : "grid-cols-[repeat(auto-fill,minmax(14rem,1fr))]"}`}
-      >
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-6">
         {group.variations.map((v, i) => (
           <figure
-            className={`m-0 flex flex-col gap-2 ${v.page ? "col-span-full" : ""}`}
+            className={`m-0 flex flex-col gap-2 ${v.wide ? "col-span-full" : ""}`}
             key={v.name}
           >
             <Live v={v} />
@@ -326,8 +317,9 @@ export function Glow() {
           <>
             The ring round every screen, the one exception to no borders, no
             motion and one colour. It glides between its states, idle never
-            livelier than the others, so you always tell them apart. Live from
-            the prototype; its rules are in{" "}
+            livelier than the others, so you always tell them apart. Live, from
+            App v4's edge as the turn by turn prototypes share it (a copy kept
+            in step with App v4's); its rules are in{" "}
             <a className="text-fg" href={RULEBOOK}>
               the rulebook
             </a>
@@ -336,7 +328,7 @@ export function Glow() {
         }
         title="Glow"
       />
-      {edge ? <GroupOf green={green} group={edge} wide /> : null}
+      {edge ? <GroupOf green={green} group={edge} /> : null}
     </div>
   );
 }
