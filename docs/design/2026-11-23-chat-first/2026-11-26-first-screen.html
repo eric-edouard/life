@@ -21,11 +21,9 @@ figcaption{font-size:16px;font-weight:650}
 figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted);margin-top:2px}
 .notes{font-size:13px;line-height:1.5;color:var(--muted);margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px}
 .notes b{color:var(--lmuted);font-weight:600}
-.notes .nw{color:var(--flag);font-weight:600}
 h2{font-size:19px;font-weight:650;margin:56px 0 12px}
 .txt{font-size:15px;line-height:1.55;max-width:680px;padding-left:20px;margin:0}
 .txt li{margin:0 0 8px}
-.txt .nw{color:var(--flag);font-weight:600;font-size:13px}
 .ctl{display:flex;flex-wrap:wrap;gap:8px}
 .ctl button{font:inherit;border:0;cursor:pointer;height:38px;padding:0 16px;border-radius:19px;background:var(--tint);color:var(--fg);font-size:14px;font-weight:650}
 .ctl button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
@@ -120,7 +118,7 @@ h2{font-size:19px;font-weight:650;margin:56px 0 12px}
 
 <h2>How it moves</h2>
 <ol class="txt">
-<li><b>Back after 5 minutes:</b> the app opens straight on the clean screen; the old conversation never flashes. "Hi Sam" inks in word by word, like Life's words; the rows rise in from below, one after another (0.35 s, 60 ms apart). <span class="nw">new, needs your yes</span></li>
+<li><b>Back after 5 minutes:</b> the app opens straight on the clean screen; the old conversation never flashes. "Hi Sam" inks in word by word, like Life's words; the rows rise in from below, one after another (0.35 s, 60 ms apart).</li>
 <li><b>Back sooner:</b> nothing moves. Same scroll, same open items, your unsent words still in the field.</li>
 <li><b>The edge</b> does not react to the switch. It stays in its approved states: idle at rest, still while the Mac doesn't answer, blue while Life works.</li>
 <li><b>Answering a row</b> works as in the prototype: the button turns "Sending…", then green, the row folds back with its new line ("✓ Sent to Jade"), the count goes down. Nothing leaves the screen until the next clean screen.</li>
@@ -137,13 +135,6 @@ h2{font-size:19px;font-weight:650;margin:56px 0 12px}
 <div class="ctl"><button type="button" id="dBack">Come back at 14:20</button><button type="button" id="dReset">Start again</button></div>
 </div>
 
-<h2>Decisions for you</h2>
-<ol class="txt">
-<li><b>Your name in the greeting?</b> You asked for your first name; the brand's wording rule says the screen never uses your own name. Drawn with the name, and the rule would gain this one exception.</li>
-<li><b>Is 3 the right cap?</b> 3 fit on screen with two broken things and the field, and stay readable at a glance. Only what blocks you counts (due within 3 days, or marked important); the rest stays behind the count, as now.</li>
-<li><b>Is 5 minutes the right wait?</b> It covers a quick trip to another app (a code, a call, a reply) without losing your place; 10 would keep more context, 2 would clean more often.</li>
-<li><b>A broken thing: a row you tap, or open already?</b> Drawn as a row that opens in place with its one button, like every ask. The other way: when it is the only thing on screen, it arrives already open.</li>
-</ol>
 </div>
 
 <script>
@@ -185,19 +176,19 @@ function phone(o){
 
 var STATES=[
  {n:'1',t:'All clear',s:'Nothing is broken and nothing needs you.',count:0,sugg:'What’s on today?',body:EARLIER+HI,
-  notes:['<b>Prototype:</b> Show earlier pill, edge at rest, field with the day’s usual first asks; the count hides when nothing waits.','<span class="nw">New, needs your yes:</span> the greeting. No “all is well” line under it: the empty screen is the answer.']},
+  notes:['<b>Prototype:</b> Show earlier pill, edge at rest, field with the day’s usual first asks; the count hides when nothing waits.','The greeting. No “all is well” line under it: the empty screen is the answer.']},
  {n:'2',t:'Something is broken',s:'LINE and Messenger signed Life out.',count:2,sugg:'Why did it sign out?',body:EARLIER+HI+list([R.line,R.msgr]),
   notes:['<b>Prototype:</b> the fix row (“Sign WhatsApp back in”): the app’s logo as face, what to do as title, what it costs you and since when as line. Fixes rank first and count.','Something you can’t fix (the Mac not answering) would be the prototype’s notice in the same place, and the edge goes still.']},
  {n:'2b',t:'Its one action',s:'Tap a broken row: it opens in place.',count:2,sugg:'Can I do it from my phone?',body:EARLIER+HI+'<div class="bt wide">'+UNFOLD+'</div>'+list([R.msgr]),
   notes:['<b>Prototype:</b> the fix unfolded in place: steps for where you are, one cream button, Later. Away from the Mac the button is “Remind me when I’m home”.']},
  {n:'3',t:'Things wait on you',s:'Six things; the 3 most pressing show.',count:6,sugg:'Start with the most urgent',body:EARLIER+HI+list([R.jade,R.ben,R.paul])+MORE,
-  notes:['<b>Prototype:</b> item rows in the inbox’s order (today and tonight first, coral), Later on tasks, the count top left.','<span class="nw">New, needs your yes:</span> the cap of 3 and the “3 more” pill (the prototype’s quiet pill, with a number you can act on).']},
+  notes:['<b>Prototype:</b> item rows in the inbox’s order (today and tonight first, coral), Later on tasks, the count top left.','The cap of 3 and the “3 more” pill (the prototype’s quiet pill, with a number you can act on).']},
  {n:'3b',t:'After “3 more”',s:'The rest slide in below; the pill goes.',count:6,sugg:'What can wait until next week?',body:EARLIER+HI+list([R.jade,R.ben,R.paul,R.clinic,R.bank,R.boiler]),
   notes:['<b>Prototype:</b> the same list the count opens, here in place, without your “What’s waiting on me?” bubble.']},
  {n:'4',t:'Broken and waiting',s:'Broken first, then the 3 most pressing.',count:8,sugg:'Why did it sign out?',body:EARLIER+HI+list([R.line,R.msgr])+list([R.jade,R.ben,R.paul])+MORE,
   notes:['Broken things are never capped: hiding one breaks the promise that silence means all is well. The cap is only on what waits.','The count is everything: 2 fixes and 6 asks.']},
  {n:'5',t:'Back within 5 minutes',s:'Left at 14:02, back at 14:05: nothing changed.',count:6,time:'14:05',sugg:'Add Saturday’s dinner to my calendar',body:LEFT,
-  notes:['<b>Prototype:</b> the thread as it stands.','<span class="nw">New, needs your yes:</span> the rule. 5 minutes away in the background, then the next open is clean. Unsent words in the field survive either way.']},
+  notes:['<b>Prototype:</b> the thread as it stands.','The rule. 5 minutes away in the background, then the next open is clean. Unsent words in the field survive either way.']},
  {n:'6',t:'Back to the history',s:'Tap Show earlier on the clean screen.',count:0,sugg:'What did I ask about Saturday?',body:EARLIER+LEFT.replace('<div class="sep">Today</div>','<div class="sep">Today · 14:02</div>')+'<div class="sep">14:20</div>'+HI,
   notes:['<b>Prototype:</b> Show earlier and its day labels, one day at a time. Each clean screen starts after a time label; scrolling up past the top does the same.','The greeting isn’t kept in the history: older ones show only as their time.']}
 ];

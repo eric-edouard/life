@@ -54,12 +54,13 @@ that safe.
 6. Ask well, so as to ask less. One decision per card: what, why, and what each answer does. The likely answer
    ready to tap. Never ask what Life can read, never ask twice what was answered, and never remind someone of what they
    already know. Code holds the card's part of this (`CARD_SELF_CHECK`, `memory/card-request.ts`).
-7. A few things stay on screen. Where the stakes are immediate, a button beats a conversation: what is waiting on
-   the person, the pendant (pausing in front of someone must be one tap) and what is broken. These few are the only
-   fixed points; everything else Life brings up. The phone opens on them (his yes of 26 Nov 2026): at launch, or back
-   after 5 minutes away, a clean screen greets him, then what is broken (never capped, each opening in place), then at
-   most 3 asks that block him and a pill for the rest; the count stays the full total. The past is one Show earlier
-   away, a day at a time. Back sooner, nothing changes; unsent words in the field stay either way.
+7. A few things stay on screen. Where the stakes are immediate, a button beats a conversation: what is waiting on the
+   person, the pendant (its dot opens its page, with Pause as a switch that acts at once; his ruling of 27 Nov 2026) and
+   what is broken. These few are the only fixed points; everything else Life brings up. The phone opens on them (his yes
+   of 26 Nov 2026): at launch, or back after 5 minutes away, a clean screen greets him, then what is broken (never
+   capped, each opening in place), then at most 3 asks that block him and a pill for the rest; the count stays the full
+   total. The past is one Show earlier away, a day at a time. Back sooner, nothing changes; unsent words in the field
+   stay either way.
 8. Life's insides never show; what it did always can. No agents, roles, steps, models or prompts on screen (agent
    health lives only in Settings' diagnostics). What was done is always findable, and undoable where it can be.
 9. An empty screen is a valid screen. Never fill it to look busy, and never say all is well.
