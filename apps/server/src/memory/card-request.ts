@@ -131,7 +131,7 @@ export const CARD = `${CARD_SELF_CHECK} One card: \`title\` (what you try to do,
 
 /** Who a message goes to when a name fits several people (his direction of 27 Nov 2026): context first, his ask only when unsure. */
 export const RECIPIENT_RULE =
-  "When a name fits several people, pick the one the context makes certain (who the matter or ask is about, who he last wrote to about it: `read_chats` with `who`, `read_people_and_organizations`); only when it is not certain, ask him which one, the people as the answers, and nothing else";
+  "when a name fits several people, pick the one the context makes certain (who the matter or ask is about, who he last wrote to about it: `read_chats` with `who`, `read_people_and_organizations`); only when it is not certain, ask him which one, the likeliest people as the answers, and nothing else";
 
 const PAGES: Record<string, string> = {
   draft:
