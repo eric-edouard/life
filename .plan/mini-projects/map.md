@@ -35,6 +35,7 @@ and seen working live, first on the owner's own Photos library, then on a second
 - [The threshold](./tickets/01-the-threshold.md) — a project is a result to shape (made, reshaped, or many things changed); errands stay handed work; unsure goes as handed work, and the agent promotes it from the user's original words, never asking.
 - [The one-off project record](./tickets/02-the-one-off-project-record.md) — an optional `goal` (the user's ask, verbatim) makes a project one-off; a new `dropped` status beside `done`, reason in its body; Life picks or makes its area.
 - [The handover](./tickets/03-the-handover.md) — the main session only writes the one-off project; Life's code registers its agent and hands it the ask with the conversation; promoted work moves to a new agent through `hand_over`.
+- [What an agent can reach on the Mac](./tickets/04-what-an-agent-can-reach.md) — every grant lands on Life.app and covers every script; only the user answers first prompts; Photos changes and deletes need the user's per-batch OK; undo needs a restore log.
 
 ## Not yet specified
 
