@@ -25,7 +25,10 @@ import {
 // prototype's), Accessibility (Apple's audit, blocking only as `blockingA11yOf` says), Owner (his "not right" is a failing note until the next batch fixes it).
 
 const REPO = join(import.meta.dir, "..");
-const PROTO = join(REPO, "docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html");
+const PROTO = join(
+  REPO,
+  "docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html"
+);
 const OUT = join(REPO, "docs/design/2026-11-23-chat-first/parity");
 const SHOTS = "/tmp/lifelog-parity"; // FlowTest.shoot's
 const RESULT = "/tmp/lifelog-e2e-dd/result.xcresult"; // e2e-phone.ts's
