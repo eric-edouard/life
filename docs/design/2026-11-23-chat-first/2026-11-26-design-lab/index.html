@@ -208,6 +208,8 @@ function sheet(on){$('side').classList.toggle('open',on);$('sheetbg').classList.
 /* ---- his choices: one doc per item {pick, mix, note}; Life's store wins over this device's copy ---- */
 var col=null,LS='life-card-variants';
 try{CH=JSON.parse(localStorage.getItem(LS)||'{}')||{};}catch(e){CH={};}
+/* his picks, kept in the repo (choices.json, from claude.ai's store on 27 Nov); a pick made on this device wins */
+fetch('choices.json').then(function(r){return r.ok?r.json():{};}).then(function(o){Object.keys(o).forEach(function(k){if(!CH[k])CH[k]={pick:o[k].pick||null,mix:o[k].mix||{},note:o[k].note||''};});if(ITEMS.length){head();list();}feed();},function(){});
 function get(id){return CH[id]||(CH[id]={pick:null,mix:{},note:''});}
 function save(id){try{localStorage.setItem(LS,JSON.stringify(CH));}catch(e){}feed();head();list();if(!col)return;var c=get(id);$('save').textContent='Saving…';
  col.doc(id).set({pick:c.pick,mix:c.mix,note:c.note||'',at:new Date().toISOString()}).then(function(){$('save').textContent='Saved to Life’s store.';},function(){$('save').textContent='Couldn’t save to Life’s store; kept on this device. Try again in a moment.';});}

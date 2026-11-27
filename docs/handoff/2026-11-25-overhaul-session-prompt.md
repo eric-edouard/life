@@ -16,7 +16,7 @@ until the owner approves the plan.
    are in `docs/handoff/2026-11-23-current-state/` (`agents.md`, `app.md`, `pi-runtime-gap-audit.md`).
 3. Issue #1376, "Agents: direct mode and smart mode for incoming messages".
 4. `docs/plans/2026-11-23-chat-first-app.md`, then `docs/design/2026-11-23-chat-first/`: the current spec
-   (`2026-11-23-current-spec.md`) wins over everything else in that folder; the prototypes and their README are in
+   (`philosophy.md`) wins over everything else in that folder; the prototypes and their README are in
    `prototypes/` (open `2026-11-25-app-v4.html` in Playwright to try it).
 5. The outside research, reviewed against the code and not to be taken at face value:
    `docs/research/2026-11-24-personalization-layer.md`, `docs/research/2026-11-24-nod-and-life-pi.md`.
@@ -30,7 +30,7 @@ following `docs/STYLE.md`:
   "How am I doing?"; agents working together and what to borrow from OpenBot; what Nod may offer; whether projects and
   matters are too opinionated, with the life admin conflict; the personalization foundation), with a recommendation
   each, not a survey.
-- Direct and smart mode (#1376) and Settings (`2026-11-25-prototypes.md`, "Settings: open").
+- Direct and smart mode (#1376) and Settings (`philosophy.md`, "Settings: open").
 - The build: fewer, bigger PRs, in order, each with what it deletes, what it changes in `AGENTS.md`'s invariants (each
   such change is the owner's to approve, named as a question), its migrations or store steps, and the tests it owes
   (his direction: no app tests while the product moves; the server keeps its tests on sends, memory, `truth/`, the

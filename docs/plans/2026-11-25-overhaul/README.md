@@ -2,7 +2,7 @@
 
 Explanation: the plan for Life v4, the chat-first iPhone app and the agent layer behind it, written on 25 Nov 2026
 and reworked the same day after the owner's review. It rests on issue #1373, issue #1376, the
-[chat-first spec](../../design/2026-11-23-chat-first/2026-11-23-current-spec.md), the
+[chat-first spec](../../design/philosophy.md), the
 [code facts](../2026-11-25-overhaul-code-facts.md) and a read of Nod's source. Nothing here is built. The reasoning
 behind each verdict is in [`positions.md`](positions.md); what v4 takes from Nod is in [`nod.md`](nod.md). The
 owner's questions are at the end, before the debt plan.

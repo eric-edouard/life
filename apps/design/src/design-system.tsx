@@ -30,7 +30,7 @@ const NOTES = [
     "App v4 design system",
     "#/2026-11-23-chat-first/2026-11-25-app-v4-design-system.md",
   ],
-  ["App v4 guidelines", "#/2026-11-23-chat-first/2026-11-27-v4-guidelines.md"],
+  ["Philosophy and guidelines", "#/philosophy.md"],
 ];
 const SAMPLE = "Did Jade answer about Saturday?";
 

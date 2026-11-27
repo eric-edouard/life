@@ -4,7 +4,7 @@
 // cloudflared route `designs.ericedouard.com` in ~/.cloudflared/config.yml points at its port. Both folders are served at their repo paths, so every design's
 // own relative links keep working.
 import { execFileSync } from "node:child_process";
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync } from "node:fs";
 import { extname, join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
@@ -12,6 +12,15 @@ import { defineConfig, type Plugin } from "vite";
 
 const REPO = join(import.meta.dirname, "../..");
 const SERVED = ["docs/design", "assets/brand"];
+/** The parity board's last run (`bun run parity`): never committed, served for the Parity tab. Its pictures are the app's
+ *  flow shots over the prototype's made-up data. */
+const PARITY = "docs/design/2026-11-23-chat-first/parity";
+const parityFiles = () =>
+  existsSync(join(REPO, PARITY))
+    ? readdirSync(join(REPO, PARITY))
+        .filter((f) => f === "board.json" || f.endsWith(".jpg"))
+        .map((f) => `${PARITY}/${f}`)
+    : [];
 const LIST = "virtual:design-files";
 const TYPES: Record<string, string> = {
   ".css": "text/css",
@@ -36,6 +45,7 @@ const servedFiles = () =>
     { cwd: REPO, encoding: "utf8" }
   )
     .split("\n")
+    .concat(parityFiles())
     .filter((f) => f && existsSync(join(REPO, f)));
 
 function servedFolders(): Plugin {
@@ -72,7 +82,7 @@ function servedFolders(): Plugin {
     },
     load: (id) =>
       id === `\0${LIST}`
-        ? `export default ${JSON.stringify([...served].filter((f) => f.startsWith("docs/")))};`
+        ? `export default ${JSON.stringify([...served].filter((f) => f.startsWith("docs/") && !f.startsWith(PARITY)))};`
         : undefined,
     name: "served-folders",
     resolveId: (id) => (id === LIST ? `\0${LIST}` : undefined),
