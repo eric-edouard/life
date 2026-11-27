@@ -30,6 +30,11 @@ kill_timeout = "30s"
   TLS_LISTEN = "[::]:8443"
   HTTP_LISTEN = "[::]:8080"
   INTERNAL_LISTEN = "[::]:9000"
+  # Anyone may create a tunnel (#1545), so keep it slow until the domain is on the Public Suffix List.
+  CREATE_RATE_PER_HOUR = "3"
+  CREATE_RATE_BURST = "2"
+  ISSUANCE_RATE_PER_DAY = "2"
+  ISSUANCE_RATE_BURST = "2"
 
 [[services]]
   internal_port = 8443

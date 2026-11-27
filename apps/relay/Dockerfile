@@ -19,4 +19,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/*
 COPY --from=server /usr/local/bin/opentunnel-server /usr/local/bin/opentunnel-server
 COPY porkbun-dns-hook.sh /usr/local/bin/porkbun-dns-hook
+COPY website /app/website
 ENTRYPOINT ["/usr/local/bin/opentunnel-server"]
