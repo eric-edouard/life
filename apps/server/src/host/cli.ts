@@ -57,6 +57,7 @@ import { init, started } from "./init";
 import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
+import { pairLinkOf, pairTokenOf, voiceCommand } from "./voice";
 import { status, watch } from "./watch";
 
 /** `change-todo-item` and `auto-add` need the actions output: off, they say so and do nothing. */
@@ -382,7 +383,7 @@ const commands: Record<string, () => number | Promise<number>> = {
   /**
    * A code to approve an app's connection to Life's own sign-in (`oauth.ts`), good for 5 minutes: `pair <agent>` pairs it
    * as that agent (any name but a role's, `ROLE_ASKERS`); `pair` alone, a plain app. `--link` prints the link the phone
-   * opens (`lifelog://pair?life=<origin>&code=<code>`) instead of the code.
+   * opens instead of the code (`pairLinkOf`).
    */
   pair() {
     const args = process.argv.slice(3);
@@ -394,11 +395,12 @@ const commands: Record<string, () => number | Promise<number>> = {
       return Promise.resolve(2);
     }
     const code = pair(agent);
-    console.log(
-      args.includes("--link")
-        ? `lifelog://pair?life=${encodeURIComponent(connector().origin)}&code=${code}`
-        : code
-    );
+    if (!args.includes("--link")) {
+      console.log(code);
+      return Promise.resolve(0);
+    }
+    const { origin } = connector();
+    console.log(pairLinkOf(origin, code, pairTokenOf()));
     return Promise.resolve(0);
   },
   /**
@@ -426,6 +428,8 @@ const commands: Record<string, () => number | Promise<number>> = {
     }
     return issues.length === 0 ? 0 : 1;
   },
+  /** Voice's processes as launchd jobs (host/voice.ts): `voice start|stop`, or `voice run <child>`, which launchd runs. */
+  voice: () => voiceCommand(process.argv.slice(3)),
   /** Follows lifelog's change feed and keeps the lifelog units current; never returns (kept running by the app). */
   watch,
 };

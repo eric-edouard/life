@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { LIFE_STATE_DIR } from "./paths";
-import { MACHINE_DIR } from "./platform";
+import { APP_DATA, MACHINE_DIR } from "./platform";
 
 /**
  * Every secret file Life keeps, in its state (and his account on the bridges' homeserver, beside it): the OAuth issuer's clients and tokens,
@@ -35,6 +35,12 @@ export const SECRETS = {
   piTerminalLaunch: join(LIFE_STATE_DIR, "desk", "pi", "terminal-launch.json"),
   /** The key a card's push id is made with (`pushIdOf`, `sources/lifelog-push.ts`); it never leaves the Mac. */
   pushIdKey: join(LIFE_STATE_DIR, "push-id.key"),
+  /**
+   * Voice's secrets (its tokens, the ElevenLabs key, the backup's password, the Mac helper's Claude sign-in): Life's
+   * one writer is `mintVoiceSecrets` (`host/voice.ts`); voice's Mac helper (`--setup-claude-token`) and Lifelog Host
+   * write it too, until Host goes.
+   */
+  voiceSecrets: join(APP_DATA, "lifelog-quiet", "secrets.json"),
 };
 
 type Secret = keyof typeof SECRETS;

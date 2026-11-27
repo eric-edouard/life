@@ -13,8 +13,11 @@ import {
 const table = `100 1 /Applications/Lifelog Host.app/Contents/MacOS/LifelogHost
 101 100 /Applications/Lifelog Host.app/Contents/Helpers/lifelog-server`;
 
-test("launcher identifies only a Host-managed child, never a separate archive writer", () => {
+test("launcher identifies only a Host-managed child or Life's launchd job, never a separate archive writer", () => {
   expect(parseHostServer(table).pid).toBe(101);
+  const life = "/Applications/Life.app/Contents/Helpers/lifelog-server";
+  expect(parseHostServer(`200 1 ${life}`).pid).toBe(200);
+  expect(() => parseHostServer(`200 50 ${life}`)).toThrow();
   expect(() => parseHostServer(table.replace("101 100", "101 999"))).toThrow();
   expect(() =>
     parseHostServer(
