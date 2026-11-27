@@ -434,7 +434,10 @@ export async function voiceRun(child: VoiceChild, at = voicePathsHere()) {
 const CODEX_HOME = join(dirname(SECRETS.voiceSecrets), "codex");
 
 /** Each child's launchd state (none when not loaded) and why it isn't meant to run (none when it is). */
-export type VoiceChildStatus = { state: string | null; why: string | null };
+export interface VoiceChildStatus {
+  state: string | null;
+  why: string | null;
+}
 
 /**
  * The status row's one line: what keeps voice from running (Lifelog Host, a missing key), else running with the
