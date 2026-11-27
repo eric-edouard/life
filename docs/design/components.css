@@ -9,29 +9,10 @@
 @keyframes lit{0%,100%{opacity:.55;box-shadow:0 0 6px rgba(255,248,234,.35)}50%{opacity:1;box-shadow:0 0 14px rgba(255,248,234,.6),0 0 40px rgba(255,248,234,.25)}}
 @keyframes ink{from{opacity:0;filter:blur(6px);transform:translateY(3px)}to{opacity:1;filter:none;transform:none}}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.ph button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}
 .sbr{font-size:10px;letter-spacing:1px;opacity:.9}
-.pill .rec{width:9px;height:9px;border-radius:5px;background:var(--fg);animation:lit 2.6s ease-in-out infinite}
-.pill.num{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
-.k.mic{background:var(--tint)}
 .bt b{font-weight:650}
 .cr{position:absolute;inset:0}
 .cr i{padding:2.5px}
 .bt.wide{align-self:stretch;max-width:none}
-.fr small i{font-style:normal;color:var(--flag)}
-.thread::-webkit-scrollbar{display:none}
-.thread>.sp{margin-top:auto}
 .sep{align-self:center;font-size:12px;color:var(--muted);padding:6px 0 0}
-.fr small .okt svg{width:13px;height:13px}
-.two{display:flex;gap:8px}
-.opt.on .rd{box-shadow:inset 0 0 0 5px #000}
 .row3{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;max-width:1260px}
-.col{display:flex;flex-direction:column;gap:12px;width:390px;max-width:100%}
-.cap b{color:var(--ink);font-weight:650}
-.th::-webkit-scrollbar{display:none}
-.th>.sp{margin-top:auto}
-.bm{align-self:flex-end;max-width:286px;padding:10px 14px;border-radius:20px 20px 6px 20px;background:rgba(255,248,234,.11);font-size:15px}
-.md{font-size:15.5px;line-height:1.5}
-.md p{margin:0 0 10px}
-.md p:last-child{margin-bottom:0}
-.list{display:flex;flex-direction:column;gap:2px}
