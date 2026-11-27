@@ -231,7 +231,16 @@ struct RootView: View {
         if case .recording = capture.status.recording { true } else { false }
     }
 
-    private var isCountShown: Bool { (life.waitingCount ?? 0) > 0 }
+    private var countText: AttributedString {
+        var text = AttributedString("Waiting on you: \(life.openCount ?? 0)")
+        guard urgent > 0 else { return text }
+        var red = AttributedString(" · \(urgent)")
+        red.foregroundColor = Palette.flag
+        text.append(red)
+        return text
+    }
+    private var urgent: Int { life.waitingCount ?? 0 }
+    private var isCountShown: Bool { (life.openCount ?? 0) > 0 }
 
     /// The two round buttons: what waits on him (its count; tap lists them in the thread, no call), and the pendant (long press: Settings).
     private var buttons: some View {
@@ -240,13 +249,16 @@ struct RootView: View {
                 thread.showWaiting(life.waitingRefs ?? [])
             } label: {
                 // Life out of reach changes nothing here: the notice in the thread says it (the prototype's `.sys`).
-                Text(life.waitingCount.map(String.init) ?? "").font(.rowTitle).monospacedDigit()
-                    .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
+                // The owner's temporary variant of 27 Nov 2026: "Waiting on you: N" (every open ask), then the urgent count in red.
+                Text(countText)
+                    .font(.rowTitle).monospacedDigit().padding(.horizontal, Metrics.Spacing.l)
+                    .frame(height: Metrics.tapTarget)
             }
+            .buttonBorderShape(.capsule)
             // Nothing waits: the button is gone, its place kept (the prototype's `visibility:hidden`).
             .opacity(isCountShown ? 1 : 0).disabled(!isCountShown)
             .accessibilityHidden(!isCountShown)
-            .accessibilityLabel("\(life.waitingCount ?? 0) waiting on you")
+            .accessibilityLabel("Waiting on you: \(life.openCount ?? 0)")
             Spacer()
             Button {
                 sheet = .pendant

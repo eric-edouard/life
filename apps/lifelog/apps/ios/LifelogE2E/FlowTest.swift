@@ -104,7 +104,7 @@ class FlowTest: XCTestCase {
 
     /// The round count's tap: what waits on him, listed in the thread with no call to Life.
     func openWaiting() {
-        let count = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", "waiting on you")).firstMatch
+        let count = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Waiting on you")).firstMatch
         appears(count, "the count of what waits")
         count.tap()
         taps += 1
