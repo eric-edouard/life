@@ -446,12 +446,19 @@ struct RatingRow: View {
             Button {
                 pick(mark)
             } label: {
-                ReactionMark(reaction: mark).fixedSize().frame(
-                    minWidth: Metrics.ratingMark, minHeight: Metrics.tapTarget)
+                ReactionMark(reaction: mark).fixedSize()
+                    .frame(minWidth: Metrics.ratingMark, minHeight: Metrics.tapTarget).contentShape(.rect)
             }
-            .accessibilityLabel(
-                ["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate"
-            )
+            // Read as its word, never the emoji (whose glyph overflows its text box: the audit's "clipped").
+            .accessibilityRepresentation {
+                Button {
+                    pick(mark)
+                } label: {
+                    Image(systemName: "star")
+                }
+                .accessibilityLabel(
+                    ["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate")
+            }
             .identified(identify(mark))
             .scaleEffect(picked == mark ? 1.1 : 1).opacity(picked == nil || picked == mark ? 1 : 0)
             .disabled(picked != nil)
