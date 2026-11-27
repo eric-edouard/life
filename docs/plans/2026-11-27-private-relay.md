@@ -92,6 +92,7 @@ What we change or check before launch:
 - Certificates: it issues a certificate per tunnel over DNS-01 from the Mac's CSR, so it never holds the key but does
   hold our DNS. Prefer the Mac's own TLS-ALPN-01 (the server replays the ClientHello untouched, so it should pass;
   untested). Either way, steps 3 and 4 hold.
+- Open creation: until the domain is on the Public Suffix List, tunnel creation is slowed in `apps/relay/fly.toml` (3 an hour per address); those four limits go once it is listed.
 - Its MySQL dependency (PlanetScale in its production): pick the smallest database Fly can run beside it.
 - Size and age: about 18,000 lines of Rust, eight months old, one main maintainer. We pin a commit we reviewed and
   read each upgrade's diff before taking it.

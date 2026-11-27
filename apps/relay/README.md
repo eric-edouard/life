@@ -7,6 +7,7 @@ unopened ([plan](../../docs/plans/2026-11-27-private-relay.md)).
 |---|---|
 | `Dockerfile` | OpenTunnel at a reviewed commit, our patches applied, the DNS hook |
 | `*.patch` | our changes to upstream; `optional-eab.patch` lets it use Let's Encrypt, which needs no account binding |
+| `website/` | the page at `https://hostedbyme.app`: what the domain is and its abuse contact, `abuse@hostedbyme.app` (forwarded at Porkbun) |
 | `porkbun-dns-hook.sh` | creates and deletes the ACME TXT records at Porkbun, where the domain's DNS lives |
 | `fly.toml` | the relay app, `hostedbyme`, raw TCP on 443 and 80, dedicated IPv4 |
 | `db/fly.toml` | its MySQL, `hostedbyme-db`, on Fly's private network only |
