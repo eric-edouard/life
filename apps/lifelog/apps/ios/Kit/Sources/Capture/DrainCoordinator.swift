@@ -588,7 +588,8 @@ public actor DrainCoordinator {
     /// Returns the unsaved pages: the newest ones, past the run the phone has (`PageSink.savedIndex`: held pages
     /// count as saved).
     @discardableResult
-    private func updateBacklog(_ storage: StorageState, savedThrough stored: UInt64?, base: UInt64, at: Date) -> UInt64 {
+    private func updateBacklog(_ storage: StorageState, savedThrough stored: UInt64?, base: UInt64, at: Date) -> UInt64
+    {
         let beforeOldest = Int64(storage.oldestPage) - 1
         let savedThrough = max(stored.map { Int64(clamping: $0 - base) } ?? beforeOldest, beforeOldest)
         let unsaved = UInt64(max(0, storage.newestPage - savedThrough))
