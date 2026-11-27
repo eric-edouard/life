@@ -34,6 +34,7 @@ and seen working live, first on the owner's own Photos library, then on a second
 - [The engineering playbook](./tickets/18-the-engineering-playbook.md) — Life's slim `work-on-code`: local git per step, `PLAN.md`, Bun + TS (React + Tailwind for screens), a tools allowlist, proof by running it, two same-model reviews, a skill shipped in Life.app.
 - [The threshold](./tickets/01-the-threshold.md) — a project is a result to shape (made, reshaped, or many things changed); errands stay handed work; unsure goes as handed work, and the agent promotes it from the user's original words, never asking.
 - [The one-off project record](./tickets/02-the-one-off-project-record.md) — an optional `goal` (the user's ask, verbatim) makes a project one-off; a new `dropped` status beside `done`, reason in its body; Life picks or makes its area.
+- [The handover](./tickets/03-the-handover.md) — the main session only writes the one-off project; Life's code registers its agent and hands it the ask with the conversation; promoted work moves to a new agent through `hand_over`.
 
 ## Not yet specified
 
