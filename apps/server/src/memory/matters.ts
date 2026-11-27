@@ -58,7 +58,7 @@ import {
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
 import { TRUTH } from "./read-truth";
-import { reopenedAtOf } from "./retirements";
+import { outdatedBy, reopenedAtOf } from "./retirements";
 import { begin, readsOf } from "./run";
 import { clip, isMailerHandle, UNKNOWN } from "./units";
 import { episodeNow, observationsNow, type People } from "./who";
@@ -324,26 +324,36 @@ export async function readMatterRecords(people: People) {
     ...observations.map((o): [string, string] => [o.id, o.at]),
   ]);
   const reopenedAt = reopenedAtOf(people.corrections);
+  // An earlier reading's ending (his word, a link) is its successor's too: a re-read never reopens a step.
+  const succeeded = new Set(observations.flatMap((o) => o.succeeds ?? []));
   // A link whose evidence came before his Reopen of its step ends nothing: the latest of his words wins.
   const linkEndings = new Map(
-    [...endingsRead((ref) => current.has(ref)).linkEndings].flatMap(
-      ([ref, l]) => {
-        const at = atOf.get(l.later) ?? l.at;
-        const reopened = reopenedAt.get(ref);
-        return reopened && Date.parse(reopened) >= Date.parse(at)
-          ? []
-          : [[ref, { ...l, at }] as const];
-      }
-    )
+    [
+      ...endingsRead((ref) => current.has(ref) || succeeded.has(ref))
+        .linkEndings,
+    ].flatMap(([ref, l]) => {
+      const at = atOf.get(l.later) ?? l.at;
+      const reopened = reopenedAt.get(ref);
+      return reopened && Date.parse(reopened) >= Date.parse(at)
+        ? []
+        : [[ref, { ...l, at }] as const];
+    })
   );
   const retired = new Map(
-    [...statusInputs.retired].map(([id, r]) => [
-      id,
-      r.by === id
+    [
+      ...outdatedBy(people.corrections).filter((r) =>
+        succeeded.has(r.observation)
+      ),
+      ...statusInputs.retired.values(),
+    ].map((r) => [
+      r.observation,
+      r.by === r.observation
         ? { at: r.at, why: r.why, ...(r.dropped ? { dropped: r.dropped } : {}) }
         : { at: atOf.get(r.by) ?? r.at, replacedBy: r.by, why: r.why },
     ])
   );
+  inheritEndings(retired, observations);
+  inheritEndings(linkEndings, observations);
   return {
     current,
     ...readMatterPins(),
@@ -360,8 +370,24 @@ export async function readMatterRecords(people: People) {
   };
 }
 
+/** Gives each observation that takes over earlier readings (`succeeds`) the first of their endings in `endings`, when it has none of its own. */
+export function inheritEndings<T>(
+  endings: Map<string, T>,
+  observations: readonly { id: string; succeeds?: readonly string[] }[]
+) {
+  for (const o of observations) {
+    const was = o.succeeds?.find((id) => endings.has(id));
+    if (was && !endings.has(o.id)) {
+      endings.set(o.id, endings.get(was) as T);
+    }
+  }
+}
+
 /** Where an earlier reading of a line stands once its unit was read again (`replaced`) or regrouped away (`gone`): never an ending, his word or a retirement. */
-const READ_AGAIN: string[] = ["gone", "replaced"];
+const READ_AGAIN: ReturnType<typeof observationStatusOf>["state"][] = [
+  "gone",
+  "replaced",
+];
 
 /**
  * Each current observation with the earlier readings of its source line it takes over (`succeeds`): every current fact

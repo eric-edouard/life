@@ -3,7 +3,7 @@ import type { Observation } from "../records/observation";
 import { checksOf } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import { type MatterRecords, matterBookOf } from "./matter-read";
-import { succeedsOf } from "./matters";
+import { inheritEndings, succeedsOf } from "./matters";
 import { OWNER } from "./read-truth";
 import { OWED_BY_HIM } from "./your-move";
 
@@ -124,9 +124,27 @@ test("every open step of his is asked, or has a recorded ending", () => {
   ).toBe("2026-11-05");
 });
 
+test("his word on an earlier reading ends its re-read: a re-read never reopens a step", () => {
+  const retired = new Map([
+    [first.id, { at: "2026-10-02T09:00:00Z", why: "done" }],
+  ]);
+  const observations = succeedsOf([reread], [first]);
+  inheritEndings(retired, observations);
+  const [v] = matterBookOf(
+    { matters: [matter(1, [first.id])], offered: new Set([first.id]) },
+    { ...records, observations, retired },
+    TODAY
+  );
+  expect(v?.steps.map((s) => [s.ref, s.ending?.by])).toEqual([
+    [reread.id, "record"],
+  ]);
+  expect(v?.open).toBe(false);
+});
+
 test("a re-read takes over each earlier reading of its line, never another line's", () => {
   const other = step(9);
-  expect(
-    succeedsOf([reread, other], [first]).map((o) => o.succeeds)
-  ).toEqual([[first.id], undefined]);
+  expect(succeedsOf([reread, other], [first]).map((o) => o.succeeds)).toEqual([
+    [first.id],
+    undefined,
+  ]);
 });
