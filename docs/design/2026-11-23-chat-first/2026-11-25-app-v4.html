@@ -581,6 +581,18 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 .ltc .why{margin:0!important}.ltc .answers{margin-top:auto}
 .ltn{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
 .ltn i{width:6px;height:6px;border-radius:50%;background:var(--tint)}.ltn i.on{background:var(--fg)}.ltn span{margin-left:6px}
+/* the lab's picks (26 Nov), in App v4's parts: a payment code, a link drawn as where it goes, his day with a new slot,
+   pills that change on a tap */
+.qrbox{align-items:center}.qrbox .kv{align-self:stretch}
+.qr{width:168px;height:168px;border-radius:10px;background-color:#fff;background-image:repeating-conic-gradient(#000 0 25%,#fff 0 50%);background-size:24px 24px;box-shadow:inset 0 0 0 10px #fff}
+.lkp{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:18px;background:#111214;color:var(--fg);text-decoration:none;margin-top:8px}
+.lkp .lm{width:36px;height:36px;flex:none;display:flex}.lkp .lm svg{width:100%;height:100%}
+.lkp>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}
+.lkp small{font-size:12.5px;font-weight:650;color:var(--muted)}.lkp b{font-size:18px;font-weight:700;letter-spacing:-.01em;line-height:1.3}
+.lkp em{font-style:normal;font-size:13.5px;color:#b9b4aa;line-height:1.35}.lkp>svg{width:15px;height:15px;flex:none;color:var(--muted);margin-top:3px}
+.dayv .kv{justify-content:flex-start;padding:6px 10px;margin:0 -10px;border-radius:12px;transition:background .4s ease}.dayv .kv span{width:52px;flex:none}.dayv .kv b{text-align:left}
+.dayv .kv.new{background:var(--tint)}.dayv .dh{font-weight:700}
+.pills2{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 </style>
 </head>
 <body>
@@ -596,6 +608,7 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 <div class="lbl">Voices to name (proposal)</div><div class="seg v4b"><button type="button" data-v4="vlist">“N more”: voices fold into one row</button><button type="button" data-v4="vguess">A voice: Life suggests someone</button><button type="button" data-v4="vme">A voice: it may be you</button><button type="button" data-v4="vnone">A voice: no guess</button><button type="button" data-v4="vtyped">A wrong guess: he names Clara</button></div><p class="v4h">Play the moment: its words light up as they play. Someone else: type the name in the Ask Life field, then tap the row or Send.</p>
 <div class="lbl">Real-length ask titles (proposal)</div><div class="seg v4b"><button type="button" data-v4="rowstoday" aria-pressed="false">As drawn today: one line assumed</button><button type="button" data-v4="rowstwo" aria-pressed="false">Proposal: two lines allowed, more room</button><button type="button" data-v4="rowsone" aria-pressed="false">Proposal: written to one line</button></div><p class="v4h">Each opening row leads with who it is with (Orrin Builders), else the matter’s icon (the house), else a mark by kind (a card): never a tick.</p>
 <div class="lbl">Opening the app (26 Nov)</div><div class="seg v4b"><button type="button" data-v4="openlong">Come back after 5 minutes: a clean screen</button><button type="button" data-v4="openshort">Come back sooner: as you left it</button><button type="button" data-v4="broken" aria-pressed="false">LINE and Messenger sign Life out</button></div><p class="v4h">On the clean screen: tap a broken row to fix it in place, “2 more” for the rest, Show earlier for the last sitting.</p><div class="lbl">app v4 · long work, handed off</div><div class="seg v4b"><button type="button" data-v4="async">Ask for long work: a physio this week</button><button type="button" data-v4="asyncdone">20 minutes later: the result lands</button><button type="button" data-v4="peek">Ask how it’s going</button><button type="button" data-v4="budget">It reaches what it may spend</button></div>
+<div class="lbl">Cards from the design lab (his picks, 26 Nov)</div><div class="seg v4b"><button type="button" data-v4="event">An event: change a reminder, then Add to calendar</button><button type="button" data-v4="paidsearch">A paid search: Look them up</button><button type="button" data-v4="newmatter">A new matter</button><button type="button" data-v4="isdone">Is this done?</button><button type="button" data-v4="sameperson">Same person?</button><button type="button" data-v4="contactcard">A Contacts card</button><button type="button" data-v4="atorg">At an organization</button><button type="button" data-v4="paycode">A payment code</button><button type="button" data-v4="link">A link: book the flu jab</button><button type="button" data-v4="plan">Planned steps</button><button type="button" data-v4="clip">A clip on a card</button><button type="button" data-v4="seesdone">Life sees it done</button><button type="button" data-v4="looksdone">I paid it: Life looks for it</button></div><p class="v4h">Each answer shows doing, then its result on the row, with Undo where it can be undone. Waiting is a still ring.</p>
 <div class="lbl">Redrafting a draft</div><div class="seg v4b"><button type="button" data-v4="draft">Life brings a draft to Jade</button><button type="button" data-v4="redraft">Type a change: “Make it warmer, and say I’ll bring wine”</button></div><p class="v4h">Or tap Warmer, Shorter or In French under the draft: it changes in place.</p>
 <div class="lbl">Reactions</div><div class="seg v4b"><button type="button" data-v4="thanks">You say thanks</button><button type="button" data-v4="remind">“Remind me to call Mum on Sunday”</button><button type="button" data-v4="hold">You react to Life’s line</button></div><p class="v4h">Hold (or double-tap) any line of Life’s to react to it.</p>
 <div class="lbl">How am I doing? (once a day at most)</div><div class="seg v4b"><button type="button" data-v4="rate">Life asks</button></div>
@@ -695,10 +708,11 @@ function bodyHTML(id){var m=M[id];
   if(m.done)return '';
   if(m.state==='waiting')return '<div class="nx">'+m.next+'</div><div class="sec">Last from '+m.sub+'</div>'+chatHTML({name:m.sub,items:[m.last]});
   var why=m.why?'<div class="why">'+m.why+'</div>':'';
+  if(m.body)return why+m.body(id)+(m.foot?'<div class="foot">'+m.foot+'</div>':'');
   if(m.kind==='message')return why+chatHTML(m.chat,m.chat.draft+(m.chat.file?'<span class="att">'+DOC+m.chat.file+'</span>':''))+qesHTML(id);
   if(m.kind==='spend')return why+'<div class="spend">'+m.spend+'</div>';
-  if(m.kind==='pick'){var h=why;m.picks.forEach(function(c,i){h+='<div role="button" tabindex="0" class="oc'+(m.picked===i?' on':'')+'" data-pick="'+id+'" data-i="'+i+'"><div class="n"><span class="rd"></span>'+c.n+(c.best?' <em class="best">Life\u2019s pick</em>':'')+'</div><div class="f">'+c.d+'</div>'+(c.map?'<a class="gm" href="'+c.map+'" target="_blank" rel="noopener"><span class="lg">'+GMAPS+'</span>Google Maps<span class="ar">'+OPEN+'</span></a>':'')+'</div>';});return h+'<div class="foot">'+m.after+'</div>';}
-  if(m.kind==='payment')return '<div class="box"><div class="amt">'+m.pay.amount+'</div><div class="kv"><span>To</span><b>'+m.pay.to+'</b></div><div class="kv"><span>IBAN</span><b class="mono">'+m.pay.iban+'</b></div><div class="kv"><span>Reference</span><b>'+m.pay.ref+'</b></div></div><a class="ext" href="#" onclick="return false">Open your bank '+OPEN+'</a>';
+  if(m.kind==='pick'){var h=why;m.picks.forEach(function(c,i){h+='<div role="button" tabindex="0" class="oc'+(m.picked===i?' on':'')+'" data-pick="'+id+'" data-i="'+i+'"><div class="n"><span class="rd"></span>'+c.n+(c.best?' <em class="best">Life\u2019s pick</em>':'')+'</div><div class="f">'+c.d+'</div>'+(c.map?'<a class="gm" href="'+c.map+'" target="_blank" rel="noopener"><span class="lg">'+GMAPS+'</span>Google Maps<span class="ar">'+OPEN+'</span></a>':'')+'</div>';});var pl=m.picked!=null&&m.picks[m.picked].link;return h+(pl?lkpHTML(pl):'')+'<div class="foot">'+(m.foot||m.after)+'</div>';}
+  if(m.kind==='payment')return (m.qr?'<div class="box qrbox"><span class="qr" aria-label="Payment code"></span><div class="amt">'+m.pay.amount+'</div><div class="kv"><span>From</span><b>'+m.qr+'</b></div></div>':'<div class="box"><div class="amt">'+m.pay.amount+'</div><div class="kv"><span>To</span><b>'+m.pay.to+'</b></div><div class="kv"><span>IBAN</span><b class="mono">'+m.pay.iban+'</b></div><div class="kv"><span>Reference</span><b>'+m.pay.ref+'</b></div></div><a class="ext" href="#" onclick="return false">Open your bank '+OPEN+'</a>')+(m.foot?'<div class="foot">'+m.foot+'</div>':'');
   if(m.kind==='call')return '<div class="box"><a class="tel" href="tel:'+m.call.num.replace(/ /g,'')+'">'+PHONE+'<span class="mono" style="font-size:15px">'+m.call.num+'</span></a><div class="sec" style="margin:2px 0 0">What to say</div><div class="script">'+m.call.script+'</div></div>';
   if(m.kind==='event')return '<div class="box ev"><b>'+m.event.title+'</b><div class="kv"><span>When</span><b>'+m.event.day+', '+m.event.time+'</b></div><div class="kv"><span>Where</span><b>'+m.event.place+'</b></div><div class="kv"><span>Reminder</span><b>1 hour before</b></div></div>';
   if(m.kind==='fix')return why+(m.steps&&m.steps.length?'<ol class="steps">'+m.steps.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ol>':'');
@@ -710,7 +724,7 @@ function barHTML(id,inline){var m=M[id];applyFix(id);if(m.done||m.state==='waiti
   var pills='<button type="button" class="sec lt" data-plater="'+id+'">'+(m.defer||'Later')+'</button>';
   if(m.alt)pills+='<button type="button" class="sec" data-alt="'+id+'">'+m.alt+'</button>';
   if(m.drop)pills+='<button type="button" class="sec" data-drop="'+id+'">'+m.drop+'</button>';
-  return '<div class="answers'+(inline?' inl':'')+'"><button type="button" class="prim" data-act="'+id+'"'+dis+'>'+label+(m.icon?' '+m.icon:'')+'</button><div class="two">'+pills+'</div></div>';}
+  return '<div class="answers'+(inline?' inl':'')+'">'+(m.act?'<button type="button" class="prim" data-act="'+id+'"'+dis+'>'+label+(m.icon?' '+m.icon:'')+'</button>':'')+'<div class="two">'+pills+'</div></div>';}
 /* a fix ask is written for where he is (Life's latest location, his places): at home it spoon-feeds the steps;
    away, its main answer is to be reminded on arriving home */
 var LOC='home';
@@ -760,10 +774,10 @@ function refreshLive(id){var st=stateOf(id);
 function runAct(btn,doing,ok,then){btn.disabled=true;btn.classList.add('busy');btn.innerHTML='<span class="spin"></span>'+(doing?' '+doing:'');
   timers.push(setTimeout(function(){btn.classList.remove('busy');btn.classList.add('okd');btn.innerHTML=CHECK+(ok?' '+ok:'');timers.push(setTimeout(then,1000));},900));}
 function finish(id){ASKS=ASKS.filter(function(x){return x!==id;});setCount();}
-function act(id,btn){var m=M[id];
+function act(id,btn,alt){var m=M[id];
   if(m.kind==='fix'&&m.remind){var lt=m.remind;runAct(btn,'','Reminder set',function(){M[id].later=lt;finish(id);decidedAway(id,'put off');refreshLive(id);});return;}
   if(SYSD.offline){m.queued=true;finish(id);decidedAway(id,'queued');refreshLive(id);QUEUE.push({act:id});sysOffline();return;}
-  runAct(btn,m.doing,m.ok,function(){if(m.followUp)m.busy=m.underway||'Life is on it';else m.done=true;finish(id);decidedAway(id,m.kind==='message'?'sent':'answered');refreshLive(id);
+  runAct(btn,m.doing,m.ok,function(){if(m.doneT){m.askQ=m.ask;m.ask=m.t=m.doneT;}if(m.onAct&&!alt){finish(id);decidedAway(id,'answered');m.onAct(id);return;}if(m.followUp)m.busy=m.underway||'Life is on it';else m.done=true;finish(id);decidedAway(id,m.kind==='message'?'sent':'answered');refreshLive(id);
     if(m.followUp)followUpOf(m.followUp);});}
 function putOff(id){M[id].later='tomorrow 9:00';finish(id);decidedAway(id,'put off');refreshLive(id);}
 function laterPage(id,btn){runAct(btn,'',M[id].defer?'Later':'Tomorrow 9:00',function(){putOff(id);});}
@@ -773,7 +787,7 @@ function laterRow(id,btn){runAct(btn,'','Tomorrow',function(){putOff(id);});}
 function whyNotUndone(id){var f=M[id].followUp;if(f&&!M[id].busy&&(ASKS.indexOf(f)>=0||M[f].done))return 'Can’t undo: Life already drafted the booking.';return '';}
 function tryUndo(id,b){var l=b.closest('small,.line');if(!l)return;l.innerHTML='<span class="spin sm"></span> Undoing…';
   setTimeout(function(){var why=whyNotUndone(id);if(why){l.textContent=why;return;}
-    var m=M[id];m.done=false;m.busy=null;m.later=null;if(ASKS.indexOf(id)<0)ASKS.push(id);setCount();refreshLive(id);
+    var m=M[id];m.done=false;m.busy=null;m.later=null;if(m.askQ){m.ask=m.t=m.askQ;m.askQ=null;}thread.querySelectorAll('[data-after="'+id+'"]').forEach(function(x){x.style.transition='opacity .25s ease';x.style.opacity='0';setTimeout(function(){x.remove();},260);});if(ASKS.indexOf(id)<0)ASKS.push(id);setCount();refreshLive(id);
     l.innerHTML='Undone · <button type="button" data-reask="'+id+'">Reopen</button>';},1200);}
 function undoDone(id,b){tryUndo(id,b);}
 function unlater(id,b){tryUndo(id,b);}
@@ -790,7 +804,7 @@ ph.addEventListener('click',function(e){if(e.target.closest('a'))return;var t=e.
   if(t.matches('[data-sys]')){var sk2=t.dataset.sys;var tb=document.querySelector('.sysb [data-k="'+sk2+'"]');if(tb)tb.setAttribute('aria-pressed','false');sysToggle(sk2,false);return;}
   if(t.matches('[data-close]')){var ce=t.closest('.inplace');if(focus==='ip:'+ce.dataset.m)focus='thread';closeInPlace(ce);return;}
   if(t.matches('[data-goto]')){gotoItem(t.dataset.goto);return;}
-  if(t.matches('[data-alt]')){var m=M[t.dataset.alt];m.ended=m.altEnded||'Recap sent to Ben, without the transcript.';act(t.dataset.alt,t);}
+  if(t.matches('[data-alt]')){var m=M[t.dataset.alt];m.ended=m.altEnded||'Recap sent to Ben, without the transcript.';act(t.dataset.alt,t,1);}
   else if(t.matches('[data-drop]')){var m2=M[t.dataset.drop];m2.ended='Dropped.';m2.followUp=null;act(t.dataset.drop,t);}
   else if(t.matches('[data-later]'))laterRow(t.dataset.later,t);
   else if(t.matches('[data-plater]'))laterPage(t.dataset.plater,t);
@@ -831,6 +845,12 @@ function suggNow(){
   var cards=thread.querySelectorAll('.pvc[data-open]');var lc=cards[cards.length-1];
   if(last&&lc&&(last===lc||last.contains(lc)||last.classList.contains('bm'))){var i3=lc.dataset.open;var st=stateOf(i3);
     if((st==='settled'||st==='underway')&&M[i3].after)return {k:'after:'+i3+':'+st,list:M[i3].after};}
+  /* the clean screen (first screen, 26 Nov): what is on it picks the first suggestion */
+  if(thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm')){var fx=thread.querySelector('.hi ~ .bt .fr:not(.settled):not(.outdated)[data-open]');
+    if(fx&&M[fx.dataset.open].kind==='fix')return {k:'clean:broken',list:['Why did it sign out?','What didn’t go meanwhile?','What’s waiting on me?']};
+    if(thread.querySelector('[data-more]'))return {k:'clean:waiting',list:['Start with the most urgent','What can wait until next week?','What’s on today?']};
+    if(fx)return {k:'clean:all',list:['What can wait until next week?','Start with the most urgent','What’s on today?']};
+    return {k:'clean:clear',list:['What’s on today?','What’s waiting on me?','Where are we with the boiler?']};}
   if(last&&last.querySelector&&last.querySelector('.fc'))return {k:'list',list:['Start with the most urgent','What can wait until next week?','Do the bank call with me']};
   if(last&&/Café Rive/.test(last.textContent||''))return {k:'cafe',list:['Add it to my calendar','Tell Jade the table is booked','What else is waiting?']};
   return {k:'idle',list:['What’s waiting on me?','What’s on today?','Where are we with the boiler?']};}
@@ -1615,7 +1635,7 @@ function awayAndBack(then){var o=document.createElement('div');o.className='appa
 function cleanScreen(redraw){clear();closeRx&&closeRx();
   /* the sitting he leaves becomes history; a greeting in it stays only as its time */
   var kept=document.createDocumentFragment();if(!redraw)[].slice.call(thread.childNodes).forEach(function(n){if(n.classList&&(n.classList.contains('sp')||n.classList.contains('histb')))return;
-    if(n.classList&&n.classList.contains('hi')){var s=document.createElement('div');s.className='sep';s.textContent=n.dataset.at;kept.appendChild(s);return;}kept.appendChild(n);});
+    if(n.classList&&n.classList.contains('hi')){var s=document.createElement('div');s.className='sep';s.textContent='Today · '+n.dataset.at;kept.appendChild(s);return;}kept.appendChild(n);});
   if(kept.childNodes.length&&!redraw)HIST.unshift(kept);
   var fixes=ASKS.filter(isBroken),waits=ASKS.filter(function(id){return !isBroken(id)&&stateOf(id)==='needs';}),top=waits.slice(0,OPEN_CAP),rest=waits.slice(OPEN_CAP);
   var oldHi=thread.querySelector('.hi'),at=redraw&&oldHi?oldHi.dataset.at:hm();var hi='<div class="hi" data-at="'+at+'">'+('Hi '+OWNER_FIRST).split(' ').map(function(w,i){return '<span class="w on" style="animation-delay:'+(150+i*180)+'ms">'+w+'</span>';}).join(' ')+'</div>';
@@ -1629,7 +1649,7 @@ function comeBack(long){tick(long?18:3);awayAndBack(function(){if(long)cleanScre
 function showMoreRows(btn){var ids=btn.dataset.more.split(','),fc=btn.previousElementSibling&&btn.previousElementSibling.querySelector('.fc');if(!fc)return;
   fc.insertAdjacentHTML('beforeend',riseRows(ids,0));btn.remove();}
 function showHistory(btn){var chunk=HIST.shift();if(!chunk)return;var hi=thread.querySelector('.hi');
-  var at=document.createElement('div');at.className='sep';at.textContent=hi?hi.dataset.at:hm();
+  var at=document.createElement('div');at.className='sep';at.textContent='Today · '+(hi?hi.dataset.at:hm());
   var nodes=[].slice.call(chunk.childNodes);nodes.forEach(function(n){if(n.classList)n.classList.add('cs-drop');btn.parentNode.insertBefore(n,btn);});
   btn.parentNode.insertBefore(at,btn);
   if(HIST.length){var nb=document.createElement('button');nb.type='button';nb.className='more histb';nb.textContent='Show earlier';thread.insertBefore(nb,nodes[0]||at);}
@@ -1788,6 +1808,89 @@ function listVsTiles(mode,n,btn){document.querySelectorAll('[data-v4^="lt"]').fo
 /* proposal: a list in an answer shows its first 8 rows, then "N more", as the opening screen does with 3 */
 var LIST_CAP=8;V4.ltcap20=function(b){listVsTiles('capped',20,b);};
 [3,8,20].forEach(function(n){V4['ltlist'+n]=function(b){listVsTiles('list',n,b);};V4['lttiles'+n]=function(b){listVsTiles('tiles',n,b);};});
+/* ---- the design lab's picks (his, 26 Nov), drawn with App v4's own parts. Each scene brings its ask to the bottom, as
+   Life does; none is in the opening list. An answer's result lands on its row (onAct), with Undo where it can be
+   undone; waiting is a still ring. ---- */
+var SEARCHI='<svg viewBox="0 0 24 24" '+S+'><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>';
+var LINKI='<svg viewBox="0 0 24 24" '+S+'><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>';
+/* a link looks like where it goes: the site's mark, its name, the key fact large, what is there under it */
+var SITES={doctolib:{n:'Doctolib',mark:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="#107ACA"/><text x="12" y="15.5" text-anchor="middle" font-family="-apple-system,Helvetica,Arial,sans-serif" font-weight="800" font-size="16" fill="#fff">d</text></svg>'}};
+function lkpHTML(l){var k=SITES[l.site];return '<a class="lkp" href="#" onclick="return false"><span class="lm">'+k.mark+'</span><span><small>'+k.n+'</small><b>'+esc(l.key)+'</b><em>'+esc(l.line)+'</em></span>'+OPEN+'</a>';}
+/* an event's reminders are pills: a tap changes one in place */
+var REM=[['1 hour before','30 min before','1 day before'],['At 17:30','At 17:00','At 8:00 that morning']];
+function remOf(m){return m.rem.map(function(r,i){return REM[i][r];});}
+function evPills(id){return '<span class="pills2">'+remOf(M[id]).map(function(r,i){return '<button type="button" class="qe" data-evp="'+id+'" data-i="'+i+'" aria-label="Change this reminder">'+r+'</button>';}).join('')+'</span>';}
+ph.addEventListener('click',function(e){var t=e.target.closest('[data-evp]');if(!t)return;var m=M[t.dataset.evp],i=+t.dataset.i;m.rem[i]=(m.rem[i]+1)%REM[i].length;
+  t.innerHTML='';REM[i][m.rem[i]].split('').forEach(function(ch,j){var c=document.createElement('span');c.className='ink';c.style.animationDelay=(j*20)+'ms';c.textContent=ch;t.appendChild(c);});});
+/* his Thursday, with the new slot */
+function dayHTML(id){return '<div class="box dayv"><div class="dh">Thursday</div><div class="kv"><span>17:00</span><b>Free</b></div><div class="kv new"><span>18:00</span><b>Parents’ meeting</b></div><div class="kv"><span>19:30</span><b>Dinner with Jade</b></div><div class="foot">Reminders · '+remOf(M[id]).join(' · ')+'</div></div>';}
+function none(){return '';}
+var PAUL_PAY={amount:'240,00 €',to:'Plomberie Garnier',iban:'FR76 3000 6000 0112 3456 7890 189',ref:'Invoice 2611-07'};
+var LAB={
+ parents:function(){return {ask:'Add the parents’ meeting?',t:'Add the parents’ meeting?',who:CAL,sub:'From Ms Hale’s mail',when:'Thu',kind:'card',rem:[0,0],
+  body:function(id){return '<div class="box ev"><b>Parents’ meeting</b><div class="kv"><span>When</span><b>Thursday, 18:00</b></div><div class="kv"><span>Where</span><b>Linden School, room 4</b></div><div class="kv"><span>Reminders</span>'+evPills(id)+'</div></div>';},
+  foot:'Add: it goes in your calendar with these two reminders.',act:'Add to calendar',icon:CHECK,doing:'Adding…',ok:'Added',ended:'In your calendar',doneT:'Parents’ meeting',
+  onAct:function(id){M[id].done=true;refreshLive(id);add('bt wide',dayHTML(id)).dataset.after=id;focus='after:'+id;},
+  sugg:['What else is on Thursday?','Remind me the day before too','Tell Jade I may be late'],after:['What else is on Thursday?','Tell Jade I may be late','What else is waiting?']};},
+ physiorun:function(){return {ask:'Look up the physios near home?',t:'Look up the physios near home?',who:SEARCHI,sub:'For your shoulder',when:'today',kind:'card',
+  body:function(){return '<div class="box"><b>Physios within 3 km, with their prices</b><div class="kv"><span>About</span><b>$1.20</b></div></div>';},
+  foot:'Look them up: I search once and stop at $3.',act:'Look them up',doing:'Starting…',ok:'Started',
+  doneT:'Physios near home',onAct:function(id){var m=M[id];m.busy='Looking up · about 4 min';m.pie=.4;refreshLive(id);
+    setTimeout(function(){if(!m.busy)return;m.busy=null;m.done=true;m.noUndo=true;m.ended='38 found · $1.10';refreshLive(id);},4500);},
+  after:['Which ones can see me Thursday?','Book the closest one','What else is waiting?']};},
+ deposit:function(){return {ask:'Your deposit from Kit',t:'Your deposit from Kit',who:'K',sub:'Kit',when:'Tue',kind:'card',body:none,
+  why:'Kit says your <b>800 € deposit</b> comes back after the inspection. Shall I follow it up for you?',
+  act:'Yes, follow it up',alt:'No',altEnded:'Left with you',doing:'Saving…',ok:'On it',
+  doneT:'Deposit back from Kit',onAct:function(id){var m=M[id];m.busy='Writing to Kit';m.pie=.15;refreshLive(id);}};},
+ photosdone:function(){return {ask:'Send Paul the photos of the leak',t:'Send Paul the photos of the leak',who:'P',sub:'Paul',when:'Wed',kind:'card',body:none,
+  why:'Paul wrote “Got the photos, thanks!” on Wednesday. Is <b>sending him the photos</b> done?',
+  act:'Yes, it’s done',alt:'Not yet',altEnded:'Still open',doing:'Saving…',ok:'Done',ended:'Done · Wed'};},
+ bens:function(){return {ask:'One Ben Carter, or two?',t:'One Ben Carter, or two?',who:'B',sub:'+33 6 12 40 77 81 on WhatsApp · ben@fernway.co in mail',kind:'card',body:none,
+  act:'One',alt:'Two',altEnded:'Kept as two people',doing:'Saving…',ok:'Saved',ended:'Two Bens joined into one',doneT:'Ben Carter'};},
+ maxcard:function(){return {ask:'Is this Max Weber?',t:'Is this Max Weber?',who:'M',sub:'Your landlord · on a card in your Contacts',kind:'card',body:none,
+  act:'Yes',alt:'Someone else',altEnded:'Not Max Weber',doing:'Saving…',ok:'Saved',ended:'Card linked to Max Weber',doneT:'Max Weber'};},
+ leaorg:function(){return {ask:'Is Lea at Fernway?',t:'Is Lea at Fernway?',who:'L',sub:'As designer · from her Contacts card',kind:'card',body:none,
+  foot:'Yes: I list her under Fernway as designer.',act:'Yes',alt:'No',altEnded:'Not at Fernway',doing:'Saving…',ok:'Saved',ended:'Lea added to Fernway as designer',doneT:'Fernway'};},
+ malicode:function(){return {ask:'Pay Mali 4,500 THB',t:'Pay Mali 4,500 THB',who:'M',sub:'Mali, for the cleaning',when:'today',kind:'payment',task:1,
+  pay:{amount:'4,500 THB'},qr:'Mali’s message · LINE',foot:'I paid it: I look for the payment in your account and close this.',
+  act:'I paid it',icon:CHECK,doing:'Recording…',ok:'Recorded',ended:'Paid to Mali, 4,500 THB'};},
+ flujab:function(){return {ask:'Book your flu jab',t:'Book your flu jab',who:LINKI,sub:'Pharmacy',when:'this week',kind:'pick',verb:'Book',
+  picks:[{n:'Pharmacie du Centre, Thu 10:00',d:'4 min walk · takes your card',best:1,link:{site:'doctolib',key:'Thu 10:00',line:'Pharmacie du Centre · flu jabs'}},
+   {n:'Pharmacie de la Gare, Sat 9:00',d:'12 min by bus · takes your card',link:{site:'doctolib',key:'Sat 9:00',line:'Pharmacie de la Gare · flu jabs'}}],picked:0,
+  foot:'Book it on Doctolib, it takes a minute.',act:'Book',doing:'Saving…',ok:'Booked',
+  onAct:function(id){var m=M[id];m.done=true;m.ended='Booked · '+m.picks[m.picked].n;refreshLive(id);},
+  after:['Add it to my calendar','Remind me the day before','What else is waiting?']};},
+ depositplan:function(){return {ask:'Get your deposit back',t:'Get your deposit back',who:'K',sub:'Kit, your landlord',kind:'card',body:none,
+  why:'I ask Kit for the inspection date today. Once he answers, <b>you go to the inspection</b>. If he is silent by 2 Dec, I remind him of the 14-day limit.',
+  act:'Go ahead',doing:'Saving…',ok:'On it',
+  onAct:function(id){var m=M[id];m.busy='Asking Kit for the inspection date';m.pie=.1;refreshLive(id);}};},
+ samclip:function(){return {ask:'Did Sam say nine?',t:'Did Sam say nine?',who:WAVEI,sub:'This morning’s call',kind:'card',
+  body:function(){return '<div class="vclip"><button type="button" class="vplay" data-vplay aria-label="Play this moment">'+PLAYI+'</button><div class="vtx">'+'Then let’s say Saturday at nine, I bring the big ladder'.split(' ').map(function(w){return '<span>'+esc(w)+'</span>';}).join(' ')+'</div></div>';},
+  act:'Yes, nine',alt:'No, ten',altEnded:'Ten · Saturday 10:00',doing:'Saving…',ok:'Saved',ended:'Nine · Saturday 9:00',doneT:'Saturday with Sam'};},
+ paulseen:function(){return {ask:'Pay Paul 240 €',t:'Pay Paul 240 €',who:'P',sub:'Paul, for the leak',when:'Fri',kind:'payment',pay:PAUL_PAY,act:null,
+  foot:'Pay it your way. I see it in your bank and close this.'};},
+ paullook:function(){return {ask:'Pay Paul 240 €',t:'Pay Paul 240 €',who:'P',sub:'Paul, for the leak',when:'Fri',kind:'payment',pay:PAUL_PAY,
+  act:'I paid it',icon:CHECK,doing:'Recording…',ok:'Recorded',
+  onAct:function(id){var m=M[id];m.busy='Looking in your bank…';m.pie=.2;refreshLive(id);
+    setTimeout(function(){if(!m.busy)return;m.busy='Not in your bank yet · I look until Fri';refreshLive(id);},2500);}};}
+};
+function labScene(id,lead){M[id]=LAB[id]();return bring(id,lead);}
+Object.assign(V4,{
+ event:function(){labScene('parents','Ms Hale’s mail has a date for you:');},
+ paidsearch:function(){labScene('physiorun','To find a physio near home, I’d search once:');},
+ newmatter:function(){labScene('deposit','From Kit’s message on Tuesday:');},
+ isdone:function(){labScene('photosdone','Paul answered:');},
+ sameperson:function(){labScene('bens','Before I answer about Ben: two Bens, maybe one.');},
+ contactcard:function(){labScene('maxcard','A card in your Contacts:');},
+ atorg:function(){labScene('leaorg','From Lea’s Contacts card:');},
+ paycode:function(){labScene('malicode','Mali sent a payment code:');},
+ link:function(){labScene('flujab','Two pharmacies near home have a slot:');},
+ plan:function(){labScene('depositplan','Here’s how I’d get your deposit back:');},
+ clip:function(){labScene('samclip','From this morning’s call with Sam:');},
+ seesdone:function(){labScene('paulseen','Paul sent his bill for the leak:');
+  setTimeout(function(){var m=M.paulseen;if(stateOf('paulseen')!=='needs')return;m.done=true;m.noUndo=true;m.ended='Seen in your bank · Wed 14:02';finish('paulseen');refreshLive('paulseen');},6000);},
+ looksdone:function(){labScene('paullook','Paul sent his bill for the leak:');}
+});
 window.__v4={M:M,SET:SET,V4:V4,AURA:AURA};
 
 var goal=GOALS.rest, cur={spd:1,bo:.14,tide:.9,blue:0,pool:0,blur:20,col:0}, a1=0,a2=120,a3=240,ph2=0,pulse=0,last=performance.now();
