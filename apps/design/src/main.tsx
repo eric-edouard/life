@@ -130,11 +130,11 @@ function Sidebar({
           <h2 className="m-0 px-2.5 font-semibold text-heading text-muted">
             Scenes
           </h2>
-          <div className="flex flex-wrap gap-1.5 px-1.5">
+          <div className="-mx-3 flex snap-x snap-mandatory scroll-px-3 gap-1.5 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none]">
             {scenes.map((scene, i) => (
               <button
                 aria-pressed={scene.getAttribute("aria-pressed") === "true"}
-                className="min-h-9 rounded-full bg-tint px-3.5 text-fg text-meta aria-pressed:bg-fg aria-pressed:text-on"
+                className="min-h-9 flex-none snap-start whitespace-nowrap rounded-full bg-tint px-3.5 text-fg text-meta aria-pressed:bg-fg aria-pressed:text-on"
                 // biome-ignore lint/suspicious/noArrayIndexKey: a page's scene buttons have no id, and their order is fixed
                 key={i}
                 onClick={() => {
