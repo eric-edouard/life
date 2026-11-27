@@ -25,8 +25,6 @@ enum Helper {
     env["LIFE_EVENTKIT"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-eventkit").path
     env["LIFE_FOUNDATION_MODEL"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-foundation-model").path
     env["LIFE_LLAMA_SERVER"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/llama/llama-server").path
-    // The commit the app was built from (`scripts/app.ts`): voice's server reports its errors under it.
-    env["LIFE_BUILD"] = Bundle.main.object(forInfoDictionaryKey: "LifeCommit") as? String
     env.merge(Keychain.all()) { _, kept in kept }
     return env
   }

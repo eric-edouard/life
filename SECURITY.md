@@ -98,8 +98,8 @@ PKCE). Its origin also forwards `/voice/…` to lifelog's server on loopback, as
 optionally a tunnel he controls.
 
 Life's helper reads voice's `secrets.json` (owner-only; `host/voice.ts` its one writer): to start voice's launchd jobs
-with their keys and to read voice with the phone's device token. Life.app's "Pair an app" QR carries that device token
-and voice's address beside Life's pairing code, so one scan pairs both: anyone who sees the QR in its 5 minutes holds
+with their keys and to read voice with the phone's device token. His own Life.app's "Pair an app" QR (never a checkout's or a second
+Life's: `pairTokenOf`) carries that device token and voice's address beside Life's pairing code, so one scan pairs both: anyone who sees the QR in its 5 minutes holds
 the whole voice archive (his yes of 28 Nov 2026). Life.app writes voice's keys only through the helper (`life voice
 key`, on stdin, never an argument).
 

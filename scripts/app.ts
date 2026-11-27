@@ -29,8 +29,6 @@ const contents = join(app, "Contents");
 const identity = process.env.LIFE_SIGN_IDENTITY ?? "-";
 const version = process.env.LIFE_VERSION ?? "0.1.0";
 const arch = process.arch === "arm64" ? "arm64" : "amd64";
-// The commit it is built from: the helper passes it to voice's server as its build (`LIFE_BUILD`).
-const commit = (await execOk(["git", "-C", ROOT, "rev-parse", "HEAD"])).trim();
 
 const hardened =
   identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
@@ -66,7 +64,6 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>${version}</string>
   <key>CFBundleVersion</key><string>${version}</string>
-  <key>LifeCommit</key><string>${commit}</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   <key>ATSApplicationFontsPath</key><string>Fonts</string>
