@@ -122,9 +122,9 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
     runtime: "claude",
   });
   // Ended a day ago by the clock, so the test never ages out of the read's window.
-  const endedAt = new Date(clock().getTime() - DAY).toISOString();
+  const agentEndedAt = new Date(clock().getTime() - DAY).toISOString();
   desk.db.run("update agent set status = 'ended', ended_at = ? where id = ?", [
-    endedAt,
+    agentEndedAt,
     ended,
   ]);
 
@@ -185,7 +185,7 @@ test("an agent's read: wakesOn while it waits, [] otherwise, and statusSince by 
   });
   expect(by(stopped)).toMatchObject({ statusSince: null, wakesOn: [] });
   expect(by(ended)).toMatchObject({
-    statusSince: endedAt,
+    statusSince: agentEndedAt,
     wakesOn: [],
   });
   // What an agent has asked, filters and the chats it has heard from stay inside: they are not on the wire.
