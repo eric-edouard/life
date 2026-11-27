@@ -18,7 +18,7 @@ struct VoiceSettings: View {
   var body: some View {
     Section("Voice") {
       HStack {
-        Text(voice?.line(speakers: speakers) ?? "Checking…")
+        Text(voice?.line ?? "Checking…")
         Spacer()
         Pill(tone: voice?.answering == true ? .ok : .idle, word: voice?.answering == true ? "running" : "off")
       }
@@ -109,12 +109,9 @@ struct VoiceSettings: View {
   }
 
   private func load() async {
-    let out = await Helper.run(["settings"]).out
-    let settings = (try? JSONSerialization.jsonObject(with: Data(out.utf8))) as? [String: Any] ?? [:]
-    let v = settings["voice"] as? [String: Any]
-    speakers = v?["speakers"] as? Bool ?? true
-    backups = v?["backups"] as? Bool ?? false
     await readStatus()
+    speakers = voice?.speakers ?? speakers
+    backups = voice?.backups ?? backups
   }
 
   private func readStatus() async {
@@ -193,23 +190,17 @@ struct VoiceSettings: View {
   }
 }
 
-/// The helper's `voice status`: each launchd job's state (nil when not loaded), whether the server answers, what is set
-/// up, and each job's log.
+/// The helper's `voice status`, decided there (`host/voice.ts`): its line, whether the server answers, the switches as
+/// they apply, what is set up, and each job's log. The app only shows it.
 struct VoiceStatus: Decodable {
   let answering: Bool
   let archive: Bool
+  let backups: Bool
   let chatgpt: Bool
-  let children: [String: String?]
   let claudeToken: Bool
   let elevenLabsKey: Bool
   let iCloud: Bool
+  let line: String
   let logs: [String: String]
-
-  /// One line: running, or what keeps it from running (speaker recognition counts only while it is on).
-  func line(speakers: Bool) -> String {
-    if !elevenLabsKey { return "Add your ElevenLabs key to start transcribing." }
-    let down = children.filter { $0.value != "running" && (speakers || $0.key != "identity") }.keys.sorted()
-    if answering { return down.isEmpty ? "Running" : "Running; not running: \(down.joined(separator: ", "))" }
-    return "Not answering"
-  }
+  let speakers: Bool
 }
