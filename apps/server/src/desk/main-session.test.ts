@@ -466,11 +466,9 @@ test("on his words the main session acts through its door: each act's `said` mus
   // His words reach the agent through the spoken-ask intake, as he said them, on its own assignment, never by meaning.
   const told = readLedger().find((a) => a.after.to === own);
   expect(told?.instruction?.quote).toBe("book the dentist");
-  await receiveSpokenAsks(t.desk, () => Promise.reject(new Error("unused")));
+  await receiveSpokenAsks(t.desk);
   expect(readSpokenAsk(t.desk, { id: own }, told?.id ?? "")).toEqual({
     at: told?.instruction?.at ?? "",
-    confidence: undefined,
-    until: undefined,
     words: "book the dentist",
   });
   // The card is his own (`owner`): his answer wakes no agent.

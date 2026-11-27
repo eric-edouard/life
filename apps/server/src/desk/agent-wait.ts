@@ -51,9 +51,9 @@ export function waitOf(input: unknown, now: number) {
     : { wait: parsed.data };
 }
 
-/** A queued event as an agent reads it: its name and its facts; a spoken ask heard with low confidence says to confirm it. */
+/** A queued event as an agent reads it: its name and its facts. */
 export const eventLineOf = (e: Pick<EventRow, "name" | "payload">) =>
-  `${e.name} ${e.payload}${e.name === ASK_SPOKEN && JSON.parse(e.payload).confidence === "low" ? " (heard with low confidence: confirm it with him on a card before acting)" : ""}`;
+  `${e.name} ${e.payload}`;
 
 /** An assignment's default wait: its old filters, 24 hours, flagged. */
 export const defaultWaitOf = (

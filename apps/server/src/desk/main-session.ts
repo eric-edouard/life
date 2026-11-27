@@ -37,6 +37,7 @@ import type {
   MainSessionAsk,
   MainSessionLine,
 } from "../records/main-session-wire";
+import { notifyPhone } from "../sources/lifelog-push";
 import { pendingCardOf } from "./agent-actions";
 import { askAssignment, QUESTION_WAIT } from "./agent-questions";
 import type { Desk } from "./desk-store";
@@ -110,6 +111,8 @@ interface TurnState {
   entry: number;
   /** His words are what he tapped (`MainSessionAsk.tap`). */
   isTap: boolean;
+  /** His words were heard with low confidence ("hey Life" misheard, or another voice): no act takes them. */
+  isUnsure: boolean;
   say: (l: MainSessionLine) => void;
   words: string;
 }
@@ -123,10 +126,12 @@ const turnsIn = (db: Desk["db"]) => {
 /**
  * The one gate of the main session's acts: `said` found in his words of its turn `turn` (`locate`: no accents, case,
  * quote style or spacing; 8 characters at least), returned as he said them. It proves the words are his, sent this
- * ask, never that the act matches them: anything outward stays a card he taps. Throws when they are not there.
+ * ask, never that the act matches them: anything outward stays a card he taps. Throws when they are not there, and
+ * always on words heard with low confidence.
  */
 export function hisWordsIn(desk: Desk, turn: number, said: string) {
-  const words = turnsIn(desk.db).get(turn)?.words;
+  const state = turnsIn(desk.db).get(turn);
+  const words = state?.isUnsure ? undefined : state?.words;
   const found = words === undefined ? null : locate(said, [words]);
   if (!found) {
     throw new Error(
@@ -218,10 +223,15 @@ export async function keepMainSession(desk: Desk) {
 const durationOf = (ms: number) =>
   ms < 90_000 ? `${Math.round(ms / 1000)} s` : `${Math.round(ms / 60_000)} min`;
 
-/** The message of one ask: his words as he sent them, his screen's refs, and how long each kind of handed work takes now. */
-const messageOf = (db: Desk["db"], ask: MainSessionAsk) =>
+/** An ask, or one of his spoken asks (`spoken-ask-intake.ts`: the recording's `ref`; never on the strict wire). */
+type Ask = MainSessionAsk & { spoken?: { isUnsure: boolean; ref: string } };
+
+/** The message of one ask: his words as he sent them (or spoke them: the recording around them), his screen's refs, and how long each kind of handed work takes now. */
+const messageOf = (db: Desk["db"], ask: Ask) =>
   [
-    `His words, through Ask Life: ${JSON.stringify(ask.words)}`,
+    ask.spoken
+      ? `His words, spoken to Life ("hey Life"; \`fetch\` ${ask.spoken.ref} opens the talk around them): ${JSON.stringify(ask.words)}${ask.spoken.isUnsure ? " (heard with low confidence: maybe not his; your acts are refused on them, so ask him in your answer to say them again)" : ""}`
+      : `His words, through Ask Life: ${JSON.stringify(ask.words)}`,
     ...(ask.screen
       ? [
           `On his screen (refs; \`fetch\` opens one): ${JSON.stringify(ask.screen)}`,
@@ -239,7 +249,7 @@ const queueOf = new WeakMap<
 /** One ask, as one turn of the main session once the asks before it end: each line `say`s as it comes; its answer. */
 async function answer(
   desk: Desk,
-  ask: MainSessionAsk,
+  ask: Ask,
   entry: number,
   say: (l: MainSessionLine) => void,
   asked: () => void
@@ -290,7 +300,7 @@ export async function endWithinLimit(
 /** One ask's turn, run now. */
 async function answerNow(
   desk: Desk,
-  ask: MainSessionAsk,
+  ask: Ask,
   entry: number,
   say: (l: MainSessionLine) => void,
   asked: () => void
@@ -338,6 +348,7 @@ async function answerNow(
     acts: [],
     entry,
     isTap: ask.tap === true,
+    isUnsure: ask.spoken?.isUnsure === true,
     say,
     words: ask.words ?? "",
   };
@@ -535,11 +546,25 @@ const openEntry = (db: Desk["db"], ask: MainSessionAsk) =>
 interface StoredEntry {
   answer: string | null;
   answered_at: string | null;
+  deleted_at: string | null;
   error: string | null;
   id: number;
   refs: string;
+  turn_id: number | null;
   words: string | null;
 }
+
+/** The thread entry of the ask kept under key `key`, if any: answered once `answered_at` is set (an answer or an error). */
+export const askEntryOf = (db: Desk["db"], key: string) =>
+  db
+    .query<StoredEntry, [string]>(
+      "select id, words, answer, error, refs, answered_at, deleted_at, turn_id from thread_entry where ask_key = ?"
+    )
+    .get(key);
+
+/** Whether this process holds the ask kept under key `key` (queued, running or just ended). */
+export const isAskHeld = (desk: Desk, key: string) =>
+  asksOf.get(desk.db)?.has(key) === true;
 
 /**
  * An ask stored under key `key` before this process knew it (a retry after a restart): its answer as stored, or why
@@ -550,11 +575,7 @@ function storedAnswerOf(
   key: string,
   words: string | undefined
 ): MainSessionAnswer | { entry: number } | undefined {
-  const e = db
-    .query<StoredEntry, [string]>(
-      "select id, words, answer, error, refs, answered_at from thread_entry where ask_key = ?"
-    )
-    .get(key);
+  const e = askEntryOf(db, key);
   if (!e) {
     return;
   }
@@ -622,11 +643,12 @@ export async function stopMainSession(desk: Desk) {
  * His words to the main session (`ask.words`), its lines heard by `hear` as they come; its answer. Each ask is one
  * thread entry. A retry under the same key (one of the last `ASKS_KEPT` that reached the session) replays the lines so
  * far and ends with the same answer: never asked twice; the key with other words is refused. An ask that never reached
- * the session (busy, no place, a session that would not take it) is not kept.
+ * the session (busy, no place, a session that would not take it) is not kept, but a spoken one ends there, its error
+ * his line; its new entry gets Life's eyes and one push that Life heard him, with no words of his.
  */
 export function askMainSession(
   desk: Desk,
-  ask: MainSessionAsk,
+  ask: Ask,
   hear: (l: MainSessionLine) => void
 ): Promise<MainSessionAnswer> {
   const byKey = asksOf.get(desk.db) ?? new Map<string, Heard>();
@@ -660,6 +682,10 @@ export function askMainSession(
   }
   let isAsked = false;
   const entry = stored?.entry ?? openEntry(desk.db, ask);
+  if (ask.spoken && !stored) {
+    react(desk.db, entry, "life", EYES);
+    notifyPhone({ body: "On it.", title: "Life heard you" });
+  }
   const end = answer(desk, ask, entry, say, () => {
     isAsked = true;
   })
@@ -672,10 +698,11 @@ export function askMainSession(
     )
     .then((answered) => {
       // An ask that never reached the session stays open on its entry, so a retry under its key asks again.
+      const at = isAsked || ask.spoken ? clock().toISOString() : null;
       if (answered.kind === "error") {
         desk.db.run(
           "update thread_entry set error = ?, answered_at = ? where id = ? and deleted_at is null",
-          [answered.what, isAsked ? clock().toISOString() : null, entry]
+          [answered.what, at, entry]
         );
       }
       if (key && !isAsked) {

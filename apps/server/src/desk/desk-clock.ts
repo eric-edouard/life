@@ -767,7 +767,7 @@ export async function wakeDue(desk: Desk) {
 }
 
 /**
- * One tick of the clock: his word about his agents, each move one step on (`advanceMoves`), his complaints for the caretaker and his spoken asks for their agent (before the hand-out may take the last place), his intentions (`openIntentions`), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
+ * One tick of the clock: his word about his agents, each move one step on (`advanceMoves`), his complaints for the caretaker and his spoken asks for the main session (before the hand-out may take the last place), his intentions (`openIntentions`), the hand-out (at most one start, a look every 10 minutes), his answers, the turns that never began, then the turns due (a new
  * agent's first turn never waits behind the polls), then, when their poll is due, what each runtime's block is, the messages, the calls that ended, the recordings, the
  * assignments whose matter is over for them, the fold (each matter to the agent that takes it), the hand-outs with no card in time and the turns lost to a restart (what they queue is woken next tick). The calls come after the messages, so a chat's messages and its call that ended are one burst; the event channels a wait names after the calls (`pollChannels`).
  */
@@ -781,7 +781,7 @@ export async function tick(desk: Desk, isPollDue = true) {
   await receiveComplaints(desk);
   const people = readPeopleOnce();
   // A failure here never holds his answers or the turns due.
-  await receiveSpokenAsks(desk, people).catch((error: unknown) =>
+  await receiveSpokenAsks(desk).catch((error: unknown) =>
     log("desk.asks", { ...errorOf(error), ok: false })
   );
   await openIntentions(desk);
