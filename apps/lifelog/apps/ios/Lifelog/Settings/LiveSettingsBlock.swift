@@ -13,13 +13,14 @@ struct LiveSettingsBlock: View {
     @State private var ticked: String?
     @State private var isOffered = false
 
-    private static let known = ["faceid", "pair"]
+    private static let known = ["faceid", "appear", "pair"]
 
     private var shown: [String] { keys?.filter((Self.known + ["aura"]).contains) ?? Self.known }
 
     var body: some View {
         SettingsBlock {
             ForEach(Array(shown.enumerated()), id: \.element) { index, key in
+                if index > 0 { Rectangle().fill(Palette.tint).frame(height: 1) }
                 row(key)
             }
             if let offer {
@@ -34,12 +35,22 @@ struct LiveSettingsBlock: View {
     @ViewBuilder private func row(_ key: String) -> some View {
         switch key {
         case "faceid":
-            FaceIDRow()
+            FaceIDRow(isPlain: true)
+        case "appear":
+            AppearanceRow()
         case "aura":
             AuraBlock()
         default:
-            Button(action: openSettings) { Row(title: "Pair again with your Mac") { RowValue() } }
-                .buttonStyle(.plain)
+            Button(action: openSettings) {
+                HStack(spacing: Metrics.Spacing.m) {
+                    Text("Pair again with your Mac").font(.rowTitle)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.forward").font(.system(size: 14, weight: .semibold))
+                        .frame(width: 36, height: 36).background(Palette.tint, in: .circle)
+                }
+                .frame(minHeight: Metrics.tapTarget + Metrics.Spacing.s).contentShape(.rect)
+            }
+            .buttonStyle(.plain).foregroundStyle(Palette.fg)
         }
     }
 

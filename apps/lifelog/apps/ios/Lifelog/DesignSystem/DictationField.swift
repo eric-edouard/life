@@ -105,7 +105,9 @@ struct DictationField: View {
     private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let problem = dictation.problem { ProblemLine(problem: problem) { fix(problem) }.appears() }
-            cardWords.frame(maxWidth: .infinity, alignment: .leading).padding(.top, Metrics.Spacing.m)
+            if dictation.phase != .rest {
+                cardWords.frame(maxWidth: .infinity, alignment: .leading).padding(.top, Metrics.Spacing.m)
+            }
             HStack(spacing: Metrics.Spacing.s) {
                 // The cross belongs to listening: the idle field is one capsule (the prototype's `idleField`).
                 if dictation.phase != .rest {
@@ -116,9 +118,10 @@ struct DictationField: View {
                     .buttonStyle(.plain).accessibilityLabel("Cancel dictation")
                 }
                 Group {
-                    if dictation.phase == .rest { Color.clear } else { DictationStream(dictation: dictation) }
+                    // At rest the field sits in the row, one line like the prototype's idle capsule, growing up to 5.
+                    if dictation.phase == .rest { field.lineLimit(1...5) } else { DictationStream(dictation: dictation) }
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 if let stop {
                     StopKey(stop: stop)
                 } else {
@@ -126,14 +129,12 @@ struct DictationField: View {
                         dictation: dictation, hasWords: hasWords, send: send, start: start, isCard: true)
                 }
             }
-            .frame(height: 56)
+            .frame(minHeight: 56)
         }
     }
 
     @ViewBuilder private var cardWords: some View {
-        if dictation.phase == .rest {
-            field.lineLimit(1...5)
-        } else if isLive {
+        if isLive {
             let (head, tail) = DictatedText.parts(in: text, at: keptCaret)
             LiveWordsText(head: head, words: live.words, tail: tail).lineLimit(5).truncationMode(.head)
         } else if text.isEmpty {
