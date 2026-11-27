@@ -1,22 +1,25 @@
-import { createHash, randomBytes } from "node:crypto";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { parseEnv } from "node:util";
 import { EMBEDDER_URL } from "../core/embedder";
+import { digest, sha256Of } from "../core/hash";
 import {
   IS_COMPILED_HELPER,
   LIFE_CODE_DIR,
   LIFE_STATE_DIR,
   OWNER_DATA_DIR,
 } from "../core/paths";
-import { APP_DATA, CODEX, HOME } from "../core/platform";
+import { APP_DATA, CODEX, HOME, isOwnLife } from "../core/platform";
 import { execOk } from "../core/proc";
-import { isKeptAs, keepRunning, stopRunning } from "../core/service";
+import { writeSecret } from "../core/secret";
+import { isKeptAs, isLoaded, keepRunning, stopRunning } from "../core/service";
 import { settings } from "../core/settings";
 import {
   readOwnerOnly,
   readVoiceSecrets,
   secretOf,
-  VOICE_SECRETS,
+  VOICE_URL,
 } from "../sources/lifelog-call";
 
 // Voice: the pendant pipeline's processes on this Mac (its server, the Mac helper, speaker recognition, the embedder),
@@ -24,9 +27,6 @@ import {
 // holds the only copy of the pendant's audio. Each job runs `life voice run <child>`, which becomes the child (`execve`)
 // with its environment worked out here: the one table of what each runs. Formerly Lifelog Host's children.
 
-/** The server's port, on loopback only; Life's origin forwards `/voice` to it. */
-const PORT = 47_613;
-const LOOPBACK = `http://127.0.0.1:${PORT}`;
 /** Speaker recognition's port, on loopback beside it. */
 const IDENTITY_PORT = 47_614;
 export const VOICE_CHILDREN = [
@@ -36,7 +36,7 @@ export const VOICE_CHILDREN = [
   "embedder",
 ] as const;
 export type VoiceChild = (typeof VOICE_CHILDREN)[number];
-/** The secrets voice mints when missing: the phone's token, the helper's, a reader's with corrections (Life's), the backup's password and speaker recognition's. */
+/** The secrets voice mints when missing: the phone's token, the helper's, a reader's with corrections (Lifelog Host's "Copy Life's lifelog settings" until it goes), the backup's password and speaker recognition's. */
 const MINTED = [
   "deviceToken",
   "macToken",
@@ -78,8 +78,8 @@ export function voicePathsHere(): VoicePaths {
 export interface VoiceInputs {
   at: VoicePaths;
   backups: boolean;
-  /** The commit Life.app was built from (`LIFE_BUILD`), naming the server's error reports. */
-  build?: string;
+  /** Which Life.app build this is (`buildOf`), naming the server's error reports. */
+  build: string;
   /** The owner's own server keys voice doesn't manage (APNs, Resend…): `server.env`. */
   extra: Record<string, string>;
   /** The address the phone reaches the server at: Life's origin and `/voice`, else this Mac alone. */
@@ -95,7 +95,7 @@ export interface VoiceLaunch {
   env: Record<string, string>;
 }
 
-const sha256Hex = (s: string) => createHash("sha256").update(s).digest("hex");
+const sha256Hex = (s: string) => digest("sha256", s, 64);
 const defined = (o: Record<string, string | undefined>) =>
   Object.fromEntries(
     Object.entries(o).filter((e): e is [string, string] => e[1] !== undefined)
@@ -127,7 +127,7 @@ export function serverEnvOf(v: VoiceInputs): Record<string, string> {
     IDENTITY_URL: v.speakers ? `http://127.0.0.1:${IDENTITY_PORT}` : undefined,
     LISTEN_HOST: "127.0.0.1",
     MAC_TOKEN_HASH: hash("macToken"),
-    PORT: String(PORT),
+    PORT: new URL(VOICE_URL).port,
     PUBLIC_BASE_URL: v.publicUrl,
     RESTIC_BINARY: v.backups ? join(v.at.helpers, "restic") : undefined,
     RESTIC_PASSWORD: v.backups ? s("resticPassword") : undefined,
@@ -211,7 +211,7 @@ export const VOICE_LAUNCHES: Record<
   quiet: ({ at }) => ({
     args: [],
     binary: join(at.helpers, "lifelog-quiet"),
-    env: { LIFELOG_CODEX: at.codex, LIFELOG_URL: LOOPBACK },
+    env: { LIFELOG_CODEX: at.codex, LIFELOG_URL: VOICE_URL },
   }),
   server: (v) =>
     secretOf(v.secrets, "elevenLabsKey")
@@ -223,38 +223,23 @@ export const VOICE_LAUNCHES: Record<
       : "Add your ElevenLabs key in Settings to start transcribing.",
 };
 
-/**
- * `server.env`: `KEY='value'` lines (a single-quoted value may span lines, as a PEM key does), `KEY="value"` or
- * `KEY=value`; blank lines and `#` comments are skipped.
- */
-export function parseServerEnv(text: string) {
-  const line =
-    /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(?:'([^']*)'|"([^"]*)"|([^\n]*))$/gm;
-  const values: Record<string, string> = {};
-  for (const [, key, single, double, bare] of text.matchAll(line)) {
-    values[key as string] =
-      single ??
-      double ??
-      bare?.replace(/^[\t\p{Zs}]+|[\t\p{Zs}]+$/gu, "") ??
-      "";
-  }
-  return values;
-}
-
 /** What every launch is worked out from, read now: the secrets as stored, `server.env` (owner-only), his settings. */
-export function readVoiceInputs(
+export async function readVoiceInputs(
   at: VoicePaths,
   secrets = readVoiceSecrets()
-): VoiceInputs {
+): Promise<VoiceInputs> {
   // The same refusal as the secrets': a server.env others can read stops the run.
-  const extra = parseServerEnv(readOwnerOnly(at.serverEnv) ?? "");
+  const extra = parseEnv(readOwnerOnly(at.serverEnv) ?? "") as Record<
+    string,
+    string
+  >;
   const origin = settings().connector?.origin;
   return {
     at,
     backups: settings().voice?.backups === true,
-    build: process.env.LIFE_BUILD,
+    build: await buildOf(),
     extra,
-    publicUrl: origin ? `${origin}/voice` : LOOPBACK,
+    publicUrl: origin ? `${origin}/voice` : VOICE_URL,
     secrets,
     speakers: settings().voice?.speakers !== false,
   };
@@ -263,11 +248,10 @@ export function readVoiceInputs(
 /**
  * The secrets with what they lack minted (32 random bytes, base64url), written back only when something was: any
  * already there is kept (a new backup password would lock out every snapshot made with the old one), and so is every
- * key voice doesn't own (the Mac helper's Claude sign-in). The one writer of the file: owner-only from its first byte,
- * in a folder made owner-only.
+ * key voice doesn't own (the Mac helper's Claude sign-in). Life's one writer of the file (`SECRETS.voiceSecrets`).
  */
-export function mintVoiceSecrets(file = VOICE_SECRETS) {
-  const stored = readVoiceSecrets(file);
+export function mintVoiceSecrets() {
+  const stored = readVoiceSecrets();
   const missing = MINTED.filter((k) => secretOf(stored, k) === undefined);
   if (missing.length === 0) {
     return stored;
@@ -278,43 +262,65 @@ export function mintVoiceSecrets(file = VOICE_SECRETS) {
       missing.map((k) => [k, randomBytes(32).toString("base64url")])
     ),
   };
-  mkdirSync(dirname(file), { mode: 0o700, recursive: true });
-  const temporary = `${file}.tmp`;
-  rmSync(temporary, { force: true });
-  writeFileSync(temporary, JSON.stringify(secrets), {
-    flag: "wx",
-    mode: 0o600,
-  });
-  renameSync(temporary, file);
+  writeSecret("voiceSecrets", JSON.stringify(secrets));
   return secrets;
 }
 
+/**
+ * Which Life.app build this is: the start of the helper's own digest, the one thing every new build changes (its
+ * Info.plist's version does not), so a new build rewrites every job and voice runs the new app's programs.
+ */
+export const buildOf = async () =>
+  (await sha256Of(process.execPath)).slice(0, 12);
+
+/**
+ * The link the phone opens (`lifelog://pair?life=<origin>&code=<code>`), with voice's address and the phone's device
+ * token (`url`, `token`) when given: one QR pairs both.
+ */
+export const pairLinkOf = (origin: string, code: string, token?: string) =>
+  `lifelog://pair?${new URLSearchParams({
+    code,
+    life: origin,
+    ...(token && { token, url: `${origin}/voice` }),
+  })}`;
+
+/** The phone's device token for Life's pairing link: only from his own Life's helper, never a checkout or a second Life. */
+export const pairTokenOf = (compiled = IS_COMPILED_HELPER) =>
+  compiled && isOwnLife()
+    ? secretOf(readVoiceSecrets(), "deviceToken")
+    : undefined;
+
 const jobOf = (child: VoiceChild) => `voice-${child}`;
-/** What launchd runs for `child`: this helper with Life's paths (no secret), and the digest of its launch, so the plist changes when, and only when, what the child would run with does. */
-const jobArgsOf = (child: VoiceChild, launch: VoiceLaunch) => [
+/**
+ * What launchd runs for `child`: this helper with Life's paths (no secret), its build and the digest of its launch, so
+ * the plist changes when, and only when, a new build or what the child would run with does.
+ */
+export const jobArgsOf = (
+  child: VoiceChild,
+  launch: VoiceLaunch,
+  build: string
+) => [
   "/usr/bin/env",
   `LIFE_CODE_DIR=${LIFE_CODE_DIR}`,
   `LIFE_OWNER_DATA_DIR=${OWNER_DATA_DIR}`,
   `LIFE_STATE_DIR=${LIFE_STATE_DIR}`,
-  ...(process.env.LIFE_BUILD ? [`LIFE_BUILD=${process.env.LIFE_BUILD}`] : []),
   process.execPath,
   "voice",
   "run",
   child,
-  `--launch=${sha256Hex(JSON.stringify(launch)).slice(0, 16)}`,
+  `--build=${build}`,
+  `--launch=${digest("sha256", JSON.stringify(launch), 16)}`,
 ];
 
 /**
  * Each child's launchd job written as it should run now: (re)started only when its plist changed, stopped when it is
  * not wanted or can't run. Returns what each is: `running`, `restarted`, `off` or why it can't run.
- * ponytail: a plist unchanged counts as running (launchd loads LaunchAgents at login); ask `launchctl print` if one
- * is ever found unloaded.
  */
 export async function voiceStart(
   at = voicePathsHere(),
-  o = { keep: keepRunning, stop: stopRunning }
+  o = { keep: keepRunning, loaded: isLoaded, stop: stopRunning }
 ) {
-  const inputs = readVoiceInputs(at, mintVoiceSecrets());
+  const inputs = await readVoiceInputs(at, mintVoiceSecrets());
   mkdirSync(join(at.support, "audio"), { recursive: true });
   const states: Partial<Record<VoiceChild, string>> = {};
   for (const child of VOICE_CHILDREN) {
@@ -325,8 +331,8 @@ export async function voiceStart(
       states[child] = launch ?? "off";
       continue;
     }
-    const args = jobArgsOf(child, launch);
-    if (isKeptAs(jobOf(child), at.support, args)) {
+    const args = jobArgsOf(child, launch, inputs.build);
+    if (await isKeptAs(jobOf(child), at.support, args, o.loaded)) {
       states[child] = "running";
       continue;
     }
@@ -350,7 +356,7 @@ export async function voiceStop(stop = stopRunning) {
  * can't run.
  */
 export async function voiceRun(child: VoiceChild, at = voicePathsHere()) {
-  const inputs = readVoiceInputs(at);
+  const inputs = await readVoiceInputs(at);
   const launch = VOICE_LAUNCHES[child](inputs);
   if (typeof launch !== "object") {
     console.error(`voice ${child}: ${launch ?? "off"}`);
@@ -373,7 +379,12 @@ export async function voiceRun(child: VoiceChild, at = voicePathsHere()) {
       timeout: 3_600_000,
     });
   }
-  process.execve?.(launch.binary, [launch.binary, ...launch.args], env);
+  // Typed optional by Node's types; Bun has it (voice.test.ts checks): a missing one throws, a run.error.
+  (process.execve as NonNullable<typeof process.execve>)(
+    launch.binary,
+    [launch.binary, ...launch.args],
+    env
+  );
   return 1;
 }
 

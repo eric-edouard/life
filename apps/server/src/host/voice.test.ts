@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -11,16 +11,22 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { parseEnv } from "node:util";
 import { EMBEDDER_URL } from "../core/embedder";
+// biome-ignore lint/performance/noNamespaceImport: spied on, to read as his own Life.
+import * as platform from "../core/platform";
+import { SECRETS } from "../core/secret";
 import { plistOf } from "../core/service";
 import { setSettings, settings } from "../core/settings";
-import { call, readVoiceSecrets, VOICE_SECRETS } from "../sources/lifelog-call";
+import { call, readVoiceSecrets } from "../sources/lifelog-call";
 import {
   archiveEnvOf,
   embedderArgsOf,
   identityEnvOf,
+  jobArgsOf,
   mintVoiceSecrets,
-  parseServerEnv,
+  pairLinkOf,
+  pairTokenOf,
   serverEnvOf,
   type VoiceInputs,
   type VoicePaths,
@@ -41,15 +47,18 @@ const at: VoicePaths = {
 const inputs = (o: Partial<VoiceInputs> = {}): VoiceInputs => ({
   at,
   backups: false,
+  build: "b1",
   extra: {},
   publicUrl: "http://127.0.0.1:47613",
   secrets: {},
   speakers: false,
   ...o,
 });
-const minted = mintVoiceSecrets(
-  join(mkdtempSync(join(tmpdir(), "voice-")), "secrets.json")
-);
+const VOICE_SECRETS = SECRETS.voiceSecrets;
+const minted = {
+  identitySecret: "made-up-identity-secret",
+  resticPassword: "made-up-restic-password",
+};
 
 test("the server gets hashes, never tokens, and listens on loopback", () => {
   const env = serverEnvOf(
@@ -85,35 +94,38 @@ test("the embedder listens where Life embeds, with inputs no longer than core/em
 });
 
 test("minting fills only the missing secrets, keeps every key voice doesn't own, and writes an owner-only file once", () => {
-  const dir = mkdtempSync(join(tmpdir(), "voice-"));
-  const file = join(dir, "lifelog-quiet", "secrets.json");
   try {
-    mkdirSync(dirname(file));
+    mkdirSync(dirname(VOICE_SECRETS), { recursive: true });
     writeFileSync(
-      file,
+      VOICE_SECRETS,
       JSON.stringify({ claudeToken: "claude", future: 1, macToken: "kept" }),
       { mode: 0o600 }
     );
-    const secrets = mintVoiceSecrets(file);
+    const secrets = mintVoiceSecrets();
     expect(secrets.macToken).toBe("kept");
     expect(secrets.claudeToken).toBe("claude");
     expect(secrets.future).toBe(1);
-    for (const k of ["deviceToken", "readerToken", "resticPassword"]) {
+    for (const k of [
+      "deviceToken",
+      "readerToken",
+      "resticPassword",
+      "identitySecret",
+    ]) {
       expect(String(secrets[k])).toMatch(TOKEN);
     }
     expect(secrets.deviceToken).not.toBe(secrets.readerToken);
-    expect(readVoiceSecrets(file)).toEqual(secrets);
-    expect(statSync(file).mode.toString(8)).toEndWith("600");
-    expect(mintVoiceSecrets(file)).toEqual(secrets);
-    chmodSync(file, 0o644);
-    expect(() => mintVoiceSecrets(file)).toThrow("readable by others");
+    expect(readVoiceSecrets()).toEqual(secrets);
+    expect(statSync(VOICE_SECRETS).mode.toString(8)).toEndWith("600");
+    expect(mintVoiceSecrets()).toEqual(secrets);
+    chmodSync(VOICE_SECRETS, 0o644);
+    expect(() => mintVoiceSecrets()).toThrow("readable by others");
   } finally {
-    rmSync(dir, { force: true, recursive: true });
+    rmSync(VOICE_SECRETS, { force: true });
   }
 });
 
 test("the owner's server.env goes under voice's own", () => {
-  const extra = parseServerEnv(`# the owner's extras
+  const extra = parseEnv(`# the owner's extras
 RESEND_API_KEY='re_123'
 export IDENTITY_SECRET="a secret with spaces"
 PORT=1
@@ -160,7 +172,6 @@ test("export and import get only the archive", () => {
 });
 
 test("speaker recognition shares one secret with the server on loopback, and server.env can't turn it or restic on", () => {
-  expect(String(minted.identitySecret)).toHaveLength(43);
   const off = serverEnvOf(inputs({ secrets: minted }));
   expect(off.IDENTITY_URL).toBeUndefined();
   expect(off.IDENTITY_SECRET).toBeUndefined();
@@ -201,6 +212,7 @@ test("start restarts a job only when its plist changed, stops one that can't run
       kept.push(job);
       return Promise.resolve();
     },
+    loaded: () => Promise.resolve(true),
     stop: (job: string) => {
       stopped.push(job);
       return Promise.resolve();
@@ -232,13 +244,35 @@ test("start restarts a job only when its plist changed, stops one that can't run
     kept.length = 0;
     await voiceStart(paths, o);
     expect(kept).toEqual([]);
+    // A job whose bootstrap failed is not running, whatever its plist.
+    await voiceStart(paths, { ...o, loaded: () => Promise.resolve(false) });
+    expect(kept).toEqual([
+      "voice-server",
+      "voice-quiet",
+      "voice-identity",
+      "voice-embedder",
+    ]);
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
     rmSync(support, { force: true, recursive: true });
   }
 });
 
-test("Life reads voice with its device token from voice's secrets, over LIFELOG_TOKEN; never through a file others can read", async () => {
+test("a new Life build changes every job's arguments", () => {
+  const launch = { args: [], binary: "/app/Helpers/lifelog-quiet", env: {} };
+  expect(jobArgsOf("quiet", launch, "b1")).not.toEqual(
+    jobArgsOf("quiet", launch, "b2")
+  );
+  expect(jobArgsOf("quiet", launch, "b1")).toEqual(
+    jobArgsOf("quiet", launch, "b1")
+  );
+});
+
+test("voice run can replace itself with its child", () => {
+  expect(typeof process.execve).toBe("function");
+});
+
+test("only his own Life's helper reads voice's secrets: a checkout or a second Life puts no token in its pair link and reads with LIFELOG_TOKEN", async () => {
   const seen: string[] = [];
   const server = Bun.serve({
     fetch: (req) => {
@@ -251,16 +285,32 @@ test("Life reads voice with its device token from voice's secrets, over LIFELOG_
   const token = process.env.LIFELOG_TOKEN;
   setSettings({ lifelog: { url: server.url.origin } });
   process.env.LIFELOG_TOKEN = "env-token";
+  mkdirSync(dirname(VOICE_SECRETS), { recursive: true });
+  writeFileSync(VOICE_SECRETS, JSON.stringify({ deviceToken: "device" }), {
+    mode: 0o600,
+  });
   try {
+    // A test's data is a second Life.
+    expect(pairTokenOf(true)).toBeUndefined();
     await call("/status");
-    mkdirSync(dirname(VOICE_SECRETS), { recursive: true });
-    writeFileSync(VOICE_SECRETS, JSON.stringify({ deviceToken: "device" }), {
-      mode: 0o600,
-    });
-    await call("/status");
-    chmodSync(VOICE_SECRETS, 0o640);
-    await expect(call("/status")).rejects.toThrow("readable by others");
+    const own = spyOn(platform, "isOwnLife").mockReturnValue(true);
+    try {
+      // A checkout's `bun life`, his own data or not.
+      expect(pairTokenOf()).toBeUndefined();
+      expect(pairTokenOf(true)).toBe("device");
+      await call("/status");
+      chmodSync(VOICE_SECRETS, 0o640);
+      await expect(call("/status")).rejects.toThrow("readable by others");
+    } finally {
+      own.mockRestore();
+    }
     expect(seen).toEqual(["Bearer env-token", "Bearer device"]);
+    expect(pairLinkOf("https://life.example", "ABC234")).toBe(
+      "lifelog://pair?code=ABC234&life=https%3A%2F%2Flife.example"
+    );
+    expect(pairLinkOf("https://life.example", "ABC234", "tok")).toContain(
+      "token=tok&url=https%3A%2F%2Flife.example%2Fvoice"
+    );
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
     setSettings({ lifelog });
