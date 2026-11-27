@@ -104,10 +104,12 @@ function Sidebar({
   latest = [],
   onPick,
   route,
+  scenes = [],
 }: {
   latest?: Latest;
   onPick: () => void;
   route: string;
+  scenes?: HTMLButtonElement[];
 }) {
   const [query, setQuery] = useState("");
   const matches = (e: Entry) =>
@@ -123,6 +125,30 @@ function Sidebar({
         type="search"
         value={query}
       />
+      {scenes.length > 0 && !query ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="m-0 px-2.5 font-semibold text-heading text-muted">
+            Scenes
+          </h2>
+          <div className="flex flex-wrap gap-1.5 px-1.5">
+            {scenes.map((scene, i) => (
+              <button
+                aria-pressed={scene.getAttribute("aria-pressed") === "true"}
+                className="min-h-9 rounded-full bg-tint px-3.5 text-fg text-meta aria-pressed:bg-fg aria-pressed:text-on"
+                // biome-ignore lint/suspicious/noArrayIndexKey: a page's scene buttons have no id, and their order is fixed
+                key={i}
+                onClick={() => {
+                  scene.click();
+                  onPick();
+                }}
+                type="button"
+              >
+                {scene.textContent}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {latest.length > 0 && !query ? (
         <section className="flex flex-col gap-0.5">
           <h2 className="m-0 px-2.5 py-1.5 font-semibold text-heading text-muted">
@@ -209,7 +235,15 @@ const fillScreen = (frame: HTMLIFrameElement) => {
 };
 
 /** A design page, live. Below its layout width (and above a phone's) it is scaled down whole to fit the box. */
-function Frame({ app = false, path }: { app?: boolean; path: string }) {
+function Frame({
+  app = false,
+  onScenes,
+  path,
+}: {
+  app?: boolean;
+  onScenes?: (scenes: HTMLButtonElement[]) => void;
+  path: string;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [size, setSize] = useState({ height: 0, width: 0 });
@@ -220,10 +254,26 @@ function Frame({ app = false, path }: { app?: boolean; path: string }) {
     if (!(app && el)) {
       return;
     }
-    const on = () => setFilled(fillScreen(el));
+    // A full-screen page's side panel is hidden: its scene buttons are run from the list instead.
+    const on = () => {
+      const isFilled = fillScreen(el);
+      setFilled(isFilled);
+      onScenes?.(
+        isFilled
+          ? [
+              ...(el.contentDocument?.querySelectorAll<HTMLButtonElement>(
+                ".side button"
+              ) ?? []),
+            ]
+          : []
+      );
+    };
     el.addEventListener("load", on);
-    return () => el.removeEventListener("load", on);
-  }, [app]);
+    return () => {
+      el.removeEventListener("load", on);
+      onScenes?.([]);
+    };
+  }, [app, onScenes]);
   useEffect(() => {
     const el = box.current;
     if (!el) {
@@ -418,10 +468,16 @@ function Viewer({ path }: { path: string }) {
 }
 
 /** On the home-screen app: a page alone, full screen, as the app would be. */
-function AppScreen({ path }: { path: string }) {
+function AppScreen({
+  onScenes,
+  path,
+}: {
+  onScenes: (scenes: HTMLButtonElement[]) => void;
+  path: string;
+}) {
   return (
     <div className="fixed inset-0 flex bg-black">
-      <Frame app key={path} path={path} />
+      <Frame app key={path} onScenes={onScenes} path={path} />
     </div>
   );
 }
@@ -447,10 +503,18 @@ const readList = () => {
 
 /** The page for a route ("" the prototype): a design system page, else an entry. On the home-screen app a design page
  *  is the whole screen, anything else scrolls in its own box clear of the status bar and home indicator. */
-function Page({ isApp, route }: { isApp: boolean; route: string }) {
+function Page({
+  isApp,
+  onScenes,
+  route,
+}: {
+  isApp: boolean;
+  onScenes: (scenes: HTMLButtonElement[]) => void;
+  route: string;
+}) {
   const path = route || (PROTOTYPE?.path ?? "");
   if (isApp && path.endsWith(".html") && filesIn(path).length > 0) {
-    return <AppScreen path={path} />;
+    return <AppScreen onScenes={onScenes} path={path} />;
   }
   let page = <Viewer path={path} />;
   if (isSystemPage(route)) {
@@ -567,6 +631,8 @@ function App() {
   const shown = list && !isApp;
   const swipe = useSwipeDown(() => setDrawer(false));
   const latest = useLatest(isApp && drawer);
+  // The open design's scene buttons: set when it loads, emptied when it closes.
+  const [scenes, setScenes] = useState<HTMLButtonElement[]>([]);
   const toggle = () => {
     if (isApp || !matchMedia(WIDE).matches) {
       setDrawer(!drawer);
@@ -596,6 +662,7 @@ function App() {
             latest={latest}
             onPick={() => setDrawer(false)}
             route={route}
+            scenes={scenes}
           />
         </div>
       </aside>
@@ -610,7 +677,7 @@ function App() {
       <main
         className={`min-w-0 px-3 pt-14 pb-3 sm:px-4 lg:pt-3 lg:pr-3 ${shown ? "lg:pl-2" : "lg:pl-16"}`}
       >
-        <Page isApp={isApp} route={route} />
+        <Page isApp={isApp} onScenes={setScenes} route={route} />
       </main>
     </div>
   );
