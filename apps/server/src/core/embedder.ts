@@ -2,7 +2,7 @@ import { z } from "zod";
 import { digest } from "./hash";
 
 // Search by meaning's model, for lifelog's voice and Life's memory alike: EmbeddingGemma-300M (Q8), run on the Mac by
-// llama.cpp's server, which Lifelog Host keeps running (its `embedder` child). Chosen on 5 Nov 2026 against OpenAI's
+// llama.cpp's server, voice's `embedder` (`host/voice.ts`, a launchd job; Lifelog Host's child until it goes). Chosen on 5 Nov 2026 against OpenAI's
 // text-embedding-3-large and seven open models, on the owner's French, English and Thai queries (his data repo,
 // docs/research/embedding-bench-2026-11-05). Nothing it embeds leaves the Mac.
 
@@ -15,8 +15,8 @@ export const EMBEDDER_FILE = {
   url: "https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/0f741b5a6585bd53aeb15cd1372c56f2a0f65e12/embeddinggemma-300M-Q8_0.gguf",
 };
 /**
- * The longest input embedded, in UTF-8 bytes, prompt included: an input must fit Host's `--ubatch-size 2048`
- * (`embedder.test.ts` checks), and Gemma's tokenizer never makes more tokens than bytes (it falls back to bytes),
+ * The longest input embedded, in UTF-8 bytes, prompt included: an input must fit voice's `--ubatch-size 2048`
+ * (`host/voice.test.ts` checks), and Gemma's tokenizer never makes more tokens than bytes (it falls back to bytes),
  * whatever the script. A cut by characters let some texts run past it, and the embedder refused their whole batch.
  */
 const EMBEDDED_BYTES = 2040;
@@ -56,7 +56,7 @@ const vectorsOf = (json: unknown) =>
     .map((d) => d.embedding);
 
 /**
- * Where Lifelog Host runs the embedder, on this Mac only (its `Host.embedderPort`, `embedder.test.ts` checks): the one
+ * Where voice runs the embedder, on this Mac only (`embedderArgsOf`, `host/voice.ts`, takes its port from here): the one
  * address lifelog's search and Life's memory both embed at, so no text leaves the Mac.
  */
 export const EMBEDDER_URL = "http://127.0.0.1:47615";

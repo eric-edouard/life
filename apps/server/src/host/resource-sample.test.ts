@@ -28,13 +28,16 @@ const PS = `
   403     1   9.0  10240 /usr/bin/grep Life.app/Contents/Helpers/life watch LIFE_BRIDGE=whatsapp HOME=/x
   404     1   9.0  10240 /usr/bin/grep build/Life.app/Contents/Helpers/life example HOME=/x
   405   100   1.0  10240 /Applications/Life.app/Contents/Helpers/life example HOME=/x
+  500     1   2.0  20480 /Applications/Life.app/Contents/Helpers/lifelog-server HOME=/x
+  501     1   1.0  10240 /Applications/Life.app/Contents/Helpers/lifelog-quiet HOME=/x
+  502     1  10.0 102400 /Applications/Life.app/Contents/Helpers/llama/llama-server --embedding --port 47615 HOME=/x
 `;
 
 test("a process counts under its nearest named program, an agent's tools under the agent; a program that only names one of Life's is left out", () => {
   expect(groupsOf(parsePs(PS))).toEqual({
     "agent.agt_0a0a0a0a0a0a": [36, 220],
     "bridge.whatsapp": [0.2, 20],
-    embedder: [20, 400],
+    embedder: [30, 500],
     foundation: [1, 10],
     homeserver: [0.5, 40],
     "life.app": [2, 50],
@@ -43,7 +46,8 @@ test("a process counts under its nearest named program, an agent's tools under t
     "life.watch": [15, 120],
     "voice.host": [1, 10],
     "voice.identity": [6, 80],
-    "voice.lifelog-server": [3, 50],
+    "voice.lifelog-quiet": [1, 10],
+    "voice.lifelog-server": [5, 70],
   });
 });
 

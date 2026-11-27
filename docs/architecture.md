@@ -216,6 +216,7 @@ someone else is capped at 0.6 confidence.
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; lifelog's iPhone and Watch apps in Swift 6, and its Android capture app in Kotlin. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
 | Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
+| Voice | The pendant pipeline's processes (lifelog's server, the Mac helper, speaker recognition, the embedder), each a launchd job Life's helper installs (`host/voice.ts`): they outlive a Life crash, quit or update, since the server holds the only copy of the pendant's audio. Each job runs `life voice run <child>`, which works out the child's environment (token hashes, never tokens) and replaces itself with it; `life voice start` rewrites a job only when its plist changed. Lifelog Host ran them until the cut-over. |
 | Mail | Resend for the report, else a notification. The backup and the network are above. |
 
 ## The code

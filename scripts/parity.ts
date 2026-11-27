@@ -181,6 +181,10 @@ export interface BoardRow {
   works: boolean | null;
 }
 
+/** A side-panel scene no row brings the app to: its board row's id, from its button's selector. */
+export const notBuiltIdOf = (selector: string) =>
+  selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
+
 /** The side panel's buttons: one prototype state each, the board's rows, titled by their words. */
 function panelOf(page: Page) {
   return page.$$eval(".side button", (buttons) =>
@@ -351,12 +355,12 @@ async function shootPrototype(rows: Row[]) {
   return { design: new Map(shots), titles };
 }
 
-/** The flows, in the heavy lane (one simulator job on the Mac at a time); already inside it (a push's check), at once. */
+/** The flows, in the heavy lane (one simulator job on the Mac at a time; at once inside a push's check, `heavy.sh`'s rule). */
 function runFlows(rows: Row[]) {
   Bun.spawnSync(["rm", "-rf", SHOTS, RESULT]); // a build that fails leaves no stale result behind
   Bun.spawnSync(
     [
-      ...(process.env.HEAVY_HELD ? [] : [join(REPO, "tools/heavy.sh")]),
+      join(REPO, "tools/heavy.sh"),
       "bun",
       join(REPO, "scripts/e2e-phone.ts"),
       ...rows.map((r) => r.flow),
@@ -642,7 +646,7 @@ if (import.meta.main) {
       );
     }
     for (const { selector, title } of notBuilt) {
-      const id = selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
+      const id = notBuiltIdOf(selector);
       add({
         a11y: null,
         a11yBlocking: null,

@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- Turn by turn v2, the variant template: every scene with plain placeholder visuals. Copy it to variant-<letter>.html
+     and design only what goes in the stage (and this page's <style>); the shell, the edge and the data stay shared. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Turn by turn v2: template</title>
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<link rel="stylesheet" href="edge.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+.t-me{align-self:flex-end;margin-top:12px;padding:10px 14px;border-radius:20px;background:var(--tint);font-weight:600}
+.t-life{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.t-step{color:var(--muted)}.t-step b{color:var(--fg);font-weight:650}
+.t-box{padding:12px;border-radius:var(--block-radius);background:var(--tile)}
+.t-box small{display:block;color:var(--muted);font-size:var(--text-line)}
+.t-fail{color:var(--flag)}
+.t-face{width:48px;height:48px;border-radius:24px}
+.t-btn{height:44px;border-radius:22px;background:var(--fg);color:var(--on);font-weight:650}
+.t-hi{margin:auto 0;text-align:center;font-size:28px;font-weight:650}
+</style>
+</head>
+<body>
+<script src="edge.js"></script>
+<script src="data.js"></script>
+<script src="shell.js"></script>
+<script>
+var D=DATA;
+function el(parent,cls,html){var e=document.createElement('div');e.className=cls;e.innerHTML=html;parent.appendChild(e);return e;}
+/* his turn: typed in the field and sent, or spoken */
+async function ask(c,a){if(a.how==='voice')await c.speak(a.ask);else{await c.type(c.field.input,a.ask);await c.wait(300);c.field.clear();}
+  el(c.stage,'t-me',a.ask);}
+/* Life's steps, one at a time, on the working edge */
+async function work(c,a){c.edge.set('work');var box=el(c.stage,'t-life','');
+  for(var s of a.steps){var line=el(box,'t-step','<b>'+s.t+'</b>'+(s.d&&!s.slow?' · '+s.d:''));
+    if(s.slow){await c.wait(5000);line.innerHTML+=' · '+s.d;await c.wait(s.ms-5000);}else await c.wait(s.ms);
+    if(s.fails)return false;line.remove();}
+  box.remove();return true;}
+function dayAnswer(c){var a=D.asks.day.answer,b=el(c.stage,'t-life','<b>'+a.lead+'</b>');
+  a.events.forEach(function(e){el(b,'t-box','<b>'+e.at+' '+e.t+'</b><small>'+e.where+(e.leave?' · '+e.leave:'')+'</small>');});
+  el(b,'t-box','<b>'+a.waiting.who+' waits on you: '+a.waiting.about+'</b><small>“'+a.waiting.last+'”</small>');
+  el(b,'t-box','<b>'+a.payment.t+' '+a.payment.amount+'</b><small>Due '+a.payment.due+'</small>');
+  el(b,'t-step',a.weather);c.edge.set('landed');}
+function jadeAnswer(c){var a=D.asks.jade.answer,b=el(c.stage,'t-life','<img class="t-face" alt="" src="'+a.who.face+'"><b>'+a.lead+'</b>');
+  el(b,'t-box','<small>'+a.reply.app+' · '+a.reply.at+'</small>'+a.reply.t);
+  el(b,'t-box','<small>Draft</small>'+a.draft);
+  var send=el(b,'','<button type="button" class="t-btn" style="width:100%">'+a.send+'</button>');
+  send.querySelector('button').onclick=function(){send.innerHTML='<div class="t-step">'+a.sent+'</div>';};
+  c.edge.set('landed');}
+Shell.mount({title:'Turn by turn v2: template',scenes:[
+  {id:'idle',label:'Idle',run:function(c){el(c.stage,'t-hi','Hi');}},
+  {id:'type-send',label:'He types an ask',run:async function(c){await ask(c,D.asks.day);c.edge.set('work');}},
+  {id:'voice-send',label:'He says an ask',run:async function(c){await ask(c,D.asks.jade);c.edge.set('work');}},
+  {id:'working',label:'Life works',run:async function(c){el(c.stage,'t-me',D.asks.day.ask);await work(c,D.asks.day);dayAnswer(c);}},
+  {id:'slow',label:'A slow step',run:async function(c){el(c.stage,'t-me',D.slow.ask);await work(c,D.slow);el(c.stage,'t-life','<b>'+D.slow.answer.lead+'</b>');c.edge.set('landed');}},
+  {id:'answer-day',label:'Answer: the day',run:async function(c){await ask(c,D.asks.day);await work(c,D.asks.day);dayAnswer(c);}},
+  {id:'answer-jade',label:'Answer: Jade (voice)',run:async function(c){await ask(c,D.asks.jade);await work(c,D.asks.jade);jadeAnswer(c);}},
+  {id:'follow-up',label:'A follow-up',run:async function(c){el(c.stage,'t-me',D.asks.day.ask);dayAnswer(c);await c.wait(1500);
+    await ask(c,D.followUp);await work(c,D.followUp);el(c.stage,'t-life','<b>'+D.followUp.answer.lead+'</b>');c.edge.set('landed');}},
+  {id:'history',label:'Earlier turns',run:function(c){D.history.forEach(function(h){el(c.stage,'t-step',h.at);el(c.stage,'t-me',h.ask);el(c.stage,'t-life',h.answer);});}},
+  {id:'failure',label:'A step fails',run:async function(c){el(c.stage,'t-me',D.failure.ask);if(!await work(c,D.failure)){c.stage.querySelector('.t-life').remove();
+    el(c.stage,'t-life t-fail',D.failure.error.t);c.edge.set('rest');}}}]});
+</script>
+</body>
+</html>

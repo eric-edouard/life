@@ -7,7 +7,7 @@ blocked_by: []
 
 ## Question
 
-Life's own variant of the owner's `work-on-code` skill, for project agents on the agent's model (today DeepSeek Flash):
+Life's own variant of the owner's `work-on-code` skill, for project agents (Life runs one model everywhere):
 which parts of `work-on-code` carry over, which go, and how each kept rule becomes a step the agent can't skip. Set by the
 owner, never by the model. Frame he set on 27 Nov 2026:
 
@@ -19,11 +19,11 @@ owner, never by the model. Frame he set on 27 Nov 2026:
 
 ## Answer
 
-Decided with the owner on 27 Nov 2026. The playbook is Life's own variant of `work-on-code`, written for the project
-agent's model, with one aim: output that looks and feels right (the approved preview) and works, with any bug told
+Decided with the owner on 27 Nov 2026. The playbook is Life's own variant of `work-on-code`, written for Life's
+agents, with one aim: output that looks and feels right (the approved preview) and works, with any bug told
 to the user plainly.
 
-**Kept from `work-on-code`, rewritten for a weaker model:** read before building; a plan kept on disk; a fresh reviewer
+**Kept from `work-on-code`, rewritten as steps an agent can't skip:** read before building; a plan kept on disk; a fresh reviewer
 that never reviews its own work; the stop signals; "check it by running it" and tests only where critical; small
 command outputs, files read by range; minimal code.
 
