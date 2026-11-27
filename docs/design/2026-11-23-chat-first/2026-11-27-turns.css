@@ -1,6 +1,6 @@
 /* Turn by turn's parts (the v5 proposal of 27 Nov 2026, not approved): the phone, his turn, Life working, the answer,
-   the field. Pages link ../components.css, then this file, then keep only their own layout. Dark only. */
-:root{--bg:#000;--fg:#fff8ea;--muted:#8a867e;--tint:rgba(255,248,234,.1);--glass:rgba(255,248,234,.14);--wash:rgba(255,248,234,.05);--tile:#111214;--ai:#9aa8ec;--flag:#f0896f;color-scheme:dark}
+   the field. Pages link ../components.css, then this file, then keep only their own layout. Dark only: the colours are tokens.css's dark values. */
+:root{color-scheme:dark}
 *{box-sizing:border-box}html,body{margin:0;background:#121316;color:var(--fg);font-family:Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
 .ph{position:relative;width:390px;height:844px;border-radius:54px;background:var(--bg);overflow:hidden;box-shadow:inset 0 0 0 2px #2a2b31}
@@ -22,8 +22,6 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .hi{margin:auto 0;text-align:center}
 .hi h1{font-size:34px;font-weight:650;margin:0;letter-spacing:-.01em}
 .hi p{color:var(--muted);font-size:15px;margin:10px 0 18px}
-.pill{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:20px;background:var(--tint);font-size:14.5px;font-weight:600}
-.pill i{width:7px;height:7px;border-radius:4px;background:var(--flag)}
 /* his words: centred, his by a cue (a small "You" and the tint), never left or right */
 .me{text-align:center;transition:all .5s cubic-bezier(.2,.8,.2,1)}
 .me small,.life-lbl{display:block;font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.02em;margin-bottom:6px}
@@ -44,13 +42,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .inq{align-self:flex-start;max-width:85%;background:#1c1d22;border-radius:16px 16px 16px 4px;padding:9px 12px;font-size:14.5px;color:#d8d3c8}
 .prim{height:50px;border-radius:25px;background:var(--fg);color:#000;font-weight:650;font-size:15.5px;width:100%}
 .two{display:flex;gap:8px}.two button{flex:1;height:44px;border-radius:22px;background:var(--tint);font-weight:600;font-size:14.5px}
-.fu{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:18px 0 8px}.fu button{height:36px;padding:0 14px;border-radius:18px;background:var(--wash);color:#d8d3c8;font-size:13.5px;font-weight:600}
 /* scrolled up: a chronology, centred, "You" then "Life" */
-.hist{display:flex;flex-direction:column;gap:22px;padding:8px 0 24px;text-align:center}
-.hist .day{font-size:11.5px;font-weight:600;color:var(--muted)}
-.hist .t{display:flex;flex-direction:column;gap:4px}.hist .t .w{font-size:15px;line-height:1.45}.hist .t .w.mine{font-weight:600}
-.hist .row{display:flex;align-items:center;gap:10px;justify-content:center;font-size:14px;color:#d8d3c8}.hist .row .f{width:28px;height:28px;border-radius:14px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
-.hist .now{opacity:.5}
 .field{position:absolute;left:16px;right:16px;bottom:28px;height:52px;border-radius:26px;background:var(--tile);display:flex;align-items:center;padding:0 6px 0 18px;gap:8px;z-index:5;color:var(--muted);font-size:15.5px}
 .field .sp{flex:1}.k{width:40px;height:40px;border-radius:20px;background:var(--tint);display:flex;align-items:center;justify-content:center;color:var(--fg)}.k svg{width:18px;height:18px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

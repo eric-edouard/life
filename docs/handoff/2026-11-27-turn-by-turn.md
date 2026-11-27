@@ -36,51 +36,24 @@ Published copies to view in one click (private to the owner):
 The published copies have the CSS inlined, because an artifact can't load `../` paths. The repo file is the source:
 rebuild the copy from it and publish to the same URL.
 
-## "Hey Life": what the design answers
+## "Hey Life"
 
 An investigation on 27 Nov 2026 found three things:
 
 - The wake word is found in the written transcript, not live: one ask reached Life 33 minutes after the owner spoke.
 - No receipt notification exists.
-- When the agent's action failed (the to-do list was down), the owner heard nothing.
+- When an agent's action failed (the to-do list was down), the owner heard nothing.
 
-The design answers each one:
+The page answers each one. There is a "heard" notification as early as Life can hear the ask, every ask ends in a
+visible outcome (failures included), and timing is honest while the words are written down. Its "When it doesn't",
+"How it moves" and "Decisions for you" sections hold the details and the owner's four open decisions.
 
-- Heard: one notification quoting the ask, sent as soon as Life hears it. Later, when the answer is ready, the same
-  notification is replaced by the answer, so there is never a second one.
-- Every ask ends in a visible outcome, a failure included: "I couldn't add it to your list. Reminders isn't
-  answering…", with what Life does next.
-- Honest timing: a late notification says when the ask was said, and the owner's turn shows "said at 14:02 · heard
-  at 14:35". Opened before the words are written down, the app says it is still writing down; it never claims to be
-  working on the ask.
-- Not heard right: what was caught, with "Say it again" first. The owner's words are never guessed.
-- Offline (Mac not answering): the ask is kept, the edge goes still, and Life answers when the Mac is back.
-- Slow: after about 20 seconds a line says the app can be closed.
+## Still open
 
-Decisions waiting on the owner, listed on the page:
-
-1. A notification, or a Live Activity?
-2. Should the answer be read aloud?
-3. Should "hey Life" be heard live, so "heard" comes within seconds?
-4. Should the phone's own "hey Life" work the same way as the pendant's?
-
-## Still open in turn by turn itself
-
-These come from the proposal's "What it loses" section, and none is designed yet:
-
-- A rule for arrivals: what happens to a card or ask that lands while the owner reads an answer (for example a quiet "1 more"
-  pill).
-- Live asks in the history.
-- "You" and "Life" labels versus marks.
-- Long answers taller than the screen.
-- The edge and the mesh as two signs of presence (the edge dims while the mesh shows).
-- Large Dynamic Type sizes and Reduce Motion.
-
-The proposal's build order still holds:
-
-1. Each ask starts a fresh screen, with the mesh.
-2. A large headline sentence above the answer.
-3. Centring and the chronology, once the arrivals rule is written.
+- The owner's four "hey Life" decisions, listed at the end of the page.
+- What turn by turn must solve before it ships: the "What it loses" section of
+  [the proposal](../design/2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md). The arrivals rule comes first.
+- The build order: the proposal's slices.
 
 ## How the designs share their CSS (and the trap)
 

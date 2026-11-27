@@ -9,6 +9,18 @@
 <link rel="stylesheet" href="../components.css">
 <link rel="stylesheet" href="2026-11-27-turns.css">
 <style>
+.pill{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-radius:20px;background:var(--tint);font-size:14.5px;font-weight:600}
+.pill i{width:7px;height:7px;border-radius:4px;background:var(--flag)}
+.fu{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:18px 0 8px}
+.fu button{height:36px;padding:0 14px;border-radius:18px;background:var(--wash);color:#d8d3c8;font-size:13.5px;font-weight:600}
+.hist{display:flex;flex-direction:column;gap:22px;padding:8px 0 24px;text-align:center}
+.hist .day{font-size:11.5px;font-weight:600;color:var(--muted)}
+.hist .t{display:flex;flex-direction:column;gap:4px}
+.hist .t .w{font-size:15px;line-height:1.45}
+.hist .t .w.mine{font-weight:600}
+.hist .row{display:flex;align-items:center;gap:10px;justify-content:center;font-size:14px;color:#d8d3c8}
+.hist .row .f{width:28px;height:28px;border-radius:14px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.hist .now{opacity:.5}
 main{display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px 16px}
 .ctl{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:420px}
 .ctl button{height:34px;padding:0 14px;border-radius:17px;background:#1d1e23;font-size:13px;font-weight:600}.ctl button[aria-pressed=true]{background:var(--fg);color:#000}

@@ -35,7 +35,7 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 .nt .bd{flex:1;min-width:0}
 .nt .h{display:flex;justify-content:space-between;gap:8px}.nt .h b{font-weight:650}.nt .h span{color:var(--muted);font-size:13px}
 .nt .q{color:#d8d3c8}
-.nt .acts{display:flex;gap:6px;margin-top:8px}.nt .acts span{height:30px;padding:0 12px;border-radius:15px;background:rgba(255,248,234,.12);display:inline-flex;align-items:center;font-size:13px;font-weight:600}
+.nt .na{display:flex;gap:6px;margin-top:8px}.nt .na span{height:30px;padding:0 12px;border-radius:15px;background:rgba(255,248,234,.12);display:inline-flex;align-items:center;font-size:13px;font-weight:600}
 .tap{left:300px;top:352px;position:absolute;width:44px;height:44px;border-radius:22px;background:rgba(255,248,234,.25);box-shadow:0 0 0 8px rgba(255,248,234,.08);z-index:9}
 /* where the owner's words came from, under the owner's turn */
 .me .from{display:block;margin-top:6px;font-size:12px;font-weight:500;color:var(--muted)}
@@ -52,8 +52,8 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 /* the play-through */
 .demo .cap{font-size:16px;font-weight:650}.demo .cap span{display:block;font-size:13.5px;font-weight:450;color:var(--muted);margin-top:2px}
 .demo{display:flex;flex-direction:column;gap:12px;width:min(390px,100%);margin-top:24px}
-.ctl{display:flex;gap:8px;flex-wrap:wrap}
-.ctl button{height:38px;padding:0 16px;border-radius:19px;background:var(--tint);font-size:14px;font-weight:650}
+.play{display:flex;gap:8px;flex-wrap:wrap}
+.play button{height:38px;padding:0 16px;border-radius:19px;background:var(--tint);font-size:14px;font-weight:650}
 .fade{animation:fin .45s ease both}
 @keyframes fin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 </style>
@@ -87,7 +87,7 @@ figcaption span{display:block;font-size:13.5px;font-weight:450;color:var(--muted
 <div class="demo">
 <div class="cap">Try it<span>From your words to the answer, at its real pace.</span></div>
 <div id="demo"></div>
-<div class="ctl"><button type="button" id="play">Say “hey Life”</button><button type="button" id="again">Start again</button></div>
+<div class="play"><button type="button" id="play">Say “hey Life”</button><button type="button" id="again">Start again</button></div>
 </div>
 
 <h2 class="sec">Decisions for you</h2>
@@ -112,7 +112,7 @@ function phone(cls,stage,field,top,time){
 function lock(title,body,acts,tap,time){
   return '<div class="ph lock"><div class="sb"><span></span><span>●●● ▮</span></div><div class="clock"><div class="d">Friday 27 November</div><div class="t">'+(time||'14:02')+'</div></div>'+
    (title?'<div class="nots"><div class="nt"><div class="av"><i></i></div><div class="bd"><div class="h"><b>'+title+'</b><span>now</span></div><div class="q">'+body+'</div>'+
-   (acts?'<div class="acts">'+acts.map(function(a){return '<span>'+a+'</span>';}).join('')+'</div>':'')+'</div></div></div>':'')+
+   (acts?'<div class="na">'+acts.map(function(a){return '<span>'+a+'</span>';}).join('')+'</div>':'')+'</div></div></div>':'')+
    (tap?'<span class="tap"></span>':'')+'</div>';}
 function me(words,from,wait){return '<div class="me"><small>You</small><q>'+words+'</q><span class="from'+(wait?' wait':'')+'">'+from+'</span></div>';}
 var FROM='To your pendant · 14:02';
