@@ -256,6 +256,14 @@ struct ThreadView: View {
                 seenRows = 0
                 Task { proxy.scrollTo(Self.greeting, anchor: .top) }
             }
+            // The notice and its settings land at the end, where he reads (the prototype scrolls to them).
+            .onChange(of: life.isOutOfReach) {
+                guard life.isOutOfReach else { return }
+                Task {
+                    try? await Task.sleep(for: .milliseconds(400))
+                    Motion.animate { proxy.scrollTo("end", anchor: .bottom) }
+                }
+            }
             // An ask Life brings is unfolded at the bottom: brought fully into view above the field.
             .onChange(of: opening.brought.last?.ref) { if let ref = opening.brought.last?.ref { life.opened = ref } }
             // A new ask lands at the bottom: after every row already there.

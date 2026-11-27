@@ -101,8 +101,9 @@ enum ScreenTiming {
 /// through `HealthOutbox`, off the main actor: capture never waits on it, and nothing is lost when the server can't be
 /// reached.
 final class HealthReporter {
-    /// The design catalog (Debug `-catalog`) never raises the Focus prompt over itself.
-    private static let isCatalog = CommandLine.arguments.contains("-catalog")
+    /// The design catalog (Debug `-catalog`) and the E2E flows (`-e2eScenario`) never raise the Focus prompt over themselves.
+    private static let isCatalog =
+        CommandLine.arguments.contains("-catalog") || CommandLine.arguments.contains("-e2eScenario")
 
     private static let scheduleKey = "heartbeatSchedule"
 

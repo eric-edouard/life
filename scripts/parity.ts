@@ -300,7 +300,14 @@ async function shootPrototype(rows: Row[]) {
       deviceScaleFactor: 2,
       viewport: { height: 960, width: 1400 },
     });
-    await page.goto(`file://${PROTO}`, { timeout: 180_000 }); // a loaded Mac (a build) slows a cold page
+    // Not the `load` event: the page's Google Fonts stylesheet holds it (offline or slow, it never fires). The fonts get 5 s.
+    await page.goto(`file://${PROTO}`, { waitUntil: "domcontentloaded" });
+    await page.evaluate(() =>
+      Promise.race([
+        document.fonts.ready,
+        new Promise((done) => setTimeout(done, 5000)),
+      ])
+    );
     await page.waitForTimeout(800);
     return page;
   };

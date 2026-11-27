@@ -32,7 +32,7 @@ struct ReactionMark: View {
     let reaction: Reaction
 
     var body: some View {
-        Text(reaction.rawValue).font(.line).saturation(0).accessibilityHidden(true)
+        Text(reaction.rawValue).font(.line).accessibilityHidden(true)
     }
 }
 
@@ -427,7 +427,8 @@ struct RatingRow: View {
                 } label: {
                     ReactionMark(reaction: mark).frame(width: Metrics.ratingMark, height: Metrics.tapTarget)
                 }
-                .accessibilityLabel(mark.rawValue).identified(identify(mark))
+                .accessibilityLabel(["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate")
+                .identified(identify(mark))
                 .scaleEffect(picked == mark ? 1.1 : 1).opacity(picked == nil || picked == mark ? 1 : 0)
                 .disabled(picked != nil)
             }

@@ -111,7 +111,7 @@ struct AskLook {
         if check.group == .newMatter, option.id == "edit-goal" { return false }
         if option.looks == true, isLookedFor { return false }
         // One quiet answer to a card: Later. A second put-off ("Not now", "Not yet") is never drawn.
-        if ["Not now", "Not yet"].contains(option.label) { return false }
+        if ["Not now", "Not yet"].contains(option.label) || option.id == "wait" { return false }
         // Its Yes is Life's guess, drawn by the card; only "Someone else" stays beside it.
         if check.group == .contactsCard, option.takes != .person { return false }
         return true
