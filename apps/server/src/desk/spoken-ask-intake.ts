@@ -77,7 +77,7 @@ const payloadOf = (a: LedgerEntry, to: string) => ({
 
 /** Whether ask `a` needs nothing more here: told and received, or spoken and its entry answered or deleted. */
 function isSettled(db: Desk["db"], a: LedgerEntry) {
-  // A spoken ask an agent received before the main session took them is settled too: never asked again.
+  // A spoken ask an agent was handed before the main session took them is settled too: never asked again.
   if (receiptOf(db, a.id) || toldToOf(a)) {
     return Boolean(receiptOf(db, a.id));
   }
@@ -174,7 +174,16 @@ export async function receiveSpokenAsks(desk: Desk) {
   const all = [
     ...cursor.waiting.flatMap((id) => askOf(id) ?? []),
     ...rows.flatMap((a) => (a && isSpokenAsk(a) ? [a] : [])),
-  ].filter((a) => !isSettled(db, a));
+  ].filter((a) => {
+    // A spoken ask queued for an agent before the main session took them, and never handed: taken back, asked here.
+    if (!toldToOf(a)) {
+      db.run(
+        "delete from event where name = ? and event_id = ? and handed = 0 and consumed_at is null",
+        [ASK_SPOKEN, a.id]
+      );
+    }
+    return !isSettled(db, a);
+  });
   for (const a of all) {
     if (!toldToOf(a)) {
       askSpoken(desk, a);

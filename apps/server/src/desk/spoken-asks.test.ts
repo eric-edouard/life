@@ -269,7 +269,7 @@ test("spoken asks received while the first runs are each asked once, in turn; no
   }
 });
 
-test("a spoken ask from over an hour ago, or one an agent received before, never starts a turn: it ends with a line", async () => {
+test("a spoken ask from over an hour ago, or one an agent was handed before, never starts a turn; one queued and never handed is asked here", async () => {
   const d = deskOf();
   const pushes = spyOn(push, "notifyPhone").mockResolvedValue(true);
   try {
@@ -278,21 +278,27 @@ test("a spoken ask from over an hour ago, or one an agent received before, never
       "high",
       new Date(Date.now() - 2 * HOUR).toISOString()
     );
-    // Received by an agent before the upgrade, still in the cursor's waiting list.
-    const before = spoken("book the test dentist");
-    d.s.desk.db.run(
-      "insert into event (assignment_id, event_id, name, payload, received_at) values ('asg_old', ?, ?, '{}', ?)",
-      [before, ASK_SPOKEN, new Date().toISOString()]
-    );
+    // Queued for an agent before the upgrade: one it was handed is settled; one never handed is taken back, asked here.
+    const event = (id: string, times: number) =>
+      d.s.desk.db.run(
+        "insert into event (assignment_id, event_id, name, payload, received_at, handed) values ('asg_old', ?, ?, '{}', ?, ?)",
+        [id, ASK_SPOKEN, new Date().toISOString(), times]
+      );
+    const handed = spoken("book the test dentist");
+    event(handed, 1);
+    const unhanded = spoken("call the test plumber");
+    event(unhanded, 0);
     await d.receive();
     await settle();
-    expect(d.s.fake.said).toEqual([]);
+    expect(
+      d.s.fake.said.map((x) => x.message.includes("test plumber"))
+    ).toEqual([true]);
     expect(d.entryOf(old)).toMatchObject({
       answered_at: expect.any(String),
       error: TOO_OLD,
     });
-    expect(d.entryOf(before)).toBeNull();
-    expect(readSpokenAsksCursor(d.s.desk.db).waiting).toEqual([]);
+    expect(d.entryOf(handed)).toBeNull();
+    expect(d.entryOf(unhanded)?.words).toContain("test plumber");
   } finally {
     pushes.mockRestore();
   }
