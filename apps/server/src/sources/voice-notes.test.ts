@@ -14,7 +14,7 @@ test.skipIf(!(Bun.which("say") && Bun.which("ffmpeg")))(
       const m4a = join(dir, "note.m4a");
       await Bun.$`ffmpeg -loglevel error -i ${aiff} ${m4a}`.quiet();
       const ogg = await toOggOpus(m4a, "audio/mp4");
-      const text = new TextDecoder("latin1").decode(ogg);
+      const text = new TextDecoder("latin1").decode(ogg ?? undefined);
       expect(text.startsWith("OggS")).toBe(true);
       expect(text).toContain("OpusHead");
       const again = join(dir, "again.ogg");
