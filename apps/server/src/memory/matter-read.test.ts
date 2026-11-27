@@ -273,6 +273,7 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
     obs(23, "2026-10-18", { importance: 2, text: "A small to-do" }),
     obs(24, "2026-10-18", { text: "Ended promise", type: "promise" }),
     obs(25, "2026-10-18", { importance: 2, type: "waiting_on_someone" }),
+    obs(26, "2026-10-18", { importance: 1, type: "promise" }),
   ];
   const all = matterBookOf(
     stored([]),
@@ -289,10 +290,9 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
   );
   const first = obs(21, "", {}).id;
   const b = all.find((v) => v.id === first);
-  // His own to-dos at any importance (not Gran's request, not a rated-2 wait, not the ended promise) and the open items.
-  expect(all.map((v) => v.id).toSorted()).toEqual(
-    [`entry_${pad(2)}`, first, obs(23, "", {}).id].toSorted()
-  );
+  // His own to-dos and promises at any importance (not Gran's request, not a rated-2 wait, not the ended promise) and the open items.
+  const ids = all.map((v) => v.id.slice(-2));
+  expect(ids.toSorted()).toEqual(["02", "21", "23", "26"]);
   expect(b).toMatchObject({
     lone: true,
     newestOpenStep: { kind: "todo_item" },
@@ -303,7 +303,7 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
     today: "2026-10-19",
   });
   // Undated: shown the day after it was said (18 Oct); the urgent one first.
-  expect(ranked.map((i) => i.id.slice(-2))).toEqual(["21", "23", "02"]);
+  expect(ranked.map((i) => i.id.slice(-2))).toEqual(["21", "26", "23", "02"]);
   expect(dayLines({ due: ranked.map((i) => i.line) })[0]).toStartWith(
     "Due (open items"
   );

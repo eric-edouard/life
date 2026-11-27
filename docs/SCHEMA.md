@@ -22,7 +22,7 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 - **When**, a date or deadline (`YYYY-MM-DD`) any type can carry, or null.
 - **Area**, one of the owner's life areas: an `id` (slug) from `truth/areas.yaml`, or null when none fits.
 - **Importance** 0-3: 0 nothing to keep; 1 keep searchable only; 2 worth a line on a person or area page; 3 the owner must
-  act or must not forget.
+  act or must not forget. An open to-do or promise of his is listed at any importance.
 - **Entity refs**: `person:<slug>` (`truth/people.yaml`, or an organization of `truth/organizations.yaml`: one id
   space), `project:<slug>` (`truth/projects/`), `area:<slug>` (`truth/areas.yaml`).
 - **Organization** (`truth/organizations.yaml`, optional): `id`, `name`, `aliases`, `relation`, `handles` (as a
