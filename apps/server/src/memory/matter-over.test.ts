@@ -56,7 +56,7 @@ const bookWith = (directions: MatterRecords["directions"]) =>
 const over = (steps = STEPS) => ({
   at: "2026-10-20T02:00:00Z",
   by: "life" as const,
-  endingRecords: [],
+  endingRecords: ["unit_000000000009"],
   goal: "Parcel collected",
   steps,
 });
@@ -68,6 +68,8 @@ test("Life's latest direction reading a matter over closes it as probably done u
     open: false,
     status: "probably_done",
   });
+  // A reading that cites no record is no evidence: open (his rule of 27 Nov 2026).
+  expect(bookWith([{ ...over(), endingRecords: [] }])?.open).toBe(true);
   // A step the draft never saw: the reading is out of date, the matter is open again.
   expect(bookWith([over(STEPS.slice(0, 1))])?.open).toBe(true);
   // His own next step is never Life's reading.

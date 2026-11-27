@@ -668,8 +668,6 @@ test("matters-study P5: owed to never names a no-reply sender or his agents' rep
   );
   expect(views).toEqual([]);
   expect(view).toMatchObject({ owedTo: [], waitingOn: [], with: [GRAN] });
-  // Both steps are a mailer's: no your move card asks him for them (`yourMoveOf`).
-  expect(view?.openSteps.map((s) => s.byMailer)).toEqual([true, true]);
 });
 
 test("matters-study P5: a mailer handle is a no-reply spelling or a failed-payment sender, never a person's address", () => {

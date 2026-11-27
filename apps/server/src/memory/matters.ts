@@ -46,6 +46,7 @@ import {
   MATTER_DIRECTIONS,
   MATTERS,
   OBSERVATIONS,
+  observationStatusOf,
   readBy,
   readLedger,
   readUnitsFor,
@@ -54,8 +55,15 @@ import {
 } from "./memory-files";
 import { meContext } from "./model-context";
 import { foundQuotes } from "./quote-check";
+import {
+  inheritEndings,
+  offeredNowOf,
+  READ_AGAIN,
+  succeedsOf,
+  successorsOf,
+} from "./re-read-succession";
 import { TRUTH } from "./read-truth";
-import { reopenedAtOf } from "./retirements";
+import { outdatedBy, reopenedAtOf } from "./retirements";
 import { begin, readsOf } from "./run";
 import { clip, isMailerHandle, UNKNOWN } from "./units";
 import { episodeNow, observationsNow, type People } from "./who";
@@ -218,7 +226,15 @@ const pinOf = (c: { at: string; matter?: string; steps: string[] }) => ({
  * a Life draft reading a matter over is dropped once he reopened one of its steps after it (`matter-reopened`). Both files are folded incrementally (`readAppended`): a read parses only
  * the lines appended since the last.
  */
-export function readMatterPins() {
+export function readMatterPins(
+  successors: ReadonlyMap<string, readonly string[]> = new Map()
+) {
+  // A pin on an earlier reading pins its re-read too (`successorsOf`).
+  const pinned = <P extends { steps: readonly string[] }>(list: readonly P[]) =>
+    list.map((p) => ({
+      ...p,
+      steps: p.steps.flatMap((r) => [r, ...(successors.get(r) ?? [])]),
+    }));
   const drafts = readAppended(
     MATTER_DIRECTIONS,
     MatterDirectionBatch,
@@ -264,14 +280,20 @@ export function readMatterPins() {
   );
   // A Life draft reading a matter over before his Reopen of one of its steps is lifted: the latest of his words wins.
   const reopened = reopenedAtOf(his.reopened);
-  const standing = drafts.filter(
+  const standing = pinned(drafts).filter(
     (d) =>
       !(
         d.endingRecords &&
         d.steps.some((ref) => (reopened.get(ref) ?? "") > d.at)
       )
   );
-  return { ...his, directions: [...standing, ...his.directions] };
+  return {
+    ...his,
+    directions: [...standing, ...pinned(his.directions)],
+    icons: pinned(his.icons),
+    important: pinned(his.important),
+    projects: pinned(his.projects),
+  };
 }
 
 /** What his Later holds: a check's ref, but a your move card's matter whole (`move:<matter>/<step>` → `move:<matter>`). */
@@ -298,10 +320,17 @@ export function laterUntilOf(ref: string, now = clock()) {
  * `outdated` word); a link not yet his word ends it probably (`endingsRead`).
  */
 export async function readMatterRecords(people: People) {
-  const [episodes, { observations, statusInputs }] = await Promise.all([
+  const [episodes, now] = await Promise.all([
     episodesWhere(() => true),
     observationsNow(people),
   ]);
+  const { statusInputs } = now;
+  const observations = succeedsOf(
+    now.observations,
+    now.all.filter((o) =>
+      READ_AGAIN.includes(observationStatusOf(o, statusInputs).state)
+    )
+  );
   const ledger = readLedger();
   // The one rule for "current": the records as they stand now (an end re-read away counts for nothing).
   const current = new Set([
@@ -314,29 +343,39 @@ export async function readMatterRecords(people: People) {
     ...observations.map((o): [string, string] => [o.id, o.at]),
   ]);
   const reopenedAt = reopenedAtOf(people.corrections);
+  // An earlier reading's ending (his word, a link) is its successor's too: a re-read never reopens a step.
+  const succeeded = new Set(observations.flatMap((o) => o.succeeds ?? []));
   // A link whose evidence came before his Reopen of its step ends nothing: the latest of his words wins.
   const linkEndings = new Map(
-    [...endingsRead((ref) => current.has(ref)).linkEndings].flatMap(
-      ([ref, l]) => {
-        const at = atOf.get(l.later) ?? l.at;
-        const reopened = reopenedAt.get(ref);
-        return reopened && Date.parse(reopened) >= Date.parse(at)
-          ? []
-          : [[ref, { ...l, at }] as const];
-      }
-    )
+    [
+      ...endingsRead((ref) => current.has(ref) || succeeded.has(ref))
+        .linkEndings,
+    ].flatMap(([ref, l]) => {
+      const at = atOf.get(l.later) ?? l.at;
+      const reopened = reopenedAt.get(ref);
+      return reopened && Date.parse(reopened) >= Date.parse(at)
+        ? []
+        : [[ref, { ...l, at }] as const];
+    })
   );
   const retired = new Map(
-    [...statusInputs.retired].map(([id, r]) => [
-      id,
-      r.by === id
+    [
+      ...outdatedBy(people.corrections).filter((r) =>
+        succeeded.has(r.observation)
+      ),
+      ...statusInputs.retired.values(),
+    ].map((r) => [
+      r.observation,
+      r.by === r.observation
         ? { at: r.at, why: r.why, ...(r.dropped ? { dropped: r.dropped } : {}) }
         : { at: atOf.get(r.by) ?? r.at, replacedBy: r.by, why: r.why },
     ])
   );
+  inheritEndings(retired, observations, reopenedAt);
+  inheritEndings(linkEndings, observations, reopenedAt);
   return {
     current,
-    ...readMatterPins(),
+    ...readMatterPins(successorsOf(observations)),
     episodeOf: readBy(episodes),
     episodes,
     isMailer: (ref: string) =>
@@ -389,7 +428,7 @@ export const matterBookAgain = (
 ) =>
   matterBookOf(
     mattersNow(readMatters()),
-    { ...records, ...readMatterPins() },
+    { ...records, ...readMatterPins(successorsOf(records.observations)) },
     today
   );
 
@@ -515,6 +554,7 @@ export async function readMatterWork(
   }
   const { episodes, observations } =
     records ?? (await readMatterRecords(people));
+  const offered = offeredNowOf(mattersNow(readMatters()).offered, observations);
   const placed = shownEpisodesOf(span, episodes, observations, people);
   const lone = placed.filter((e) => e.id === e.units[0]);
   const titles = new Map(
@@ -535,7 +575,7 @@ export async function readMatterWork(
       : [];
   });
   return {
-    ...pendingOf(shown, todoItems, mattersNow(readMatters()).offered),
+    ...pendingOf(shown, todoItems, offered),
     span,
   };
 }

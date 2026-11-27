@@ -197,6 +197,7 @@ test("an errand over three spans lands in one matter, the call's episode with no
   // The records the matters read back: the observations placed, as they stand today.
   const who = await import("./who");
   const now = spyOn(who, "observationsNow").mockResolvedValue({
+    all: [],
     observations: [f1, f2, f3, f4, f5].map((f, i) => ({
       area: null,
       at: `${DAYS[i]}T10:00:00.000Z`,
