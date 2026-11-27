@@ -1,6 +1,6 @@
 /* Life's design system for the lab: every part of the app, written once, in the Swift app's hierarchy and names
    (apps/lifelog/apps/ios/Lifelog/DesignSystem, Items). A card is data (which blocks, in which order, in which mode),
-   never hand-written markup; shell.html and design-lab.html both draw from here. Dark only (the owner's answer 11).
+   never hand-written markup; 2026-11-25-app-v4.html and the lab both draw from here. Dark only (the owner's answer 11).
    COMPONENTS.md has the tree; the lab and Swift share these names.
 
    1. Tokens     T, APPS                         Swift Palette (tokens.css); ChatLook's network colours
@@ -375,7 +375,7 @@
     setTimeout(function () { b.classList.remove('busy'); var t = setInterval(function () { if (i >= ws.length) return clearInterval(t); ws[i++].classList.add('on'); }, 240); }, 700);
   });
 
-  /* BASE: the shell's own parts, for pages that are not the shell (shell.html has them already). NEW: the card blocks. */
+  /* BASE: the shell's own parts, for pages that are not the shell (the prototype has them already). NEW: the card blocks. */
   var BASE = '.cbf{--fg:#fff8ea;--muted:#8a867e;--card:#0b0c0e;--tile:#111214;--tint:rgba(255,248,234,.1);--flag:#f0896f;--ok:#30d158;--ai:#9aa8ec;color:var(--fg);font-size:16px;line-height:1.42;font-weight:450;display:flex;flex-direction:column;gap:12px}' +
     '.cbf *{box-sizing:border-box}:where(.cbf) button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}' +
     '.cbf .bt{font-size:15.5px;line-height:1.45}.cbf .bm{align-self:flex-end;max-width:300px;padding:8px 12px;border-radius:18px 18px 6px 18px;background:var(--tint);font-size:15px;position:relative}.cbf .bm .q{display:flex;justify-content:flex-end;gap:4px;font-size:11.5px;color:var(--muted);margin-top:3px}' +

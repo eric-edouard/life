@@ -99,12 +99,11 @@ button:focus-visible,textarea:focus-visible,summary:focus-visible,label:focus-wi
  .side{position:fixed;top:auto;bottom:0;left:0;width:100%;max-height:78%;border-radius:22px 22px 0 0;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateY(105%);opacity:1;transition:transform .25s}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
-#orig{position:fixed;inset:0;z-index:50;background:#000;display:none}#orig.on{display:block}#orig iframe{width:100%;height:100%;border:0}#orig .x{position:absolute;top:10px;right:10px;z-index:2;height:34px;padding:0 14px;border-radius:17px;background:var(--tile);color:var(--fg);font-weight:650}
 </style>
 </head>
 <body>
 <div class="lab">
-<div class="top"><button type="button" class="ib" id="listb" aria-label="All items" aria-expanded="false">☰</button><div class="mode" id="modes" role="group" aria-label="Mode"><button type="button" data-mode="choose" aria-pressed="true">Choose</button><button type="button" data-mode="proto" aria-pressed="false">Prototype</button><button type="button" data-orig aria-pressed="false">Original</button></div><nav class="side" id="side" aria-label="Items"><div id="list"></div></nav></div>
+<div class="top"><button type="button" class="ib" id="listb" aria-label="All items" aria-expanded="false">☰</button><div class="mode" id="modes" role="group" aria-label="Mode"><button type="button" data-mode="choose" aria-pressed="true">Choose</button><button type="button" data-mode="proto" aria-pressed="false">Prototype</button></div><nav class="side" id="side" aria-label="Items"><div id="list"></div></nav></div>
 <header class="head" id="head">
  <div class="r1"><div class="ttl"><b id="iname">Loading…</b><span class="st" id="istat"></span></div><button type="button" class="nav" id="prev" aria-label="Previous item">‹</button><button type="button" class="nav" id="next" aria-label="Next item">›</button></div>
  <div class="sit"><p id="isit"></p><button type="button" id="sitmore" hidden>more</button></div>
@@ -112,7 +111,6 @@ button:focus-visible,textarea:focus-visible,summary:focus-visible,label:focus-wi
  <details id="refine"><summary>Refine</summary><div id="more"><div class="tg" id="views" role="group" aria-label="View"></div><div class="vnote" id="vnote"></div><div class="parts" id="parts"></div><textarea id="note" aria-label="Note" placeholder="Anything to change?"></textarea><div id="save">Saved on this device until Life’s store answers.</div></div></details>
 </header>
 <main class="stage" id="stage"><div class="dev" id="dev"><div class="scr" id="scr"><div class="track" id="track"></div></div></div></main>
-<div id="orig"><button type="button" class="x" onclick="this.parentNode.classList.remove('on')">Back to the lab</button></div>
 <div class="sheetbg" id="sheetbg"></div>
 </div>
 <script src="card-blocks.js" charset="utf-8"></script>
@@ -145,7 +143,7 @@ var PAGES=[['page-ask','An ask’s page','He taps the count, then Ben’s ask: t
  ['page-boiler','A matter that waits on someone else','Yesterday’s boiler row in the thread: he opens it.',['[data-open="boiler"]']],
  ['page-pendant','The pendant','He taps the pendant’s dot, top right.',['[data-act="pendant"]']]
 ].map(function(p){return {id:p[0],area:'pages',n:p[1],d:p[2]+' From the app v4 prototype.',rec:'A',v:{A:{w:'As in app v4',views:[[p[1],{scene:p[3]}]]}}};});
-/* the app v4 prototype's side panel, read from shell.html itself, so no scenario is left out */
+/* the app v4 prototype's side panel, read from 2026-11-25-app-v4.html itself, so no scenario is left out */
 function panelOf(doc){var out=[],g=null,hint='';Array.prototype.forEach.call(doc.querySelector('.side').children,function(e){
   if(e.classList.contains('lbl')){g={label:e.textContent,btns:[],help:''};out.push(g);}
   else if(e.classList.contains('seg'))Array.prototype.forEach.call(e.querySelectorAll('button'),function(b){var a=Array.prototype.filter.call(b.attributes,function(x){return /^data-/.test(x.name);})[0];g.btns.push([b.textContent,a?'['+a.name+'="'+a.value+'"]':'#'+b.id]);});
@@ -232,7 +230,7 @@ $('parts').addEventListener('change',function(e){var x=e.target.closest('[data-p
 $('note').addEventListener('input',function(){var id=item().id;get(id).note=$('note').value;clearTimeout(save.t);save.t=setTimeout(function(){save(id);},700);});
 $('listb').onclick=function(){sheet(!$('side').classList.contains('open'));};$('sheetbg').onclick=function(){sheet(false);};
 $('sitmore').onclick=function(){$('isit').classList.add('open');sitMore();};
-$('modes').addEventListener('click',function(e){if(e.target.closest('[data-orig]')){var o=$('orig');if(!o.querySelector('iframe')){var f=document.createElement('iframe');f.title='The app v4 prototype as published on 25 Nov';f.src='app-v4-original.html';o.appendChild(f);}o.classList.add('on');return;}var m=e.target.closest('[data-mode]');if(m&&m.dataset.mode!==mode)setMode(m.dataset.mode);});
+$('modes').addEventListener('click',function(e){var m=e.target.closest('[data-mode]');if(m&&m.dataset.mode!==mode)setMode(m.dataset.mode);});
 $('side').addEventListener('click',function(e){var b=e.target.closest('.li');if(!b)return;
  if(b.dataset.i)open(+b.dataset.i);else if(b.dataset.sc==='restart')setMode('proto');else{sheet(false);var el=fr.contentDocument&&fr.contentDocument.querySelector(b.dataset.sc);if(el)el.click();}});
 addEventListener('keydown',function(e){if(e.key==='Escape'){sheet(false);return;}if(e.target.closest('textarea,input')||mode!=='choose')return;var L=letters(),i=L.indexOf(cur.k);
