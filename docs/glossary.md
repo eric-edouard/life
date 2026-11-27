@@ -344,7 +344,7 @@ their formats are in [SCHEMA.md](SCHEMA.md).
 | Word | Means | Planned |
 |---|---|---|
 | appointment | Something he is due at, read nightly from the facts ahead of him (plans, bookings) across every channel, or by day from new lines that agree it (the arrival reader's `arrival_appointment` read): a time, a place, a title, kept in his calendar until it is past (`memory/appointments.json`, `memory/arrival-appointments.ts`, id `apt_…`, a ref `fetch` opens). Not a to-do, not an episode (what happened). | |
-| voice | The pendant pipeline's processes on the Mac (its server, the Mac helper, speaker recognition, the embedder) that Life keeps running as launchd jobs `com.ericedouard.life.voice-<child>` (`host/voice.ts`, `life voice start|stop|run`), formerly run by Lifelog Host. Not the Voice source (what Life reads from it), not a voice note. | |
+| voice | The pendant pipeline's processes on the Mac (its server, the Mac helper, speaker recognition, the embedder) that Life keeps running as launchd jobs `com.ericedouard.life.voice-<child>` (`host/voice.ts`, `life voice start|stop|status|key|backup-password|sign-in-chatgpt|export|import|run`), formerly run by Lifelog Host. Not the Voice source (what Life reads from it), not a voice note. | |
 | Past calendar | The calendar Life writes every episode to, one event each (the `pastCalendar` setting). Life's output, never a source. | |
 | processing run | One scheduled batch of processing steps: `nightly` (`PROCESSING_RUNS`; `backfill` names past runs still in the log). | |
 | processing step | One part of a processing run (`episodes`, `extract`, `pages`), shown as a step on the status card (`processingSteps`, tracked by `trackProcessingSteps`). Not a matter step. | |

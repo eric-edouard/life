@@ -24,6 +24,24 @@ export const llamaRelease = (arch: "amd64" | "arm64"): Pin => ({
   url: `https://github.com/ggml-org/llama.cpp/releases/download/b12110/llama-b12110-bin-macos-${arch === "arm64" ? "arm64" : "x64"}.tar.gz`,
 });
 
+/** restic, voice's backups (Life.app's `Helpers/restic`), from its release. */
+export const resticRelease = (arch: "amd64" | "arm64"): Pin => ({
+  sha256:
+    arch === "arm64"
+      ? "7be0a144ccc377880f294204aa271d76e4b79554b42a751151d425ce6ebac143"
+      : "c38d579622cf602f665234c5a8c315030b6cf70656028fe6dc29a786b60e5f35",
+  url: `https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_darwin_${arch}.bz2`,
+});
+
+/** uv, speaker recognition's install (Life.app's `Helpers/uv`), from its release; the archive holds `uv-<triple>/uv`. */
+export const uvRelease = (arch: "amd64" | "arm64"): Pin => ({
+  sha256:
+    arch === "arm64"
+      ? "0c4346de7abdb49495b393b9ec809fe387aa43e586be20fecb972216c1e71732"
+      : "4fa82e37cb94767661f532b001e470b67a186c7260e305bd84ddb78fd545c0b6",
+  url: `https://github.com/astral-sh/uv/releases/download/0.12.24/uv-${arch === "arm64" ? "aarch64" : "x86_64"}-apple-darwin.tar.gz`,
+});
+
 /** What the bundles keep of the release: the server and the libraries it loads from beside it (@loader_path). */
 const LLAMA_LOADED = [
   "llama-server",

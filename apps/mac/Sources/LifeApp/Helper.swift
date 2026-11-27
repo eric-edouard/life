@@ -3,8 +3,8 @@ import os
 
 /// Life's helper: the compiled binary in the bundle (`Contents/Helpers/life`), run with its files (`LIFE_CODE_DIR`), the
 /// owner's data and Life's state under Application Support, and every secret the Keychain holds for it. The app never
-/// reads Life's files itself: it asks the helper (`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in
-/// one place.
+/// reads Life's files itself: it asks the helper (`app`, `settings`, `init`, `pair`, `connect`, `voice`), so their
+/// shape lives in one place.
 enum Helper {
   static let support = FileManager.default.homeDirectoryForCurrentUser
     .appending(path: "Library/Application Support/Life")
@@ -38,15 +38,22 @@ enum Helper {
     return p
   }
 
-  /// One command to its end: its exit code, what it printed (JSON for the app's reads) and its errors apart.
-  static func run(_ args: [String]) async -> (code: Int32, out: String, err: String) {
+  /// One command to its end: its exit code, what it printed (JSON for the app's reads) and its errors apart. `input`
+  /// goes to its stdin (a key, never an argument other processes could list).
+  static func run(_ args: [String], input: String? = nil) async -> (code: Int32, out: String, err: String) {
     try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
     let p = process(args)
     let out = Pipe()
     let err = Pipe()
     p.standardOutput = out
     p.standardError = err
+    let stdin = Pipe()
+    if input != nil { p.standardInput = stdin }
     do { try p.run() } catch { return (-1, "", error.localizedDescription) }
+    if let input {
+      stdin.fileHandleForWriting.write(Data(input.utf8))
+      try? stdin.fileHandleForWriting.close()
+    }
     async let o = Task.detached { out.fileHandleForReading.readDataToEndOfFile() }.value
     async let e = Task.detached { err.fileHandleForReading.readDataToEndOfFile() }.value
     let (od, ed) = await (o, e)
