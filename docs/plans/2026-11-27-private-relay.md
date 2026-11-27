@@ -60,10 +60,25 @@ can delay or drop traffic, never read it.
 What the relay does see, and SECURITY.md must say once: the address used, the user's IP addresses, when they connect
 and how much data moves. Addresses are random ids, never names, because the certificate logs are public.
 
+## Where the relay runs
+
+On Fly.io (chosen 28 Nov 2026), the one developer-friendly host found that passes raw TCP on port 443 under our own
+wildcard domain without holding a certificate: a service with `handlers = []` behind one dedicated anycast IPv4, so
+a phone anywhere reaches the nearest region. About $9 a month for three regions (three 256 MB machines and the IPv4),
+egress $0.02 per GB in Europe and North America, $0.04 in Asia. Users pay nothing. Railway, Render, Koyeb,
+Northflank, Zeabur, DigitalOcean's App Platform and Cloudflare's proxy were ruled out: each decrypts, or allows only
+HTTP, or gives a random port.
+
+- A Mac connects to the nearest region; a visitor may arrive at another. The relay keeps its own registry of which
+  machine holds each Mac and pipes across regions over Fly's private network (6PN). The Mac sends heartbeats: one
+  report says long 6PN connections drop.
+- Fly's removal of TCP idle timeouts is a forum post, not its docs: test a connection idle for hours before launch.
+- A user who wants their own relay runs `fly launch --from <this repository>`, allocates a dedicated IPv4 and points
+  their own wildcard record at it; the relay's `fly.toml` keeps passthrough. Fly has no one-click button.
+- DNS stays on Cloudflare in DNS-only mode, so Cloudflare never carries the traffic.
+
 ## Open questions
 
-- Where the relay runs. Users pay nothing: the developer runs one small VPS (about €4 a month at Hetzner, 20 TB of
-  traffic included), which carries bytes and does no compute.
 - Each user's address needs no DNS change at onboarding: one wildcard record points `*.hostedbyme.app` at the relay.
 - Let's Encrypt issues at most 50 certificates a week per registered domain. Put the domain on the Public Suffix List
   before launch: each user's address then counts on its own, and browsers keep one user's address from setting
@@ -74,7 +89,8 @@ and how much data moves. Addresses are random ids, never names, because the cert
 ## Milestones
 
 - [x] Domain: hostedbyme.app.
-- [ ] Pick the relay (adopt or write).
+- [x] Host: Fly.io.
+- [ ] Pick the relay (adopt sish or frp, or write).
 - [ ] Relay live, open source in this repository, with its own tests.
 - [ ] Mac side: key, random id, outbound connection, TLS-ALPN-01 certificate and renewal.
 - [ ] iPhone app: key fingerprint in the pairing code, pinning.

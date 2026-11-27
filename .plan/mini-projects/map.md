@@ -31,6 +31,8 @@ and seen working live, first on the owner's own Photos library, then on a second
 
 ## Decisions so far
 
+- [The engineering playbook](./tickets/18-the-engineering-playbook.md) — Life's slim `work-on-code`: local git per step, `PLAN.md`, Bun + TS (React + Tailwind for screens), a tools allowlist, proof by running it, two same-model reviews, a skill shipped in Life.app.
+
 ## Not yet specified
 
 - **A second kind of project.** Once the preview is settled, prove the design on a project that makes something new (a
