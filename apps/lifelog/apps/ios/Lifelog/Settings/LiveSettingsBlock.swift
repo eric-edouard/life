@@ -12,6 +12,7 @@ struct LiveSettingsBlock: View {
     var openSettings: () -> Void = {}
     @State private var ticked: String?
     @State private var isOffered = false
+    @AppStorage(AppGroup.Key.asksFaceIDToSend, store: AppGroup.defaults) private var asksFaceID = false
 
     private static let known = ["faceid", "appear", "pair"]
 
@@ -35,13 +36,14 @@ struct LiveSettingsBlock: View {
     @ViewBuilder private func row(_ key: String) -> some View {
         switch key {
         case "faceid":
-            FaceIDRow(isPlain: true)
+            SettingSwitchRow(title: "Face ID before Send", isOn: asksFaceID) { asksFaceID = $0 }
+                .accessibilityIdentifier("settings.switch.faceIDToSend")
         case "appear":
             AppearanceRow()
         case "aura":
             AuraBlock()
         default:
-            Button(action: openSettings) { Row(title: "Pair again with your Mac") { RowValue(isRound: true) } }
+            Button(action: openSettings) { Row(title: "Pair again with your Mac") { RoundChevron() } }
                 .buttonStyle(.plain)
         }
     }

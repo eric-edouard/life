@@ -418,7 +418,6 @@ struct RatingRow: View {
     var identify: (Reaction) -> String? = { _ in nil }
 
     var body: some View {
-        // One line, or the question above the marks when large text doesn't fit them beside it.
         ViewThatFits(in: .horizontal) {
             HStack(spacing: Metrics.Spacing.s) {
                 words

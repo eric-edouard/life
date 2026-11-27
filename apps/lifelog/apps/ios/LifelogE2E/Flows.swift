@@ -129,8 +129,7 @@ import XCTest
         // The people sit under the field: the thread is read scrolled to its end (a drag from the right margin).
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.7)).press(
             forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.2)))
-        Thread.sleep(forTimeInterval: 1)
-        appears(ben, "the people, above the field")
+        poll("the people, above the field") { ben.frame.maxY < field.frame.minY }
         shoot("which-person")
         ben.tap()
         taps += 1

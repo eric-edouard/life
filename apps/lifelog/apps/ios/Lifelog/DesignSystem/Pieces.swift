@@ -623,19 +623,22 @@ extension Row where Trailing == EmptyView {
 /// A row's value in `note` and a chevron: for a row that opens a page or a menu.
 struct RowValue: View {
     var text: String?
-    /// The chevron in its own round disc: a settings block's row in the thread.
-    var isRound = false
 
     var body: some View {
         HStack(spacing: 8) {
             if let text { Text(text).font(.line).foregroundStyle(Palette.muted) }
-            Image(systemName: "chevron.forward").font(.system(size: isRound ? 14 : 13, weight: .semibold))
-                .foregroundStyle(isRound ? Palette.fg : Palette.muted)
-                .frame(width: isRound ? 36 : nil, height: isRound ? 36 : nil)
-                .background(isRound ? Palette.tint : .clear, in: .circle)
-                .accessibilityHidden(true)
+            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Palette.muted).accessibilityHidden(true)
         }
         .frame(minHeight: 44)
+    }
+}
+
+/// A chevron in its own round disc: a settings block's row that opens a page.
+struct RoundChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.forward").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.fg)
+            .frame(width: 36, height: 36).background(Palette.tint, in: .circle).accessibilityHidden(true)
     }
 }
 
