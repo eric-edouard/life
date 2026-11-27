@@ -32,7 +32,16 @@ const selectorOf = (attrs: string) => {
 const panel = [...side.matchAll(BUTTON)]
   .map(([, attrs = ""]) => selectorOf(attrs))
   .filter(Boolean);
-const variations = components.groups.flatMap((g) => g.variations);
+interface Variation {
+  name: string;
+  on?: string;
+  row: string | null;
+  scene?: string[];
+  status: string;
+}
+const variations: Variation[] = components.groups.flatMap(
+  (g): Variation[] => g.variations
+);
 const rowOf = (scene: string[]) =>
   ROWS.find((r) => r.proto.join() === scene.join())?.id ??
   (scene.length === 1 ? notBuiltIdOf(scene[0] as string) : undefined);
@@ -60,6 +69,6 @@ test("each scene and part is the prototype's, and a status is typed, never In th
       expect(panel).toContain(click);
     }
     expect(["next", "waiting", "designed"]).toContain(v.status);
-    expect(v.status === "waiting").toBe(Boolean("on" in v && v.on));
+    expect(v.status === "waiting").toBe(Boolean(v.on));
   }
 });
