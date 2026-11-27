@@ -358,7 +358,7 @@ async function readYears(now: Date, from: string) {
 /**
  * The night's reads of the long conversations recorded in person: the summaries not written yet, then, while his
  * `voiceNaming` setting is on, the voices no one named, guessed for the parts the summaries examine. A failure (a
- * Lifelog Host without `/speakers/voices` among them) is logged and never stops the night.
+ * voice server without `/speakers/voices` among them) is logged and never stops the night.
  */
 export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
   const people = await readPeople();
@@ -370,7 +370,7 @@ export async function readSpokenConversations(now: Date, chats: SourceEvent[]) {
     log("run.error", { ...errorOf(e), step: "memory.conversation-summaries" });
   }
   if (found && settings().voiceNaming) {
-    // Reading the work (lifelog's voices) is inside the catch: a Lifelog Host without the route costs this step only.
+    // Reading the work (voice's voices) is inside the catch: a voice server without the route costs this step only.
     await readVoiceNamingWork(found, people, undefined, undefined, { chats })
       .then((work) => voiceNaming(work))
       .catch((e: Error) =>

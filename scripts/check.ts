@@ -4,6 +4,7 @@ import { rm } from "node:fs/promises";
 import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
 import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
+import { GATE_SKIPPED } from "./e2e-dirs";
 
 // One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
 await hold("check", process.cwd(), 5000);
@@ -92,6 +93,8 @@ const macSteps: Record<string, string[]> = {
     debugOnlyPreviews,
     ...new Bun.Glob(`${ios}/**/*.swift`).scanSync(),
   ],
+  // The rows green on the Mac's last parity board still pass their flows (scripts/parity.ts).
+  "parity gate": ["bun", "scripts/parity.ts", "--gate"],
   "swift format": [
     "swift",
     "format",
@@ -175,9 +178,9 @@ if (passed) {
     }
   }
 } else if (swift) {
-  // The two swift tests and xcodebuild each take every core: one after another, so they and the server tests are not
-  // all starved at once (load 188 with 0% idle at a landing, 21 Nov).
-  const SERIAL = ["swift test", "swift test mac", "xcodebuild"];
+  // The two swift tests, xcodebuild and the parity gate's simulators each take every core: one after another, so they
+  // and the server tests are not all starved at once (load 188 with 0% idle at a landing, 21 Nov).
+  const SERIAL = ["swift test", "swift test mac", "xcodebuild", "parity gate"];
   const quoted = (cmd: string[]) =>
     cmd.map((a) => `'${a.replaceAll("'", "'\\''")}'`).join(" ");
   for (const [name, cmd] of Object.entries(macSteps)) {
@@ -228,8 +231,17 @@ function killAll() {
   }
 }
 
+// The parity gate, last in the Swift chain, ran nothing: shown, and the tree is not recorded as passing the Swift part.
+let paritySkipped = false;
 const results = procs.map(async ({ name, output, proc }) => {
   const code = await proc.exited;
+  if (code === GATE_SKIPPED && name === "swift builds") {
+    paritySkipped = true;
+    console.log(
+      `✓ ${name}; parity gate ${(await output).trim().split("\n").at(-1)}`
+    );
+    return;
+  }
   if (code === 0) {
     console.log(
       `✓ ${name} (${((performance.now() - started) / 1000).toFixed(1)} s)`
@@ -256,5 +268,5 @@ await Promise.all(results);
 
 // Recorded only when nothing changed while it ran.
 if (!passed && tree && tree === readCleanTree(".")) {
-  recordPassed(".", tree, swift);
+  recordPassed(".", tree, swift && !paritySkipped);
 }

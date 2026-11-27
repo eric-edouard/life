@@ -26,7 +26,7 @@ test("one rotation rule: every process log of Life's past 10 MB is copied to its
     for (const n of [
       "life-archive.log",
       "life-desk.log",
-      "lifelog-embedder.log",
+      "com.ericedouard.life.voice-embedder.log",
       "com.ericedouard.life.bridges.log",
       "life-desk.old.log",
       "other-app.log",
@@ -36,7 +36,10 @@ test("one rotation rule: every process log of Life's past 10 MB is copied to its
     writeFileSync(join(dir, "life-watch.log"), "small\n");
     symlinkSync(join(dir, "other-app.log"), join(dir, "life-linked.log"));
     // A writer that doesn't append wrote past an earlier truncate: mostly holes.
-    const fd = openSync(join(dir, "lifelog-server.log"), "w");
+    const fd = openSync(
+      join(dir, "com.ericedouard.life.voice-server.log"),
+      "w"
+    );
     writeSync(fd, "late\n", 20_000_000);
     closeSync(fd);
     // Its backup can't be written (a stale half-copy that is a folder): logged, its last backup kept, and the others
@@ -45,12 +48,14 @@ test("one rotation rule: every process log of Life's past 10 MB is copied to its
     mkdirSync(join(dir, "life-archive.log.rotating", "x"), { recursive: true });
     expect(rotateProcessLogs(dir).toSorted()).toEqual([
       "com.ericedouard.life.bridges.log",
+      "com.ericedouard.life.voice-embedder.log",
       "life-desk.log",
-      "lifelog-embedder.log",
     ]);
     const size = (n: string) => statSync(join(dir, n)).size;
     expect(size("life-desk.log")).toBe(0);
-    expect(size("lifelog-embedder.old.log")).toBe(big.length);
+    expect(size("com.ericedouard.life.voice-embedder.old.log")).toBe(
+      big.length
+    );
     expect(size("com.ericedouard.life.bridges.old.log")).toBe(big.length);
     expect(size("life-archive.log")).toBe(big.length);
     expect(size("life-archive.old.log")).toBe(5);
@@ -58,7 +63,7 @@ test("one rotation rule: every process log of Life's past 10 MB is copied to its
     expect(size("other-app.log")).toBe(big.length);
     expect(readdirSync(dir)).not.toContain("life-desk.old.old.log");
     expect(readdirSync(dir)).not.toContain("life-linked.old.log");
-    expect(size("lifelog-server.log")).toBe(20_000_005);
+    expect(size("com.ericedouard.life.voice-server.log")).toBe(20_000_005);
   } finally {
     rmSync(dir, { force: true, recursive: true });
   }

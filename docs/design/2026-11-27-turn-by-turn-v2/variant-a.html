@@ -1,0 +1,278 @@
+<!doctype html>
+<!-- Turn by turn v2, variation A "Cinema": his words rise from the field to the centre like a title card; while Life
+     works its current step is a subtitle under them; the answer plays as full-screen shots, one idea each, that advance
+     on their own (swipe or tap to move) and close on a summary he can act on. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Turn by turn v2: A, cinema</title>
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<link rel="stylesheet" href="edge.css">
+<link rel="stylesheet" href="shell.css">
+<style>
+/* the title card may rise from under the field, so the stage lets it out (history keeps its scroll) */
+.stage:has(> .a:not(.a-scroll)){overflow:visible}
+.a{position:absolute;inset:0;--spring:cubic-bezier(.2,1.15,.32,1);--soft:cubic-bezier(.2,.8,.2,1)}
+.a-scroll{position:static;inset:auto;display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 0 32px;margin-top:auto}
+b{font-weight:650}
+.a-m{color:var(--muted)}
+/* the title card: his words */
+.a-ttl{position:absolute;left:20px;right:20px;margin:0;text-align:center;font-size:34px;line-height:1.14;font-weight:650;letter-spacing:-.025em;text-wrap:balance;transform-origin:50% 0;will-change:transform}
+.a-ttl .w{display:inline-block;transition:opacity .35s,filter .35s,transform .45s var(--spring)}
+.a-ttl .w:not(.on){opacity:0;filter:blur(8px);transform:translateY(6px)}
+/* the subtitle: what Life is doing now */
+.a-sub{position:absolute;left:24px;right:24px;height:64px;text-align:center}
+.a-line{position:absolute;left:0;right:0;top:0;font-size:var(--text-title);font-weight:600;line-height:1.35}
+.a-line .v{color:var(--muted);font-weight:450}
+.a-line.note{font-size:var(--text-line);font-weight:450;color:var(--muted)}
+.a-line.fail{color:var(--flag);font-weight:650}
+/* idle */
+.a-hi{position:absolute;left:0;right:0;top:38%;text-align:center}
+.a-hi h2{margin:0;font-size:64px;font-weight:600;letter-spacing:-.04em;line-height:1}
+.a-hi p{margin:14px 0 0;color:var(--muted);font-size:var(--text-body)}
+/* the reel: ticks, then one shot at a time */
+.a-reel{position:absolute;left:0;right:0;bottom:0;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.a-ticks{position:absolute;top:0;left:20px;right:20px;display:flex;gap:4px;height:2px}
+.a-ticks i{flex:1;border-radius:1px;background:var(--tint);overflow:hidden}
+.a-ticks b{display:block;height:100%;background:var(--fg);transform:scaleX(0);transform-origin:0 50%}
+.a-ticks .done b{transform:scaleX(1)}
+.a-ticks .now b{animation:a-fill var(--d) linear forwards}
+.a-ticks .held b{transform:scaleX(1);opacity:.5}
+@keyframes a-fill{to{transform:scaleX(1)}}
+.a-shot{position:absolute;inset:18px 0 0;padding:0 20px;display:flex;flex-direction:column;justify-content:center;opacity:0;pointer-events:none}
+.a-shot.on{pointer-events:auto}
+.a-shot.top{justify-content:flex-start;padding-top:16px}
+.a-shot.on>*{animation:a-in .62s var(--spring) both;animation-delay:calc(var(--i,0) * 70ms + 140ms)}
+@keyframes a-in{from{opacity:0;transform:translateY(14px);filter:blur(4px)}}
+.a-k{margin:0;color:var(--muted);font-size:var(--text-body)}
+.a-hero{font-size:88px;line-height:.95;font-weight:600;letter-spacing:-.05em;font-variant-numeric:tabular-nums;margin:6px 0 18px}
+.a-hero.mid{font-size:44px;letter-spacing:-.035em;line-height:1.02}
+.a-h{font-size:var(--text-profile);font-weight:650;letter-spacing:-.015em;line-height:1.15;margin:0}
+.a-p{margin:6px 0 0;color:var(--muted);font-size:var(--text-body)}
+.a-big{font-size:var(--text-header);font-weight:600;line-height:1.35;margin:14px 0 0}
+/* leave rail: now, leave, arrive */
+.a-rail{position:relative;height:44px;margin:28px 0 4px}
+.a-rail::before{content:"";position:absolute;left:0;right:0;top:6px;height:2px;border-radius:1px;background:var(--tint)}
+.a-rail .go{position:absolute;left:0;top:6px;height:2px;border-radius:1px;background:var(--fg)}
+.a-rail span{position:absolute;top:0;font-size:var(--text-meta);color:var(--muted);transform:translateX(-50%);padding-top:18px;white-space:nowrap}
+.a-rail span::before{content:"";position:absolute;top:2px;left:50%;width:10px;height:10px;margin-left:-5px;border-radius:5px;background:var(--fg)}
+.a-rail span.f{color:var(--flag)}.a-rail span.f::before{background:var(--flag)}
+.a-rail span:first-of-type{transform:none}.a-rail span:first-of-type::before{left:5px}
+.a-rail span:last-of-type{transform:translateX(-100%)}.a-rail span:last-of-type::before{left:auto;right:0}
+/* the day as a strip of time */
+.a-strip{position:relative;margin-top:22px}
+.a-strip .rail{position:absolute;left:62px;top:0;bottom:0;width:2px;border-radius:1px;background:var(--tint)}
+.a-strip .rain{position:absolute;left:61px;width:4px;border-radius:2px;background:var(--aura-sky)}
+.a-strip .nl{position:absolute;left:0;width:50px;text-align:right;transform:translateY(-50%);font-size:var(--text-meta);color:var(--muted)}
+.a-strip .now{position:absolute;left:57px;width:12px;height:2px;border-radius:1px;background:var(--fg)}
+.a-ev{position:absolute;left:0;right:0;display:grid;grid-template-columns:50px 1fr;column-gap:30px;transform:translateY(-11px)}
+.a-ev>b{font-size:var(--text-title);text-align:right;font-variant-numeric:tabular-nums}
+.a-ev>div b{display:block;font-size:var(--text-title)}
+.a-ev small{display:block;color:var(--muted);font-size:var(--text-line);line-height:1.35}
+.a-ev small.sky{color:var(--aura-sky)}
+.a-ev::after{content:"";position:absolute;left:58px;top:6px;width:10px;height:10px;border-radius:5px;background:var(--fg)}
+/* faces, quotes, drafts */
+.a-face{width:96px;height:96px;border-radius:48px;display:block;margin-bottom:20px}
+.a-face.s{width:36px;height:36px;border-radius:18px;margin:0}
+.a-who{display:flex;align-items:center;gap:12px;font-size:var(--text-title)}
+.a-who small{display:block;color:var(--muted);font-size:var(--text-line);font-weight:450}
+.a-quote{margin:18px 0 0;padding:16px 18px;border-radius:var(--block-radius);background:var(--paper);font-size:var(--text-header);font-weight:600;line-height:1.4}
+.a-quote.s{font-size:var(--text-body);font-weight:450;color:var(--muted);margin-top:14px}
+.a-draft{margin:12px 0 0 auto;max-width:86%;padding:14px 16px;border-radius:var(--block-radius);background:var(--paper);font-size:var(--text-title);font-weight:600;outline:1.5px dashed var(--muted);outline-offset:-1.5px;transition:outline-color .6s}
+.a-draft.sent{outline-color:transparent}
+.a-send{position:relative;margin-top:22px;width:100%;height:52px;border-radius:26px;background:var(--fg);color:var(--on);font-weight:650;font-size:var(--text-title);overflow:hidden;transition:background .35s,color .35s}
+.a-send span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity .25s,transform .4s var(--spring)}
+.a-send .l2,.a-send .l3{opacity:0;transform:translateY(12px)}
+.a-send.busy .l1{opacity:0;transform:translateY(-12px)}
+.a-send.busy .l2{opacity:1;transform:none}
+.a-send .l2 i{width:6px;height:6px;border-radius:3px;background:currentColor;animation:a-dot 1s ease-in-out infinite}
+.a-send .l2 i:nth-child(2){animation-delay:.15s}.a-send .l2 i:nth-child(3){animation-delay:.3s}
+@keyframes a-dot{50%{opacity:.3;transform:translateY(-3px)}}
+.a-send.done{background:transparent;color:var(--ok);cursor:default}
+.a-send.done .l1,.a-send.done .l2{opacity:0;transform:translateY(-12px)}
+.a-send.done .l3{opacity:1;transform:none}
+/* the closing shot: everything in one list */
+.a-rows{margin-top:10px}
+.a-row{width:100%;min-height:60px;display:grid;grid-template-columns:64px 1fr;align-items:center;gap:12px;text-align:left;padding:8px 0;box-shadow:inset 0 -.5px 0 var(--line)}
+.a-row:last-child{box-shadow:none}
+.a-row .lead{font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums}
+.a-row .lead.f{color:var(--flag)}
+.a-row .txt b{display:block;font-size:var(--text-title)}
+.a-row .txt small{display:block;color:var(--muted);font-size:var(--text-line);line-height:1.35}
+/* earlier turns, read like credits */
+.a-turn{max-width:310px;margin-top:40px}
+.a-turn:first-child{margin-top:0}
+.a-turn small{display:block;color:var(--faint);font-size:var(--text-meta)}
+.a-turn .q{display:block;margin-top:6px;font-size:var(--text-header);font-weight:650;letter-spacing:-.01em;text-wrap:balance}
+.a-turn .r{display:block;margin-top:6px;color:var(--muted)}
+/* the waveform the field becomes while he speaks */
+.field .heard .a-wv{display:flex;align-items:center;justify-content:space-between;height:36px;padding-right:4px}
+.field .heard .a-wv i{width:2.5px;height:28px;border-radius:2px;background:var(--fg);transform:scaleY(.1);transition:transform 80ms linear}
+@media (prefers-reduced-motion:reduce){.a-ticks .now b{transform:scaleX(1);opacity:.5}}
+</style>
+</head>
+<body>
+<script src="edge.js"></script>
+<script src="data.js"></script>
+<script src="shell.js"></script>
+<script>
+var D=DATA,R=matchMedia('(prefers-reduced-motion: reduce)').matches,asked=null;
+var SPRING='cubic-bezier(.2,1.15,.32,1)',SOFT='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
+function el(p,cls,html){var e=document.createElement(cls.indexOf('a-row')===0||cls.indexOf('a-send')===0?'button':'div');if(e.tagName==='BUTTON')e.type='button';e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
+function esc(s){return s.replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+/* animates from one state to another and leaves the element in the second; under Reduce Motion, a cross-fade only */
+function mv(e,from,to,ms,ease,delay){var fin=to;
+  if(R){var gone=to.opacity===0;from={opacity:gone?1:0};to={opacity:gone?0:1};ms=300;ease='linear';}
+  var a=e.animate([from,to],{duration:ms,easing:ease||SOFT,delay:delay||0,fill:'backwards'});
+  for(var k in fin)e.style[k]=fin[k];return a;}
+function gone(e,ms){var a=mv(e,{opacity:1,transform:'none',filter:'none'},{opacity:0,transform:'translateY(-14px) scale(.97)',filter:'blur(8px)'},ms||220,OUT);a.onfinish=function(){e.remove();};}
+function root(c,scroll){return el(c.stage,'a'+(scroll?' a-scroll':''));}
+function split(s,at){var i=s.indexOf(at);return i<0?[s,'']:[s.slice(0,i+(at==='. '?1:0)),s.slice(i+at.length)];}
+function hm(s){var m=/(\d+):(\d+)/.exec(s);return +m[1]*60+ +m[2];}
+var NOW=hm(D.now.time),LEAVE=hm(D.asks.day.answer.events[0].leave);
+
+/* the title card: his words, centred a little above the middle */
+function title(r,text,hidden){var t=el(r,'a-ttl','');
+  text.split(' ').forEach(function(w,i){var s=document.createElement('span');s.className='w'+(hidden?'':' on');s.textContent=w;if(i)t.appendChild(document.createTextNode(' '));t.appendChild(s);});
+  var top=Math.round(r.clientHeight*.4-t.offsetHeight/2);t.style.top=top+'px';t.dataset.top=top;return t;}
+function scaleOf(c){return c.phone.getBoundingClientRect().width/390;}
+
+/* typed: the words leave the field and rise to the centre, growing into the title card */
+async function typed(c,r,text,already){
+  if(!already){await c.type(c.field.input,text);await c.wait(380);mv(c.field.send,{transform:'scale(.8)'},{transform:'scale(1)'},420,SPRING);}
+  var k=scaleOf(c),s=r.getBoundingClientRect(),f=c.field.el.getBoundingClientRect(),t=title(r,text),tr=t.getBoundingClientRect(),rg=document.createRange();
+  rg.selectNodeContents(t);var w=rg.getBoundingClientRect().width/k,S=16/34;
+  var dx=(f.left-s.left)/k+18+w*S/2-((tr.left+tr.width/2)-s.left)/k,dy=(f.top+f.height/2-s.top)/k-((tr.top+tr.height/2)-s.top)/k;
+  c.field.clear();
+  mv(t,{transform:'translate('+dx+'px,'+dy+'px) scale('+S+')',opacity:.5},{transform:'none',opacity:1},760,SPRING);
+  await c.wait(780);return t;}
+
+/* spoken: the field becomes a waveform, his words write themselves in low on the screen, then lift into the title card */
+async function spoken(c,r,text,already){
+  var t=title(r,text,!already),top=+t.dataset.top,h=t.offsetHeight,low=r.clientHeight-28-h*.9-top;
+  if(already){c.field.clear();mv(t,{transform:'translateY('+low+'px) scale(.8)',opacity:0},{transform:'none',opacity:1},760,SPRING);await c.wait(780);return t;}
+  t.style.transform='translateY('+low+'px) scale(.8)';
+  c.field.live(true);c.edge.set('listen');var heard=c.field.heard,n=46,bars='';for(var i=0;i<n;i++)bars+='<i></i>';
+  heard.innerHTML='<span class="a-wv" aria-hidden="true">'+bars+'</span>';var bs=heard.querySelectorAll('i'),words=t.querySelectorAll('.w'),ph=0;
+  heard.setAttribute('aria-label',text);
+  for(var j=0;j<words.length;j++){words[j].classList.add('on');
+    for(var q=0;q<6;q++){var lv=.45+.55*Math.random();c.edge.level(lv);ph+=.55;
+      for(var b=0;b<n;b++){var env=Math.sin(Math.PI*(b+.5)/n),v=.12+.88*env*lv*(.45+.55*Math.abs(Math.sin(b*.7+ph)*Math.cos(b*.31-ph*.6)));bs[b].style.transform='scaleY('+Math.max(.08,v).toFixed(3)+')';}
+      await c.wait(55);}}
+  bs.forEach(function(x){x.style.transform='scaleY(.08)';});c.edge.level(1);await c.wait(320);
+  c.field.live(false);c.field.clear();heard.removeAttribute('aria-label');
+  mv(t,{transform:'translateY('+low+'px) scale(.8)'},{transform:'none'},820,SPRING);await c.wait(840);return t;}
+
+/* the subtitle under the title card: one line, each new one inks in where the last blurred away */
+function subtitle(r,t){var s=el(r,'a-sub',''),cur=null,note=null;s.style.top=(+t.dataset.top+t.offsetHeight+22)+'px';
+  function line(html,cls){var l=el(s,'a-line'+(cls?' '+cls:''),html);mv(l,{opacity:0,transform:'translateY(10px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},440,SOFT,cur?120:0);return l;}
+  return {set:function(html,cls){if(cur)gone(cur);if(note){gone(note);note=null;}cur=line(html,cls);},
+    note:function(text){note=line(esc(text),'note');note.style.top=(cur.offsetHeight+6)+'px';},
+    out:function(){gone(s,260);}};}
+function stepHtml(t){var i=t.indexOf(' ');return '<span class="v">'+t.slice(0,i)+'</span>'+t.slice(i);}
+
+/* Life works: the step, then what it found, one line at a time */
+async function work(c,r,t,a){c.edge.set('work');var s=subtitle(r,t);await c.wait(200);
+  for(var st of a.steps){s.set(stepHtml(st.t));
+    if(st.slow){await c.wait(5000);s.note(st.d);await c.wait(st.ms-5000);}
+    else if(st.d){await c.wait(st.ms*.55);s.set('<b>'+st.d+'</b>');await c.wait(st.ms*.45);}
+    else await c.wait(st.ms);
+    if(st.fails)return {s:s,ok:false};}
+  return {s:s,ok:true};}
+
+/* the answer arrives: the subtitle goes, his words shrink to a caption at the top; returns where the reel starts */
+async function toCaption(c,t,s){if(s)s.out();var top=+t.dataset.top,h=t.offsetHeight;
+  mv(t,{transform:'none',opacity:1},{transform:'translateY('+(4-top)+'px) scale(.46)',opacity:.6},640,SPRING,s?120:0);
+  c.edge.set('landed');return Math.round(4+h*.46+20);}
+function captionNow(r,text){var t=title(r,text);t.style.transform='translateY('+(4-t.dataset.top)+'px) scale(.46)';t.style.opacity=.6;return Math.round(4+t.offsetHeight*.46+20);}
+
+/* the reel: shots that advance on their own with a soft cut; swipe, or tap left and right, to move; a row of the
+   closing shot jumps back to its shot */
+function reel(c,r,top,shots,instant){var w=el(r,'a-reel',''),i=-1,user=false,n=shots.length,ticks=null,els=[];w.style.top=top+'px';
+  if(n>1)ticks=el(w,'a-ticks',shots.map(function(){return '<i><b></b></i>';}).join(''));
+  shots.forEach(function(sh,x){var e=el(w,'a-shot'+(sh.top?' top':''),sh.html);[].forEach.call(e.children,function(ch,j){ch.style.setProperty('--i',j);});els.push(e);if(sh.init)sh.init(e,go);});
+  function marks(ms){if(!ticks)return;[].forEach.call(ticks.children,function(t,x){t.className=x<i?'done':x===i&&x<n-1?(user||!ms?'held':'now'):x===i?'done':'';if(ms)t.style.setProperty('--d',ms+'ms');});}
+  function go(x,byHim,ms){x=Math.max(0,Math.min(n-1,x));if(byHim)user=true;if(x===i)return;var dir=x>i?1:-1,old=els[i];i=x;
+    if(old){old.classList.remove('on');mv(old,{opacity:1,transform:'none',filter:'none'},{opacity:0,transform:'translateX('+(-dir*18)+'px) scale(.98)',filter:'blur(6px)'},220,OUT);}
+    var e=els[x];e.classList.add('on');
+    if(instant&&!old)e.style.opacity=1;else mv(e,{opacity:0,transform:'translateX('+(dir*28)+'px) scale(.985)',filter:'blur(4px)'},{opacity:1,transform:'none',filter:'none'},520,SPRING,old?110:0);
+    marks(ms);}
+  var x0=null;w.addEventListener('pointerdown',function(e){x0=e.clientX;});
+  w.addEventListener('pointerup',function(e){if(x0===null)return;var dx=(e.clientX-x0)/scaleOf(c);x0=null;
+    if(Math.abs(dx)>40){go(i+(dx<0?1:-1),true);return;}
+    if(e.target.closest('button')||i===n-1)return;var b=w.getBoundingClientRect();go(e.clientX-b.left<b.width/3?i-1:i+1,true);});
+  return {go:go,play:async function(){for(var x=0;x<n;x++){if(user)return;var ms=shots[x].ms||0;go(x,false,ms);if(x<n-1)await c.wait(ms);}}};}
+
+/* the leave-in countdown, ticking every second wherever it shows */
+function countdown(c,r){var left=(LEAVE-NOW)*60;
+  (async function(){for(;;){r.querySelectorAll('.cd').forEach(function(e){var m=Math.floor(left/60),s=left%60;e.textContent=e.dataset.f==='min'?(m+(s?1:0))+' min':m+':'+String(s).padStart(2,'0');});await c.wait(1000);left=Math.max(0,left-1);}})().catch(function(){});}
+
+function dayShots(){var a=D.asks.day.answer,e0=a.events[0],lv=split(e0.leave,', '),wx=split(a.weather,': '),frac=(LEAVE-NOW)/(hm(e0.at)-NOW);
+  var H=420,y=function(m){return Math.round((m-9*60)/600*H);},rain=hm(/rain from (\d+:\d+)/.exec(a.weather)[1]);
+  var strip='<div class="a-strip" style="height:'+H+'px"><i class="rail"></i><i class="rain" style="top:'+y(rain)+'px;height:'+(H-y(rain))+'px"></i><i class="now" style="top:'+y(NOW)+'px"></i><small class="nl" style="top:'+y(NOW)+'px">Now</small>'+
+    a.events.map(function(e){var last=e===a.events[a.events.length-1];return '<div class="a-ev" style="top:'+y(hm(e.at))+'px"><b>'+e.at+'</b><div><b>'+e.t+'</b><small>'+e.where+'</small>'+(last?'<small class="sky">Rain from 18:00: take a jacket</small>':'')+'</div></div>';}).join('')+'</div>';
+  return [
+    {ms:4400,html:'<p class="a-k">Leave in</p><div class="a-hero cd">'+(LEAVE-NOW)+':00</div><h3 class="a-h">'+e0.t+' at '+e0.at+'</h3><p class="a-p">'+e0.where+'</p>'+
+      '<div class="a-rail"><i class="go" style="width:'+(frac*100)+'%"></i><span style="left:0">Now</span><span class="f" style="left:'+(frac*100)+'%">'+hm2(LEAVE)+'</span><span style="left:100%">'+e0.at+'</span></div><p class="a-p">'+lv[1]+'</p>'},
+    {ms:4600,top:true,html:'<h3 class="a-h">'+a.events.length+' events today</h3><p class="a-p">'+wx[0].replace(/, rain from.*/,'')+'</p>'+strip},
+    {ms:4200,html:'<img class="a-face" alt="" src="'+D.asks.jade.answer.who.face+'"><h3 class="a-h">'+a.waiting.who+' is waiting on you</h3><p class="a-p">'+a.waiting.about+', '+a.waiting.at+'</p><div class="a-quote">'+a.waiting.last+'</div>'},
+    {ms:3400,html:'<p class="a-k">Due '+a.payment.due+'</p><div class="a-hero">'+a.payment.amount+'</div><h3 class="a-h">'+a.payment.t+'</h3>'},
+    {top:true,init:function(e,go){e.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){go(+b.dataset.go,true);};});},
+      html:'<div class="a-rows">'+
+        '<button type="button" class="a-row" data-go="0"><span class="lead f cd" data-f="min">'+(LEAVE-NOW)+' min</span><span class="txt"><b>Leave for the '+e0.t.toLowerCase()+'</b><small>'+lv[1]+'</small></span></button>'+
+        a.events.slice(1).map(function(e){return '<button type="button" class="a-row" data-go="1"><span class="lead">'+e.at+'</span><span class="txt"><b>'+e.t+'</b><small>'+e.where+'</small></span></button>';}).join('')+
+        '<button type="button" class="a-row" data-go="1"><span class="lead">18:00</span><span class="txt"><b>Rain</b><small>'+wx[1].replace(/^./,function(ch){return ch.toUpperCase();})+'</small></span></button>'+
+        '<button type="button" class="a-row" data-go="2"><span class="lead"><img class="a-face s" alt="" src="'+D.asks.jade.answer.who.face+'"></span><span class="txt"><b>'+a.waiting.who+': '+a.waiting.about+'</b><small>'+a.waiting.at+'</small></span></button>'+
+        '<button type="button" class="a-row" data-go="3"><span class="lead">'+a.payment.amount+'</span><span class="txt"><b>'+a.payment.t+'</b><small>Due '+a.payment.due+'</small></span></button></div>'}];}
+function hm2(m){return Math.floor(m/60)+':'+String(m%60).padStart(2,'0');}
+
+function jadeShots(c){var a=D.asks.jade.answer,ld=split(a.lead,'. ');
+  return [
+    {ms:3000,html:'<img class="a-face" alt="" src="'+a.who.face+'"><h3 class="a-h">'+ld[0]+'</h3><p class="a-big">'+ld[1]+'</p>'},
+    {ms:4200,html:'<div class="a-who"><img class="a-face s" alt="" src="'+a.who.face+'"><span><b>'+a.who.name+'</b><small>'+a.reply.app+', '+a.reply.at+'</small></span></div><div class="a-quote">'+a.reply.t+'</div>'},
+    {html:'<div class="a-who"><img class="a-face s" alt="" src="'+a.who.face+'"><span><b>'+a.who.name+'</b><small>'+a.reply.app+', '+a.reply.at+'</small></span></div><div class="a-quote s">'+a.reply.t+'</div>'+
+      '<div class="a-draft">'+a.draft+'</div><button type="button" class="a-send"><span class="l1">'+a.send+'</span><span class="l2" aria-hidden="true"><i></i><i></i><i></i></span><span class="l3">'+a.sent+'</span></button>',
+      init:function(e){var b=e.querySelector('.a-send');b.onclick=async function(){if(b.dataset.s)return;b.dataset.s=1;b.classList.add('busy');b.setAttribute('aria-label','Sending');
+        try{await c.wait(1100);}catch(x){return;}b.classList.remove('busy');b.classList.add('done');b.setAttribute('aria-label',a.sent);e.querySelector('.a-draft').classList.add('sent');c.edge.set('landed');};}}];}
+
+/* one idea answers: the key part large, the rest under it */
+function oneShot(lead){var p=split(lead,lead.indexOf(': ')>=0?': ':'. ');return [{html:'<div class="a-hero mid">'+p[0]+'</div><p class="a-big">'+p[1].replace(/^./,function(ch){return ch.toUpperCase();})+'</p>'}];}
+
+async function answer(c,r,t,s,shots){var top=await toCaption(c,t,s);await c.wait(260);var rl=reel(c,r,top,shots);countdown(c,r);return rl.play();}
+async function ask(c,r,a){var mine=asked;asked=null;var text=mine?mine.text:a.ask;
+  return (mine?mine.how:a.how)==='voice'?spoken(c,r,text,!!mine):typed(c,r,text,!!mine);}
+
+Shell.mount({title:'Turn by turn v2: A, cinema',
+  onAsk:function(text,how){asked={text:text,how:how};Shell.run(how==='voice'?'voice-send':'type-send');},
+  scenes:[
+  {id:'idle',label:'Idle',run:function(c){var r=root(c),h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
+    mv(h.firstChild,{opacity:0,transform:'translateY(16px)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);
+    mv(h.lastChild,{opacity:0},{opacity:1},600,SOFT,250);}},
+  {id:'type-send',label:'He types an ask',run:async function(c){var r=root(c),mine=!!asked,t=await ask(c,r,D.asks.day);
+    if(!mine){c.edge.set('work');subtitle(r,t).set(stepHtml(D.asks.day.steps[0].t));return;}
+    var w=await work(c,r,t,D.asks.day);await answer(c,r,t,w.s,dayShots());}},
+  {id:'voice-send',label:'He says an ask',run:async function(c){var r=root(c),mine=!!asked,t=await ask(c,r,D.asks.jade);
+    if(!mine){c.edge.set('work');subtitle(r,t).set(stepHtml(D.asks.jade.steps[0].t));return;}
+    var w=await work(c,r,t,D.asks.jade);await answer(c,r,t,w.s,jadeShots(c));}},
+  {id:'working',label:'Life works',run:async function(c){var r=root(c),t=title(r,D.asks.day.ask);mv(t,{opacity:0},{opacity:1},400);
+    var w=await work(c,r,t,D.asks.day);await answer(c,r,t,w.s,dayShots());}},
+  {id:'slow',label:'A slow step',run:async function(c){var r=root(c),t=title(r,D.slow.ask);mv(t,{opacity:0},{opacity:1},400);
+    var w=await work(c,r,t,D.slow);await answer(c,r,t,w.s,oneShot(D.slow.answer.lead));}},
+  {id:'answer-day',label:'Answer: the day',run:async function(c){var r=root(c),t=await ask(c,r,D.asks.day),w=await work(c,r,t,D.asks.day);await answer(c,r,t,w.s,dayShots());}},
+  {id:'answer-jade',label:'Answer: Jade (voice)',run:async function(c){var r=root(c),t=await ask(c,r,D.asks.jade),w=await work(c,r,t,D.asks.jade);await answer(c,r,t,w.s,jadeShots(c));}},
+  {id:'follow-up',label:'A follow-up',run:async function(c){var r=root(c),top=captionNow(r,D.asks.day.ask),sh=dayShots();reel(c,r,top,sh,true).go(sh.length-1);countdown(c,r);
+    mv(r,{opacity:0},{opacity:1},400);await c.wait(1500);
+    await c.type(c.field.input,D.followUp.ask);await c.wait(380);mv(c.field.send,{transform:'scale(.8)'},{transform:'scale(1)'},420,SPRING);
+    var r2=root(c);[].forEach.call(r.children,function(x){gone(x,260);});
+    var t=await typed(c,r2,D.followUp.ask,true),w=await work(c,r2,t,D.followUp);r.remove();await answer(c,r2,t,w.s,oneShot(D.followUp.answer.lead));}},
+  {id:'history',label:'Earlier turns',run:function(c){var r=root(c,true);
+    D.history.forEach(function(h,i){var e=el(r,'a-turn','<small>'+h.at+'</small><span class="q">'+h.ask+'</span><span class="r">'+h.answer+'</span>');
+      mv(e,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING,i*140);});
+    c.stage.scrollTop=c.stage.scrollHeight;}},
+  {id:'failure',label:'A step fails',run:async function(c){var r=root(c),t=title(r,D.failure.ask);mv(t,{opacity:0},{opacity:1},400);
+    var w=await work(c,r,t,D.failure);if(w.ok)return;var e=split(D.failure.error.t,': ');
+    w.s.set(e[0],'fail');w.s.note(e[1].replace(/^./,function(ch){return ch.toUpperCase();}));c.edge.set('rest');}}]});
+</script>
+</body>
+</html>

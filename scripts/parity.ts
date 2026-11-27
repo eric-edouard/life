@@ -7,7 +7,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { clock } from "@life/server/src/core/clock";
 import { chromium, type Page } from "playwright";
 import {
@@ -16,6 +16,7 @@ import {
   placementOf,
   type ScreenNode,
 } from "./design-compare";
+import { GATE_SKIPPED, RESULT, SHOTS } from "./e2e-dirs";
 
 // The parity board (docs/plans/2026-11-26-app-matches-prototype.md): each state of the approved prototype
 // (`2026-11-25-app-v4.html`, one side-panel button) beside the app reaching it in a flow test over the same made-up data.
@@ -24,16 +25,17 @@ import {
 // A row is green when every column it has passes: Looks (the reviewer's score of the pair, 8 or more; the words-and-boxes
 // gaps are its evidence), Works (the flow test, which checks the calls the app made), Taps (no more than the
 // prototype's), Accessibility (Apple's audit, blocking only as `blockingA11yOf` says), Owner (his "not right" is a failing note until the next batch fixes it).
+// `bun run parity --gate` (the check's "parity gate", after the Swift builds): runs the flows of the rows green on the Mac's
+// last board and fails naming each whose flow now fails or takes more taps; it writes nothing, and skips on battery.
 
 const REPO = join(import.meta.dir, "..");
 const PROTO = join(
   REPO,
   "docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html"
 );
-const OUT = join(REPO, "docs/design/2026-11-23-chat-first/parity");
+const BOARD_DIR = "docs/design/2026-11-23-chat-first/parity";
+const OUT = join(REPO, BOARD_DIR);
 const VERDICTS = join(REPO, "docs/design/parity-verdicts.json");
-const SHOTS = "/tmp/lifelog-parity"; // FlowTest.shoot's
-const RESULT = "/tmp/lifelog-e2e-dd/result.xcresult"; // e2e-phone.ts's
 const FRAME: [number, number] = [390, 844];
 const LOOKS_PASS = 8;
 
@@ -178,6 +180,10 @@ export interface BoardRow {
   title: string;
   works: boolean | null;
 }
+
+/** A side-panel scene no row brings the app to: its board row's id, from its button's selector. */
+export const notBuiltIdOf = (selector: string) =>
+  selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
 
 /** The side panel's buttons: one prototype state each, the board's rows, titled by their words. */
 function panelOf(page: Page) {
@@ -349,6 +355,20 @@ async function shootPrototype(rows: Row[]) {
   return { design: new Map(shots), titles };
 }
 
+/** The flows, in the heavy lane (one simulator job on the Mac at a time; at once inside a push's check, `heavy.sh`'s rule). */
+function runFlows(rows: Row[]) {
+  Bun.spawnSync(["rm", "-rf", SHOTS, RESULT]); // a build that fails leaves no stale result behind
+  Bun.spawnSync(
+    [
+      join(REPO, "tools/heavy.sh"),
+      "bun",
+      join(REPO, "scripts/e2e-phone.ts"),
+      ...rows.map((r) => r.flow),
+    ],
+    { stderr: "inherit", stdout: "inherit" }
+  );
+}
+
 /** Each flow test's result, by class, from the last `e2e-phone` run. */
 function flowResults() {
   const json = Bun.spawnSync([
@@ -379,6 +399,25 @@ function flowResults() {
   }
   return results;
 }
+
+/** The app's taps in a row's flow, from its shot in `SHOTS`. */
+const tapsOf = (id: string) => {
+  const file = join(SHOTS, `${id}.taps`);
+  return existsSync(file) ? Number(readFileSync(file, "utf8")) : null;
+};
+/** No more taps than the prototype's, when its task takes any. */
+const isTapsOk = (app: number | null, proto: number) =>
+  proto === 0 || (app !== null && app <= proto);
+
+/** The gate's failures: of rows green before, those whose flow failed or took more taps than the prototype. */
+export const regressedOf = (
+  rows: Row[],
+  results: Map<string, boolean>,
+  taps: (id: string) => number | null
+) =>
+  rows.filter(
+    (r) => results.get(r.flow) !== true || !isTapsOk(taps(r.id), r.taps)
+  );
 
 const read = <T>(file: string): T | null =>
   existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as T) : null;
@@ -415,7 +454,7 @@ export const greenOf = (r: Omit<BoardRow, "changed" | "green" | "pair">) =>
   r.review !== null &&
   r.review.score >= LOOKS_PASS &&
   r.works === true &&
-  (!r.taps || (r.taps.app !== null && r.taps.app <= r.taps.proto)) &&
+  isTapsOk(r.taps?.app ?? null, r.taps?.proto ?? 0) &&
   r.owner?.verdict !== "not right";
 
 export function boardRowOf(
@@ -461,10 +500,7 @@ function filledRowOf(
     copyFileSync(app, join(OUT, `${row.id}.app.png`));
   }
   const pair = pairOf(shot?.nodes);
-  const tapsFile = join(SHOTS, `${row.id}.taps`);
-  const taps = existsSync(tapsFile)
-    ? Number(readFileSync(tapsFile, "utf8"))
-    : null;
+  const taps = tapsOf(row.id);
   const gaps = shot
     ? gapsOf(
         design.elements,
@@ -503,6 +539,54 @@ export function withReviews(
   });
 }
 
+/** The gate's rows: those green on a board (the Mac's last), or why it runs none. */
+export function gateRowsOf(board: string): Row[] | string {
+  const baseline = read<{ rows: BoardRow[] }>(board);
+  const green = new Set(baseline?.rows.filter((r) => r.green).map((r) => r.id));
+  const rows = ROWS.filter((r) => green.has(r.id));
+  if (rows.length) {
+    return rows;
+  }
+  return baseline
+    ? "no green row on the Mac's last board"
+    : "no board from the Mac yet";
+}
+
+/** `--gate`: the rows green on the Mac's last board (the main checkout's, from any worktree), their flows run again. */
+function gate() {
+  const power = Bun.spawnSync(["pmset", "-g", "batt"]).stdout.toString();
+  const common = Bun.spawnSync(
+    ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: REPO }
+  )
+    .stdout.toString()
+    .trim();
+  const rows = power.includes("Battery Power")
+    ? "on battery"
+    : gateRowsOf(join(dirname(common), BOARD_DIR, "board.json"));
+  if (typeof rows === "string") {
+    console.log(`skipped: ${rows}`);
+    return GATE_SKIPPED;
+  }
+  runFlows(rows);
+  const ran = existsSync(RESULT);
+  const results = flowResults();
+  const regressed = regressedOf(rows, results, tapsOf);
+  for (const r of regressed) {
+    let why = "its flow fails";
+    if (!ran) {
+      why = "the flows didn't run (build failed?)";
+    } else if (results.get(r.flow)) {
+      why = `takes ${tapsOf(r.id) ?? "?"} taps, the prototype ${r.taps}`;
+    }
+    console.error(`✗ ${r.id} (${r.title}): ${why}`);
+  }
+  console.log(
+    `${rows.length - regressed.length} of ${rows.length} green rows hold`
+  );
+  return regressed.length ? 1 : 0;
+}
+
 if (import.meta.main) {
   const args = process.argv.slice(2);
   const flag = (name: string) => {
@@ -515,6 +599,9 @@ if (import.meta.main) {
     read<Record<string, Verdict>>(flag("--verdicts") ?? VERDICTS) ?? {};
   const boardUrl = flag("--digest");
   const reviewsFile = flag("--reviews");
+  if (args.includes("--gate")) {
+    process.exit(gate());
+  }
   const ids = args.filter((a) => !a.startsWith("--"));
   const rows = ids.length ? ROWS.filter((r) => ids.includes(r.id)) : ROWS;
   mkdirSync(OUT, { recursive: true });
@@ -522,20 +609,7 @@ if (import.meta.main) {
   async function run() {
     const { design, titles } = await shootPrototype(rows);
     if (!noApp) {
-      // The flows, in the heavy lane: one simulator job on the Mac at a time.
-      Bun.spawnSync(["rm", "-rf", SHOTS]);
-      Bun.spawnSync(
-        [
-          join(REPO, "tools/heavy.sh"),
-          "bun",
-          join(REPO, "scripts/e2e-phone.ts"),
-          ...rows.map((r) => r.flow),
-        ],
-        {
-          stderr: "inherit",
-          stdout: "inherit",
-        }
-      );
+      runFlows(rows);
     }
     const results = flowResults();
     const before = stored?.rows ?? [];
@@ -572,7 +646,7 @@ if (import.meta.main) {
       );
     }
     for (const { selector, title } of notBuilt) {
-      const id = selector.replace(/\W+/g, "-").replace(/^-|-$/g, "");
+      const id = notBuiltIdOf(selector);
       add({
         a11y: null,
         a11yBlocking: null,

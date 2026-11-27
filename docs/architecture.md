@@ -216,6 +216,7 @@ someone else is capped at 0.6 confidence.
 | Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; lifelog's iPhone and Watch apps in Swift 6, and its Android capture app in Kotlin. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
 | Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
+| Voice | The pendant pipeline's processes (lifelog's server, the Mac helper, speaker recognition, the embedder), each a launchd job Life's helper installs (`host/voice.ts`): they outlive a Life crash, quit or update, since the server holds the only copy of the pendant's audio. Each job runs `life voice run <child>`, which works out the child's environment (token hashes, never tokens) and replaces itself with it; `life voice start` rewrites a job only when its plist changed. Lifelog Host ran them until the cut-over. |
 | Mail | Resend for the report, else a notification. The backup and the network are above. |
 
 ## The code
@@ -259,6 +260,7 @@ The repo around it is a Bun workspace:
 |---|---|
 | `apps/server` | The code above, with its runtime dependencies. The helper (`scripts/helper.ts`) compiles it for Life.app |
 | `apps/mac` | Life.app ([its README](../apps/mac/README.md)) |
+| `apps/relay` | The relay behind `*.hostedbyme.app`: OpenTunnel's server pinned by commit, our patches and the Porkbun DNS hook, on Fly (`README.md` there) |
 | `apps/edge` | The Cloudflare Worker in front of the owner's public address, a bridge until #137 (deploy steps in `wrangler.jsonc`) |
 | `packages/config` | The shared TypeScript base (`tsconfig.base.json`), which the root `tsconfig.json` extends |
 | `scripts/` | The helper, the app build, releases, the check, the benches and evals. Outside the zones; they import the server as the workspace package `@life/server/src/…` |
@@ -292,6 +294,10 @@ models read. The reads an app shows (`read_matters`, `read_matter`, `read_inbox`
 in JSON, sent once as text; it acts through the same tools (`answer_check`, `change_registered_agent`,
 `correct_memory`, `change_todo_item`).
 
+- **The voice server** (`voice-forward.ts`: `/voice/*`, with the `lifelog` setting): the phone's one origin. Each
+  request goes to the voice server on loopback as it came, without the prefix, its body and answer streamed (up to
+  65 MiB; Life's own routes keep 256 KiB) with no time limit for its long polls; the voice server's tokens are its only
+  auth, and its map page is never served here.
 - **The brand** (`apps/server/src/host/http/server.ts`: `/docs/brand.md`, `/assets/brand/tokens.css` and the files they link), open to all: Life's
   own files, nothing of the owner's, for his agent to style what it makes for him.
 

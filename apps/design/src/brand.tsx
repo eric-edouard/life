@@ -1,5 +1,6 @@
-// The design system, drawn from tokens.css itself: every variable it declares shows here, so a new token appears
-// without a line of this file changing. The rules in words are docs/brand.md and the app v4 notes, linked.
+// The brand guide, drawn from tokens.css itself: every variable it declares shows here, so a new token appears
+// without a line of this file changing. The mark is assets/brand's own drawing; the rules in words are docs/brand.md,
+// linked, never copied.
 import tokens from "../../../assets/brand/tokens.css?raw";
 
 const declared = [...tokens.matchAll(/^\s*--([a-z0-9-]+):\s*([^;]+);/gm)].map(
@@ -33,6 +34,19 @@ const NOTES = [
   ["Philosophy and guidelines", "#/philosophy.md"],
 ];
 const SAMPLE = "Did Jade answer about Saturday?";
+
+/** A brand drawing in the page's text colour (the SVGs carry one fill; a mask lets the theme choose). */
+function Drawn({ className, src }: { className: string; src: string }) {
+  const mask = `url(${src}) center / contain no-repeat`;
+  return (
+    <span
+      aria-label="Life"
+      className={`block bg-fg ${className}`}
+      role="img"
+      style={{ mask, WebkitMask: mask }}
+    />
+  );
+}
 
 function Section({
   children,
@@ -88,12 +102,12 @@ function Swatches({ list }: { list: { name: string; value: string }[] }) {
   );
 }
 
-export function DesignSystem() {
+export function Brand() {
   return (
     <div className="flex max-w-5xl flex-col gap-12">
       <header className="flex flex-col gap-3">
         <h1 className="m-0 font-bold text-[clamp(2rem,5vw,3.25rem)] leading-none tracking-tight">
-          Design system
+          Brand
         </h1>
         <p className="m-0 max-w-[60ch] text-muted">
           Drawn live from{" "}
@@ -115,6 +129,18 @@ export function DesignSystem() {
           ))}
         </div>
       </header>
+      <Section title="The mark">
+        <div className="flex flex-wrap items-end gap-10 rounded-panel bg-card p-8">
+          <Drawn className="h-14 w-[6.4rem]" src="/assets/brand/life.svg" />
+          <span className="grid size-24 place-items-center rounded-[22%] bg-bg">
+            <Drawn className="h-12 w-[2.4rem]" src="/assets/brand/life-l.svg" />
+          </span>
+        </div>
+        <p className="m-0 text-muted text-row-line">
+          The wordmark, and the icon: the L on ink, 22% corners. Leave one
+          x-height clear around it.
+        </p>
+      </Section>
       <Section title="Colours">
         <Swatches list={colours} />
       </Section>
