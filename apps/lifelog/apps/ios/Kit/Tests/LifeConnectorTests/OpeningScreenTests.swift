@@ -62,7 +62,7 @@ private func read(_ refs: [(String, String)], opening: [String], state: (String)
     o.left(at: t0 + minute)
     o.came(at: t0 + 7 * minute)
     o.take(try read([("d2", "decision")], opening: ["d2"]), at: .now)
-    #expect(o.top == ["d2"] && o.broken.isEmpty)
+    #expect(o.top == ["d2"] && o.broken.isEmpty && o.brought.isEmpty)
 }
 
 @Test func showEarlierBringsBackTheThreadADayAtATime() {

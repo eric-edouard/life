@@ -255,9 +255,9 @@ struct ThreadView: View {
                 seenRows = 0
                 Task { proxy.scrollTo(Self.greeting, anchor: .top) }
             }
-            // A new ask lands at the bottom: after every row already there.
             // An ask Life brings is unfolded at the bottom: brought fully into view above the field.
             .onChange(of: opening.brought.last?.ref) { if let ref = opening.brought.last?.ref { life.opened = ref } }
+            // A new ask lands at the bottom: after every row already there.
             .onChange(of: life.items.value) {
                 guard let read = life.items.value else { return }
                 opening.take(read, at: max(life.now(), thread.entries.last?.at ?? .distantPast))
