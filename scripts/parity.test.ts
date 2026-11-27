@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { blockingA11yOf, greenOf } from "./parity";
+import { blockingA11yOf, greenOf, ROWS, regressedOf } from "./parity";
 
 // Each parity fixture (the prototype's own made-up data) keeps the shape of the fixture it was copied from:
 // every key path it holds exists in that source, so the app's decoders see no new field.
@@ -115,4 +115,18 @@ test("accessibility blocks on clipped text and on what the prototype's state lac
     hit,
     clipped,
   ]);
+});
+
+test("the gate names a green row whose flow fails or takes more taps than the prototype", () => {
+  // Rows whose task takes taps: the first holds, the second's flow fails, the third takes one more tap, the fourth counted none.
+  const rows = ROWS.filter((r) => r.taps > 0).slice(0, 4);
+  const ids = rows.map((r) => r.id);
+  const results = new Map(rows.map((r, i) => [r.flow, i !== 1]));
+  const taps = (id: string) => {
+    const i = ids.indexOf(id);
+    return i === 3 ? null : (rows[i]?.taps ?? 0) + (i === 2 ? 1 : 0);
+  };
+  expect(regressedOf(rows, results, taps).map((r) => r.id)).toEqual(
+    ids.slice(1)
+  );
 });

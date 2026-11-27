@@ -92,6 +92,8 @@ const macSteps: Record<string, string[]> = {
     debugOnlyPreviews,
     ...new Bun.Glob(`${ios}/**/*.swift`).scanSync(),
   ],
+  // The rows green on the Mac's last parity board still pass their flows (scripts/parity.ts).
+  "parity gate": ["bun", "scripts/parity.ts", "--gate"],
   "swift format": [
     "swift",
     "format",
@@ -175,9 +177,9 @@ if (passed) {
     }
   }
 } else if (swift) {
-  // The two swift tests and xcodebuild each take every core: one after another, so they and the server tests are not
-  // all starved at once (load 188 with 0% idle at a landing, 21 Nov).
-  const SERIAL = ["swift test", "swift test mac", "xcodebuild"];
+  // The two swift tests, xcodebuild and the parity gate's simulators each take every core: one after another, so they
+  // and the server tests are not all starved at once (load 188 with 0% idle at a landing, 21 Nov).
+  const SERIAL = ["swift test", "swift test mac", "xcodebuild", "parity gate"];
   const quoted = (cmd: string[]) =>
     cmd.map((a) => `'${a.replaceAll("'", "'\\''")}'`).join(" ");
   for (const [name, cmd] of Object.entries(macSteps)) {

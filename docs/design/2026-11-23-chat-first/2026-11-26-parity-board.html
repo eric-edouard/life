@@ -89,7 +89,7 @@ function rowHtml(r) {
 function render() {
   if (!board) return;
   const was = board.was ?? null;
-  $("#count").textContent = `${board.green} of ${board.total} green` + (was !== null && was !== board.green ? `, was ${was}` : "");
+  $("#count").textContent = `${board.green} of ${board.total} green · ${board.rows.filter((r) => r.status === "filled").length} built` + (was !== null && was !== board.green ? `, was ${was}` : "");
   for (const b of document.querySelectorAll("[data-f]")) b.setAttribute("aria-pressed", String(b.dataset.f === filter));
   let rows = board.rows;
   if (filter === "changed") rows = rows.filter((r) => r.changed && r.status === "filled");
