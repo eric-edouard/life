@@ -21,7 +21,7 @@ while an ask is open. After any big change on screen or any new message from Lif
 being shown and proposes the three likeliest next asks. It works in any situation: an open ask (its follow-ups), an
 item that just settled (what usually comes next), a list (what to do with it), an empty thread (the day's usual
 first asks). The prototype shows it with a stand-in by context
-([the shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg)). Not over-engineered at first: one cheap
+(the shell prototype (a claude.ai copy, since retired)). Not over-engineered at first: one cheap
 call, on the default model.
 
 ## How it learns

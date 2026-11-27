@@ -3,7 +3,7 @@
 Reference: the nine pieces the app v4 prototype adds, the drifts between the prototype, the decided docs and the brand,
 and the decisions the owner takes before the phone bundles (P2, P3) build from it. The prototype is
 [`2026-11-25-app-v4.html`](2026-11-25-app-v4.html), published as the owner's private artifact
-[app v4](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF). The current spec
+[app v4](2026-11-25-app-v4.html). The current spec
 ([`2026-11-23-current-spec.md`](2026-11-23-current-spec.md)) and the v4 plan
 ([`../../plans/2026-11-25-overhaul/README.md`](../../plans/2026-11-25-overhaul/README.md)) still win where this page
 only proposes.

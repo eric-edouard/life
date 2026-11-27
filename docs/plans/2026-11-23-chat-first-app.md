@@ -2,7 +2,7 @@
 
 Explanation: an exploration of a phone app whose one entry point is the Ask Life conversation with the main session,
 what was decided, what was researched, and what it would take in code. Nothing here is built. The design is the canvas
-[Life app (Chat)](https://claude.ai/artifact/CwiSJncrntgP6CsKSFrkpu); its boards' sources are in
+Life app (Chat) (a claude.ai copy, since retired); its boards' sources are in
 [`docs/design/2026-11-23-chat-first/`](../design/2026-11-23-chat-first/).
 
 ## The brief
@@ -220,7 +220,7 @@ Whatever it picks, these hold: what acts (an ask, a matter, answers, Undo) stays
 composed can act beyond opening a link on his tap or a picture full screen; what Life holds goes as a ref the app
 reads; values the agent writes (a table, a translation) are checked against the sources the answer cites before they
 show; and it must cover the 23 Nov answers (Markdown text, a table, pictures, a phrase to say, a document as sent, a
-place: the [answers page](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R), private to the owner).
+place: the answers page (a claude.ai copy, since retired), private to the owner).
 
 A starting library to weigh, drawn on 23 Nov 2026 (its reference:
 [`2026-11-23-answer-components.md`](../design/2026-11-23-chat-first/2026-11-23-answer-components.md); its look: the Answers page
@@ -355,7 +355,7 @@ name still becomes a card on the exact words.
 Tapping a face opens that person's or organization's profile as an overlay over the thread (the face rises to the
 top, the thread blurs and darkens behind; a glass back button, or a drag in any direction, lets it go). Its sections,
 in order: who they are to him, the ways to reach them, what needs him, where things stand, what waits on them, what
-is coming up, the last time, what they are like ([the shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg); the owner kept plain titled sections on
+is coming up, the last time, what they are like (the shell prototype (a claude.ai copy, since retired); the owner kept plain titled sections on
 24 Nov 2026, after trying a letter, swipeable moments, a timeline, their own words set large, progressive disclosure
 and a labels rail). A lead paragraph is no longer asked for. Checked against the connector's read of a real person on
 24 Nov 2026, what it needs:

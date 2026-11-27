@@ -5,7 +5,7 @@ the design log ([`2026-11-23-design-decisions.md`](2026-11-23-design-decisions.m
 reached; where the two differ, this page wins. The plan is
 [`docs/plans/2026-11-23-chat-first-app.md`](../../plans/2026-11-23-chat-first-app.md), the product rules
 [`docs/product.md`](../../product.md), the brand [`docs/brand.md`](../../brand.md). The clickable
-[shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg) shows it (private to the owner).
+shell prototype (a claude.ai copy, since retired) shows it (private to the owner).
 
 ## What decides
 
@@ -221,7 +221,7 @@ One line under his words says what Life is doing now, until its answer starts (o
 - Life answers as it wants, then ends with its question when it needs one (owner, 23 Nov 2026). A question is not an
   item: it is not counted and never notifies; its suggested answers become his words.
 - Each kind of question gets its own control (owner, 23 Nov 2026: design E of the
-  [questions page](https://claude.ai/artifact/1KczjS4siwxnjYkEJ5RHLU); drawn on the Answers page of the Chat design
+  questions page (a claude.ai copy, since retired); drawn on the Answers page of the Chat design
   canvas): which one or an offer, two equal pills under the question, the likelier inverted (cream, black text) and on
   the right, as on an ask (owner, 24 Nov 2026); a yes before an act, the same, the act's answer inverted on the right; an option with consequences, option cards with one line of facts and Life's pick
   in Life's blue; a value, a row of equal round pills with a gap between them, never a merged segmented control; a person, their faces side by side; his own words, the field starts his

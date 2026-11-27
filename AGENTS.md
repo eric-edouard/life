@@ -26,6 +26,7 @@ bun run check                    # the gate: lint, types, fallow, tests, scrub, 
                                  # LIFE_CHECK_SWIFT=at-landing skips the Swift builds on a branch's earlier pushes; its landing push runs them
 bun test apps/server/src/memory/units.test.ts   # one test file
 bun run fix                      # format and lint fixes
+bun run design                   # the designs app (apps/design) over docs/design; the Mac serves it at designs.ericedouard.com
 bun life <command>               # the CLI (apps/server/src/desk/life-entry.ts, host/cli.ts); `bun life memory …` for the pipeline and reads
 bun life validate                # check truth/ (from the live checkout only, never a worktree)
 bun scripts/app.ts [out]         # build Life.app (LIFE_SIGN_IDENTITY to sign, else ad hoc)
