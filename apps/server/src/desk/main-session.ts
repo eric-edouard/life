@@ -111,8 +111,6 @@ interface TurnState {
   /** His words are what he tapped (`MainSessionAsk.tap`). */
   isTap: boolean;
   say: (l: MainSessionLine) => void;
-  /** His spoken ask's facts: heard with low confidence ("hey Life" misheard, or another voice), no act takes them. */
-  spoken: Ask["spoken"];
   words: string;
 }
 const turnsOf = new WeakMap<Desk["db"], Map<number, TurnState>>();
@@ -125,12 +123,10 @@ const turnsIn = (db: Desk["db"]) => {
 /**
  * The one gate of the main session's acts: `said` found in his words of its turn `turn` (`locate`: no accents, case,
  * quote style or spacing; 8 characters at least), returned as he said them. It proves the words are his, sent this
- * ask, never that the act matches them: anything outward stays a card he taps. Throws when they are not there, and
- * always on words heard with low confidence.
+ * ask, never that the act matches them: anything outward stays a card he taps. Throws when they are not there.
  */
 export function hisWordsIn(desk: Desk, turn: number, said: string) {
-  const state = turnsIn(desk.db).get(turn);
-  const words = state?.spoken?.isUnsure ? undefined : state?.words;
+  const words = turnsIn(desk.db).get(turn)?.words;
   const found = words === undefined ? null : locate(said, [words]);
   if (!found) {
     throw new Error(
@@ -224,14 +220,14 @@ const durationOf = (ms: number) =>
 
 /** An ask, or one of his spoken asks (`spoken-ask-intake.ts`: its conversation and the turn it starts at; never on the strict wire). */
 type Ask = MainSessionAsk & {
-  spoken?: { conversation: string; isUnsure: boolean; turn: number };
+  spoken?: { conversation?: string; turn?: number };
 };
 
 /** The message of one ask: his words as he sent them (or spoke them: the recording around them), his screen's refs, and how long each kind of handed work takes now. */
 const messageOf = (db: Desk["db"], ask: Ask) =>
   [
     ask.spoken
-      ? `His words, spoken to Life ("hey Life", turn ${ask.spoken.turn} of conversation \`${ask.spoken.conversation}\`): ${JSON.stringify(ask.words)}${ask.spoken.isUnsure ? " (heard with low confidence: maybe not his; your acts are refused on them, so ask him in your answer to say them again)" : ""}`
+      ? `His words, spoken to Life ("hey Life"${ask.spoken.conversation ? `, turn ${ask.spoken.turn} of conversation \`${ask.spoken.conversation}\`` : ""}): ${JSON.stringify(ask.words)}`
       : `His words, through Ask Life: ${JSON.stringify(ask.words)}`,
     ...(ask.screen
       ? [
@@ -350,7 +346,6 @@ async function answerNow(
     entry,
     isTap: ask.tap === true,
     say,
-    spoken: ask.spoken,
     words: ask.words ?? "",
   };
   turnsIn(db).set(turn, state);
@@ -562,10 +557,6 @@ export const askEntryOf = (db: Desk["db"], key: string) =>
       "select id, words, answer, error, refs, answered_at, deleted_at, turn_id from thread_entry where ask_key = ?"
     )
     .get(key);
-
-/** Whether this process holds the ask kept under key `key` (queued, running or just ended). */
-export const isAskHeld = (desk: Desk, key: string) =>
-  asksOf.get(desk.db)?.has(key) === true;
 
 /**
  * An ask stored under key `key` before this process knew it (a retry after a restart): its answer as stored, or why

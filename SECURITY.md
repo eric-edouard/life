@@ -165,8 +165,8 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   its bridge where the room's own features allow it then, or his GitHub comment deleted through `gh`; never iMessage or mail.
 - To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
   and the to-do items with Google Tasks as the backend.
-- To his own lifelog server: his corrections about recordings, a "heard you" notice for each voice ask (the agent's
-  name only, never his words), and, for each new card in his
+- To his own lifelog server: his corrections about recordings, for each voice ask a "Life heard you" notice, then its outcome
+  under the same id ("Life answered" or "Life couldn't do it"), never his words or Life's, and, for each new card in his
   inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new
   cards", the number of cards that block him (the badge), the push's level (passive, active or time-sensitive) and,
   for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title or

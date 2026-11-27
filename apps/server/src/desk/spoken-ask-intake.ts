@@ -17,7 +17,7 @@ import {
   saveSpokenAsksCursor,
 } from "./desk-store";
 import { queue } from "./event-queue";
-import { askEntryOf, askMainSession, isAskHeld } from "./main-session";
+import { askEntryOf, askMainSession } from "./main-session";
 import {
   PERSONAL_BRIEF,
   roleAssignmentOf,
@@ -83,49 +83,87 @@ function isSettled(db: Desk["db"], a: LedgerEntry) {
   return Boolean(e && (e.answered_at || e.deleted_at));
 }
 
-/** Spoken ask `a`, asked of the main session unless this process holds it; one a restart cut ends with `CUT_BY_RESTART`. */
+/** Where spoken ask `a` was said, when the hearing recorded it: its conversation and the turn it starts at. */
+const spokenOf = (a: LedgerEntry) => {
+  const { conversation, turns } = a.after;
+  const turn = Array.isArray(turns) ? turns[0] : undefined;
+  return typeof conversation === "string" && typeof turn === "number"
+    ? { conversation, turn }
+    : {};
+};
+
+/** The spoken asks this process asked of the main session and whose answer it still waits for. */
+const running = new WeakMap<Desk["db"], Set<string>>();
+
+/** What he sees on words heard with low confidence (a misheard wake, or another voice): no turn runs on them. */
+export const NOT_SURE =
+  "Life wasn't sure you were talking to it: say it again.";
+
+/** Ends spoken ask `a`'s entry with line `why` (opened here when it has none), answered, never asked again. */
+function endWith(db: Desk["db"], a: LedgerEntry, why: string) {
+  const at = clock().toISOString();
+  db.run(
+    "insert or ignore into thread_entry (ask_key, asked_at, words) values (?, ?, ?)",
+    [a.id, at, a.instruction?.quote ?? ""]
+  );
+  db.run(
+    "update thread_entry set error = ?, answered_at = ? where ask_key = ? and answered_at is null and deleted_at is null",
+    [why, at, a.id]
+  );
+}
+
+/**
+ * Spoken ask `a`, asked of the main session unless this process waits on it: one push that Life heard him, which its
+ * outcome replaces (the same `pushId`; never his words or Life's through Apple). Words heard with low confidence run no
+ * turn, and one a restart cut (its turn begun) is not asked again: its acts would run twice. Each ends with a line.
+ */
 function askSpoken(desk: Desk, a: LedgerEntry) {
-  if (isAskHeld(desk, a.id)) {
+  const { db } = desk;
+  const held = running.get(db) ?? new Set<string>();
+  running.set(db, held);
+  if (held.has(a.id)) {
     return;
   }
-  if (askEntryOf(desk.db, a.id)?.turn_id) {
-    desk.db.run(
-      "update thread_entry set error = ?, answered_at = ? where ask_key = ? and answered_at is null and deleted_at is null",
-      [CUT_BY_RESTART, clock().toISOString(), a.id]
-    );
+  const outcome =
+    (title: string, body = "Open Life to read it.") =>
+    () =>
+      notifyPhone({
+        body,
+        pushId: pushIdOf(`thread:${askEntryOf(db, a.id)?.id}`),
+        title,
+      });
+  const before = askEntryOf(db, a.id);
+  const why = before?.turn_id
+    ? CUT_BY_RESTART
+    : a.after.confidence === "low" && NOT_SURE;
+  if (why) {
+    endWith(db, a, why);
+    outcome("Life couldn't do it")();
     return;
   }
-  const isNew = !askEntryOf(desk.db, a.id);
+  held.add(a.id);
   // Not waited for: a turn of minutes never holds the tick.
   const answered = askMainSession(
     desk,
     {
       key: a.id,
-      spoken: {
-        conversation: String(a.after.conversation ?? ""),
-        isUnsure: a.after.confidence === "low",
-        turn: Array.isArray(a.after.turns) ? Number(a.after.turns[0]) : 0,
-      },
+      spoken: spokenOf(a),
       words: a.instruction?.quote ?? "",
     },
     () => undefined
   );
-  // One push that Life heard him, which its outcome replaces (the same `pushId`); never his words or Life's through Apple.
-  const pushId = pushIdOf(`thread:${askEntryOf(desk.db, a.id)?.id}`);
-  if (isNew) {
-    notifyPhone({ body: "On it.", pushId, title: "Life heard you" });
-  }
-  answered
-    .then((x) =>
-      notifyPhone({
-        body: "Open Life to read it.",
-        pushId,
-        title: x.kind === "error" ? "Life couldn't do it" : "Life answered",
-      })
+  const heard = before
+    ? Promise.resolve(true)
+    : outcome("Life heard you", "On it.")();
+  // The outcome after the heard push, so his phone ends on it.
+  Promise.all([answered, heard])
+    .then(([x]) =>
+      outcome(x.kind === "error" ? "Life couldn't do it" : "Life answered")()
     )
     .catch((error: unknown) =>
       log("desk.asks", { ...errorOf(error), ok: false, what: "main" })
-    );
+    )
+    .finally(() => held.delete(a.id));
 }
 
 /** Receives his new spoken asks, each once: a spoken one asked of the main session, a told one queued for its agent. */

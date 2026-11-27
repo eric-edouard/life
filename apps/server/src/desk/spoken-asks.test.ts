@@ -14,8 +14,12 @@ import {
   saveSpokenAsksCursor,
 } from "./desk-store";
 import { standingAgentOf } from "./role-agents";
-import { CUT_BY_RESTART, receiveSpokenAsks } from "./spoken-ask-intake";
-import { asgOf, callDoorOf, setup } from "./test-desk";
+import {
+  CUT_BY_RESTART,
+  NOT_SURE,
+  receiveSpokenAsks,
+} from "./spoken-ask-intake";
+import { asgOf, setup } from "./test-desk";
 
 // His spoken asks ("hey Life") from the ledger: each one ask of the main session, which always ends with something he
 // sees (his decisions of 27 Nov 2026: "The main session", "Yes, always reply"); his words the main session told one
@@ -165,15 +169,25 @@ test("every spoken ask ends with an answer or an error in his thread: a reply, n
     ids.push(spoken());
     await d.receive();
     await settle();
-    // A turn cut by a restart: begun, held by no process. It ends with a line, never asked again.
+    // A turn cut by a restart: begun, held by no process. It ends with a line and its outcome push, never asked again.
     const cut = spoken();
     ids.push(cut);
     d.s.desk.db.run(
       "insert into thread_entry (ask_key, asked_at, words, turn_id) values (?, ?, ?, 1)",
       [cut, new Date().toISOString(), "hey Life, cut"]
     );
+    pushes.mockClear();
     await d.receive();
     expect(d.entryOf(cut)?.error).toBe(CUT_BY_RESTART);
+    expect(pushes.mock.calls).toEqual([
+      [
+        {
+          body: "Open Life to read it.",
+          pushId: expect.stringMatching(PUSH_ID),
+          title: "Life couldn't do it",
+        },
+      ],
+    ]);
     for (const id of ids) {
       const e = d.entryOf(id);
       expect(e?.answered_at).toBeString();
@@ -186,24 +200,42 @@ test("every spoken ask ends with an answer or an error in his thread: a reply, n
   }
 });
 
-test("words heard with low confidence reach the main session, but no act takes them", async () => {
+test("words heard with low confidence run no turn: they end with a line asking him to say it again", async () => {
   const d = deskOf();
   const pushes = spyOn(push, "notifyPhone").mockResolvedValue(true);
   try {
     const id = spoken("forget test Sam", "low");
     await d.receive();
+    await settle();
+    expect(d.s.fake.said).toEqual([]);
+    expect(d.entryOf(id)).toMatchObject({
+      answered_at: expect.any(String),
+      error: NOT_SURE,
+    });
+    expect(pushes).toHaveBeenCalledTimes(1);
+  } finally {
+    pushes.mockRestore();
+  }
+});
+
+test("spoken asks received while the first runs are each asked once, in turn; none is taken for cut", async () => {
+  const d = deskOf();
+  const pushes = spyOn(push, "notifyPhone").mockResolvedValue(true);
+  try {
+    const ids = Array.from({ length: 22 }, () => spoken());
+    await d.receive();
     const ref = await d.toldMain(1);
-    expect(d.s.fake.said.at(-1)?.message).toContain(
-      "heard with low confidence"
-    );
-    const main = standingAgentOf(d.s.desk.db, "main")?.id ?? "";
-    expect(
-      await callDoorOf(d.s, main, "complain", { said: "forget test Sam" })
-    ).toContain("must be his own words");
-    d.s.fake.hear(ref, { kind: "words", text: "Did you say forget Sam?" });
+    await d.receive();
+    await d.receive();
+    expect(d.s.fake.said).toHaveLength(1);
+    d.s.fake.hear(ref, { kind: "words", text: "Done." });
     d.s.fake.exit(ref, true);
     await settle();
-    expect(d.entryOf(id)?.answer).toBe("Did you say forget Sam?");
+    expect(d.s.fake.said).toHaveLength(2);
+    await d.receive();
+    expect(ids.map((id) => d.entryOf(id)?.error ?? null)).not.toContain(
+      CUT_BY_RESTART
+    );
   } finally {
     pushes.mockRestore();
   }
