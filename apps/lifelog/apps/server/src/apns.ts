@@ -197,7 +197,7 @@ export const NoticeRequest = z
   .object({
     badge: z.number().int().min(0).optional(),
     body: z.string().min(1).max(500).optional(),
-    kind: z.literal("calendar.added").optional(),
+    kind: z.enum(["calendar.added", "thread.reply"]).optional(),
     level: z.enum(["passive", "active", "time-sensitive"]).optional(),
     pushId: z.string().regex(PUSH_ID).optional(),
     removed: z.array(z.string().regex(PUSH_ID)).min(1).max(100).optional(),
@@ -212,7 +212,7 @@ export const NoticeRequest = z
       (n.title !== undefined &&
         n.pushId !== undefined &&
         n.badge === undefined),
-    { message: "`calendar.added` is an alert with its `pushId`, never a badge" }
+    { message: "a `kind` is an alert with its `pushId`, never a badge" }
   )
   .refine(
     (n) =>
@@ -226,7 +226,7 @@ export type NoticeRequest = z.infer<typeof NoticeRequest>;
 // A visible push, the one composer: what the owner reads (none for a badge alone), and any of the app's own fields
 // beside `aps`. A badge marks Life's card pushes: they join the thread `life-cards`. One card's `pushId` (which the
 // phone routes on) lets the phone rewrite it (`mutable-content`, its category `life.card`, or `life.calendar` for an
-// appointment Life added, `kind` `calendar.added`, beside `aps`) and names it among his notifications (`apns-collapse-id`). `level` is Apple's `interruption-level`; a passive one makes no sound.
+// appointment Life added, `kind` `calendar.added`, beside `aps`) and names it among his notifications (`apns-collapse-id`); `kind` `thread.reply` (a spoken ask heard, then answered) only collapses, with no category. `level` is Apple's `interruption-level`; a passive one makes no sound.
 // Badge-only ones go at priority 5, as Apple asks of what need not wake him; the rest at 10, never held.
 export const alertOf = (
   bundleId: string,
@@ -248,7 +248,8 @@ export const alertOf = (
             badge,
             "thread-id": "life-cards",
           }),
-      ...(pushId
+      // A thread reply's push names no card: no category, nothing for the service extension to read.
+      ...(pushId && kind !== "thread.reply"
         ? {
             category: kind ? "life.calendar" : "life.card",
             "mutable-content": 1,

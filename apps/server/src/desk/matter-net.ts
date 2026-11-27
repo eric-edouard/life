@@ -234,12 +234,6 @@ async function readOnMatters(desk: Desk, people: People) {
 export const netsOf = async (desk: Desk, people: People) =>
   (await readOnMatters(desk, people)).nets;
 
-/** The nets (`netsOf`), and whether the embedder made every one's vectors (`isWhole`). */
-export async function readNets(desk: Desk, people: People) {
-  const { isWhole, nets } = await readOnMatters(desk, people);
-  return { isWhole, nets };
-}
-
 /** The open assignments to close on their matter, each with its outcome (`readOnMatters`). */
 export const matterEndsOf = async (desk: Desk, people: People) =>
   (await readOnMatters(desk, people)).ends;
@@ -298,21 +292,6 @@ async function relatedOf(
     })
   );
   return { isWhole, related };
-}
-
-/** For each of his own words (no person: only meaning matches), the nets it is close to (`relatedOf`), and `isWhole`. */
-export async function relatedWords(desk: Desk, nets: Net[], texts: string[]) {
-  const { isWhole, related } = await relatedOf(
-    desk,
-    nets,
-    texts.map((text) => ({ person: null, text }))
-  );
-  return {
-    isWhole,
-    related: related.map((r) =>
-      r.map(({ assignment, ...why }) => ({ assignment, by: why as WakeWhy }))
-    ),
-  };
 }
 
 /** The new messages each net relates to (`relatedOf`), each from when its assignment was opened on: one wake each, its facts and why (`by`, for `routeOf`). */

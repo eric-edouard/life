@@ -4,9 +4,9 @@ How-to: hand your requests to agents that act on them. This is optional. Without
 question; it just never hands work to anyone.
 
 Your agents run on this Mac, started by Life's desk (turn it on in Life's settings). When you say "hey Life, book a
-table for Friday" near your phone (with [voice](voice.md) on), Life hands your words to one agent: the one already
-working on what you talk about, else your Personal agent, which Life starts the first time it needs it. Your phone
-says "<agent> heard you" when that agent starts on it. Anything it would send in your name comes to you first as a
+table for Friday" near your phone (with [voice](voice.md) on), Life takes your words as if you had typed them in Ask Life:
+your phone says "Life heard you", your words show in the thread, and the answer follows there, or a line saying what
+Life couldn't do and why. Longer work goes on to an agent. Anything it would send in your name comes to you first as a
 card.
 
 The agents run outside Life's boundary, with this Mac's access: [SECURITY.md](../../SECURITY.md) explains the risk.

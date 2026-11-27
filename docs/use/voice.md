@@ -12,8 +12,8 @@ With voice on, Life also gets:
 
 - what was said in conversations, searchable word for word;
 - where you were, from the places lifelog saw you stay;
-- "hey Life", which marks what you say next as one to remember and hands it to the right agent: the one on the matter
-  it is about, else your Personal agent. Your phone says "<agent> heard you" when that agent starts on it.
+- "hey Life", which marks what you say next as one to remember and answers it as Ask Life would: your phone says "Life
+  heard you", and the answer, or why Life couldn't do it, shows in the thread.
 
 ## In the app
 

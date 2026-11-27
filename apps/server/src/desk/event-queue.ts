@@ -115,7 +115,7 @@ export function routeOf<
 }
 
 /**
- * The one assignment something new goes to (pure), shared by a confirmed arrival and his spoken ask: of the open
+ * The one assignment a confirmed arrival goes to (pure): of the open
  * assignments on a matter it relates to (`related`: by a person who wrote it, or by meaning, `matter-net.ts`), a
  * person's first, then the closest meaning, then the lowest id; else the Personal agent's own (`personal`); else none.
  */

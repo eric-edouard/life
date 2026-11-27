@@ -12,7 +12,7 @@ export type PushLevel = "passive" | "active" | "time-sensitive";
 export interface Push {
   badge?: number;
   body?: string;
-  kind?: "calendar.added";
+  kind?: "calendar.added" | "thread.reply";
   level?: PushLevel;
   pushId?: string;
   removed?: string[];

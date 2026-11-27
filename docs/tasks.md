@@ -41,7 +41,7 @@ to his agents through the desk, which starts and wakes them.
   when none is active or stopped). The answer is `{ask, reached: "caretaker"}` only once all three are written; a
   stopped caretaker, a full desk, a runtime that does not answer, or a caretaker whose first turn never began since
   his last complaint, leaves it waiting (his next complaint tries once more), and the answer says so. The
-  caretaker reads it through its door (`read_complaint`, only on the assignment that received it; an agent reads a spoken ask routed to it the same way, `read_spoken_ask`); while it holds it, the
+  caretaker reads it through its door (`read_complaint`, only on the assignment that received it; an agent reads his words the main session told it the same way, `read_spoken_ask`); while it holds it, the
   card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
   never handed to a turn: the desk receives them again.
 - Old ledger lines of an agent's updates and replies (`TASK_LINES`) are history, parsed and never written; `read_memory_changes`
@@ -222,9 +222,8 @@ the estimate is the actor's event prices times what the agent expects. The night
 A mark is his words to Life, to keep: the unit is always read, every fact extracted, each at its own importance (at least
 `KEEP_AT`). Three ways in, none of which acts or sends. "hey Life" in a recording is Life's own wake word
 (`LIFE_WAKE`, `host/hear.ts`): the hearing records the span (`spansIn`, `writeMarks`, refs only) and an ask of the desk,
-which hands it to one agent (`desk/spoken-ask-intake.ts`: the matter assignment its words are closest to in meaning, else
-the Personal agent, which it starts when none stands; its `ask.spoken` event holds where his words are, never them, and
-wakes the agent at once; his phone hears "<agent> heard you" when that agent's turn begins); agents
+which asks it of the main session (`desk/spoken-ask-intake.ts`: his words in his thread with Life's eyes, one push "Life
+heard you", then its answer or a line saying why not; the main session hands work on with `tell_agent`); agents
 A message to himself (mail he sent only to his own addresses; every
 message of a chat with himself, `chatPerson` in `units.ts`) is marked by its reader. What he tells Life in a chat
 (`tell_life`) is the source `told-life`. The unit carries its marks (`marked`) and says so in its text (`MARKED`), so only its
@@ -282,7 +281,7 @@ reads the rest of its settings. How the report and the alerts go out:
 - A crash of any `bun life` command (thrown, or a promise nobody awaited) is a `run.error` line of step `crash`; the
   daily triage reads them.
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
-- Each new voice ask: a push to his phone, "<agent> heard you" (`notifyPhone`, through lifelog), so a missing one
+- Each new voice ask: a push to his phone, "Life heard you", which its outcome replaces (the same `pushId`; `notifyPhone`, through lifelog), so a missing one
   tells him at once it was not heard. Never his words. Voice asks come only from lifelog, so without it there is none to push.
 - Each new card in his inbox, of every kind: its own push, "1 new card" with the badge (every open card that blocks
   him) and its `pushId` (`pushNewCards`, `host/card-push.ts`); past the first 5 of Life's own checks in one look, one

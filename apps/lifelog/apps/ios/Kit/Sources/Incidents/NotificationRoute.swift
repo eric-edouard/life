@@ -22,6 +22,9 @@ public enum NotificationRoute: Sendable, Equatable {
             self = .removed(Set(removed))
         } else if let pushId = userInfo["pushId"] as? String, userInfo["kind"] as? String == "calendar.added" {
             self = .appointment(pushId)
+        } else if userInfo["kind"] as? String == "thread.reply" {
+            // A spoken ask heard or answered (one id, so the answer replaces "heard"): Life's thread.
+            self = .inbox
         } else if let pushId = userInfo["pushId"] as? String {
             self = .card(pushId, card: userInfo["card"] as? String, life: userInfo["cardLife"] as? String)
         } else if (userInfo["aps"] as? [AnyHashable: Any])?["thread-id"] as? String == "life-cards" {
