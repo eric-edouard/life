@@ -20,6 +20,9 @@ button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 .bar button[aria-pressed="true"]{background:var(--fg);color:var(--on)}
 .view{flex:1;min-height:0;position:relative;border-radius:var(--panel-radius);background:var(--card);overflow:hidden}
 iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+/* wide: the pickers in a column on the right, so the phone gets the full height */
+@media (min-width:900px){body{display:grid;grid-template-columns:1fr 240px;grid-template-rows:auto 1fr;gap:14px}
+  .view{grid-column:1;grid-row:1/3}.bar{grid-column:2;align-content:flex-start}.bar b{flex-basis:100%;margin:6px 0 2px}}
 .none{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:var(--text-body)}
 </style>
 </head>

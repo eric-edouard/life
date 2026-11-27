@@ -436,10 +436,20 @@ function Body({ path }: { path: string }) {
 }
 
 /** The title line: the entry's name (else the file's), its date, and the file opened alone. */
-function Title({ entry, path }: { entry?: Entry; path: string }) {
+function Title({
+  entry,
+  path,
+  side,
+}: {
+  entry?: Entry;
+  path: string;
+  side: boolean;
+}) {
   const date = entry?.date ?? dateOf(path);
   return (
-    <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <header
+      className={`flex flex-wrap items-baseline gap-x-3 gap-y-1 ${side ? "lg:w-52 lg:flex-none lg:flex-col lg:items-start lg:pt-2" : ""}`}
+    >
       <h1 className="m-0 min-w-0 font-bold text-header">
         {entry?.title ?? path.split("/").filter(Boolean).at(-1)}
       </h1>
@@ -448,7 +458,7 @@ function Title({ entry, path }: { entry?: Entry; path: string }) {
       ) : null}
       {path.endsWith("/") ? null : (
         <a
-          className="ml-auto rounded-full bg-tint px-3 py-1 text-fg text-meta no-underline hover:bg-glass"
+          className={`ml-auto rounded-full bg-tint px-3 py-1 text-fg text-meta no-underline hover:bg-glass ${side ? "lg:ml-0" : ""}`}
           href={urlOf(path)}
           rel="noreferrer"
           target="_blank"
@@ -465,8 +475,10 @@ function Viewer({ path }: { path: string }) {
   const entry = ENTRIES.find((e) => e.path === path);
   const isPage = path.endsWith(".html");
   return (
-    <div className={`flex flex-col gap-4 ${isPage ? FULL_HEIGHT : ""}`}>
-      <Title entry={entry} path={path} />
+    <div
+      className={`flex flex-col gap-4 ${isPage ? `${FULL_HEIGHT} lg:flex-row-reverse` : ""}`}
+    >
+      <Title entry={entry} path={path} side={isPage} />
       <Body path={path} />
     </div>
   );
