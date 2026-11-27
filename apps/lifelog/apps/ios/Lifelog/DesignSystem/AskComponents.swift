@@ -280,7 +280,7 @@ struct SettingValueRow: View {
         ForEach(choices, id: \.self) { choice in
             Button(choice) { set(choice) }
                 .buttonStyle(.pill(choice == selection ? .filled : .quiet, size: .compact))
-                .fixedSize().frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity)
         }
     }
 }
