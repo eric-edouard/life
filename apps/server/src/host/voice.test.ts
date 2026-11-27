@@ -238,7 +238,7 @@ test("start restarts a job only when its plist changed, stops one that can't run
   }
 });
 
-test("Life reads voice with its reader token from voice's secrets, over LIFELOG_TOKEN; never through a file others can read", async () => {
+test("Life reads voice with its device token from voice's secrets, over LIFELOG_TOKEN; never through a file others can read", async () => {
   const seen: string[] = [];
   const server = Bun.serve({
     fetch: (req) => {
@@ -254,13 +254,13 @@ test("Life reads voice with its reader token from voice's secrets, over LIFELOG_
   try {
     await call("/status");
     mkdirSync(dirname(VOICE_SECRETS), { recursive: true });
-    writeFileSync(VOICE_SECRETS, JSON.stringify({ readerToken: "reader" }), {
+    writeFileSync(VOICE_SECRETS, JSON.stringify({ deviceToken: "device" }), {
       mode: 0o600,
     });
     await call("/status");
     chmodSync(VOICE_SECRETS, 0o640);
     await expect(call("/status")).rejects.toThrow("readable by others");
-    expect(seen).toEqual(["Bearer env-token", "Bearer reader"]);
+    expect(seen).toEqual(["Bearer env-token", "Bearer device"]);
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
     setSettings({ lifelog });

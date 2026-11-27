@@ -32,17 +32,17 @@ export const secretOf = (secrets: Record<string, unknown>, key: string) => {
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 };
 
-/** lifelog's server (REST API): its address from settings; its token voice's reader token, else `LIFELOG_TOKEN`. */
+/** lifelog's server (REST API): its address from settings; its token voice's device token (the routes Life calls, apple-health, notifications and the naming queue included), else `LIFELOG_TOKEN`. */
 const lifelogUrl = () => settings().lifelog?.url;
 const lifelogToken = () =>
-  secretOf(readVoiceSecrets(), "readerToken") ?? process.env.LIFELOG_TOKEN;
+  secretOf(readVoiceSecrets(), "deviceToken") ?? process.env.LIFELOG_TOKEN;
 
 /** What keeps lifelog from being read: its address or its token missing, or its secrets file unsafe; nothing when it is set up. */
 export function lifelogMissing() {
   try {
     return lifelogUrl() && lifelogToken()
       ? undefined
-      : "lifelog not set up (settings: lifelog; voice's readerToken or env LIFELOG_TOKEN)";
+      : "lifelog not set up (settings: lifelog; voice's deviceToken or env LIFELOG_TOKEN)";
   } catch (e) {
     return (e as Error).message;
   }
