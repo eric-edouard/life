@@ -405,6 +405,12 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 [parity][parity], [catalog][catalog], [assembly][assembly], [final][final], [integrate 2][integrate-2],
 [layout][layout], [nav][nav].
 
+### 28 Nov 2026
+
+- The turn by turn prototypes play the real flow ([real flow][realflow]): one quiet step line while Life works
+  ([product][product-rules]); a question about a message an agent already drafted a reply to brings that card, Send one
+  tap away; new answer blocks may be proposed, marked "new block"; Life never speaks aloud.
+
 ### 27 Nov 2026
 
 - The pendant's page is built (lab pendant D, "yes build it anyway"): its dot opens the page, one status line and
@@ -548,6 +554,7 @@ Reversed later:
 [v5]: 2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md
 [heylife]: 2026-11-23-chat-first/2026-11-27-hey-life-turns.html
 [turns]: ../handoff/2026-11-27-turn-by-turn.md
+[realflow]: 2026-11-27-turn-by-turn-v2/2026-11-28-real-flow.md
 [spec]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md
 [log]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-design-decisions.md
 [inventory]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-component-inventory.md

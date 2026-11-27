@@ -61,8 +61,9 @@ that safe.
    capped, each opening in place), then at most 3 asks that block him and a pill for the rest; the count stays the full
    total. The past is one Show earlier away, a day at a time. Back sooner, nothing changes; unsent words in the field
    stay either way.
-8. Life's insides never show; what it did always can. No agents, roles, steps, models or prompts on screen (agent
-   health lives only in Settings' diagnostics). What was done is always findable, and undoable where it can be.
+8. Life's insides never show; what it did always can. No agents, roles, models or prompts on screen (agent health
+   lives only in Settings' diagnostics); while Life works, one quiet step line that changes with each read ("Reading
+   your chats") (his decision of 28 Nov 2026). What was done is always findable, and undoable where it can be.
 9. An empty screen is a valid screen. Never fill it to look busy, and never say all is well.
 10. Every ask gets a reply (his "Yes, always reply" of 27 Nov 2026). A spoken "hey Life" shows in the thread as heard at
    once, then ends in the answer, a card, or a plain line saying what Life couldn't do and why; never silence.

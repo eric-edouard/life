@@ -1,7 +1,8 @@
 <!doctype html>
-<!-- Turn by turn v2, variation C "Face to face": Life answers in spoken lines, one at a time like subtitles, and each
-     thing a line names arrives above it (a face, a countdown, a map, an amount). Earlier lines dim and drift up; a tap
-     on one brings its data back. His words sit small at the top. Built on shell.js; only the stage is designed here. -->
+<!-- Turn by turn v2, variation C "Face to face", on the real flow (2026-11-28-real-flow.md). While Life works: his words
+     small at the top, and one quiet step line in the subtitle place, replaced at each read. The answer arrives whole at
+     the end, then its sentences show one at a time at a quick reading pace (text only, Life never speaks), each bringing
+     the thing it names above it. Earlier lines dim and drift up; a tap on one brings its thing back. Built on shell.js. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -11,111 +12,77 @@
 <link rel="stylesheet" href="edge.css">
 <link rel="stylesheet" href="shell.css">
 <style>
-/* the view: his question (top), the data (middle), Life's lines and its thinking (lower middle) */
+/* the view: his question (top), the things (middle), Life's lines or its step line (subtitle place) */
 .cv{position:absolute;inset:0;overflow:hidden}
 .cq{position:absolute;top:10px;left:36px;right:36px;display:flex;justify-content:center;text-align:center;pointer-events:none}
 .cq-t{font-size:var(--text-body);font-weight:600;line-height:1.35;color:color-mix(in srgb,var(--fg) 56%,transparent);text-wrap:balance}
-.cd{position:absolute;top:58px;bottom:226px;left:20px;right:20px}
-.cg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.cd{position:absolute;top:58px;bottom:214px;left:20px;right:20px}
+.cg{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 .cs,.ct,.clive-a{position:absolute;left:24px;right:24px;bottom:30px;height:0}
-/* a spoken line: words light up as said; earlier lines shrink, dim and drift up (transform and opacity only) */
+/* a line of the answer: its words settle in fast; earlier lines shrink, dim and drift up */
 .cl{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:var(--text-profile);font-weight:650;line-height:1.2;letter-spacing:-.012em;text-wrap:balance;transform-origin:50% 100%;transition:transform .8s cubic-bezier(.2,1,.3,1),opacity .5s ease;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .cl::before{content:'';position:absolute;inset:-24px -4px}
 .cl:focus-visible{outline:none;text-decoration:underline;text-underline-offset:6px}
-.cl .w{opacity:.14;transition:opacity .4s ease}
-.cl .w.on{opacity:1}
-.cl.flag{color:var(--flag)}
+.cl .w{display:inline-block;opacity:0}
+.cl.quiet{color:var(--muted);cursor:default}
 .cl.gone{pointer-events:none}
 /* his words while he speaks, in the subtitle place */
-.clive{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:var(--text-profile);font-weight:650;line-height:1.2;letter-spacing:-.012em;text-wrap:balance;transform-origin:50% 50%}
+.clive{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:var(--text-profile);font-weight:650;line-height:1.2;letter-spacing:-.012em;text-wrap:balance}
 .clive span{display:inline-block}
-/* Life thinking out loud: one soft line, its shimmer the brand's thinking line */
+/* Life working: one quiet line, its shimmer the brand's thinking line; a second, fainter line on a long turn */
 .ct-row{position:absolute;left:0;right:0;bottom:0;text-align:center}
-.ct-t{display:inline-block;font-size:var(--text-title);font-weight:600;background:linear-gradient(100deg,var(--muted) 0 38%,var(--fg) 50%,var(--muted) 62% 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 2.6s linear infinite}
+.ct-t{display:inline-block;font-size:var(--text-title);font-weight:600;background:linear-gradient(100deg,var(--muted) 0 38%,var(--fg) 50%,var(--muted) 62% 100%);background-size:300% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:shim 3.2s linear infinite}
 @keyframes shim{from{background-position:100% 0}to{background-position:0 0}}
-.ct-d{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:8px;font-size:var(--text-line);color:var(--faint);min-height:20px}
-.ct-d svg{flex:none}
-/* what Life found while working, gathering quietly */
-.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:300px}
-.chip{padding:8px 14px;border-radius:999px;background:var(--wash);font-size:var(--text-line);font-weight:600;color:var(--muted)}
-/* the data */
-.tile{background:var(--tile);border-radius:var(--block-radius)}
+.ct-s{position:absolute;left:0;right:0;bottom:-24px;text-align:center;font-size:var(--text-line);color:var(--faint)}
+/* the things */
+.tile{position:relative;background:var(--tile);border-radius:var(--block-radius);padding:14px 16px}
 .meta{font-size:var(--text-meta);color:var(--faint)}
 .mut{font-size:var(--text-line);color:var(--muted)}
 .ttl{font-size:var(--text-title);font-weight:650}
-.big{font-size:var(--text-profile);font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
-.face{flex:none;width:56px;height:56px;border-radius:50%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-weight:650;font-size:var(--text-header);color:var(--on)}
-.face.l{width:80px;height:80px;font-size:var(--text-profile)}
-.f-sam{background:var(--aura-sage)}.f-ben{background:var(--aura-sky)}
-.who{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
-.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--flag);vertical-align:middle;margin-left:6px}
-.bub{max-width:300px;padding:12px 16px;border-radius:var(--block-radius);background:var(--tile);font-size:var(--text-body);line-height:1.4}
-.bub.in{align-self:flex-start;border-bottom-left-radius:6px}
-.bub-wrap{width:100%;display:flex;flex-direction:column;gap:6px}
-.bub-wrap .meta{padding-left:6px}
-/* timeline of the day */
-.tl{width:100%;display:grid;grid-template-columns:52px 18px 1fr;column-gap:10px}
-.tl-row{display:contents}
-.tl-at{font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums;text-align:right;padding-top:1px}
-.tl-at.now{color:var(--muted);font-weight:600}
-.tl-k{position:relative;display:flex;justify-content:center}
-.tl-k::before{content:'';position:absolute;top:0;bottom:0;width:2px;background:var(--wash)}
-.tl-row:first-child .tl-k::before{top:9px}.tl-row:last-child .tl-k::before{bottom:auto;height:9px}
-.tl-k i{position:relative;margin-top:6px;width:9px;height:9px;border-radius:50%;background:var(--muted)}
-.tl-k i.now{background:var(--fg);width:11px;height:11px;margin-top:5px}
-.tl-x{padding-bottom:18px}
-.tl-x .flagw{color:var(--flag);font-size:var(--text-line);font-weight:600}
-/* leaving: countdown ring and the route */
-.go{width:100%;display:flex;align-items:center;gap:16px}
-.rg{flex:none;position:relative;width:72px;height:72px}
-.rg svg{position:absolute;inset:0;transform:rotate(-90deg)}
-.rg-b{stroke:var(--wash)}.rg-a{stroke:var(--fg);stroke-linecap:round;transition:stroke-dashoffset .3s linear}
-.rg-t{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--text-body);font-weight:650;font-variant-numeric:tabular-nums}
-.map{position:relative;width:100%;height:160px;overflow:hidden}
-.map svg{position:absolute;inset:0;width:100%;height:100%}
-.m-st{stroke:var(--fg);stroke-opacity:.07;stroke-width:6;fill:none;stroke-linecap:round}
-.m-rv{stroke:var(--aura-sky);stroke-opacity:.22;stroke-width:20;fill:none}
-.m-rt{stroke:var(--fg);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.m-gh{stroke:var(--fg);stroke-opacity:.28;stroke-width:2;fill:none;stroke-dasharray:3 7;stroke-linecap:round;opacity:0}
-.m-me{fill:var(--fg)}.m-ring{fill:var(--fg);fill-opacity:.14}
-.m-pin{fill:var(--fg)}.m-pin2{fill:var(--bg)}
-.m-x{opacity:0;transform-box:fill-box;transform-origin:center}.m-x circle{fill:var(--flag)}.m-x path{stroke:var(--on);stroke-width:2.2;stroke-linecap:round}
-.m-chip{position:absolute;right:10px;bottom:10px;padding:6px 12px;border-radius:999px;background:var(--glass);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);font-size:var(--text-line);font-weight:600}
-/* an amount and its week */
-.amt{display:flex;flex-direction:column;align-items:center;gap:2px}
-.wk{display:flex;gap:6px}
-.wk span{width:38px;padding:6px 0 8px;border-radius:var(--control-radius);display:flex;flex-direction:column;align-items:center;gap:2px;font-size:var(--text-line);font-weight:600;color:var(--muted)}
-.wk small{font-size:var(--text-meta);color:var(--faint);font-weight:600}
-.wk .today{background:var(--wash);color:var(--fg)}
-.wk .due{background:var(--fg);color:var(--on)}.wk .due small{color:var(--on);opacity:.7}
-/* the weather strip */
-.wx{width:100%;display:flex;flex-direction:column;gap:6px}
-.wx-top{display:flex;align-items:baseline;gap:10px}
-.wx svg{width:100%;height:auto;overflow:visible}
-.wx .ln{stroke:var(--fg);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.wx .ar{fill:var(--fg);fill-opacity:.06}
-.wx .rn{fill:var(--aura-sky);fill-opacity:.2}.wx .dr{stroke:var(--aura-sky);stroke-width:1.6;stroke-linecap:round}
-.wx .hr{fill:var(--faint);font-size:11.5px;font-family:var(--sans);font-weight:600}
-.wx .vw{transition:opacity .5s}.wx .vw circle{fill:var(--fg)}.wx .vw text{fill:var(--fg);font-size:13px;font-family:var(--sans);font-weight:650}
-.wx .vw.lit circle{fill:var(--aura-sky)}
-/* the table for Saturday */
-.seats{display:flex}.seats>*{margin-left:-12px;box-shadow:0 0 0 4px var(--bg)}.seats>*:first-child{margin-left:0}
-.seats .face{width:52px;height:52px;font-size:var(--text-title)}
-.f-you{background:var(--fg)}
-/* the draft: dashed while it's a draft (the brand's one outline), sent once sent */
+/* a proposed block, to be built: a quiet tag under it */
+.nb{display:block;margin-top:6px;font-style:normal;font-size:var(--text-meta);font-weight:600;color:var(--faint);text-align:right}
+.nb::before{content:'';display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;outline:1px dashed var(--faint);outline-offset:1px;vertical-align:1px}
+.ctr .nb{text-align:center}
+/* event rows (new block) */
+.ev{display:grid;grid-template-columns:52px 1fr;column-gap:12px;row-gap:12px;align-items:baseline}
+.ev b{font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums;text-align:right}
+/* a payment (new block) */
+.pay{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.pay .amt{font-size:var(--text-header);font-weight:650;font-variant-numeric:tabular-nums}
+/* a place (existing): a tap opens Maps */
+a.place{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none}
+a.place svg{flex:none;color:var(--muted)}
+a.place:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+/* a face (new block) and a quoted message (new block) */
+.who{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.face{width:72px;height:72px;border-radius:50%;object-fit:cover}
+.face.s{width:44px;height:44px}
+.qt{align-self:flex-start;max-width:300px}
+.bub{padding:12px 16px;border-radius:var(--block-radius);border-bottom-left-radius:6px;background:var(--tile);line-height:1.4}
+.qt .meta{display:block;padding:6px 0 0 6px}
+.qt .nb{text-align:left;padding-left:6px}
+.wait-row{display:flex;gap:12px;align-items:flex-start}
+/* a draft card (an items block): the draft dashed while it is a draft (the brand's one outline), Send his one tap */
+.dc{display:flex;flex-direction:column;gap:10px}
+.dc [hidden]{display:none!important}
+.dc-h{display:flex;flex-direction:column;gap:1px;padding-left:2px}
 .draft{align-self:flex-end;max-width:290px;padding:12px 16px;border-radius:var(--block-radius);border-bottom-right-radius:6px;background:var(--paper);outline:1.5px dashed color-mix(in srgb,var(--fg) 42%,transparent);outline-offset:-1.5px;transition:outline-color .6s ease}
 .draft.sent{outline-color:transparent}
-.draft-m{align-self:flex-end;min-height:18px;padding-right:6px;display:flex;align-items:center;gap:6px;font-size:var(--text-meta);color:var(--faint)}
-.draft-m.ok{color:var(--ok);font-weight:600}
+.edits{display:flex;gap:8px;justify-content:flex-end}
+.edits button{padding:6px 14px;border-radius:999px;background:var(--wash);font-size:var(--text-line);font-weight:600;color:var(--muted)}
 .send{width:100%;height:50px;border-radius:999px;background:var(--fg);color:var(--on);font-weight:650;font-size:var(--text-title);display:flex;align-items:center;justify-content:center;gap:10px}
-.send svg circle{stroke:var(--on)}
+.send:disabled{cursor:default}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid color-mix(in srgb,var(--on) 25%,transparent);border-top-color:var(--on);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.done{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:50px;font-size:var(--text-line);font-weight:600;color:var(--ok)}
+.done.undone{color:var(--muted)}
+.done button{padding:6px 14px;border-radius:999px;background:var(--wash);color:var(--fg)}
 /* earlier turns, a quiet chronology */
 .hist{position:absolute;left:28px;right:28px;bottom:30px;display:flex;flex-direction:column;gap:28px;text-align:center}
 .hist .ha{font-size:var(--text-line);font-weight:600;color:var(--muted);margin-top:4px}
 .hist .hl{font-size:var(--text-header);font-weight:650;line-height:1.25;margin-top:6px;text-wrap:balance}
 .hist .old{opacity:.55}
-.greet{color:var(--muted)}
-/* while he speaks: the field shows the voice moving, his words are up in the subtitle place */
+/* while he speaks: bars move in the field, his words are up in the subtitle place */
 .field.live .heard{color:transparent}
 .vbars{display:none;position:absolute;left:20px;top:50%;margin-top:-9px;height:18px;gap:3px;align-items:center;pointer-events:none}
 .field.live .vbars{display:flex}
@@ -132,29 +99,34 @@
 <script>
 var D=DATA,reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 var SPRING='cubic-bezier(.22,1.25,.36,1)',GLIDE='cubic-bezier(.16,1,.3,1)',OUT='cubic-bezier(.55,0,.85,.35)';
+var PIN='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+var TICK='<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.6 2.5L10 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function esc(s){return String(s).replace(/[&<>"]/g,function(ch){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
 function h(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;}
 function anim(el,kf,dur,ease,delay){if(!el||!el.animate)return Promise.resolve();
   return el.animate(kf,{duration:reduce?0:dur,easing:ease||GLIDE,delay:reduce?0:(delay||0),fill:'both'}).finished.catch(function(){});}
-function enter(el,delay,dy){return anim(el,[{opacity:0,transform:'translateY('+(dy||26)+'px) scale(.95)'},{opacity:1,transform:'none'}],760,SPRING,delay);}
+function enter(el,delay,dy){return anim(el,[{opacity:0,transform:'translateY('+(dy||26)+'px) scale(.96)'},{opacity:1,transform:'none'}],760,SPRING,delay);}
 function leave(el,dur){return anim(el,[{opacity:1,transform:'none'},{opacity:0,transform:'translateY(-22px) scale(.97)'}],dur||220,OUT).then(function(){el.remove();});}
-function norm(w){return w.toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');}
 function scaleOf(c){return c.phone.getBoundingClientRect().width/c.phone.offsetWidth;}
 function cancelled(e){if(!e||!e.cancelled)throw e;}
+/* the quiet tag on a proposed block */
+function nb(p){return p.block==='new'?'<i class="nb">new block · '+esc(p.kind)+'</i>':'';}
+/* an answer's words cut into its sentences (a colon inside a sentence stays) */
+function sentences(t){return t.match(/[^.!?]+[.!?]+/g).map(function(s){return s.trim();});}
 
 /* ---------- the view ---------- */
 function view(c){var r=h('div','cv'),V={c:c,r:r,q:h('div','cq'),d:h('div','cd'),s:h('div','cs'),lines:[],cur:null,pace:1};
   r.append(V.q,V.d,V.s);c.stage.appendChild(r);return V;}
 function setQ(V,text,show){V.q.innerHTML='';var q=h('div','cq-t',esc(text));V.q.appendChild(q);
   if(show)anim(q,[{opacity:0,transform:'translateY(-8px)'},{opacity:1,transform:'none'}],500);else q.style.opacity=0;return q;}
-
-/* the previous turn leaves upward, fast, before a new one: at most his turn and Life's on screen */
+/* the previous turn leaves upward, fast, before a new one */
 function clearTurn(V){var all=[].slice.call(V.q.children).concat([].slice.call(V.d.children),V.lines.map(function(L){return L.el;}));
-  all.forEach(function(e,i){e.style.transition='none';anim(e,[{opacity:getComputedStyle(e).opacity,transform:getComputedStyle(e).transform==='none'?'none':getComputedStyle(e).transform},{opacity:0,transform:'translateY(-40px)'}],240,OUT,i*18).then(function(){e.remove();});});
+  all.forEach(function(e,i){e.style.transition='none';var cs=getComputedStyle(e);
+    anim(e,[{opacity:cs.opacity,transform:cs.transform},{opacity:0,transform:'translateY(-40px)'}],240,OUT,i*18).then(function(){e.remove();});});
   V.lines=[];V.cur=null;}
 
 /* ---------- his turn ---------- */
-/* typed: the words lift out of the field, are said for a beat in the subtitle place, then become the question above */
+/* typed: the words lift out of the field, hold a beat in the subtitle place, then become the question above */
 async function askTyped(V,text){var c=V.c;await c.type(c.field.input,text);await c.wait(320);
   var k=scaleOf(c),pr=c.phone.getBoundingClientRect(),ir=c.field.input.getBoundingClientRect();
   var g=h('div','ghost',esc(text));c.phone.appendChild(g);
@@ -164,13 +136,11 @@ async function askTyped(V,text){var c=V.c;await c.type(c.field.input,text);await
   var gx=(gr.left+gr.width/2-pr.left)/k,gy=(gr.top+gr.height/2-pr.top)/k;
   var mx=(sr.left+sr.width/2-pr.left)/k-gx,my=(sr.top-pr.top)/k-26-gy,ms=Math.min(26/16,300/(gr.width/k));
   var qx=(qr.left+qr.width/2-pr.left)/k-gx,qy=(qr.top+qr.height/2-pr.top)/k-gy;
-  c.edge.set('listen');
   var fly=anim(g,[{transform:'none',opacity:1},{transform:'translate('+mx+'px,'+my+'px) scale('+ms+')',opacity:1,offset:.38},
     {transform:'translate('+mx+'px,'+my+'px) scale('+ms+')',opacity:1,offset:.6},{transform:'translate('+qx+'px,'+qy+'px) scale('+(15/16)+')',opacity:1,offset:.97},
     {transform:'translate('+qx+'px,'+qy+'px) scale('+(15/16)+')',opacity:0}],reduce?0:1500,'cubic-bezier(.45,0,.2,1)');
   await c.wait(reduce?0:1350);anim(q,[{opacity:0},{opacity:1}],220);await fly;g.remove();}
-
-/* spoken: his words appear in the subtitle place as heard (mirrored from the field, see below), then step up */
+/* held to talk: his words appear in the subtitle place as heard (mirrored from the field, below), then step up */
 async function askVoice(V,text){var c=V.c;if(V.lines.length||V.q.children.length)clearTurn(V);
   live(c);await c.speak(text);var L=live(c);renderLive(L,text);await c.wait(380);
   var q=setQ(V,text),k=scaleOf(c),a=L.getBoundingClientRect(),b=q.getBoundingClientRect();
@@ -182,40 +152,36 @@ function live(c){var a=c.stage.querySelector('.clive-a');if(!a){a=h('div','clive
 function renderLive(L,text){var words=text?text.split(' '):[],have=L.children.length;
   for(var i=have;i<words.length;i++){var s=h('span','',esc(words[i]));L.append(i?' ':'',s);anim(s,[{opacity:0,transform:'translateY(8px)',filter:'blur(4px)'},{opacity:1,transform:'none',filter:'blur(0)'}],420,GLIDE);}}
 
-/* ---------- Life working: one soft line that changes with each step ---------- */
-function ring(frac){var C=2*Math.PI*7;return '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" stroke-opacity=".25" stroke-width="2"/><circle class="mile" cx="9" cy="9" r="7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="'+C+'" stroke-dashoffset="'+C*(1-frac)+'" transform="rotate(-90 9 9)" style="transition:stroke-dashoffset .6s cubic-bezier(.16,1,.3,1)"/></svg>';}
-async function work(V,a,opts){var c=V.c;c.edge.set('work');var T=h('div','ct'),prev=null,chips=null;V.r.appendChild(T);
-  for(var i=0;i<a.steps.length;i++){var s=a.steps[i],row=h('div','ct-row','<div class="ct-t">'+esc(s.t)+'…</div><div class="ct-d"></div>');
-    if(prev)leave(prev,200);T.appendChild(row);enter(row,prev?90:0,16);prev=row;
-    if(s.d&&!s.slow){if(!chips){chips=h('div','cg','<div class="chips"></div>');V.d.appendChild(chips);}
-      var chip=h('span','chip',esc(s.d));chips.firstChild.appendChild(chip);enter(chip,420,10);}
-    if(s.slow){await c.wait(5000);var d=row.querySelector('.ct-d');d.innerHTML=ring(.25)+'<span>'+esc(s.d)+'</span>';enter(d,0,8);
-      var left=s.ms-5000,n=3;for(var j=1;j<=n;j++){await c.wait(left/(n+1));d.querySelector('.mile').style.strokeDashoffset=2*Math.PI*7*(1-(.25+.25*j));}await c.wait(left/(n+1));}
-    else await c.wait(s.ms);
-    if(opts&&opts.stopAfterFirst)return true;
-    if(s.fails){if(chips)leave(chips);V.think=T;return false;}}
-  leave(prev,200);if(chips)leave(chips,240);await c.wait(reduce?0:160);T.remove();return true;}
+/* ---------- Life working: "Thinking…", then one step line replaced at each read; nothing of what it finds ---------- */
+async function work(V,a,opts){var c=V.c;c.edge.set('work');var T=h('div','ct'),prev=null,t=0,still=null;V.r.appendChild(T);
+  function line(text){var row=h('div','ct-row','<div class="ct-t">'+esc(text)+'</div>');if(prev)leave(prev,260);T.appendChild(row);
+    anim(row,[{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],520,GLIDE,prev?120:0);prev=row;}
+  async function hold(ms){if(a.stillAfter&&!still&&t+ms>a.stillAfter){var w=a.stillAfter-t;await c.wait(w);t+=w;ms-=w;
+      still=h('div','ct-s',esc(a.still));T.appendChild(still);anim(still,[{opacity:0},{opacity:1}],900);}
+    await c.wait(ms);t+=ms;}
+  line('Thinking…');if(opts&&opts.stopAtThinking)return;await hold(a.first);
+  for(var i=0;i<a.steps.length;i++){line(a.steps[i].t);await hold(a.steps[i].ms);}
+  /* the answer is in: the line goes, the edge lands, a breath before the first sentence */
+  leave(prev,220);if(still)leave(still,220);c.edge.set('landed');await c.wait(reduce?0:420);T.remove();}
 
-/* ---------- Life's lines ---------- */
+/* ---------- the answer's lines ---------- */
 function layout(V){var y=0,list=V.lines.slice().reverse(),keep=[];
   list.forEach(function(L,i){var s=i?.6:1,op=i===0?1:i===1?.36:i===2?.17:0;if(L.recalled&&i)op=.8;
     L.el.style.transform='translateY('+(-y)+'px) scale('+s+')';L.el.style.opacity=op;y+=L.el.offsetHeight*s+(i?4:12);
-    if(op===0){L.el.classList.add('gone');var e=L.el;e.addEventListener('transitionend',function(){e.remove();},{once:true});}else keep.unshift(L);});
+    if(op===0){L.el.classList.add('gone');var e=L.el;setTimeout(function(){e.remove();},900);}else keep.unshift(L);});
   V.lines=keep;}
-async function say(V,line){var c=V.c,words=line.t.split(' '),el=h('div','cl'+(line.flag?' flag':'')+(line.cls?' '+line.cls:''),words.map(function(w){return '<span class="w">'+esc(w)+'</span>';}).join(' '));
-  el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',line.t);
-  var rec={el:el,line:line};el.onclick=function(){recall(V,rec);};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();recall(V,rec);}};
+/* one sentence: its words settle in quickly, its thing arrives with it, then it holds for a reading beat */
+async function say(V,line){var c=V.c,words=line.t.split(' '),el=h('div','cl'+(line.quiet?' quiet':''),words.map(function(w){return '<span class="w">'+esc(w)+'</span>';}).join(' '));
+  var rec={el:el,line:line};
+  if(!line.quiet){el.tabIndex=0;el.setAttribute('role','button');el.setAttribute('aria-label',line.t);
+    el.onclick=function(){recall(V,rec);};el.onkeydown=function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();recall(V,rec);}};}
   V.lines.forEach(function(L){L.recalled=false;});
   el.style.transform='translateY(30px)';el.style.opacity=0;V.s.appendChild(el);el.offsetHeight;V.lines.push(rec);layout(V);
-  if(V.lines.length===1&&!line.flag&&!line.quiet)c.edge.set('landed');
-  var spans=el.querySelectorAll('.w'),shown=false;
-  if(!line.at){show(V,rec);shown=true;}
-  for(var i=0;i<spans.length;i++){spans[i].classList.add('on');
-    if(!shown&&norm(words[i]).indexOf(norm(line.at))===0){show(V,rec);shown=true;}
-    await c.wait(reduce?0:(90+words[i].length*26)*V.pace);}
-  if(!shown)show(V,rec);
-  await c.wait(reduce?0:(line.hold||1000)*V.pace);}
-/* a line's data: a new group replaces the last one; a "then" line changes the group in place */
+  [].forEach.call(el.querySelectorAll('.w'),function(s,i){anim(s,[{opacity:0,transform:'translateY(6px)',filter:'blur(3px)'},{opacity:1,transform:'none',filter:'blur(0)'}],380,GLIDE,i*32*V.pace);});
+  show(V,rec);
+  await c.wait(reduce?0:Math.max(1300,520+words.length*200)*V.pace);}
+async function tell(V,lines){for(var i=0;i<lines.length;i++)await say(V,lines[i]);}
+/* a line's thing: a new group replaces the last one; a "then" line adds to the group in place */
 function show(V,rec){var L=rec.line;
   if(L.then&&V.cur){L.then(V.cur.el);var base=V.cur.make;rec.make=function(){var e=base();L.then(e,true);return e;};return;}
   if(!L.props)return;rec.make=L.props;swap(V,L.props);}
@@ -223,117 +189,69 @@ function swap(V,make){var old=V.cur;if(old&&old.el.isConnected)leave(old.el,220)
   var el=make();el.classList.add('cg');V.cur={el:el,make:make};V.d.appendChild(el);
   [].forEach.call(el.children,function(ch,i){enter(ch,60+i*110);});}
 function recall(V,rec){if(!rec.make)return;V.lines.forEach(function(L){L.recalled=L===rec;});layout(V);
-  if(V.cur&&V.cur.make===rec.make&&V.cur.el.isConnected){anim(V.cur.el,[{transform:'scale(1)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],420,GLIDE);return;}
+  if(V.cur&&V.cur.make===rec.make&&V.cur.el.isConnected){anim(V.cur.el,[{transform:'scale(1)'},{transform:'scale(1.02)'},{transform:'scale(1)'}],420,GLIDE);return;}
   swap(V,rec.make);}
-async function speak(V,lines){for(var i=0;i<lines.length;i++)await say(V,lines[i]);}
 
-/* ---------- the data pieces ---------- */
-function mmss(s){s=Math.ceil(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
-/* minutes left until 9:55 from 9:41, ticking live; the ring is a 20-minute dial */
-function countdown(el,secs){var t0=performance.now(),C=2*Math.PI*31,seen=false;
-  (function f(now){if(!el.isConnected){if(seen)return;}else{seen=true;var left=Math.max(0,secs-((now||t0)-t0)/1000);
-    el.querySelector('.rg-t').textContent=mmss(left);el.querySelector('.rg-a').style.strokeDashoffset=C*(1-left/1200);}requestAnimationFrame(f);})();}
-function mapHTML(o){return '<div class="map tile"><svg viewBox="0 0 350 160" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'+
-  '<path class="m-st" d="M0 28H350M0 132H350M60 0V160M120 0V160M190 0V160M250 0V160M318 0V160M0 90L120 28"/>'+
-  '<path class="m-rv" d="M-10 64C80 52 160 100 240 84S330 70 360 92"/>'+
-  '<path class="m-gh" d="M30 132H120V28H318"/>'+
-  '<path class="m-rt" pathLength="1" stroke-dasharray="1" stroke-dashoffset="'+(o.draw?0:1)+'" d="M30 132H250V28H318"/>'+
-  '<circle class="m-ring" cx="30" cy="132" r="13"/><circle class="m-me" cx="30" cy="132" r="6"/>'+
-  '<circle class="m-pin" cx="318" cy="28" r="9"/><circle class="m-pin2" cx="318" cy="28" r="3.2"/>'+
-  '<g class="m-x"><circle cx="120" cy="76" r="10"/><path d="M116 72l8 8M124 72l-8 8"/></g></svg>'+
-  (o.chip?'<div class="m-chip"'+(o.draw?'':' style="opacity:0"')+'>'+esc(o.chip)+'</div>':'')+'</div>';}
-function drawRoute(el,now){var p=el.querySelector('.m-rt');if(now||reduce){p.style.strokeDashoffset=0;return;}
-  anim(p,[{strokeDashoffset:1},{strokeDashoffset:0}],1300,'cubic-bezier(.5,0,.2,1)');
-  var chip=el.querySelector('.m-chip');if(chip)enter(chip,900,8);}
-function markBridge(el,now){var x=el.querySelector('.m-x'),g=el.querySelector('.m-gh');
-  if(now||reduce){x.style.opacity=1;g.style.opacity=1;return;}
-  anim(g,[{opacity:0},{opacity:1}],500);anim(x,[{opacity:0,transform:'scale(.3)'},{opacity:1,transform:'scale(1)'}],600,SPRING,150);}
-function leaveProp(o){var e=D.asks.day.answer.events[0];return function(){var g=h('div','',
-  '<div class="go"><div class="rg"><svg viewBox="0 0 72 72" width="72" height="72"><circle class="rg-b" cx="36" cy="36" r="31" fill="none" stroke-width="5"/><circle class="rg-a" cx="36" cy="36" r="31" fill="none" stroke-width="5" stroke-dasharray="'+2*Math.PI*31+'"/></svg><div class="rg-t">14:00</div></div>'+
-  '<div><div class="ttl">Leave by 9:55</div><div class="mut">'+esc(e.t)+' at '+e.at+', '+esc(e.where.split(',')[0])+'</div></div></div>'+
-  mapHTML({draw:o.draw,chip:'18 min by bike'}));countdown(g.querySelector('.rg'),14*60);
-  if(o.draw)requestAnimationFrame(function(){drawRoute(g);});return g;};}
-function timelineProp(){var ev=D.asks.day.answer.events;return function(){var g=h('div','');var tl=h('div','tl');g.appendChild(tl);
-  var rows=[['9:41','now','Now','']].concat(ev.map(function(e,i){return [e.at,'',e.t,i===0?'<div class="flagw">Leave by 9:55</div>':'<div class="mut">'+esc(e.where)+'</div>'];}));
-  rows.forEach(function(r){tl.appendChild(h('div','tl-row','<div class="tl-at'+(r[1]?' now':'')+'">'+r[0]+'</div><div class="tl-k"><i class="'+r[1]+'"></i></div><div class="tl-x"><div class="'+(r[1]?'mut':'ttl')+'">'+esc(r[2])+'</div>'+r[3]+'</div>'));});
-  return g;};}
-function waitingProp(){var w=D.asks.day.answer.waiting,face=D.asks.jade.answer.who.face;return function(){return h('div','',
-  '<div class="who"><img class="face" alt="" src="'+face+'"><div class="ttl">'+esc(w.who)+'<span class="dot" aria-label="Waiting on you"></span></div></div>'+
-  '<div class="bub-wrap"><div class="bub in">'+esc(w.last)+'</div><div class="meta">'+esc(w.at)+'</div></div>');};}
-function amountProp(flagNote){var p=D.asks.day.answer.payment;return function(){
-  var days=[['M',25],['T',26],['W',27],['T',28],['F',29],['S',30],['S',1]];
-  return h('div','','<div class="amt"><div class="big">'+esc(p.amount)+'</div><div class="ttl">'+esc(p.t)+(flagNote?'<span class="dot"></span>':'')+'</div>'+(flagNote?'<div class="mut">'+esc(flagNote)+'</div>':'')+'</div>'+
-    '<div class="wk">'+days.map(function(d){return '<span class="'+(d[1]===27?'today':d[1]===29?'due':'')+'"><small>'+d[0]+'</small>'+d[1]+'</span>';}).join('')+'</div>');};}
-function weatherProp(){return function(){var T=[9,10,12,14,14,15,15,14,13,12,11,10],x=function(i){return 14+i*(322/11);},y=function(t){return 74-(t-8)*7;};
-  var line=T.map(function(t,i){return (i?'L':'M')+x(i).toFixed(1)+' '+y(t).toFixed(1);}).join('');
-  var drops='';for(var i=0;i<6;i++){var dx=x(9)+12+i*10,dy=18+(i%3)*18;drops+='<path class="dr" d="M'+dx+' '+dy+'l-2 6"/>';}
-  var vx=x(8.5);
-  return h('div','','<div class="wx"><div class="wx-top"><span class="big">14°</span><span class="mut">Sunny until 18:00</span></div></div>'+
-    '<div class="wx"><svg viewBox="0 0 350 104" aria-hidden="true"><rect class="rn" x="'+x(9)+'" y="0" width="'+(350-x(9))+'" height="86" rx="10"/>'+drops+
-    '<path class="ar" d="'+line+'L'+x(11)+' 86L'+x(0)+' 86Z"/><path class="ln" d="'+line+'"/>'+
-    '<g class="vw"><circle cx="'+vx+'" cy="'+y(12.5)+'" r="5"/><text x="'+(vx-8)+'" y="'+(y(12.5)-14)+'" text-anchor="end">Viewing</text></g>'+
-    [0,3,6,9].map(function(i){return '<text class="hr" x="'+x(i)+'" y="102" text-anchor="middle">'+(9+i)+':00</text>';}).join('')+'</svg></div>');};}
-function replyProp(){var a=D.asks.jade.answer;return function(){return h('div','',
-  '<div class="who"><img class="face l" alt="" src="'+a.who.face+'"><div class="ttl">'+esc(a.who.name)+'</div></div>'+
-  '<div class="bub-wrap"><div class="bub in">'+esc(a.reply.t)+'</div><div class="meta">'+esc(a.reply.at+' on '+a.reply.app)+'</div></div>');};}
-function tableProp(){var a=D.asks.jade.answer;return function(){return h('div','',
-  '<div class="seats"><img class="face" alt="Jade" src="'+a.who.face+'"><div class="face f-sam" aria-label="Sam">S</div><div class="face f-ben" aria-label="Ben">B</div><div class="face f-you" aria-label="You"></div></div>'+
-  '<div class="who"><div class="ttl">Mirabelle</div><div class="mut">Saturday at 20:00, four of you</div></div>');};}
-function draftProp(V){var a=D.asks.jade.answer;return function(){var g=h('div','');
-  var w=h('div','bub-wrap','<div class="draft">'+esc(a.draft)+'</div><div class="draft-m">To Jade on WhatsApp</div>');
-  var b=h('button','send',esc(a.send));b.type='button';g.append(w,b);
-  b.onclick=function(){sendDraft(V,g,b).catch(cancelled);};return g;};}
-async function sendDraft(V,g,b){var c=V.c,a=D.asks.jade.answer;b.disabled=true;b.innerHTML=ring(0);
-  var m=b.querySelector('.mile');requestAnimationFrame(function(){m.style.strokeDashoffset=0;});
-  await c.wait(reduce?0:700);g.querySelector('.draft').classList.add('sent');
-  var meta=g.querySelector('.draft-m');meta.className='draft-m ok';meta.innerHTML='<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.6 2.5L10 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'+esc(a.sent);
-  enter(meta,0,6);await anim(b,[{opacity:1,transform:'none'},{opacity:0,transform:'scale(.9)'}],200,OUT);b.style.visibility='hidden';
-  V.lines=V.lines.filter(function(L){return L.el.isConnected;});await say(V,{t:'Sent.'});c.edge.set('landed');}
-function addressProp(){return function(){var g=h('div','',mapHTML({draw:false})+'<div class="who"><div class="ttl">8 Rue Vauban</div><div class="mut">Third floor</div></div>');
-  var svg=g.querySelector('svg');svg.querySelectorAll('.m-rt,.m-gh,.m-ring,.m-me,.m-x').forEach(function(n){n.remove();});return g;};}
-function benProp(){return function(){return h('div','','<div class="who"><div class="face l f-ben">B</div><div class="ttl">Ben</div><div class="mut">Downstairs at 17:30</div></div>');};}
-function clockChip(el){var chip=h('div','chip','<span class="ttl" style="color:var(--fg)">18:00</span>&ensp;next check');el.appendChild(chip);enter(chip,0,10);}
+/* ---------- the things a line brings ---------- */
+function group(html){return function(){return h('div','',html);};}
+function eventsHTML(evs){return '<div><div class="tile ev">'+evs.map(function(e){return '<b>'+esc(e.at)+'</b><div><div class="ttl">'+esc(e.t)+'</div><div class="mut">'+esc(e.where)+'</div></div>';}).join('')+'</div>'+nb(evs[0])+'</div>';}
+function placeHTML(p){return '<a class="tile place" href="https://maps.apple.com/?q='+encodeURIComponent(p.address)+'" target="_blank" rel="noopener">'+PIN+'<div><div class="ttl">'+esc(p.name)+'</div><div class="mut">'+esc(p.address)+'</div></div></a>';}
+function payHTML(p){return '<div><div class="tile pay"><div><div class="ttl">'+esc(p.t)+'</div><div class="mut">Due '+esc(p.due)+'</div></div><div class="amt">'+esc(p.amount)+'</div></div>'+nb(p)+'</div>';}
+function faceHTML(f,small){return '<div class="who ctr"><img class="face'+(small?' s':'')+'" alt="" src="'+f.face+'"><div class="ttl">'+esc(f.name)+'</div>'+nb(f)+'</div>';}
+function quoteHTML(q){return '<div class="qt"><div class="bub">'+esc(q.t)+'</div><span class="meta">'+esc((q.who?q.who+', ':'')+q.at+' on '+q.app)+'</span>'+nb(q)+'</div>';}
+/* the day's waiting item (an items block): who, what about, their last words */
+function waitingHTML(w){return '<div class="tile"><div class="ttl">'+esc(w.who)+' waits on you: '+esc(w.about)+'</div><div class="mut" style="margin-top:4px">“'+esc(w.last)+'”</div><div class="meta" style="margin-top:6px">'+esc(w.at)+'</div></div>';}
 
-/* ---------- each answer, as spoken lines ---------- */
-function dayLines(){var a=D.asks.day.answer,w=a.waiting,p=a.payment,wx=a.weather.split(': ');return [
-  {t:a.lead.split(':')[0]+'.',props:timelineProp()},
-  {t:'Leave for the dentist by 9:55.',at:'dentist',props:leaveProp({draw:true})},
-  {t:w.who+' is waiting on you about '+w.about+'.',at:w.who,props:waitingProp()},
-  {t:p.t+' is due '+p.due+': '+p.amount+'.',at:p.t,props:amountProp()},
-  {t:wx[0]+'.',at:'rain',props:weatherProp()},
-  {t:wx[1].charAt(0).toUpperCase()+wx[1].slice(1),then:function(el){var v=el.querySelector('.vw');if(v)v.classList.add('lit');}}];}
-function jadeLines(V){var r=D.asks.jade.answer.reply;return [
-  {t:'Yes, this morning at '+r.at+'.',props:replyProp()},
-  {t:'She can book Mirabelle at 8, for four with Sam and Ben.',at:'four',props:tableProp()},
-  {t:'Here’s a reply, in your words.',props:draftProp(V),hold:200}];}
-function followLines(){return [
-  {t:'At 9:55.',props:leaveProp({draw:false})},
-  {t:'18 minutes by bike.',then:function(el,now){drawRoute(el,now);}},
-  {t:'The bridge is closed, so it’s the long way.',at:'bridge',then:function(el,now){drawRoute(el,true);markBridge(el,now);}}];}
-function slowLines(){var l=D.slow.answer.lead.split('. ');return [
-  {t:l[0]+'.',props:addressProp()},{t:l[1],at:'Ben',props:benProp()}];}
-function failLines(){var e=D.failure.error.t.split(': ');return [
-  {t:e[0]+'.',flag:true,props:amountProp('Balance not checked')},
-  {t:e[1].charAt(0).toUpperCase()+e[1].slice(1),at:'18:00',then:function(el){clockChip(el);}}];}
+/* a draft card: Send his one tap, then Sent and Undo; its state lives in `st` so a recalled card stays as he left it */
+function cardEl(c,k,st){var g=h('div','dc');
+  if(k.context)g.appendChild(h('div','',quoteHTML(k.context)));
+  g.appendChild(h('div','dc-h','<div class="ttl">To '+esc(k.to)+' on '+esc(k.app)+'</div><div class="meta">'+esc(k.made)+'</div>'));
+  var d=h('div','draft',esc(k.draft));g.appendChild(d);
+  if(k.edits){var e=h('div','edits');k.edits.forEach(function(x){var b=h('button','',esc(x));b.type='button';e.appendChild(b);});g.appendChild(e);}
+  var b=h('button','send',esc(k.send)),done=h('div','done');b.type='button';g.append(b,done);
+  function paint(){if(st.sent!=='sent'){b.disabled=false;b.textContent=k.send;}d.classList.toggle('sent',st.sent==='sent');b.hidden=st.sent==='sent';done.hidden=!st.sent;done.className='done'+(st.sent==='undone'?' undone':'');
+    if(st.sent==='sent'){done.innerHTML=TICK+'<span>'+esc(k.sent)+'</span>';var u=h('button','',esc(k.undo));u.type='button';u.onclick=function(){st.sent='undone';paint();};done.appendChild(u);}
+    if(st.sent==='undone')done.textContent='Deleted for everyone';}
+  b.onclick=function(){b.disabled=true;b.innerHTML='<i class="spin"></i>'+esc(k.sending);
+    c.wait(k.sendMs).then(function(){st.sent='sent';paint();enter(done,0,6);c.edge.set('landed');},cancelled);};
+  paint();return g;}
 
-/* ---------- the field's voice: words heard go up to the subtitle place, bars move in the field ---------- */
+/* ---------- each answer, as lines and the things they bring ---------- */
+function dayLines(){var a=D.asks.day.answer,s=sentences(a.lead);return [
+  {t:s[0],props:group(eventsHTML(a.events)+placeHTML(a.place)+payHTML(a.payment))},
+  {t:s[1],props:group(waitingHTML(a.waiting))}];}
+function jadeLines(c){var a=D.asks.jade.answer,s=sentences(a.lead),st={};return [
+  {t:s[0],props:group(faceHTML(a.who)+quoteHTML(a.reply))},
+  /* her ready reply joins her words: the face steps down to make room */
+  {t:s[1],then:function(el,now){var f=el.querySelector('.face');if(f)f.classList.add('s');var k=cardEl(c,a.card,st);el.appendChild(k);if(!now)enter(k,80);}}];}
+function tellLines(c){var a=D.asks.tell.answer,st={};return [{t:a.lead,props:function(){var g=h('div','');g.appendChild(cardEl(c,a.card,st));return g;}}];}
+function plain(t,props){return sentences(t).map(function(s,i){return {t:s,props:i?null:props};});}
+
+/* ---------- scenes ---------- */
+function greet(V){return say(V,{t:'Good morning.',quiet:true});}
+async function turn(V,a,lines,how){if(how==='voice')await askVoice(V,a.ask);else await askTyped(V,a.ask);await work(V,a);await tell(V,lines);}
 
 Shell.mount({title:'Turn by turn v2: C, face to face',scenes:[
-  {id:'idle',label:'Idle',run:async function(c){var V=view(c);await c.wait(700);await say(V,{t:'Good morning.',hold:0,cls:'greet',quiet:true});}},
-  {id:'type-send',label:'He types an ask',run:async function(c){var V=view(c);await askTyped(V,D.asks.day.ask);await work(V,D.asks.day,{stopAfterFirst:true});}},
-  {id:'voice-send',label:'He says an ask',run:async function(c){var V=view(c);await askVoice(V,D.asks.jade.ask);await work(V,D.asks.jade,{stopAfterFirst:true});}},
-  {id:'working',label:'Life works',run:async function(c){var V=view(c);setQ(V,D.asks.day.ask,true);await c.wait(400);await work(V,D.asks.day);await speak(V,dayLines());}},
-  {id:'slow',label:'A slow step',run:async function(c){var V=view(c);setQ(V,D.slow.ask,true);await c.wait(400);await work(V,D.slow);await speak(V,slowLines());}},
-  {id:'answer-day',label:'Answer: the day',run:async function(c){var V=view(c);await askTyped(V,D.asks.day.ask);await work(V,D.asks.day);await speak(V,dayLines());}},
-  {id:'answer-jade',label:'Answer: Jade (voice)',run:async function(c){var V=view(c);await askVoice(V,D.asks.jade.ask);await work(V,D.asks.jade);await speak(V,jadeLines(V));}},
-  {id:'follow-up',label:'A follow-up',run:async function(c){var V=view(c);setQ(V,D.asks.day.ask,true);V.pace=.35;await speak(V,dayLines().slice(3));V.pace=1;await c.wait(1500);
-    await askTyped(V,D.followUp.ask);await work(V,D.followUp);await speak(V,followLines());}},
+  {id:'idle',label:'Idle',run:async function(c){var V=view(c);await c.wait(500);await greet(V);}},
+  {id:'type-send',label:'He types an ask',run:async function(c){var V=view(c);await askTyped(V,D.asks.day.ask);await work(V,D.asks.day,{stopAtThinking:true});}},
+  {id:'voice-send',label:'He holds to talk',run:async function(c){var V=view(c);await askVoice(V,D.asks.jade.ask);await work(V,D.asks.jade,{stopAtThinking:true});}},
+  {id:'working',label:'Life works',run:async function(c){var V=view(c);setQ(V,D.asks.day.ask,true);await c.wait(400);await work(V,D.asks.day);await tell(V,dayLines());}},
+  {id:'answer-day',label:'Answer: the day',run:function(c){return turn(view(c),D.asks.day,dayLines());}},
+  {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(view(c),D.asks.jade,jadeLines(c),'voice');}},
+  {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return turn(view(c),D.asks.tell,tellLines(c));}},
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var V=view(c),st={};await greet(V);await c.wait(Math.max(0,D.arrives.arriveMs-1300));
+    var g=h('div','cg');g.appendChild(cardEl(c,D.arrives.card,st));V.d.appendChild(g);
+    anim(g,[{opacity:0,transform:'translateY(48px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'blur(0)'}],1100,GLIDE);}},
+  {id:'slow',label:'A slow ask',run:function(c){var a=D.slow.answer;return turn(view(c),D.slow,plain(a.lead,group(placeHTML(a.place))));}},
+  {id:'failure',label:'A read fails',run:function(c){return turn(view(c),D.failure,plain(D.failure.error.t));}},
   {id:'history',label:'Earlier turns',run:async function(c){var V=view(c),H=h('div','hist');V.r.appendChild(H);
     D.history.forEach(function(t,i){H.appendChild(h('div',i<D.history.length-1?'old':'','<div class="meta">'+esc(t.at)+'</div><div class="ha">'+esc(t.ask)+'</div><div class="hl">'+esc(t.answer)+'</div>'));});
     for(var i=H.children.length-1;i>=0;i--){anim(H.children[i],[{opacity:0,transform:'translateY(-36px)'},{opacity:getComputedStyle(H.children[i]).opacity,transform:'none'}],800,SPRING);await c.wait(140);}}},
-  {id:'failure',label:'A step fails',run:async function(c){var V=view(c);setQ(V,D.failure.ask,true);await c.wait(400);
-    if(!await work(V,D.failure)){var row=V.think.lastChild;anim(row,[{opacity:1,transform:'none'},{opacity:0,transform:'translateY(-10px)'}],200,OUT).then(function(){V.think.remove();});
-      c.edge.set('rest');await c.wait(220);await speak(V,failLines());}}}]});
+  {id:'follow-up',label:'A follow-up',run:async function(c){var V=view(c);setQ(V,D.asks.day.ask,true);V.pace=.35;await tell(V,dayLines());V.pace=1;await c.wait(1500);
+    await turn(V,D.followUp,plain(D.followUp.answer.lead));}},
+  {id:'hey-life',label:'Hey Life, from the pendant',run:async function(c){var hl=D.heyLife;c.lock();c.edge.set('still');
+    await c.wait(hl.heardMs);c.lock(hl.heardAt);c.notify(hl.heard);await c.wait(hl.answerMs);await Promise.race([c.notify(hl.done),c.wait(4000)]); /* his tap, or on its own for Play all */
+    c.lock(false);c.edge.set('landed');var V=view(c);setQ(V,hl.ask,true);await c.wait(600);await tell(V,plain(hl.answer.lead));}}]});
 
 /* after mount: mirror what the field hears into the subtitle place, and put moving bars in the field while he speaks */
 (function(){var f=document.querySelector('.field'),heard=f.querySelector('.heard'),bars=h('span','vbars','<i></i><i></i><i></i><i></i><i></i>');
