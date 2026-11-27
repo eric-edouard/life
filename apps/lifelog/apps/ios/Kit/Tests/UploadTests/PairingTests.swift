@@ -27,6 +27,11 @@ import Testing
     #expect(throws: ServerClient.ClientError.notPaired) { try client.request("/health") }
 }
 
+@Test func aServerUnderAPathKeepsItInEveryRequest() throws {
+    let client = ServerClient(server: { URL(string: "https://life.example/voice") }, token: { "t" })
+    #expect(try client.request("/health").url?.absoluteString == "https://life.example/voice/health")
+}
+
 /// Answers the pairing's one read with the status the test set for its host.
 private final class Verdict: URLProtocol {
     nonisolated(unsafe) static var status = [String: Int]()

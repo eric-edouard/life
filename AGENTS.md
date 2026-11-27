@@ -231,7 +231,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   tool that sends or edits anything else. Its message poll, like the desk's, first hears a chat's voice notes that have
   no line (`hearVoiceNotes`: a line of `memory/files.jsonl`, Thai turns through Scribe once per note); that is Life
   reading what was said, not an act.
-- **Life serves no page.** Only `/mcp`, its OAuth, the app's status reads behind the local key, and the desk's door,
+- **Life serves no page.** Only `/mcp`, its OAuth, the voice server's routes under `/voice` (forwarded as they came, its own tokens their only auth, never its map page; `voice-forward.ts`), the app's status reads behind the local key, and the desk's door,
   on loopback only, one key per registered agent (with its guard's answer, `/guard`, its spending stop's answer inside a pi turn, `/spending`, and the Life plugin's lookup of
   an agent's session, `/session`, by a loopback `Host` only; and `/main-session`, his Ask Life words from the connector, behind the local key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
 - **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
