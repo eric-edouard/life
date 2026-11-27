@@ -31,6 +31,7 @@ import {
   pairTokenOf,
   serverEnvOf,
   setVoiceKey,
+  VOICE_CHILDREN,
   type VoiceInputs,
   type VoicePaths,
   voiceLineOf,
@@ -259,7 +260,7 @@ test("start restarts a job only when its plist changed, stops one that can't run
       ...o,
       hostRuns: () => Promise.resolve(true),
     });
-    expect(Object.values(host)).toEqual(Array(4).fill(HOST_RUNS));
+    expect(Object.values(host)).toEqual(VOICE_CHILDREN.map(() => HOST_RUNS));
     expect([kept, stopped]).toEqual([[], []]);
     // A job whose bootstrap failed is not running, whatever its plist.
     await voiceStart(paths, { ...o, loaded: () => Promise.resolve(false) });
