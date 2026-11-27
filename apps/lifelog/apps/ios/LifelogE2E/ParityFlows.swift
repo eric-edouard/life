@@ -78,6 +78,7 @@ import XCTest
         appears(
             app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "The rest hasn’t moved")).firstMatch,
             "the answer's last words", within: 30)
+        vanishes(app.keyboards.firstMatch, "the keyboard still put away")
         shoot("slow-answer")
     }
 }

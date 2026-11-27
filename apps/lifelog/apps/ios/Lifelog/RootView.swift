@@ -224,6 +224,8 @@ struct RootView: View {
             return
         }
         life.clearFocus()
+        // Sent: the keyboard goes. The field is disabled while Life writes and would take the focus back after it.
+        isAsking = false
         thread.ask(text, screen: screen)
         text = ""
     }
