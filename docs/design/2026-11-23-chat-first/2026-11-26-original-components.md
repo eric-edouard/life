@@ -8,9 +8,7 @@ reason for a choice is not written down, the note says **Unsure why** or **Infer
 Source: `docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html` on `origin/main` (commit 8300231b5). Line numbers below are
 that file's (`2026-11-25-app-v4.html:639`, or just `:639`); the copy `app-v4-original.html` in the design-cards worktree is the
 same file with one extra line at the top, so its numbers are one higher. Reasons come from
-[`2026-11-23-current-spec.md`](2026-11-23-current-spec.md) (the spec),
-[`2026-11-23-design-decisions.md`](2026-11-23-design-decisions.md) (the log),
-[`2026-11-23-answer-components.md`](2026-11-23-answer-components.md),
+[the philosophy and guidelines](../philosophy.md) (the spec, the log and the answer components),
 [`2026-11-25-app-v4-design-system.md`](2026-11-25-app-v4-design-system.md) (his 11 answers of 26 Nov),
 [`../../product.md`](../../product.md) and [`../../brand.md`](../../brand.md). Sizes are the prototype's CSS
 pixels; his answers of 26 Nov say the phone builds from `tokens.css` and the seven-size type scale, never from the
@@ -40,7 +38,7 @@ Rules he set on 26 Nov, which win over anything below:
   the button) each word turns white as it is spoken, the way Life's own words ink in (`.w.on`, `:356`).
 - **A closing check opens with the matter's name, then why Life thinks it is done, then the question.**
 - **Scored by fresh eyes:** a new or changed card is shown, as a screenshot only, to a reviewer with no context
-  (`2026-11-26-fresh-eyes-review.md`) before it goes to him.
+  (as the 26 Nov fresh-eyes review did) before it goes to him.
 
 The goal under every choice (product.md: the bar is "a 70-year-old who doesn't know how to use an iPhone"; brand.md
 Wording: "Removing the person's load comes first"). Each principle: where it comes from, how the prototype applies it,

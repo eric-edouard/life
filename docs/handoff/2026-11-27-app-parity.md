@@ -6,21 +6,21 @@ Hand-over of 27 Nov 2026, for any session that picks up the work of bringing the
 
 The Life v4.1 chat app on his iPhone matches the approved prototype, app v4
 (`docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`, read with its rulebook
-`2026-11-26-original-components.md`). That prototype is the only approved spec: lab picks and proposals are not targets
+`2026-11-26-original-components.md`, reasons in `docs/design/philosophy.md`). That prototype is the only approved spec: lab picks and proposals are not targets
 (`docs/design/README.md` says which is which). He chose turn by turn as the next direction on 27 Nov; that work has its
 own hand-over, `2026-11-27-turn-by-turn.md`, and is design only so far.
 
 ## How "done" is measured: the parity board
 
 - The plan is `docs/plans/2026-11-26-app-matches-prototype.md`.
-- The board shows each prototype state beside the app's screen of it, at https://claude.ai/artifact/Sj1P6mVpviohcbWEjREvfZ. It is pinned, and its source is in the repo.
-- The board is built by `scripts/parity.ts`: it shoots the prototype, runs the app's E2E flows (`apps/lifelog`, `scripts/e2e-phone.ts`), scores each row, and republishes the page.
+- The board shows each prototype state beside the app's screen of it, in the designs app's Parity tab: https://designs.ericedouard.com/#/2026-11-23-chat-first/2026-11-26-parity-board.html. It shows the last run on the Mac, at once; nothing is published.
+- The board is built by `scripts/parity.ts`: it shoots the prototype, runs the app's E2E flows (`apps/lifelog`, `scripts/e2e-phone.ts`), scores each row, and writes it for the Parity tab.
 - A row is green only when all of these pass:
   - a fresh reviewer scores it 8/10 or more;
   - its flow passes;
   - it takes no more taps than the prototype;
   - it has no clipped text;
-  - he has not said "not right" about it.
+  - he has not said "not right" about it (his verdicts, told in chat, are `docs/design/parity-verdicts.json`).
 - **His rule (27 Nov):** contrast and text size never block a row. Only clipped text, or an issue the prototype doesn't share, does.
 - The scheduled task "parity-board-evening" runs every day at 19:00 and emails him only when rows change.
 
@@ -60,7 +60,7 @@ own hand-over, `2026-11-27-turn-by-turn.md`, and is design only so far.
 ## How to continue
 
 1. Check `pmset -g batt`: on battery, start no simulators, board runs or app builds.
-2. Rerun the board from main with the reviewer pass, republish it at the same URL, and read which rows are red.
+2. Rerun the board from main with the reviewer pass and read which rows are red in the Parity tab.
 3. Fix the app-side red rows in one ultrafast PR, through the `work-on-code` skill. Builds go through `tools/heavy.sh`, and landing through `land.ts`. Server strict paths (`desk/`, `host/http/`, the send paths, `prompts/`) keep the full workflow.
 4. After a landing, install on the newer iPhone (`LIFELOG_PHONE_UDID=00008160-000A7D080E00000A bun run install:phone -- --no-watch` from `apps/lifelog`). Swap Life.app (`tools/build-and-swap.sh`) when server code changed.
 5. Fix a bug where it is decided, never per case. His rule of 27 Nov: a similar case that has nothing to do with this one must be fixed by the same change.

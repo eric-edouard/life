@@ -3,7 +3,7 @@
 Research, 26 Nov 2026: the end-to-end tests the Life iPhone app needs, front end only, each run in the iOS Simulator
 against a fake Life connector (no Mac, no models). Nothing here is built; v4 shipped "no app tests"
 (`docs/plans/2026-11-25-overhaul/README.md`, "The app"). Read with the current spec
-(`docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md`), the v4.1 plan (`docs/plans/2026-11-26-v4.1.md`) and the
+(`docs/design/philosophy.md`), the v4.1 plan (`docs/plans/2026-11-26-v4.1.md`) and the
 prototype's side panel (`docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`).
 
 ## How to read it
