@@ -1,5 +1,6 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
+import { HOUR } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { setSettings } from "../core/settings";
 import { ask, asksFor } from "../host/asks";
@@ -18,6 +19,7 @@ import {
   CUT_BY_RESTART,
   NOT_SURE,
   receiveSpokenAsks,
+  TOO_OLD,
 } from "./spoken-ask-intake";
 import { asgOf, setup } from "./test-desk";
 
@@ -29,11 +31,15 @@ afterEach(() => setSettings({ desk: null }));
 
 let n = 0;
 /** His spoken ask, recorded now as the hearing records it. */
-const spoken = (words = "add test milk to my list", confidence = "high") => {
+const spoken = (
+  words = "add test milk to my list",
+  confidence = "high",
+  at = new Date().toISOString()
+) => {
   n += 1;
   return ask(
     {
-      at: new Date().toISOString(),
+      at,
       quote: `hey Life, ${words} ${n}`,
       ref: `job${n}:0@x`,
     },
@@ -258,6 +264,35 @@ test("spoken asks received while the first runs are each asked once, in turn; no
     expect(ids.map((id) => d.entryOf(id)?.error ?? null)).not.toContain(
       CUT_BY_RESTART
     );
+  } finally {
+    pushes.mockRestore();
+  }
+});
+
+test("a spoken ask from over an hour ago, or one an agent received before, never starts a turn: it ends with a line", async () => {
+  const d = deskOf();
+  const pushes = spyOn(push, "notifyPhone").mockResolvedValue(true);
+  try {
+    const old = spoken(
+      "add the test invoices",
+      "high",
+      new Date(Date.now() - 2 * HOUR).toISOString()
+    );
+    // Received by an agent before the upgrade, still in the cursor's waiting list.
+    const before = spoken("book the test dentist");
+    d.s.desk.db.run(
+      "insert into event (assignment_id, event_id, name, payload, received_at) values ('asg_old', ?, ?, '{}', ?)",
+      [before, ASK_SPOKEN, new Date().toISOString()]
+    );
+    await d.receive();
+    await settle();
+    expect(d.s.fake.said).toEqual([]);
+    expect(d.entryOf(old)).toMatchObject({
+      answered_at: expect.any(String),
+      error: TOO_OLD,
+    });
+    expect(d.entryOf(before)).toBeNull();
+    expect(readSpokenAsksCursor(d.s.desk.db).waiting).toEqual([]);
   } finally {
     pushes.mockRestore();
   }

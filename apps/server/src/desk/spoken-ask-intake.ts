@@ -1,3 +1,4 @@
+import { clock, HOUR } from "../core/clock";
 import { readLines } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
@@ -76,7 +77,8 @@ const payloadOf = (a: LedgerEntry, to: string) => ({
 
 /** Whether ask `a` needs nothing more here: told and received, or spoken and its entry answered or deleted. */
 function isSettled(db: Desk["db"], a: LedgerEntry) {
-  if (toldToOf(a)) {
+  // A spoken ask an agent received before the main session took them is settled too: never asked again.
+  if (receiptOf(db, a.id) || toldToOf(a)) {
     return Boolean(receiptOf(db, a.id));
   }
   const e = askEntryOf(db, a.id);
@@ -91,6 +93,12 @@ const spokenOf = (a: LedgerEntry) => {
     ? { conversation, turn }
     : {};
 };
+
+/** What he sees on a spoken ask older than `SPOKEN_ASK_FRESH`: never run late, never twice (one from before the main session took them). */
+export const TOO_OLD =
+  "This was from earlier: say it again if you still want it.";
+/** How old a spoken ask may be, from when he said it, and still start a turn. */
+export const SPOKEN_ASK_FRESH = HOUR;
 
 /** What he sees on words heard with low confidence (a misheard wake, or another voice): no turn runs on them. */
 export const NOT_SURE =
@@ -116,9 +124,11 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
         title,
       });
   const before = askEntryOf(db, a.id);
-  const why = before?.turn_id
-    ? CUT_BY_RESTART
-    : a.after.confidence === "low" && NOT_SURE;
+  const said = Date.parse(a.instruction?.at ?? a.at);
+  const why =
+    (before?.turn_id && CUT_BY_RESTART) ||
+    (!(clock().getTime() - said < SPOKEN_ASK_FRESH) && TOO_OLD) ||
+    (a.after.confidence === "low" && NOT_SURE);
   if (why) {
     endEntryWith(
       db,
