@@ -38,13 +38,21 @@ and seen working live, first on the owner's own Photos library, then on a second
 - [What an agent can reach on the Mac](./tickets/04-what-an-agent-can-reach.md) — every grant lands on Life.app and covers every script; only the user answers first prompts; Photos changes and deletes need the user's per-batch OK; undo needs a restore log.
 - [The first look](./tickets/05-the-first-look.md) — read-only (allowlisted tools may install), goes as far as it can then one bundled access ask, a second round for data-grounded questions only if access was missing, at most one hour.
 - [Asking for access](./tickets/06-asking-for-access.md) — one phone card of self-ticking plain steps; "I'm at my Mac" fires the prompt or opens Settings there; refused: go on, another way or drop; ignored: stays asked.
+- [The questions about what they want](./tickets/08-the-questions.md) — one card, at most five data-built choices with Life's pick first and real examples; no answer in a day: the preview goes on Life's picks.
+- [The preview](./tickets/09-the-preview.md) — the cheapest thing showing the result (fake, draft, simulated end state), never their real things; rounds on one page, then "Build it".
+- [The plan](./tickets/10-the-plan.md) — approved with the preview: plain steps, time, and cost with a cap; over the cap or a change is asked again.
+- [Doing the work safely](./tickets/11-doing-the-work-safely.md) — a small real part first, then batches; deletes and overwrites need a yes; a restore point always; enforced by playbook and review, a stated limit.
+- [Answering later](./tickets/07-answering-later.md) — one quiet line (doing now, time left); a push only when it needs them or is done.
+- [Progress and the end](./tickets/12-progress-and-the-end.md) — a short done page with undo and cost; dropped with its reason; the agent ends, its folder stays.
+- [Privacy](./tickets/13-privacy.md) — one plain line on what is read and where it goes; the narrowest grant, never Full Disk Access when less will do.
+- [The agent's workspace](./tickets/14-the-agents-workspace.md) — work hidden in Life's agents repo, the result where the user would look, kept after the end.
+- [Results that live on](./tickets/20-results-that-live-on.md) — hosted with its data on the artifact system; active until its end date, its agent woken by its events; then done with a report.
+- [Sending for a project](./tickets/21-sending-for-a-project.md) — one batch card, every exact text shown, "Send all"; a change to the send rules, built as a strict path.
+- [Other people's data in a project](./tickets/22-other-peoples-data.md) — kept with the project; the public page shows only what the preview approved.
+- [Life suggests](./tickets/23-life-suggests.md) — ideas as pre-ticked choices in the questions and the preview; follow-ups as one card on the done page.
+- [Build order](./tickets/15-build-order.md) — record and handover, playbook skill, access card, artifact previews and live results, batch send, screens, security and docs; then the trial and live runs.
 
 ## Not yet specified
-
-- **A second kind of project.** Once the preview is settled, prove the design on a project that makes something new (a
-  mini web app) rather than tidying something that exists. <clears-with: 09>
-- **Many projects at once.** How spending caps, the agents' places on the desk and the user's attention hold when
-  several one-off projects run together. <clears-with: 10>
 
 ## Out of scope
 
