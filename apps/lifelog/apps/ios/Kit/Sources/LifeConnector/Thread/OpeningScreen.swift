@@ -58,8 +58,10 @@ public struct OpeningScreen: Equatable, Sendable {
             hasRows = true
             return
         }
-        broken += fixes.filter { !broken.contains($0) }
-        let shown = Set(broken + top + more + brought.map(\.ref))
+        var shown = Set(broken + top + more + brought.map(\.ref))
+        // A fix that breaks mid-sitting comes like an ask: unfolded at the bottom, led by what broke (the prototype's login).
+        brought += fixes.filter { !shown.contains($0) }.map { Brought(ref: $0, at: now) }
+        shown.formUnion(brought.map(\.ref))
         brought += read.openingAsks.filter { !shown.contains($0) && read.ask($0)?.isAnswerable == true }
             .map { Brought(ref: $0, at: now) }
     }

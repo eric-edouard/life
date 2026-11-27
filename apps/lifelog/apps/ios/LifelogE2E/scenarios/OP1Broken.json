@@ -1,0 +1,15 @@
+{
+  "name": "The opening screen with LINE and Messenger signed Life out",
+  "origins": {
+    "a": "ABC234"
+  },
+  "steps": [
+    {
+      "reads": {
+        "read_thread": "parity/opening_broken.json"
+      }
+    }
+  ],
+  "answers": [],
+  "items": []
+}
