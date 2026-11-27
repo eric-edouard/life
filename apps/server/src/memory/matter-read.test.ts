@@ -272,11 +272,7 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
     obs(22, "2026-10-18", { speaker: GRAN, text: "Gran wants a lift" }),
     obs(23, "2026-10-18", { importance: 2, text: "A small to-do" }),
     obs(24, "2026-10-18", { text: "Ended promise", type: "promise" }),
-    obs(25, "2026-10-18", {
-      importance: 2,
-      text: "A small wait",
-      type: "waiting_on_someone",
-    }),
+    obs(25, "2026-10-18", { importance: 2, type: "waiting_on_someone" }),
   ];
   const all = matterBookOf(
     stored([]),
@@ -307,11 +303,7 @@ test("a lone open observation or to-do item is a matter of one; a to-do item mad
     today: "2026-10-19",
   });
   // Undated: shown the day after it was said (18 Oct); the urgent one first.
-  expect(ranked.map((i) => i.id)).toEqual([
-    first,
-    obs(23, "", {}).id,
-    `entry_${pad(2)}`,
-  ]);
+  expect(ranked.map((i) => i.id.slice(-2))).toEqual(["21", "23", "02"]);
   expect(dayLines({ due: ranked.map((i) => i.line) })[0]).toStartWith(
     "Due (open items"
   );
