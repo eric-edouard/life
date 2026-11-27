@@ -1,4 +1,4 @@
-// App v4's components and its edge, each drawn live: the prototype itself, brought to the variation's scene by its
+// App v4's components and its edge, each drawn live: the prototype itself (the edge: /edge.html, the shared edge.js), brought to the variation's scene by its
 // side-panel buttons and cropped to the part it draws. The list is docs/design/components.json, the one source; a
 // variation shows "In the app" while its parity board row is green, read from the board's last run, else its typed status.
 import { useEffect, useRef, useState } from "react";
@@ -101,6 +101,8 @@ function Live({ v }: { v: Variation }) {
   const [crop, setCrop] = useState<Box | null>(null);
   // Brought to its scene in the frame mounted now; the last crop keeps the card's height while it is away.
   const [isDrawn, setDrawn] = useState(false);
+  // A design under docs/design, or one of the app's own pages ("/edge.html").
+  const src = v.page?.startsWith("/") ? v.page : urlOf(v.page ?? PROTOTYPE);
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const el = box.current;
@@ -136,8 +138,7 @@ function Live({ v }: { v: Variation }) {
     // Not the `load` event: the page's web fonts hold it, slow or offline. Its own markup is enough to act on.
     const ready = () => {
       const page = el.contentDocument;
-      return page?.readyState !== "loading" &&
-        page?.location.href.endsWith(v.page ?? PROTOTYPE)
+      return page?.readyState !== "loading" && page?.location.href.endsWith(src)
         ? page
         : null;
     };
@@ -175,7 +176,7 @@ function Live({ v }: { v: Variation }) {
       stopped = true;
       clearInterval(tick);
     };
-  }, [near, v]);
+  }, [near, v, src]);
   // At most its own size, the card's width, and most of the screen's height: a whole phone shows whole.
   const scale = crop
     ? Math.min(1, width / crop.width, (innerHeight * FIT) / crop.height)
@@ -199,7 +200,7 @@ function Live({ v }: { v: Variation }) {
           <iframe
             className="absolute top-0 left-0 origin-top-left transition-opacity duration-300"
             ref={frame}
-            src={urlOf(v.page ?? PROTOTYPE)}
+            src={src}
             style={{
               height: PAGE_HEIGHT,
               opacity: isDrawn ? 1 : 0,
@@ -327,8 +328,8 @@ export function Glow() {
           <>
             The ring round every screen, the one exception to no borders, no
             motion and one colour. It glides between its states, idle never
-            livelier than the others, so you always tell them apart. Live from
-            the prototype; its rules are in{" "}
+            livelier than the others, so you always tell them apart. Live, from
+            the one shared edge the prototypes draw; its rules are in{" "}
             <a className="text-fg" href={RULEBOOK}>
               the rulebook
             </a>

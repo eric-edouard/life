@@ -6,35 +6,39 @@
       "variations": [
         {
           "name": "Idle",
-          "scene": [
-            "[data-s=\"rest\"]"
-          ],
+          "page": "/edge.html#rest",
           "row": "data-s-rest",
           "status": "designed"
         },
         {
           "name": "You speak",
-          "scene": [
-            "[data-s=\"listen\"]"
-          ],
+          "page": "/edge.html#listen",
           "row": "data-s-listen",
           "status": "designed"
         },
         {
           "name": "Life works",
-          "scene": [
-            "[data-s=\"work\"]"
-          ],
+          "page": "/edge.html#work",
           "row": "data-s-work",
           "status": "designed"
         },
         {
+          "name": "An answer lands",
+          "page": "/edge.html#landed",
+          "row": null,
+          "status": "designed"
+        },
+        {
           "name": "Still: no Mac answers",
-          "scene": [
-            "[data-k=\"mac\"]"
-          ],
-          "row": "mac-out",
-          "status": "next"
+          "page": "/edge.html#still",
+          "row": null,
+          "status": "designed"
+        },
+        {
+          "name": "Each in turn",
+          "page": "/edge.html#cycle",
+          "row": null,
+          "status": "designed"
         }
       ]
     },
