@@ -3,8 +3,8 @@ import os
 
 /// Life's helper: the compiled binary in the bundle (`Contents/Helpers/life`), run with its files (`LIFE_CODE_DIR`), the
 /// owner's data and Life's state under Application Support, and every secret the Keychain holds for it. The app never
-/// reads Life's files itself: it asks the helper (`app`, `settings`, `init`, `pair`, `connect`), so their shape lives in
-/// one place.
+/// reads Life's files itself: it asks the helper (`app`, `settings`, `init`, `pair`, `connect`, `voice`), so their
+/// shape lives in one place.
 enum Helper {
   static let support = FileManager.default.homeDirectoryForCurrentUser
     .appending(path: "Library/Application Support/Life")
