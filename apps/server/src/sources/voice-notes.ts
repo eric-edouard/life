@@ -10,10 +10,17 @@ import { call } from "./lifelog-call";
 export const VoiceNoteWords = z.object({ text: z.string() });
 /** What lifelog takes as it is; anything else (iMessage's CAF, a bridge's M4A) is made Ogg Opus by ffmpeg. */
 const OGG = new Set(["audio/ogg", "audio/opus"]);
+/**
+ * ffmpeg's own words, when it opens the files, for an input it can never make audio of: not a media file, or no audio
+ * stream in it. A damaged frame met later while decoding is not one.
+ */
+const NO_AUDIO =
+  /Error opening input files: Invalid data found when processing input|Output file does not contain any stream/;
 
 /**
- * The file at `path` as Ogg Opus bytes, or nothing when ffmpeg failed or is missing (logged). macOS's afconvert lists
- * Ogg Opus but cannot write it (20 Nov 2026), hence ffmpeg.
+ * The file at `path` as Ogg Opus bytes; `null` when ffmpeg says it holds no audio (never asked again); nothing on any
+ * other failure, ffmpeg missing or timed out included (logged, asked again later). macOS's afconvert lists Ogg Opus
+ * but cannot write it (20 Nov 2026), hence ffmpeg.
  */
 export async function toOggOpus(path: string, mime: string) {
   if (OGG.has(mime)) {
@@ -21,20 +28,22 @@ export async function toOggOpus(path: string, mime: string) {
   }
   const out = `${path}.ogg`;
   const made = await exec(
-    ["ffmpeg", "-loglevel", "error", "-y", "-i", path, "-ac", "1"].concat([
-      "-c:a",
-      "libopus",
-      "-b:a",
-      "32k",
-      "-f",
-      "ogg",
-      out,
-    ]),
+    [
+      "ffmpeg",
+      "-loglevel",
+      "error",
+      "-y",
+      "-i",
+      path,
+      "-vn",
+      "-ac",
+      "1",
+    ].concat(["-c:a", "libopus", "-b:a", "32k", "-f", "ogg", out]),
     { timeout: 120_000 }
-  ).catch((error: unknown) => ({ code: 1, stderr: String(error) }));
+  );
   if (made.code !== 0) {
     log("file.read", { cmd: "ffmpeg", error: made.stderr.trim().slice(-200) });
-    return;
+    return NO_AUDIO.test(made.stderr) ? null : undefined;
   }
   return Bun.file(out).bytes();
 }
