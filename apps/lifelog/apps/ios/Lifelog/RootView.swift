@@ -7,6 +7,7 @@ import UIKit
 /// the pendant). No tab bar and no other screen; the rest opens over it.
 struct RootView: View {
     @Environment(SyncStore.self) private var sync
+    @AppStorage(Appearance.key) private var appearance = Appearance.auto
     @Environment(LifeStore.self) private var life
     @Environment(CaptureStore.self) private var capture
     @Environment(\.scenePhase) private var scenePhase
@@ -122,7 +123,7 @@ struct RootView: View {
             }
         }
         .environment(\.windowSizeClass, sizeClass).environment(\.profileZoom, profileZoom)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(appearance.scheme)
         .task(id: scenePhase == .active) {
             guard scenePhase == .active else { return }
             sync.becameActive()
@@ -223,6 +224,8 @@ struct RootView: View {
             return
         }
         life.clearFocus()
+        // Sent: the keyboard goes. The field is disabled while Life writes and would take the focus back after it.
+        isAsking = false
         thread.ask(text, screen: screen)
         text = ""
     }

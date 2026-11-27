@@ -103,6 +103,7 @@ import XCTest
         askLife()
         appears(element(AID.askRate(Self.ask, "good")), "How am I doing?")
         shoot("rate")
+        taps = 0  // the rating's own taps (the prototype's 1), not the ask before it
         // The thread fills the screen under the buttons: a thread squeezed to the bottom hid every earlier row.
         XCTAssertLessThan(app.scrollViews.firstMatch.frame.minY, app.frame.height / 4)
         tap(AID.askRate(Self.ask, "good"))
@@ -118,14 +119,20 @@ import XCTest
     func testPersonAsTheAnswer() {
         launch("C12")
         askLife("Text Ben that I’m running late")
+        taps = 0  // the answer's own taps (the prototype's 1), not the ask before it
         let row = element(AID.askRow(Self.ask))
         appears(row, "the ask in the thread")
         // The two Bens are cards in the thread: one tap answers.
         let ben = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Ben Martin")).firstMatch
         unfold(row, until: ben)
         appears(ben, "the people")
+        // The people sit under the field: the thread is read scrolled to its end (a drag from the right margin).
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.7)).press(
+            forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.2)))
+        poll("the people, above the field") { ben.frame.maxY < field.frame.minY }
         shoot("which-person")
         ben.tap()
+        taps += 1
         poll("the answer reached Life") { !answers().isEmpty }
         XCTAssertEqual(answers().count, 1)
         XCTAssertEqual(answers()[0]["person"] as? String, "person:ben-martin")
@@ -137,7 +144,11 @@ import XCTest
 @MainActor final class C16OutdatedWhileOpenTests: FlowTest {
     func testOutdatedWhileOpen() {
         launch("C16")
-        openTheAsk()
+        // The ask is a row of the opening list: he opens it there, with no question of his own in the thread.
+        let row = element(AID.askRow(Self.ask))
+        appears(row, "the ask in the opening list")
+        row.tap()
+        taps += 1
         appears(element(AID.askAnswer(Self.ask, "send")), "Send")
         step(1)
         vanishes(element(AID.askAnswer(Self.ask, "send")), "Send gone once the ask is outdated")

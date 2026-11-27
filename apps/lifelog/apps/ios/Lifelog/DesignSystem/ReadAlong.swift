@@ -104,8 +104,8 @@ struct ReadAlong: View {
                     Image(systemName: isPlaying ? "pause.fill" : "play.fill").font(.lineStrong)
                 }
             }
-            .foregroundStyle(failed ? Palette.flag : Palette.on)
-            .frame(width: 36, height: 36).background(Palette.fg, in: .circle)
+            .foregroundStyle(failed ? Palette.flag : Palette.fg)
+            .frame(width: 24, height: 36)
             .frame(minWidth: Metrics.tapTarget, minHeight: Metrics.tapTarget)
         }
         .buttonStyle(.plain).disabled(isFetching)

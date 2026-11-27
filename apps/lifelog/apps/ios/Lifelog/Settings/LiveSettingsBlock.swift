@@ -13,13 +13,14 @@ struct LiveSettingsBlock: View {
     @State private var ticked: String?
     @State private var isOffered = false
 
-    private static let known = ["faceid", "pair"]
+    private static let known = ["faceid", "appear", "pair"]
 
     private var shown: [String] { keys?.filter((Self.known + ["aura"]).contains) ?? Self.known }
 
     var body: some View {
         SettingsBlock {
             ForEach(Array(shown.enumerated()), id: \.element) { index, key in
+                if index > 0 { Hairline() }
                 row(key)
             }
             if let offer {
@@ -35,10 +36,12 @@ struct LiveSettingsBlock: View {
         switch key {
         case "faceid":
             FaceIDRow()
+        case "appear":
+            AppearanceRow()
         case "aura":
             AuraBlock()
         default:
-            Button(action: openSettings) { Row(title: "Pair again with your Mac") { RowValue() } }
+            Button(action: openSettings) { Row(title: "Pair again with your Mac") { RoundChevron() } }
                 .buttonStyle(.plain)
         }
     }
