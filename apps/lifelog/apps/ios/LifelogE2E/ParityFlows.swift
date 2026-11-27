@@ -70,13 +70,13 @@ import XCTest
     }
 }
 
-/// M1: an answer arrives as it is written, its words a few at a time.
+/// M1: an answer arrives as it is written, its words a few at a time, then what hasn't moved.
 @MainActor final class M1SlowAnswerTests: FlowTest {
     func testSlowAnswer() {
         launch("M1")
         askLife("Where are we regarding the house?")
         appears(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "air conditioners in")).firstMatch,
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "The rest hasn’t moved")).firstMatch,
             "the answer's last words", within: 30)
         shoot("slow-answer")
     }
@@ -85,13 +85,13 @@ import XCTest
 /// V1: the voices row opened on a voice Life suggests someone for: the moment, Life's reason, its answers.
 @MainActor final class V1VoiceGuessTests: FlowTest {
     func testVoiceGuess() {
-        launch("A1")
+        launch("W1")
         let more = app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", " more")).firstMatch
         appears(more, "the rest of the rows")
         more.tap()
         taps += 1
         unfold(element(AID.askRow("voices")), until: element(AID.voicesAnswer("is-them")))
-        appears(app.staticTexts["You called Nora at 14:20, and this voice is on that call."], "Life's reason")
+        appears(app.staticTexts["You called Clara at 14:20, and this voice is on that call."], "Life's reason")
         shoot("voice-guess")
     }
 }

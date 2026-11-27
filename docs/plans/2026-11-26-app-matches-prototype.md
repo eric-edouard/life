@@ -65,8 +65,12 @@ One row per state; a row is green only when every column is.
 | Looks | App shot beside prototype shot, same made-up data, 390 × 844; the text and box diff (`scripts/design-compare.ts` fed the prototype's DOM boxes); the reviewer's score | The script's diff, then the reviewer |
 | Works | The state's task (goal, taps, expected result) run by `agent-device` on the fake Life; the fake Life records what the app sent (the answer, the send, the undo, the setting) and code compares it with the expected call | Code only |
 | Taps | Taps to finish the task in the app, beside the clicks the same task takes in the prototype | A number: more taps than the prototype is red |
-| Accessibility | Apple's `performAccessibilityAudit` in the XCUITest journey that reaches the state, at the default and the largest text size | The audit |
+| Accessibility | Apple's `performAccessibilityAudit` in the XCUITest journey that reaches the state, at the default and the largest text size | The audit, blocking only on clipped text and on an issue the prototype's state lacks; contrast and Dynamic Type are shown, never blocking (the owner's rule of 27 Nov 2026, below) |
 | Owner | His flag, if he gave one | Him, on taste and load only |
+
+The owner's rule for the Accessibility column (27 Nov 2026), his words: "accessibility, like contrast and text size, we
+don't care about much if it's already what the design has provided for… we just want to follow the design. Cut-off
+text, yes it's an issue. I just want things to be fast." (`blockingA11yOf`, `scripts/parity.ts`.)
 
 The rows:
 

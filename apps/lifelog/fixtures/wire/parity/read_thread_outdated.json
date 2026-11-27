@@ -4,6 +4,7 @@
   "owner": "Sam",
   "openingAsks": [
     "dec_000000000034",
+    "dec_000000000002",
     "dec_000000000035",
     "dec_000000000023",
     "dec_000000000019"
@@ -131,7 +132,7 @@
         "title": "Reply to Jade",
         "undo": null,
         "withdrawn": {
-          "replacedBy": null,
+          "replacedBy": "dec_000000000002",
           "why": "Jade wrote since"
         }
       },
@@ -139,6 +140,112 @@
       "later": null,
       "ref": "dec_000000000001",
       "state": "outdated"
+    },
+    {
+      "at": "2026-11-18T10:00:00.000Z",
+      "card": {
+        "about": [],
+        "agent": null,
+        "asker": "planner",
+        "at": "2026-11-18T10:00:00.000Z",
+        "clips": [],
+        "context": "Jade wrote again, so I wrote a new reply.",
+        "deadline": "2026-11-18T09:00:00.000Z",
+        "draft": {
+          "channel": "whatsapp",
+          "text": "Sure, 8:30 works. Book it, I’ll be there.",
+          "to": "Jade",
+          "chat": "155@s.whatsapp.net",
+          "recent": [
+            {
+              "at": "2026-11-18T09:40:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Jade",
+                "ref": "person:jade"
+              },
+              "text": "Should I book? 8 or 8:30?"
+            },
+            {
+              "at": "2026-11-18T09:52:00.000Z",
+              "sender": {
+                "kind": "person",
+                "name": "Jade",
+                "ref": "person:jade"
+              },
+              "text": "Actually can we do 8:30?"
+            }
+          ]
+        },
+        "group": "decision",
+        "isPlan": false,
+        "kind": "decision",
+        "likelyPeople": [
+          {
+            "ref": "person:jade",
+            "name": "Jade",
+            "kind": "person",
+            "line": "A friend",
+            "picture": null
+          }
+        ],
+        "links": [],
+        "onMatters": [],
+        "onSilence": "wait",
+        "ask": null,
+        "changed": [
+          "message"
+        ],
+        "doneSeen": null,
+        "doneSeenBy": "tap",
+        "edits": [
+          "Warmer",
+          "Shorter",
+          "In French"
+        ],
+        "follow": [],
+        "gathered": null,
+        "needs": [],
+        "notSent": null,
+        "options": [
+          {
+            "id": "send",
+            "label": "Send to Jade",
+            "outgoing": true,
+            "takes": null
+          },
+          {
+            "id": "wait",
+            "label": "Later",
+            "takes": null
+          }
+        ],
+        "plan": null,
+        "recommended": "send",
+        "replaces": null,
+        "pushId": "push-dec_000000000002",
+        "question": "Send Jade the message?",
+        "ref": "dec_000000000002",
+        "title": "Reply to Jade",
+        "urgency": "blocks",
+        "networkIdentity": {
+          "chat": "155@s.whatsapp.net",
+          "handle": "+155",
+          "network": "WhatsApp",
+          "newest": null,
+          "openUrl": "https://wa.me/155",
+          "shownName": "Jade",
+          "party": {
+            "kind": "person",
+            "name": "Jade",
+            "ref": "person:jade"
+          }
+        }
+      },
+      "kind": "ask",
+      "later": null,
+      "ref": "dec_000000000002",
+      "state": "needs_you"
     },
     {
       "at": "2026-11-26T06:00:00.000Z",
