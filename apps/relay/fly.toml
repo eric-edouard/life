@@ -27,6 +27,8 @@ kill_timeout = "30s"
   ACME_DNS_PROPAGATION_TIMEOUT_MS = "180000"
   # No visitor comes through Cloudflare.
   TRUSTED_PROXY_RANGES = "off"
+  TLS_LISTEN = "[::]:8443"
+  HTTP_LISTEN = "[::]:8080"
   INTERNAL_LISTEN = "[::]:9000"
 
 [[services]]

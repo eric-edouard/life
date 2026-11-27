@@ -65,7 +65,7 @@ and how much data moves. Addresses are random ids, never names, because the cert
 ## Where the relay runs
 
 On Fly.io (chosen 28 Nov 2026), the one developer-friendly host found that passes raw TCP on port 443 under our own
-wildcard domain without holding a certificate: a service with `handlers = []` behind one dedicated anycast IPv4, so
+wildcard domain without holding a certificate: a raw TCP service (only Fly's `proxy_proto` handler, which adds the visitor's address) behind one dedicated anycast IPv4, so
 a phone anywhere reaches the nearest region. About $9 a month for three regions (three 256 MB machines and the IPv4),
 egress $0.02 per GB in Europe and North America, $0.04 in Asia. Users pay nothing. Railway, Render, Koyeb,
 Northflank, Zeabur, DigitalOcean's App Platform and Cloudflare's proxy were ruled out: each decrypts, or allows only
@@ -77,7 +77,7 @@ HTTP, or gives a random port.
 - Fly's removal of TCP idle timeouts is a forum post, not its docs: test a connection idle for hours before launch.
 - A user who wants their own relay runs `fly launch --from <this repository>`, allocates a dedicated IPv4 and points
   their own wildcard record at it; the relay's `fly.toml` keeps passthrough. Fly has no one-click button.
-- DNS stays on Cloudflare in DNS-only mode, so Cloudflare never carries the traffic.
+- DNS stays at Porkbun, where the domain is registered; the relay edits only its ACME records, with a key limited to DNS on hostedbyme.app.
 
 ## The relay software
 
