@@ -99,8 +99,8 @@ struct ItemRow: View {
     /// out of date, when the wire no longer carries the draft.
     @State private var kept: Glyph.Mark?
     @State private var keptTo: String?
-    /// Who a draft is for: its card's, as kept, or what a settled card's answered option says.
-    private var recipient: String? { ask.check?.draft?.to ?? keptTo ?? ask.closed?.sentTo }
+    /// Who a draft is for: its card's, or as kept. A settled card names no one (#1493).
+    private var recipient: String? { ask.check?.draft?.to ?? keptTo }
     /// Its face (the prototype's "their face or mark"): who it is for, their picture or initial; else its matter's icon;
     /// else a mark by kind (`icon`).
     private var look: AskLook? { ask.check.map(AskLook.init) }

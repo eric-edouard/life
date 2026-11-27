@@ -48,19 +48,6 @@ public struct ThreadAsk: Decodable, Sendable, Equatable, Identifiable {
         public let sent: Sent?
         public let undo: Undo?
         public let withdrawn: Withdrawn?
-        /// The options the card had: the answered one's label ("Send to Sam") is the only place a settled draft names who.
-        public let options: [Option]?
-        public struct Option: Decodable, Sendable, Equatable {
-            public let id: String
-            public let label: String
-        }
-
-        /// Who a sent draft went to, from the label of the option he answered.
-        public var sentTo: String? {
-            guard sent != nil, let picked = answer?.options.first else { return nil }
-            guard let label = options?.first(where: { $0.id == picked })?.label, label.hasPrefix("Send to ") else { return nil }
-            return String(label.dropFirst("Send to ".count))
-        }
     }
 
     public let ref: String
