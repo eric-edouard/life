@@ -1,7 +1,8 @@
 /* App v4's edge, driven frame by frame exactly as v4 drives it (its frame() and applyAura() with the default aura:
    Life blue, colour only while working). Edge.mount(phone) once; Edge.set(state) glides to a state:
    rest, listen, work, landed (rest with v4's arrival pulse), still (v4's look while Life can't be reached).
-   Edge.level(0..1) scales the voice pool while listening (1 = v4); Edge.speed(k) scales the tides' speed (1 = v4). */
+   Edge.level(0..1) scales the voice pool while listening (1 = v4).
+   A fork of app v4's edge (2026-11-25-app-v4.html): re-sync it if v4's glow changes. */
 window.Edge=(function(){
   var GOALS={
     still:{spd:.02,bo:.05,tide:.2,blue:0,pool:0,blur:15,col:0},
@@ -29,6 +30,5 @@ window.Edge=(function(){
       el.innerHTML='<div class="gw">'+LAYERS+'</div><div class="cr">'+LAYERS+'</div>';phone.appendChild(el);requestAnimationFrame(frame);return el;},
     set:function(s){if(s==='landed'){pulse=1;s='rest';}if(!GOALS[s])throw new Error('Edge state: '+s);state=s;goal=GOALS[s];if(el)el.className='edge s-'+s;},
     level:function(v){lvl=Math.max(0,Math.min(1,v));},
-    speed:function(v){k=v;},
-    get state(){return state;}};
+};
 })();

@@ -24,7 +24,7 @@ window.Shell=(function(){
           for(var j=0;j<6;j++){Edge.level(.45+.55*Math.random());await wait(55);}}
         Edge.level(1);await wait(300);field.live(false);}};}
 
-  function reset(){stage.innerHTML='';field.clear();field.live(false);Edge.set('rest');Edge.level(1);Edge.speed(1);}
+  function reset(){stage.innerHTML='';field.clear();field.live(false);Edge.set('rest');Edge.level(1);}
 
   function start(id){var s=scenes.find(function(x){return x.id===id;});if(!s)return Promise.resolve();
     var token=++run;reset();Object.keys(buttons).forEach(function(k){buttons[k].setAttribute('aria-pressed',String(k===id));});
@@ -48,6 +48,7 @@ window.Shell=(function(){
     mic.addEventListener('pointerdown',function(e){e.preventDefault();if(held){stop();return;}run++;down=performance.now();f.live(true);heard.textContent='';Edge.set('listen');
       var words=DATA.asks.jade.ask.split(' '),n=0;held=setInterval(function(){Edge.level(.45+.55*Math.random());if(++n%6===0&&n/6<=words.length)heard.textContent=words.slice(0,n/6).join(' ');},55);});
     mic.addEventListener('pointerup',function(){if(held&&performance.now()-down>350)stop();});
+    mic.addEventListener('pointercancel',function(){if(held)stop();});
     f.sync();return f;}
 
   function fit(){var box=phone.parentNode,embedded=document.documentElement.classList.contains('embedded');
