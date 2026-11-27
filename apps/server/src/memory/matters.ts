@@ -16,7 +16,8 @@ import {
   type MatterStep,
   type ProjectPin,
 } from "../records/matter";
-import { Correction } from "../records/observation";
+import { Correction, type Observation } from "../records/observation";
+import { eventKey } from "../records/source";
 import { SEARCHABLE_AT } from "../records/unit";
 import {
   openTodoItemsOf,
@@ -29,6 +30,7 @@ import {
   type MatterStepNow,
   type MatterView,
   matterBookOf,
+  offeredNowOf,
 } from "./matter-read";
 import {
   CONTACT_PEOPLE,
@@ -46,6 +48,7 @@ import {
   MATTER_DIRECTIONS,
   MATTERS,
   OBSERVATIONS,
+  observationStatusOf,
   readBy,
   readLedger,
   readUnitsFor,
@@ -298,10 +301,17 @@ export function laterUntilOf(ref: string, now = clock()) {
  * `outdated` word); a link not yet his word ends it probably (`endingsRead`).
  */
 export async function readMatterRecords(people: People) {
-  const [episodes, { observations, statusInputs }] = await Promise.all([
+  const [episodes, now] = await Promise.all([
     episodesWhere(() => true),
     observationsNow(people),
   ]);
+  const { statusInputs } = now;
+  const observations = succeedsOf(
+    now.observations,
+    now.all.filter((o) =>
+      READ_AGAIN.includes(observationStatusOf(o, statusInputs).state)
+    )
+  );
   const ledger = readLedger();
   // The one rule for "current": the records as they stand now (an end re-read away counts for nothing).
   const current = new Set([
@@ -348,6 +358,28 @@ export async function readMatterRecords(people: People) {
     retired,
     todoItems: [...todoItemsOf(ledger).values()],
   };
+}
+
+/** Where an earlier reading of a line stands once its unit was read again (`replaced`) or regrouped away (`gone`): never an ending, his word or a retirement. */
+const READ_AGAIN: string[] = ["gone", "replaced"];
+
+/**
+ * Each current observation with the earlier readings of its source line it takes over (`succeeds`): every current fact
+ * citing the same line (`eventKey`), whatever its kind, takes each earlier one's place in its matter. Pure.
+ */
+export function succeedsOf<O extends Pick<Observation, "id" | "source">>(
+  current: readonly O[],
+  earlier: readonly Pick<Observation, "id" | "source">[]
+): (O & { succeeds?: string[] })[] {
+  const lineOf = (o: Pick<Observation, "source">) =>
+    eventKey({ id: o.source.ref, source: o.source.channel });
+  const byLine = Map.groupBy(earlier, lineOf);
+  return current.map((o) => {
+    const succeeds = (byLine.get(lineOf(o)) ?? [])
+      .map((e) => e.id)
+      .filter((id) => id !== o.id);
+    return succeeds.length > 0 ? { ...o, succeeds } : o;
+  });
 }
 
 /**
@@ -515,6 +547,7 @@ export async function readMatterWork(
   }
   const { episodes, observations } =
     records ?? (await readMatterRecords(people));
+  const offered = offeredNowOf(mattersNow(readMatters()).offered, observations);
   const placed = shownEpisodesOf(span, episodes, observations, people);
   const lone = placed.filter((e) => e.id === e.units[0]);
   const titles = new Map(
@@ -535,7 +568,7 @@ export async function readMatterWork(
       : [];
   });
   return {
-    ...pendingOf(shown, todoItems, mattersNow(readMatters()).offered),
+    ...pendingOf(shown, todoItems, offered),
     span,
   };
 }
