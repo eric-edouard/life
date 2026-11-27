@@ -1,28 +1,28 @@
 import files from "virtual:design-files";
 import { marked } from "marked";
-import { type ReactNode, StrictMode, useEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import readme from "../../../docs/design/README.md?raw";
 import {
   dateLabelOf,
+  dateOf,
+  type Entry,
   filesIn as filesUnder,
-  type Item,
-  itemPathOf,
-  itemsOf,
   pathsOf,
-  README,
   ROOT,
-  readmeRowsOf,
   SHOWN,
-  type Status,
+  type Tab,
+  tabsOf,
   urlOf,
 } from "./catalog";
 import { DesignSystem } from "./design-system";
 import "./styles.css";
 
 const PATHS = pathsOf(files);
-const ITEMS = itemsOf(readmeRowsOf(readme), PATHS);
-const APPROVED = ITEMS.find((i) => i.status === "Approved");
+const TABS = tabsOf(readme);
+const ENTRIES = TABS.flatMap((t) => t.entries);
+/** The approved prototype: the Prototype tab's first entry. Home shows it, and the home-screen app opens on it. */
+const PROTOTYPE = TABS.find((t) => t.title === "Prototype")?.entries[0];
 const filesIn = (folder: string) => filesUnder(PATHS, folder);
 const SOURCE = "https://github.com/eric-edouard/life/blob/main/";
 const MEDIA = /\.(png|jpe?g|gif|svg|mp4|webm)$/;
@@ -34,8 +34,13 @@ const DESIGN_WIDTH = 1180;
 const PHONE_WIDTH = 600;
 /** The screen's height less the page padding (and on a phone, the menu button's row). */
 const FULL_HEIGHT = "h-[calc(100dvh-4.25rem)] lg:h-[calc(100dvh-1.75rem)]";
+/** A tab's own page when it isn't its first entry: the design system is drawn live; explorations are only a group. */
+const TAB_PAGE: Record<string, string | null> = {
+  "Design system": "system",
+  Explorations: null,
+};
 
-/** The route is the hash: "" home, "system", or a path under docs/design. */
+/** The route is the hash: "" the prototype, "system", or a path under docs/design. */
 const readRoute = () => decodeURIComponent(location.hash.replace(HASH, ""));
 const useRoute = () => {
   const [route, setRoute] = useState(readRoute);
@@ -50,84 +55,24 @@ const useRoute = () => {
   return route;
 };
 
-const hrefOf = (path: string) => `#/${path}`;
+const hrefOf = (route: string) => `#/${route}`;
 
-const STATUS_COLOUR: Record<Status, string> = {
-  Approved: "bg-ok",
-  Proposals: "bg-ai",
-  Superseded: "bg-faint",
-  Tools: "bg-fg",
-};
-const STATUS_WORD: Record<Status, string> = {
-  Approved: "Approved",
-  Proposals: "Proposal",
-  Superseded: "Superseded",
-  Tools: "Tool",
-};
-
-/** A small mark for what an item is: a design (a phone), a note (lines), a folder of screens (a grid). */
-function Mark({ item }: { item: Item }) {
-  const hasPage =
-    item.kind === "folder" &&
-    filesIn(item.path).some((p) => p.endsWith(".html"));
-  const kind = hasPage ? "design" : item.kind;
-  return (
-    <svg
-      aria-hidden="true"
-      className="size-4 shrink-0 text-muted"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      viewBox="0 0 16 16"
-    >
-      {kind === "design" && <rect height="12" rx="2.5" width="8" x="4" y="2" />}
-      {kind === "note" && (
-        <path d="M3 4h10M3 8h10M3 12h6" strokeLinecap="round" />
-      )}
-      {kind === "folder" && (
-        <path
-          d="M2.5 2.5h4.5v4.5h-4.5zM9 2.5h4.5v4.5H9zM2.5 9h4.5v4.5h-4.5zM9 9h4.5v4.5H9z"
-          strokeLinejoin="round"
-        />
-      )}
-    </svg>
-  );
-}
-
-function StatusDot({ status }: { status?: Status }) {
-  if (status === undefined) {
-    return null;
+/** Where a tab's heading goes, and the entries listed under it (its first is the heading's own page, unless set). */
+const tabPartsOf = (tab: Tab) => {
+  const page = TAB_PAGE[tab.title];
+  if (page !== undefined) {
+    return { entries: tab.entries, page };
   }
-  return (
-    <span
-      className={`size-1.5 shrink-0 rounded-full ${STATUS_COLOUR[status]}`}
-      title={STATUS_WORD[status]}
-    />
-  );
-}
+  return { entries: tab.entries.slice(1), page: tab.entries[0]?.path ?? null };
+};
 
 function Sidebar({ onPick, route }: { onPick: () => void; route: string }) {
   const [query, setQuery] = useState("");
-  const shown = ITEMS.filter((i) =>
-    `${i.title} ${i.about ?? ""} ${i.path}`
-      .toLowerCase()
-      .includes(query.toLowerCase())
-  );
-  const byDate = Map.groupBy(shown, (i) => i.date);
-  const current = itemPathOf(route);
-  const row = (href: string, active: boolean, children: ReactNode) => (
-    <a
-      aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-2.5 rounded-control px-2.5 py-1.5 text-fg text-row-line no-underline hover:bg-wash ${active ? "bg-tint font-semibold" : ""}`}
-      href={href}
-      key={href}
-      onClick={onPick}
-    >
-      {children}
-    </a>
-  );
+  const matches = (e: Entry) =>
+    `${e.title} ${e.about}`.toLowerCase().includes(query.toLowerCase());
+  const here = route || PROTOTYPE?.path;
   return (
-    <nav className="flex h-full flex-col gap-4 overflow-y-auto px-3 pt-4 pb-10">
+    <nav className="flex h-full flex-col gap-5 overflow-y-auto px-3 pt-4 pb-10">
       <input
         aria-label="Find a design"
         className="rounded-control bg-card px-3 py-2 text-fg text-row-line outline-none placeholder:text-faint focus-visible:outline-2 focus-visible:outline-ai"
@@ -136,50 +81,48 @@ function Sidebar({ onPick, route }: { onPick: () => void; route: string }) {
         type="search"
         value={query}
       />
-      <div className="flex flex-col">
-        {row("#/", route === "", "Home")}
-        {row("#/system", route === "system", "Design system")}
-      </div>
-      {[...byDate].map(([date, items]) => (
-        <section className="flex flex-col" key={date}>
-          <h2 className="mb-1 px-2.5 font-semibold text-heading text-muted">
-            {dateLabelOf(date)}
-          </h2>
-          {items.map((i) =>
-            row(
-              hrefOf(i.path),
-              current === i.path,
-              <>
-                <Mark item={i} />
-                <span className="min-w-0 flex-1 truncate">{i.title}</span>
-                <StatusDot status={i.status} />
-              </>
-            )
-          )}
-        </section>
-      ))}
-      {shown.length === 0 ? (
-        <p className="px-2.5 text-faint text-row-line">
-          Nothing matches “{query}”.
-        </p>
-      ) : null}
+      {TABS.map((tab) => {
+        const { entries, page } = tabPartsOf(tab);
+        const shown = query ? tab.entries.filter(matches) : entries;
+        if (query && shown.length === 0) {
+          return null;
+        }
+        return (
+          <section className="flex flex-col gap-0.5" key={tab.title}>
+            {page === null ? (
+              <h2 className="m-0 px-2.5 py-1.5 font-semibold text-heading text-muted">
+                {tab.title}
+              </h2>
+            ) : (
+              <a
+                aria-current={here === page ? "page" : undefined}
+                className={`rounded-control px-2.5 py-1.5 font-semibold text-fg text-title no-underline hover:bg-wash ${here === page ? "bg-tint" : ""}`}
+                href={hrefOf(page)}
+                onClick={onPick}
+              >
+                {tab.title}
+              </a>
+            )}
+            {shown.map((e) => (
+              <a
+                aria-current={here === e.path ? "page" : undefined}
+                className={`ml-2.5 flex flex-col rounded-control px-2.5 py-1.5 text-fg no-underline hover:bg-wash ${here === e.path ? "bg-tint" : ""}`}
+                href={hrefOf(e.path)}
+                key={e.path}
+                onClick={onPick}
+              >
+                <span className="truncate text-row-line">{e.title}</span>
+                {e.date ? (
+                  <span className="text-faint text-meta">
+                    {dateLabelOf(e.date)}
+                  </span>
+                ) : null}
+              </a>
+            ))}
+          </section>
+        );
+      })}
     </nav>
-  );
-}
-
-/** Status and date of an item, on one quiet line. */
-function Meta({ item }: { item: Item }) {
-  return (
-    <span className="flex shrink-0 items-center gap-2 text-faint text-meta">
-      {item.status === undefined ? null : (
-        <>
-          <StatusDot status={item.status} />
-          {STATUS_WORD[item.status]}
-          <span aria-hidden="true">·</span>
-        </>
-      )}
-      {dateLabelOf(item.date)}
-    </span>
   );
 }
 
@@ -363,24 +306,17 @@ function Body({ path }: { path: string }) {
   return path.endsWith(".html") ? <Frame path={path} /> : <Note path={path} />;
 }
 
-/** The title line: the item (and the file inside it), its status and date, and the file opened alone. */
-function Title({ item, path }: { item?: Item; path: string }) {
-  const sub = item && path !== item.path ? path.slice(item.path.length) : "";
-  const parent = item && sub ? item : undefined;
+/** The title line: the entry's name (else the file's), its date, and the file opened alone. */
+function Title({ entry, path }: { entry?: Entry; path: string }) {
+  const date = entry?.date ?? dateOf(path);
   return (
     <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <h1 className="m-0 min-w-0 font-bold text-header">
-        {parent ? (
-          <a
-            className="text-muted no-underline hover:text-fg"
-            href={hrefOf(parent.path)}
-          >
-            {parent.title} /{" "}
-          </a>
-        ) : null}
-        {parent ? sub : (item?.title ?? path)}
+        {entry?.title ?? path.split("/").filter(Boolean).at(-1)}
       </h1>
-      {item ? <Meta item={item} /> : null}
+      {date ? (
+        <span className="text-faint text-meta">{dateLabelOf(date)}</span>
+      ) : null}
       {path.endsWith("/") ? null : (
         <a
           className="ml-auto rounded-full bg-tint px-3 py-1 text-fg text-meta no-underline hover:bg-glass"
@@ -395,55 +331,23 @@ function Title({ item, path }: { item?: Item; path: string }) {
   );
 }
 
-/** One item, or a file inside one: a page fills the space left under its title line. */
+/** An entry, or any file a note links to: a page fills the space left under its title line. */
 function Viewer({ path }: { path: string }) {
-  const item = ITEMS.find((i) => i.path === itemPathOf(path));
+  const entry = ENTRIES.find((e) => e.path === path);
   const isPage = path.endsWith(".html");
   return (
     <div className={`flex flex-col gap-4 ${isPage ? FULL_HEIGHT : ""}`}>
-      <Title item={item} path={path} />
-      {item?.about && !isPage ? (
-        <p className="m-0 max-w-[68ch] text-muted">{item.about}</p>
-      ) : null}
+      <Title entry={entry} path={path} />
       <Body path={path} />
     </div>
   );
 }
 
-/** Home: the APPROVED design, live and whole, then the README (statuses, dates) as the one index. */
-function Home() {
-  return (
-    <div className="flex flex-col gap-12">
-      {APPROVED ? (
-        <section className={`flex flex-col gap-4 ${FULL_HEIGHT}`}>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <h1 className="m-0 font-bold text-[clamp(1.75rem,4vw,2.75rem)] leading-none tracking-tight">
-              {APPROVED.title}
-            </h1>
-            <Meta item={APPROVED} />
-            <a
-              className="ml-auto rounded-full bg-fg px-5 py-2 font-semibold text-body text-on no-underline"
-              href={hrefOf(APPROVED.path)}
-            >
-              Open
-            </a>
-          </div>
-          <Frame path={APPROVED.path} />
-        </section>
-      ) : null}
-      <Note markdown={readme} path={README} />
-    </div>
-  );
-}
-
-/** Opened from the home screen: the APPROVED prototype alone, full screen, as the app would be. */
-function AppScreen() {
-  if (!APPROVED) {
-    return <Home />;
-  }
+/** Opened from the home screen: the approved prototype alone, full screen, as the app would be. */
+function AppScreen({ path }: { path: string }) {
   return (
     <div className="fixed inset-0 flex">
-      <Frame app path={APPROVED.path} />
+      <Frame app path={path} />
     </div>
   );
 }
@@ -462,14 +366,82 @@ const readList = () => {
   }
 };
 
+/** The page for a route: the prototype alone on the home screen, the design system, else an entry. */
+function Page({ isApp, route }: { isApp: boolean; route: string }) {
+  if (isApp && PROTOTYPE) {
+    return <AppScreen path={PROTOTYPE.path} />;
+  }
+  if (route === "system") {
+    return <DesignSystem />;
+  }
+  return <Viewer path={route || (PROTOTYPE?.path ?? "")} />;
+}
+
+/** Opens the list: a round button, or on the home-screen app a small grabber at the top, out of the prototype's way. */
+function MenuButton({
+  isApp,
+  isOpen,
+  onClick,
+}: {
+  isApp: boolean;
+  isOpen: boolean;
+  onClick: () => void;
+}) {
+  if (isApp) {
+    return (
+      <button
+        aria-expanded={isOpen}
+        aria-label="Designs"
+        className="fixed top-[env(safe-area-inset-top)] left-1/2 z-30 grid h-6 w-16 -translate-x-1/2 place-items-center"
+        onClick={onClick}
+        type="button"
+      >
+        <span className="h-1 w-9 rounded-full bg-glass" />
+      </button>
+    );
+  }
+  return (
+    <button
+      aria-expanded={isOpen}
+      aria-label="Designs"
+      className="fixed top-3 left-3 z-30 grid size-9 place-items-center rounded-full bg-glass text-fg backdrop-blur"
+      onClick={onClick}
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        className="size-4"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.5"
+        viewBox="0 0 16 16"
+      >
+        <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
+      </svg>
+    </button>
+  );
+}
+
+/** Wide: the list beside the page when shown; else a drawer when open (the app screen's), else gone. */
+const asideWideOf = (shown: boolean, drawer: boolean) => {
+  if (shown) {
+    return "lg:translate-x-0";
+  }
+  return drawer ? "lg:fixed lg:h-auto" : "lg:hidden";
+};
+
 function App() {
   const route = useRoute();
   // A phone or a narrow window: the list is a drawer over the page.
   const [drawer, setDrawer] = useState(false);
   // A wide screen: the list beside the page, or hidden so the design takes the whole width; remembered per device.
   const [list, setList] = useState(readList);
+  // From the home screen, home is the prototype itself, the list a drawer under a small grabber.
+  const isApp = STANDALONE && route === "" && PROTOTYPE !== undefined;
+  const shown = list && !isApp;
   const toggle = () => {
-    if (!matchMedia(WIDE).matches) {
+    if (isApp || !matchMedia(WIDE).matches) {
       setDrawer(!drawer);
       return;
     }
@@ -480,57 +452,13 @@ function App() {
       // Storage refused: the choice lasts this visit only.
     }
   };
-  // From the home screen, home is the prototype itself, the list a drawer under a small grabber.
-  const isApp = STANDALONE && route === "";
-  const shown = list && !isApp;
-  // Wide: beside the page when shown; else a drawer when open (the app screen's), else gone.
-  let asideWide = "lg:hidden";
-  if (shown) {
-    asideWide = "lg:translate-x-0";
-  } else if (drawer) {
-    asideWide = "lg:fixed lg:h-auto";
-  }
-  let page: ReactNode = <Viewer path={route} />;
-  if (isApp) {
-    page = <AppScreen />;
-  } else if (route === "") {
-    page = <Home />;
-  } else if (route === "system") {
-    page = <DesignSystem />;
-  }
   return (
     <div
       className={`min-h-dvh lg:grid ${shown ? "lg:grid-cols-[16rem_1fr]" : "lg:grid-cols-[1fr]"}`}
     >
-      <button
-        aria-expanded={drawer || shown}
-        aria-label="Designs"
-        className={
-          isApp
-            ? "fixed top-[env(safe-area-inset-top)] left-1/2 z-30 grid h-6 w-16 -translate-x-1/2 place-items-center"
-            : "fixed top-3 left-3 z-30 grid size-9 place-items-center rounded-full bg-glass text-fg backdrop-blur"
-        }
-        onClick={isApp ? () => setDrawer(!drawer) : toggle}
-        type="button"
-      >
-        {isApp ? (
-          <span className="h-1 w-9 rounded-full bg-glass" />
-        ) : (
-          <svg
-            aria-hidden="true"
-            className="size-4"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeWidth="1.5"
-            viewBox="0 0 16 16"
-          >
-            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
-          </svg>
-        )}
-      </button>
+      <MenuButton isApp={isApp} isOpen={drawer || shown} onClick={toggle} />
       <aside
-        className={`fixed inset-y-0 left-0 z-20 w-[min(20rem,86vw)] bg-sheet pt-12 transition-transform duration-200 lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:bg-bg ${drawer ? "translate-x-0" : "-translate-x-full"} ${asideWide}`}
+        className={`fixed inset-y-0 left-0 z-20 w-[min(20rem,86vw)] bg-sheet pt-12 transition-transform duration-200 lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:bg-bg ${drawer ? "translate-x-0" : "-translate-x-full"} ${asideWideOf(shown, drawer)}`}
       >
         <Sidebar onPick={() => setDrawer(false)} route={route} />
       </aside>
@@ -545,7 +473,7 @@ function App() {
       <main
         className={`min-w-0 px-3 pt-14 pb-3 sm:px-4 lg:pt-3 lg:pr-3 ${shown ? "lg:pl-2" : "lg:pl-16"}`}
       >
-        {page}
+        <Page isApp={isApp} route={route} />
       </main>
     </div>
   );

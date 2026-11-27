@@ -19,7 +19,8 @@ import {
 
 // The parity board (docs/plans/2026-11-26-app-matches-prototype.md): each state of the approved prototype
 // (`2026-11-25-app-v4.html`, one side-panel button) beside the app reaching it in a flow test over the same made-up data.
-// `bun run parity [row …] [--no-app] [--verdicts <file>] [--digest <board url>]` writes `parity/board.json` and the pairs.
+// `bun run parity [row …] [--no-app] [--verdicts <file>] [--digest <board url>]` writes `parity/board.json` and the pairs,
+// which the designs app's Parity tab shows (https://designs.ericedouard.com/#/2026-11-23-chat-first/2026-11-26-parity-board.html).
 // A row is green when every column it has passes: Looks (the reviewer's score of the pair, 8 or more; the words-and-boxes
 // gaps are its evidence), Works (the flow test, which checks the calls the app made), Taps (no more than the
 // prototype's), Accessibility (Apple's audit, blocking only as `blockingA11yOf` says), Owner (his "not right" is a failing note until the next batch fixes it).
@@ -30,6 +31,7 @@ const PROTO = join(
   "docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html"
 );
 const OUT = join(REPO, "docs/design/2026-11-23-chat-first/parity");
+const VERDICTS = join(REPO, "docs/design/parity-verdicts.json");
 const SHOTS = "/tmp/lifelog-parity"; // FlowTest.shoot's
 const RESULT = "/tmp/lifelog-e2e-dd/result.xcresult"; // e2e-phone.ts's
 const FRAME: [number, number] = [390, 844];
@@ -508,8 +510,9 @@ if (import.meta.main) {
     return at < 0 ? undefined : args.splice(at, 2)[1];
   };
   const noApp = args.includes("--no-app");
+  // The owner's verdicts, told in chat and kept in the repo; a file given instead is read in their place.
   const verdicts =
-    read<Record<string, Verdict>>(flag("--verdicts") ?? "") ?? {};
+    read<Record<string, Verdict>>(flag("--verdicts") ?? VERDICTS) ?? {};
   const boardUrl = flag("--digest");
   const reviewsFile = flag("--reviews");
   const ids = args.filter((a) => !a.startsWith("--"));

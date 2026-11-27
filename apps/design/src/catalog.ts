@@ -1,40 +1,30 @@
-// What docs/design holds, as the app lists it: each dated file or folder is one item, its status and words taken from
-// docs/design/README.md's tables (the one list of what is approved), its date from its name.
+// What the designs app lists: docs/design/README.md's sections are its tabs, in order, and each row of a section's table
+// is an entry under it (the one index; a file the README doesn't list is still reachable by its links, never in the list).
+// An entry's date is its file's (`YYYY-MM-DD-…`).
 
 import { lexer, type Tokens } from "marked";
 
 export const ROOT = "docs/design/";
-export const README = "README.md";
 
-export type Kind = "design" | "folder" | "note";
-/** The README's headings that give a status; a table under any other heading gives none. */
-const STATUSES = ["Approved", "Proposals", "Tools", "Superseded"] as const;
-export type Status = (typeof STATUSES)[number];
-const isStatus = (text: string): text is Status =>
-  (STATUSES as readonly string[]).includes(text);
-
-export interface Item {
-  about?: string;
-  date: string;
-  kind: Kind;
-  /** Its path under docs/design: a file, or a folder ending in "/". */
+export interface Entry {
+  about: string;
+  date?: string;
+  /** Its path under docs/design. */
   path: string;
-  status?: Status;
   title: string;
 }
 
-const DATED = /^(\d{4}-\d{2}-\d{2})-(.+?)(\.(html|md))?$/;
+export interface Tab {
+  entries: Entry[];
+  title: string;
+}
+
+const DATED = /^(\d{4}-\d{2}-\d{2})-/;
 export const SHOWN = /\.(html|md)$/;
-const TRAILING_SLASH = /\/$/;
 
 /** Repo paths of docs/design's files, made relative to it. */
 export const pathsOf = (files: string[]) =>
   files.map((f) => f.slice(ROOT.length));
-
-const titleOf = (name: string) => {
-  const words = name.replaceAll("-", " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-};
 
 export const dateLabelOf = (date: string) =>
   new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", {
@@ -43,83 +33,42 @@ export const dateLabelOf = (date: string) =>
     year: "numeric",
   });
 
-/** The last dated segment of a path: the item it belongs to ("2026-11-23-a/2026-11-26-lab/x.js" → "2026-11-23-a/2026-11-26-lab/"). */
-export const itemPathOf = (path: string) => {
-  const parts = path.split("/");
-  const last = parts.length - 1;
-  // A dated page, or a dated folder inside an exploration (the first folder groups, it is never an item itself); a
-  // dated screenshot or stylesheet belongs to its folder.
-  const at = parts.findLastIndex(
-    (p, i) => DATED.test(p) && (i < last ? i > 0 : SHOWN.test(p))
-  );
-  if (at < 0) {
-    return;
-  }
-  return parts.slice(0, at + 1).join("/") + (at < parts.length - 1 ? "/" : "");
-};
+/** The date of a path: its last dated segment's ("2026-11-23-a/2026-11-26-lab/index.html" → "2026-11-26"). */
+export const dateOf = (path: string) =>
+  path
+    .split("/")
+    .map((p) => DATED.exec(p)?.[1])
+    .findLast(Boolean);
 
-/** The README's tables: status, title and words for each item a row links. */
-export const readmeRowsOf = (markdown: string) => {
-  const rows = new Map<
-    string,
-    { about: string; status: Status; title: string }
-  >();
-  let status: Status | undefined;
+/** The README's sections as tabs: each `##` heading, with the rows of the table under it. */
+export const tabsOf = (markdown: string): Tab[] => {
+  const tabs: Tab[] = [];
   for (const token of lexer(markdown)) {
-    if (token.type === "heading") {
-      const { text } = token as Tokens.Heading;
-      status = isStatus(text) ? text : undefined;
+    if (token.type === "heading" && (token as Tokens.Heading).depth === 2) {
+      tabs.push({ entries: [], title: (token as Tokens.Heading).text });
     }
-    if (token.type !== "table" || !status) {
+    const tab = tabs.at(-1);
+    if (token.type !== "table" || !tab) {
       continue;
     }
     for (const row of (token as Tokens.Table).rows) {
-      const link = row[1]?.tokens.find(
+      const link = row[0]?.tokens.find(
         (t): t is Tokens.Link => t.type === "link"
       );
-      const path = link && itemPathOf(link.href);
-      if (path) {
-        rows.set(path, { about: row[2]?.text ?? "", status, title: link.text });
+      if (link) {
+        tab.entries.push({
+          about: row[1]?.text ?? "",
+          date: dateOf(link.href),
+          path: link.href,
+          title: link.text,
+        });
       }
     }
   }
-  return rows;
+  return tabs;
 };
 
-const kindOf = (item: string): Kind => {
-  if (item.endsWith("/")) {
-    return "folder";
-  }
-  return item.endsWith(".md") ? "note" : "design";
-};
-
-export const itemsOf = (
-  readme: ReturnType<typeof readmeRowsOf>,
-  paths: string[]
-): Item[] => {
-  const seen = new Map<string, Item>();
-  for (const path of paths) {
-    const item = itemPathOf(path);
-    if (!item || seen.has(item) || !(item.endsWith("/") || SHOWN.test(item))) {
-      continue;
-    }
-    const name = item.replace(TRAILING_SLASH, "").split("/").at(-1) ?? item;
-    const [, date = "", rest = name] = DATED.exec(name) ?? [];
-    const kind = kindOf(item);
-    seen.set(item, {
-      date,
-      kind,
-      path: item,
-      title: titleOf(rest),
-      ...readme.get(item),
-    });
-  }
-  return [...seen.values()].sort(
-    (a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title)
-  );
-};
-
-/** The files directly inside a folder item, and the ones below it. */
+/** The files at and below a path. */
 export const filesIn = (paths: string[], folder: string) =>
   paths.filter((p) => p.startsWith(folder));
 

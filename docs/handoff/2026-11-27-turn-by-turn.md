@@ -58,7 +58,6 @@ Every design is a dated, plain HTML file under `docs/design/`, built from shared
 - [`assets/brand/tokens.css`](../../assets/brand/tokens.css) is Life's brand.
 - [`components.css`](../design/components.css) holds the rules the app v4 pages had in common that no other page's
   markup could pick up.
-- `boards.css` is the 23 Nov boards' shared file.
 - `2026-11-27-turns.css` is the turn pages' shared file.
 
 A rule moves into a shared file only when no other page that links the file uses that rule's class names anywhere,

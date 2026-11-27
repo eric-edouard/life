@@ -50,7 +50,7 @@ These came out of the discussion; the ones marked as proposed were drawn without
   its own solid rounded background (`card`, no gradient, no border): who it is about (their picture or initial; an
   organization's mark), their name, what it is in a few words with when it is due (coral only for today), and a quiet
   Later pill on the right. The whole row is the tap: the item unfolds where it is, ready to act on. What the app does
-  today, in one place: [`docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md`](../design/2026-11-23-chat-first/2026-11-23-current-spec.md),
+  today, in one place: [`docs/design/philosophy.md`](../design/philosophy.md),
   which wins over this page's older lines where they differ.
 - The shortcut's bubble is not the owner's words. It reaches the main session as an event of the screen ("the owner
   opened what's waiting", with the rows' refs, as `MainSessionScreen` carries), never as text that `hisWordsIn` could
@@ -223,7 +223,7 @@ show; and it must cover the 23 Nov answers (Markdown text, a table, pictures, a 
 place: the answers page (a claude.ai copy, since retired), private to the owner).
 
 A starting library to weigh, drawn on 23 Nov 2026 (its reference:
-[`2026-11-23-answer-components.md`](../design/2026-11-23-chat-first/2026-11-23-answer-components.md); its look: the Answers page
+[`philosophy.md`](../design/philosophy.md); its look: the Answers page
 of the Chat design canvas, private to the owner): `text` (Markdown), `items` (Life's own, refs, they act), `pictures` (photo refs, full screen on
 a tap), `table` (groups, notes per cell, a total, `from`), `phrase` (`lang`, `text`, his words under it; said aloud,
 shown full screen), `document` (a paper as sent: `from`, title, key lines, total), `place` (a ref, or a name and an
@@ -240,7 +240,7 @@ the load is decided, not to the most visible part.
 
 1. **Ask quality:** few, clear asks (below). It decides the load more than any screen. Answer speed (below) goes with it: a slow answer is load too.
 2. **The thread:** the field, the thread and items with their states, unfolding, answering
-   ([the current spec](../design/2026-11-23-chat-first/2026-11-23-current-spec.md)).
+   ([the current spec](../design/philosophy.md)).
 3. **Notifications:** the notification as the ask, answers on it entering the thread, arrivals in the app.
 4. **Undo,** once the rest works (below).
 
@@ -249,7 +249,7 @@ Then, in a planning session of its own, the prediction layer (end of this page).
 ## Items have one set of states (for the plan)
 
 Every ask and matter the app shows follows one grid of states, wherever it appears (a list row, a folded card, an
-unfolded item): [the current spec](../design/2026-11-23-chat-first/2026-11-23-current-spec.md), "Items". The app builds it once,
+unfolded item): [the current spec](../design/philosophy.md), "Items". The app builds it once,
 as one model of an item's state read live from Life, not per screen.
 
 ## Ask quality comes first (for the plan)
@@ -268,7 +268,7 @@ polish:
   asks at all (ranked, not every card), on the lock screen and in the app alike, is the plan's to decide with the
   ranking (the owner's word of 23 Nov 2026). The design's proposal meanwhile: in the app, an unrelated ask follows
   its push level (off or quiet, only the count; normal or urgent, it lands once he is free); a follow-up to what he
-  just did always lands (`docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md`).
+  just did always lands (`docs/design/philosophy.md`).
 - Measured: a small set of real cards (anonymized for the repo) graded for those three before and after, the way
   prompt changes are proved (`AGENTS.md`, "Prove a change cheaply").
 
@@ -380,7 +380,7 @@ and a labels rail). A lead paragraph is no longer asked for. Checked against the
 ## Fix asks (for the plan)
 
 Failures that need the owner are asks of a kind of their own, "fix", written by the caretaker for where he is
-([the current spec](../design/2026-11-23-chat-first/2026-11-23-current-spec.md), "When Life can't be reached"). Two things to
+([the current spec](../design/philosophy.md), "When Life can't be reached"). Two things to
 check before any fix ask offers a step: Life reads WhatsApp from the Mac's app and its bridge only sends, so the
 bridge signed out means "can't send on WhatsApp", not "can't read"; and whether the bridge can be linked again by
 WhatsApp's 8-character pairing code (typed in WhatsApp's Linked devices) instead of a QR code, which would let the
