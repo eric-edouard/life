@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Parity Board</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..750&display=swap">
@@ -38,6 +43,8 @@ details{font-size:13px;color:var(--muted)}details pre{font:12px/1.5 var(--mono);
 button:focus-visible,input:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 @media (max-width:420px){.pair{gap:8px}}
 </style>
+</head>
+<body>
 <main>
   <div class="head">
     <div class="count" id="count">Loading the board…</div>
@@ -140,3 +147,5 @@ fetch("board.json").then((r) => r.json()).then((b) => { board = b; render(); })
   }, () => {});
 })();
 </script>
+</body>
+</html>

@@ -1,6 +1,14 @@
+<!doctype html>
+<!-- App v4: the one approved design of Life's app (the owner's yes of 26 Nov 2026); the app is built to it.
+     Every other design in docs/design is a proposal or superseded: docs/design/README.md. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>app v4</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap">
+<link rel="stylesheet" href="../components.css">
 <style>
 :root{--bg:#121316;--fg:#fff8ea;--muted:#b9b4aa;--chip:#1d1e23;--on:#000;color-scheme:dark}
 body{background:var(--bg);color:var(--fg);font-family:'Manrope',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
@@ -12,23 +20,15 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .seg button:focus-visible,.ph button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 
 @property --s{syntax:'<angle>';inherits:false;initial-value:20deg}
-@property --a1{syntax:'<angle>';inherits:false;initial-value:0deg}
-@property --a2{syntax:'<angle>';inherits:false;initial-value:120deg}
 @property --a3{syntax:'<angle>';inherits:false;initial-value:240deg}
 @keyframes swell{0%{--s:14deg}100%{--s:178deg}}
-@keyframes r1{from{--a1:0deg}to{--a1:360deg}}
-@keyframes r2{from{--a2:120deg}to{--a2:480deg}}
 @keyframes r3{from{--a3:240deg}to{--a3:600deg}}
 @keyframes aibreathe{0%,100%{opacity:.35}50%{opacity:.6}}
-@keyframes breathe{0%,100%{opacity:calc(var(--bo) * .65)}50%{opacity:var(--bo)}}
 @keyframes voice{0%{opacity:.55}7%{opacity:1}15%{opacity:.7}26%{opacity:.95}35%{opacity:.6}46%{opacity:1}58%{opacity:.75}69%{opacity:.98}80%{opacity:.62}90%{opacity:.92}100%{opacity:.55}}
 @keyframes landed{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
 @keyframes wave{0%,100%{transform:scaleY(.22)}50%{transform:scaleY(1)}}
 @keyframes dot{0%,60%,100%{opacity:.25}30%{opacity:1}}
-@keyframes lit{0%,100%{opacity:.55;box-shadow:0 0 6px rgba(255,248,234,.35)}50%{opacity:1;box-shadow:0 0 14px rgba(255,248,234,.6),0 0 40px rgba(255,248,234,.25)}}
 @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
-@keyframes ink{from{opacity:0;filter:blur(6px);transform:translateY(3px)}to{opacity:1;filter:none;transform:none}}
-@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .ph{--fg:#fff8ea;--muted:#8a867e;--flag:#f0896f;--card:#0b0c0e;--glass:rgba(26,27,32,.66);--tint:rgba(255,248,234,.08);--r:54px;position:relative;width:390px;height:844px;border-radius:var(--r);background:#000;overflow:hidden;color:var(--fg);font-family:'Manrope',system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.42;font-weight:450;-webkit-font-smoothing:antialiased}
 .ph *{box-sizing:border-box}
 .ph button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}
@@ -142,14 +142,12 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .fr .tx{flex:1;min-width:0}
 .fr b{display:block;font-size:16px;font-weight:650}
 .fr small{display:block;font-size:13.5px;color:var(--muted)}
-.fr small i{font-style:normal;color:var(--flag)}
 .lt{height:32px;padding:0 13px!important;border-radius:16px;background:var(--tint)!important;color:#b9b4aa!important;font-size:13px!important;font-weight:600;flex:none}
 .disc{width:44px;height:44px;border-radius:22px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex:none}
 .disc svg{width:20px;height:20px}
 .thread{overflow-y:auto;justify-content:flex-start;scrollbar-width:none;padding-bottom:6px}
 .thread::-webkit-scrollbar{display:none}
 .thread>.sp{margin-top:auto}
-.sep{align-self:center;font-size:12px;color:var(--muted);padding:6px 0 0}
 .more{align-self:center;height:32px;padding:0 14px!important;border-radius:16px;background:var(--tint)!important;font-size:13px!important;font-weight:650}
 .pg{align-self:stretch;display:flex;flex-direction:column;gap:14px;animation:rise .35s ease-out}
 .pg .kick{font-size:12.5px;color:var(--muted)}
@@ -301,7 +299,7 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .fr.flash{animation:flashrow 1.4s ease-out}
 .fr.settled{cursor:default}
 .fr.settled .td{color:inherit!important}
-.fr small .okt{display:inline-flex;vertical-align:-2px;margin-right:4px;color:#30d158}.fr small .okt svg{width:13px;height:13px}
+.fr small .okt{display:inline-flex;vertical-align:-2px;margin-right:4px;color:#30d158}
 .fr small button{font:inherit;background:none!important;border:0;color:var(--fg)!important;font-weight:600;padding:0!important;height:auto!important;display:inline!important}
 
 .spin.sm{width:11px;height:11px;border-width:1.6px;vertical-align:-1px;margin-right:4px}
@@ -358,7 +356,6 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .answers{display:flex;flex-direction:column;gap:8px}
 .answers.inl{margin-top:14px}
 .answers .prim{flex:none;width:100%}
-.two{display:flex;gap:8px}
 .two .sec{flex:1;height:44px;border-radius:22px;background:var(--tint)!important;font-size:14.5px!important;font-weight:600;color:var(--fg)!important;display:flex!important;align-items:center;justify-content:center;gap:6px;padding:0 10px!important}
 .two .sec.okd{color:#30d158!important}
 .pg.ask{animation:rise .35s ease-out}
@@ -429,7 +426,6 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .opt{display:flex!important;align-items:center;gap:12px;width:100%;padding:14px 16px!important;border-radius:16px;background:#111214!important;font-size:15.5px!important;font-weight:600;text-align:left;margin-top:8px}
 .opt .rd{width:18px;height:18px;border-radius:9px;box-shadow:inset 0 0 0 1.6px var(--muted);flex:none}
 .opt.on{background:var(--fg)!important;color:#000!important}
-.opt.on .rd{box-shadow:inset 0 0 0 5px #000}
 .reopen{align-self:flex-start;height:40px;padding:0 16px!important;border-radius:20px;background:var(--tint)!important;font-size:14px!important;font-weight:600}
 .chead{display:flex;align-items:center;gap:10px;padding:4px 0 8px;text-decoration:none;color:var(--fg)}
 .chead .appm{width:26px;height:26px;background:none;display:flex}
@@ -583,6 +579,8 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 .ltn{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;color:var(--muted);flex-wrap:wrap}
 .ltn i{width:6px;height:6px;border-radius:50%;background:var(--tint)}.ltn i.on{background:var(--fg)}.ltn span{margin-left:6px}
 </style>
+</head>
+<body>
 <main>
 <div class="fitbox" id="fitbox"><div class="ph" id="ph">
 <div class="sb"><span>9:41</span><span class="sbr">●●● ▮</span></div>
@@ -1808,3 +1806,5 @@ requestAnimationFrame(frame);setEdge('rest');
     var k=Math.min(1,(window.innerHeight-60)/844);ph.style.transform='scale('+k+')';box.style.width=(390*k)+'px';box.style.height=(844*k)+'px';}
   fit();window.addEventListener('resize',fit);})();
 </script>
+</body>
+</html>
