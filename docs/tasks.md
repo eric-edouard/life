@@ -281,7 +281,7 @@ reads the rest of its settings. How the report and the alerts go out:
 - A crash of any `bun life` command (thrown, or a promise nobody awaited) is a `run.error` line of step `crash`; the
   daily triage reads them.
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
-- Each new voice ask: a push to his phone, "Life heard you" (`notifyPhone`, through lifelog), so a missing one
+- Each new voice ask: a push to his phone, "Life heard you", which its outcome replaces (the same `pushId`; `notifyPhone`, through lifelog), so a missing one
   tells him at once it was not heard. Never his words. Voice asks come only from lifelog, so without it there is none to push.
 - Each new card in his inbox, of every kind: its own push, "1 new card" with the badge (every open card that blocks
   him) and its `pushId` (`pushNewCards`, `host/card-push.ts`); past the first 5 of Life's own checks in one look, one

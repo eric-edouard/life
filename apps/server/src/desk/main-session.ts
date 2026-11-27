@@ -37,7 +37,6 @@ import type {
   MainSessionAsk,
   MainSessionLine,
 } from "../records/main-session-wire";
-import { notifyPhone } from "../sources/lifelog-push";
 import { pendingCardOf } from "./agent-actions";
 import { askAssignment, QUESTION_WAIT } from "./agent-questions";
 import type { Desk } from "./desk-store";
@@ -646,7 +645,7 @@ export async function stopMainSession(desk: Desk) {
  * thread entry. A retry under the same key (one of the last `ASKS_KEPT` that reached the session) replays the lines so
  * far and ends with the same answer: never asked twice; the key with other words is refused. An ask that never reached
  * the session (busy, no place, a session that would not take it) is not kept, but a spoken one ends there, its error
- * his line; its new entry gets Life's eyes and one push that Life heard him, with no words of his.
+ * his line; its new entry gets Life's eyes.
  */
 export function askMainSession(
   desk: Desk,
@@ -686,7 +685,6 @@ export function askMainSession(
   const entry = stored?.entry ?? openEntry(desk.db, ask);
   if (ask.spoken && !stored) {
     react(desk.db, entry, "life", EYES);
-    notifyPhone({ body: "On it.", title: "Life heard you" });
   }
   const end = answer(desk, ask, entry, say, () => {
     isAsked = true;

@@ -10,6 +10,7 @@ import {
 import { ASK_SPOKEN } from "../host/events";
 import { askOf, LEDGER, parseLedgerEntry } from "../memory/memory-files";
 import { isSpokenAsk, type LedgerEntry } from "../records/ledger-entry";
+import { notifyPhone, pushIdOf } from "../sources/lifelog-push";
 import {
   type Desk,
   readSpokenAsksCursor,
@@ -94,8 +95,9 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
     );
     return;
   }
+  const isNew = !askEntryOf(desk.db, a.id);
   // Not waited for: a turn of minutes never holds the tick.
-  askMainSession(
+  const answered = askMainSession(
     desk,
     {
       key: a.id,
@@ -107,9 +109,23 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
       words: a.instruction?.quote ?? "",
     },
     () => undefined
-  ).catch((error: unknown) =>
-    log("desk.asks", { ...errorOf(error), ok: false, what: "main" })
   );
+  // One push that Life heard him, which its outcome replaces (the same `pushId`); never his words or Life's through Apple.
+  const pushId = pushIdOf(`thread:${askEntryOf(desk.db, a.id)?.id}`);
+  if (isNew) {
+    notifyPhone({ body: "On it.", pushId, title: "Life heard you" });
+  }
+  answered
+    .then((x) =>
+      notifyPhone({
+        body: "Open Life to read it.",
+        pushId,
+        title: x.kind === "error" ? "Life couldn't do it" : "Life answered",
+      })
+    )
+    .catch((error: unknown) =>
+      log("desk.asks", { ...errorOf(error), ok: false, what: "main" })
+    );
 }
 
 /** Receives his new spoken asks, each once: a spoken one asked of the main session, a told one queued for its agent. */

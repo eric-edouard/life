@@ -7,6 +7,7 @@ import { ASK_SPOKEN } from "../host/events";
 import { LEDGER } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as push from "../sources/lifelog-push";
+import { PUSH_ID } from "../sources/lifelog-push";
 import {
   closeAssignmentRow,
   readSpokenAsksCursor,
@@ -107,8 +108,9 @@ test("a spoken ask is one ask of the main session: his words in his thread with 
       { by: "life", with: "👀" },
     ]);
     // Never his words through Apple.
+    const pushId = expect.stringMatching(PUSH_ID);
     expect(pushes.mock.calls).toEqual([
-      [{ body: "On it.", title: "Life heard you" }],
+      [{ body: "On it.", pushId, title: "Life heard you" }],
     ]);
     // A tick while it runs (and a lost cursor) asks nothing again.
     saveSpokenAsksCursor(d.s.desk.db, {
@@ -123,7 +125,14 @@ test("a spoken ask is one ask of the main session: his words in his thread with 
     await d.receive();
     expect(readSpokenAsksCursor(d.s.desk.db).waiting).toEqual([]);
     expect(d.s.fake.said).toHaveLength(1);
-    expect(pushes).toHaveBeenCalledTimes(1);
+    // Its answer replaces the heard push: the same id, still no words.
+    expect(pushes.mock.calls).toEqual([
+      [{ body: "On it.", pushId, title: "Life heard you" }],
+      [{ body: "Open Life to read it.", pushId, title: "Life answered" }],
+    ]);
+    expect(pushes.mock.calls[1]?.[0].pushId).toBe(
+      pushes.mock.calls[0]?.[0].pushId
+    );
     // No agent was woken for it.
     expect(standingAgentOf(d.s.desk.db, "personal")).toBeUndefined();
   } finally {

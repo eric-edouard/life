@@ -209,7 +209,7 @@ Break one of these and something of the owner's is lost, leaked or acted on wron
   its deletion on his Undo (his yes of 25 Nov 2026, question 20): `undoAnswer` through `answer_check` with `undo`, his token only, a
   Matrix redaction or his GitHub comment deleted, only where the chat's own features allow a delete for everyone at that moment
   (`deleteLineOf`, never a table of Life's), reported deleted once the bridge confirms; iMessage and mail have none.
-- **Every spoken ask ends with something he sees** (his "Yes, always reply" of 27 Nov 2026): its thread entry with his words and Life's eyes, one push that Life heard him, then the main session's answer or a line saying what Life couldn't do and why (`askMainSession`; `spoken-asks.test.ts` guards it).
+- **Every spoken ask ends with something he sees** (his "Yes, always reply" of 27 Nov 2026): its thread entry with his words and Life's eyes, one push that Life heard him (its outcome replaces it: the same `pushId`, no words), then the main session's answer or a line saying what Life couldn't do and why (`askMainSession`; `spoken-asks.test.ts` guards it).
 - **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named
   (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, Gmail through gog for mail, or `gh` for an issue of a repo he listed in `githubRepos` (a comment, or a new issue with the subject as title; text only; his yes of 19 Nov 2026)** (his decision of 18 Nov 2026): a draft is
   text, or one file, or a reaction, with the message it replies or reacts to and the people it mentions
