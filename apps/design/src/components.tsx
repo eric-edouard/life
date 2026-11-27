@@ -3,19 +3,8 @@
 // variation shows "In the app" while its parity board row is green, read from the board's last run, else its typed status.
 import { useEffect, useRef, useState } from "react";
 import data from "../../../docs/design/components.json";
-import { urlOf } from "./catalog";
+import { urlOf, type Variation } from "./catalog";
 
-export interface Variation {
-  name: string;
-  on?: string;
-  /** Another design page to draw instead of the prototype. */
-  page?: string;
-  /** The part of the phone it draws, the latest match; none: the whole phone. */
-  part?: string;
-  row: string | null;
-  scene?: string[];
-  status: string;
-}
 interface Group {
   name: string;
   variations: Variation[];
@@ -37,7 +26,7 @@ const FIT = 0.7;
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 /** A variation's status as shown: "in" while its board row is green, else as typed. */
-export const statusOf = (v: Variation, green: Set<string>) =>
+const statusOf = (v: Variation, green: Set<string>) =>
   v.row && green.has(v.row) ? "in" : v.status;
 
 const LABEL: Record<string, string> = {
@@ -104,7 +93,7 @@ function showInThread(page: Document, part?: string) {
   }
 }
 
-/** One variation, live: mounted once near the screen, brought to its scene, then kept cropped to its part as it moves. */
+/** One variation, live: mounted while near the screen, brought to its scene, then kept cropped to its part as it moves. */
 function Live({ v }: { v: Variation }) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -117,7 +106,12 @@ function Live({ v }: { v: Variation }) {
       return;
     }
     const seen = new IntersectionObserver(
-      ([e]) => e?.isIntersecting && setNear(true),
+      ([e]) => {
+        setNear(Boolean(e?.isIntersecting));
+        if (!e?.isIntersecting) {
+          setCrop(null);
+        }
+      },
       { rootMargin: "600px" }
     );
     const sized = new ResizeObserver(([e]) =>

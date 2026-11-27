@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Variation } from "../apps/design/src/catalog";
 import components from "../docs/design/components.json";
 import { notBuiltIdOf, ROWS } from "./parity";
 
@@ -20,7 +21,7 @@ const side = PROTO.slice(
 const BUTTON = /<button\b([^>]*)>/g;
 const ID = /\bid="([^"]+)"/;
 const DATA = /\b(data-[\w-]+)="([^"]*)"/;
-/** As `panelOf` names a button: its id, else its first data- attribute. */
+/** As `panelOf` names a button: its id, else its first data- attribute (`panelOf` runs inside the page, so it can share no code). */
 const selectorOf = (attrs: string) => {
   const id = ID.exec(attrs)?.[1];
   if (id) {
@@ -32,13 +33,6 @@ const selectorOf = (attrs: string) => {
 const panel = [...side.matchAll(BUTTON)]
   .map(([, attrs = ""]) => selectorOf(attrs))
   .filter(Boolean);
-interface Variation {
-  name: string;
-  on?: string;
-  row: string | null;
-  scene?: string[];
-  status: string;
-}
 const variations: Variation[] = components.groups.flatMap(
   (g): Variation[] => g.variations
 );

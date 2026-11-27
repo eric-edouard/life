@@ -1,5 +1,5 @@
 {
-  "about": "App v4's components, each a scene of its side panel and the part of the phone it draws (the latest match; none: the whole phone). `row` is its parity board row; status is typed (next, waiting on server or design, designed) and the designs app shows \"In the app\" instead while that row is green. Every side-panel button is a variation's scene or listed in leftOut, so the board and this list cover the same scenes.",
+  "about": "App v4's components, by scene and part; docs/design/README.md says how the designs app reads it.",
   "groups": [
     {
       "name": "The edge",

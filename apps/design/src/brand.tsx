@@ -48,7 +48,7 @@ function Drawn({ className, src }: { className: string; src: string }) {
   );
 }
 
-export function Section({
+function Section({
   children,
   title,
 }: {

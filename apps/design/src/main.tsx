@@ -20,6 +20,8 @@ import { Components, Glow } from "./components";
 import "./styles.css";
 
 const PATHS = pathsOf(files);
+/** The README section whose tab is the design system's pages. */
+const SYSTEM_TAB = "Design system";
 /** The design system's pages, drawn by the app: the README's section names them in words, never as rows. */
 const SYSTEM_PAGES = {
   brand: { draw: Brand, title: "Brand" },
@@ -30,7 +32,7 @@ type SystemPage = keyof typeof SYSTEM_PAGES;
 const isSystemPage = (route: string): route is SystemPage =>
   Object.hasOwn(SYSTEM_PAGES, route);
 const TABS: Tab[] = tabsOf(readme).map((t) =>
-  t.title === "Design system"
+  t.title === SYSTEM_TAB
     ? {
         ...t,
         entries: Object.entries(SYSTEM_PAGES).map(([path, p]) => ({
@@ -57,7 +59,7 @@ const PHONE_WIDTH = 600;
 const FULL_HEIGHT = "h-[calc(100dvh-4.25rem)] lg:h-[calc(100dvh-1.75rem)]";
 /** A tab's own page when it isn't its first entry: the design system opens on its brand; explorations are only a group. */
 const TAB_PAGE: Record<string, string | null> = {
-  "Design system": "brand",
+  [SYSTEM_TAB]: "brand",
   Explorations: null,
 };
 
