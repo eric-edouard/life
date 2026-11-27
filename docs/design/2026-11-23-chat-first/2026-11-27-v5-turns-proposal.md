@@ -5,6 +5,9 @@ it, and a verdict. A proposal, not a decision. The mock is [`2026-11-27-v5-turns
 (states `#1` to `#5`), exported to [`2026-11-27-screens-v5-turns/`](2026-11-27-screens-v5-turns/); the approved
 screens are untouched.
 
+Update, 27 Nov 2026: the owner chose this direction later the same day. Where it stands, "hey Life" in it and what is
+still open: [the hand-over](../../handoff/2026-11-27-turn-by-turn.md).
+
 ![The five states side by side](2026-11-27-screens-v5-turns/0-all-side-by-side.png)
 
 The idea: at most two turns on screen, the owner's and Life's. The owner's words rise to the centre, marked as the owner's

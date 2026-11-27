@@ -25,7 +25,7 @@ None is built until the owner picks it into App v4.
 | 25 Nov 2026 | [Settings board](2026-11-23-chat-first/2026-11-25-settings-board.html) | Nine settings proposals, not decided |
 | 26 Nov 2026 | [First screen](2026-11-23-chat-first/2026-11-26-first-screen.html) | What the phone opens on |
 | 26 Nov 2026 | [Design lab](2026-11-23-chat-first/2026-11-26-design-lab/index.html) | Every card and page in variants A, B, C, each pick saved; it draws them in the App v4 prototype |
-| 27 Nov 2026 | [v5 turn by turn](2026-11-23-chat-first/2026-11-27-v5-turns.html) | Turn by turn instead of a thread; [the verdict](2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md) |
+| 27 Nov 2026 | [v5 turn by turn](2026-11-23-chat-first/2026-11-27-v5-turns.html) | Turn by turn instead of a thread; [the verdict](2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md); the owner chose this direction on 27 Nov 2026, [where it stands](../handoff/2026-11-27-turn-by-turn.md) |
 | 27 Nov 2026 | [Hey Life, turn by turn](2026-11-23-chat-first/2026-11-27-hey-life-turns.html) | “Hey Life” from your words to the answer: heard, the tap, Life working, the answer; not heard, offline, slow, couldn’t do it, heard late |
 
 ## Tools
