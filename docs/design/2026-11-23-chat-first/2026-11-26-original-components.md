@@ -5,8 +5,8 @@ rules a designer agent can apply to a new row, card or block; then how the proto
 unfolded, in every state. It is one agent's reading of the prototype, for the owner to confirm or correct: where the
 reason for a choice is not written down, the note says **Unsure why** or **Inference** instead of guessing.
 
-Source: `docs/design/chat-first/prototypes/shell.html` on `origin/main` (commit 8300231b5). Line numbers below are
-that file's (`shell.html:639`, or just `:639`); the copy `app-v4-original.html` in the design-cards worktree is the
+Source: `docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html` on `origin/main` (commit 8300231b5). Line numbers below are
+that file's (`2026-11-25-app-v4.html:639`, or just `:639`); the copy `app-v4-original.html` in the design-cards worktree is the
 same file with one extra line at the top, so its numbers are one higher. Reasons come from
 [`2026-11-23-current-spec.md`](2026-11-23-current-spec.md) (the spec),
 [`2026-11-23-design-decisions.md`](2026-11-23-design-decisions.md) (the log),
@@ -232,7 +232,7 @@ principle wins.
 
 | Rule | Example in the prototype | Why (where known) |
 |---|---|---|
-| An item's title is what he must do, verb first, short | "Send Ben the call recap", "Pick a clinic for the tattoo", "Call the bank" (`shell.html:583-619`) | Log, "Tried on the owner's real asks": a name alone does not read as something waiting; Life's card titles were news. |
+| An item's title is what he must do, verb first, short | "Send Ben the call recap", "Pick a clinic for the tattoo", "Call the bank" (`2026-11-25-app-v4.html:583-619`) | Log, "Tried on the owner's real asks": a name alone does not read as something waiting; Life's card titles were news. |
 | A thing that is not an ask may be a noun | "Boiler repair", "Dentist cleaning" (`:620-622`), both waiting on someone | Unsure why: these are matters, not asks; the spec gives matters the same row but no title rule. |
 | A question as title ends with "?" | "Raise this month's budget?" (`:611`), "Keep looking for a physio?" (`:1345`) | brand.md Wording: the first line is the question. |
 | The line is who, then when, joined by " · " | "Ben · tonight", "Paul, for the leak · Fri", "Confirm your new card · this week" (`:638`) | Log: "Its line is who it is about and when it is due". |

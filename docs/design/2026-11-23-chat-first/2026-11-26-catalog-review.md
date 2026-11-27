@@ -1,11 +1,11 @@
 # Design system catalog: review on a standard iPhone
 
 Review of PR 1400's component catalog (`-catalog <page> <offset>`, Debug) on an iPhone 18 Pro simulator, iOS 27.2,
-402 pt wide, against the app v4 prototype ([`prototypes/shell.html`](prototypes/shell.html)), `docs/brand.md`,
+402 pt wide, against the app v4 prototype ([`2026-11-25-app-v4.html`](2026-11-25-app-v4.html)), `docs/brand.md`,
 `assets/brand/tokens.css` and the owner's 11 answers in
 [`2026-11-25-app-v4-design-system.md`](2026-11-25-app-v4-design-system.md). Worktree head `e544d98e7`.
 
-Screens are in [`screens-ds-review/`](screens-ds-review/): `app-<page>-<offset>.png` from the simulator (offset in
+Screens are in [`2026-11-26-screens-ds-review/`](2026-11-26-screens-ds-review/): `app-<page>-<offset>.png` from the simulator (offset in
 points; blank overscroll shots dropped), `app-aura-<state>.png` for each aura state, and `proto-<scenario>.png` from
 the prototype's app v4 scenarios at phone size (390 × 844, Chromium).
 
@@ -59,7 +59,7 @@ the prototype's app v4 scenarios at phone size (390 × 844, Chromium).
 ## Second pass (26 Nov)
 
 Worktree head `135af84a5`, rebuilt and shot fresh on the iPhone 18 Pro simulator (iOS 27.2). Screens are
-`screens-ds-review/pass2-<page>-<offset>.png`.
+`2026-11-26-screens-ds-review/pass2-<page>-<offset>.png`.
 
 **Verdict: passes.** No must-fix left. 7 should, 4 nits.
 

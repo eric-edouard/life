@@ -2,8 +2,8 @@
 
 26 Nov 2026, a fresh reviewer. Built the PR's head (`615e4e35b`) for a clone of the iPhone 18 Pro simulator (iOS 27.2),
 paired it with the made-up demo Life (`scripts/demo.ts`, loopback, its watcher only), and drove it with agent-device.
-Judged against `prototypes/shell.html` (side-panel scenarios clicked), `2026-11-23-current-spec.md`, `docs/brand.md` and
-Apple's navigation patterns. Screenshots are in `screens-nav-review/`.
+Judged against `2026-11-25-app-v4.html` (side-panel scenarios clicked), `2026-11-23-current-spec.md`, `docs/brand.md` and
+Apple's navigation patterns. Screenshots are in `2026-11-26-screens-nav-review/`.
 
 **Verdict: fail**, on three must-fix items. The base holds: the thread is the root of a `NavigationStack`, a person link
 pushes a profile with the system's glass Back, one `RootView.Sheet` replaces another, the field rides the keyboard,
@@ -15,32 +15,32 @@ and the edge overlays the stack.
    none. The spec says "On every screen: the edge, the field at the bottom". The prototype's profile keeps the field
    ("What has he…") under the profile, with the glass back in place of the two round buttons. Put the field (and the
    inset) outside the `NavigationStack`, or on the destination too, so it stays.
-   `screens-nav-review/03-deeplink-profile-pushed.png` against `screens-nav-review/00-prototype-profile.jpg`.
+   `2026-11-26-screens-nav-review/03-deeplink-profile-pushed.png` against `2026-11-26-screens-nav-review/00-prototype-profile.jpg`.
 2. **A face in a `pictures` block still opens the profile as its own sheet.** `PicturesBlock` (`Items/ItemsBlock.swift`)
    keeps `@State opened` and `.sheet { ProfileView(ref:).sheetStack() }`. So one person opens two ways: a `life:` link
    pushes, a face presents. That breaks "one sheet at a time" (this sheet sits outside `RootView.Sheet`) and the spec's
    "a tap opens their profile over the thread". Route the face's tap through the same `open(ref)` (`openURL` with
    `life-open:`, as `[Inline].attributed` does). Code only: no Life answer with a pictures block could be made without
-   a live agent. Compare `screens-nav-review/03-deeplink-profile-pushed.png`.
+   a live agent. Compare `2026-11-26-screens-nav-review/03-deeplink-profile-pushed.png`.
 3. **A notification tap or an ask link lands on nothing when the ask isn't already a row in the thread.** `open(ref)`
    and the notification route both end in `life.focus`, which only sets `focused`. An `ItemRow` unfolds only if it is
    on screen (`ItemRow.onChange(of: life.focused)`), and nothing scrolls to it either. The spec says "Opened without
    answering, Life brings the ask to the bottom with its answers." On the demo, `lifelog://open?ref=matter_…` (an ask
    ref in the demo's inbox) closed the open Settings sheet and then showed nothing, from the thread too. Bring the ask to
    the bottom (or at least scroll to it and unfold it) when it is focused.
-   `screens-nav-review/09-matter-link-over-settings-shows-nothing.png`,
-   `screens-nav-review/10-matter-link-from-thread-shows-nothing.png`.
+   `2026-11-26-screens-nav-review/09-matter-link-over-settings-shows-nothing.png`,
+   `2026-11-26-screens-nav-review/10-matter-link-from-thread-shows-nothing.png`.
 
 ## Should-fix
 
 1. **Settings has no Close; the Pendant sheet does.** Both are `RootView.Sheet`s, but only `PendantView` has a
    `CloseItem`. A drag-down still closes Settings. Give every full-height sheet the same Close, so each sheet closes the
-   same way. `screens-nav-review/08-settings-sheet.png`, `screens-nav-review/07-pendant-sheet.png`.
+   same way. `2026-11-26-screens-nav-review/08-settings-sheet.png`, `2026-11-26-screens-nav-review/07-pendant-sheet.png`.
 2. **A non-person `life:` link opens a page sheet**: an observation shows Life's raw text, refs and "its evidence:
    read_observation …" included. The spec says `life:` names unfold, and "nothing of Life's opens a screen but a picture
    or a phrase", "No page of its own". The behaviour was already there; this PR moves it to the root, so the decision is
    now in one place. Decide what a matter or fact link does in the thread (unfold, or Life's answer as his ask), or at
-   least hide the refs. `screens-nav-review/11-observation-link-sheet.png`.
+   least hide the refs. `2026-11-26-screens-nav-review/11-observation-link-sheet.png`.
 3. **The phrase screen is a `fullScreenCover` inside a block**, outside `RootView.Sheet`, and it covers the edge. The
    spec allows full screen there, but the comment "one sheet at a time" is then not quite true. Either name it as the
    exception in `apps/lifelog/apps/ios/AGENTS.md`, or route it through the root. (Not reached: no phrase block without a
@@ -49,7 +49,7 @@ and the edge overlays the stack.
 ## Nit
 
 1. `LinkSheet`'s `person:` branch (`ProfileView(...).sheetStack()`) can no longer be reached, since `open(ref)` pushes
-   every `person:` ref. Delete it. `screens-nav-review/12-person-link-over-sheet.png`.
+   every `person:` ref. Delete it. `2026-11-26-screens-nav-review/12-person-link-over-sheet.png`.
 
 ## Seen working
 

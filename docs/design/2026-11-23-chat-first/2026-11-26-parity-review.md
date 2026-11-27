@@ -8,7 +8,7 @@ into a JSON file `{row: {score, note}}` passed to `bun run parity --reviews <fil
 
 You compare two screenshots per state: the approved design (prototype) and the iPhone app built to match it, both 390
 points wide, same made-up data. You see only the pictures. Do not read any code, docs or other files. For each row id,
-open `docs/design/chat-first/parity/<id>.proto.jpg` and `<id>.app.jpg`.
+open `docs/design/2026-11-23-chat-first/parity/<id>.proto.jpg` and `<id>.app.jpg`.
 
 For each row, judge how closely the app matches the prototype: same content present, same structure and order, same
 hierarchy and emphasis, same controls, same spacing and type feel. Ignore the phone bezel, the status bar and exact pixel

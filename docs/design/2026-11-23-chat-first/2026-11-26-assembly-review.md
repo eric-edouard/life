@@ -4,9 +4,9 @@ A fresh review of the assembly stage: the thread and its items (A1), profiles, t
 the person picker (A2). Worktree `~/Work/life-v41-a1` at `d382e0a4a`, Debug build, a fresh clone of the iPhone 18 Pro
 simulator (iOS 27.2), driven with the e2e scenarios' launch arguments (C1, C3, C5, C10, C16, O2, S1, S2, plus two made-up
 scenarios on a copy of the fixtures: a profile deep link and an ask with a person option) and the Debug catalog, at the
-default text size and at accessibility XXXL. Judged against `prototypes/shell.html` (every side-panel scenario that
+default text size and at accessibility XXXL. Judged against `2026-11-25-app-v4.html` (every side-panel scenario that
 touches these screens clicked and shot at 390 × 844), the current spec, `docs/brand.md`, the owner's 11 answers and the
-catalog, nav and layout reviews. Screens are in [`screens-assembly-review/`](screens-assembly-review/): `app-*` from
+catalog, nav and layout reviews. Screens are in [`2026-11-26-screens-assembly-review/`](2026-11-26-screens-assembly-review/): `app-*` from
 the simulator, `proto-*` from the prototype.
 
 Not counted, as the brief says: the under-way pie's estimate, the Sent line's recipient, ask edits, and the card

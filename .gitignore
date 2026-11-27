@@ -17,4 +17,4 @@ docs/research/2026-11-26-ios-e2e/*.mp4
 .metadata_never_index
 
 # The parity board's pairs and board (bun run parity): output, published as an artifact, never committed
-docs/design/chat-first/parity/
+docs/design/2026-11-23-chat-first/parity/

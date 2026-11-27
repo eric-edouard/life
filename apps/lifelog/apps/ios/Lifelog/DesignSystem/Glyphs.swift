@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The prototype's own marks (`docs/design/chat-first/prototypes/shell.html`), drawn from its SVG paths on a 24 grid:
+/// The prototype's own marks (`docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`), drawn from its SVG paths on a 24 grid:
 /// the one place they live. A mark is stroked in the surrounding foreground style, `weight` as the prototype strokes it.
 struct Glyph: View {
     enum Mark {

@@ -1,9 +1,9 @@
 # Layout review, v4.1 (PR #1407), 26 Nov 2026
 
-A fresh review of the layout stage against `prototypes/shell.html`, the current spec, `docs/brand.md`, the owner's 11
+A fresh review of the layout stage against `2026-11-25-app-v4.html`, the current spec, `docs/brand.md`, the owner's 11
 answers and the catalog and navigation reviews. Live screens: `v41-layout` merged with `v41-e2e` in a detached
 worktree, Debug build, a fresh iPhone 18 Pro clone (iOS 27.2), scenario C1 (Send a draft) and the catalog, at the
-default text size and at accessibility XXXL. Screens are in `screens-layout-review/`.
+default text size and at accessibility XXXL. Screens are in `2026-11-26-screens-layout-review/`.
 
 **Verdict: fail.** Two must-fix items, both about the thread's edges.
 

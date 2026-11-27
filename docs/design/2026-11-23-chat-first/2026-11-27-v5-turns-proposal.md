@@ -1,11 +1,11 @@
 # v5 idea: turn by turn instead of a thread
 
 Explanation: what the owner's idea of 27 Nov 2026 gains and loses against the approved app v4, whether SwiftUI can do
-it, and a verdict. A proposal, not a decision. The mock is [`prototypes/v5-turns.html`](prototypes/v5-turns.html)
-(states `#1` to `#5`), exported to [`screens-v5-turns-2026-11-27/`](screens-v5-turns-2026-11-27/); the approved
+it, and a verdict. A proposal, not a decision. The mock is [`2026-11-27-v5-turns.html`](2026-11-27-v5-turns.html)
+(states `#1` to `#5`), exported to [`2026-11-27-screens-v5-turns/`](2026-11-27-screens-v5-turns/); the approved
 screens are untouched.
 
-![The five states side by side](screens-v5-turns-2026-11-27/0-all-side-by-side.png)
+![The five states side by side](2026-11-27-screens-v5-turns/0-all-side-by-side.png)
 
 The idea: at most two turns on screen, the owner's and Life's. The owner's words rise to the centre, marked as the owner's
 by a cue rather than a side. Life works from the centre under a soft mesh of light, then its answer fills the screen:

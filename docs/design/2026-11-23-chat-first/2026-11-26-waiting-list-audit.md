@@ -2,11 +2,11 @@
 
 The owner tapped the count on his iPhone (16:10, real data): "Is that normal that it looks so bad? Nothing is
 formatted at all." This audits that list, element by element, against the approved prototype
-(`prototypes/shell.html`: `waiting()`, `rowHTML`, `lineHTML`, `pageHTML`/`bodyHTML`/`barHTML`, the `M` asks, the
+(`2026-11-25-app-v4.html`: `waiting()`, `rowHTML`, `lineHTML`, `pageHTML`/`bodyHTML`/`barHTML`, the `M` asks, the
 `wafix` fix ask) and `docs/product.md`. Where a lab pick (`2026-11-26-lab-decisions.md`) differs from the prototype,
 the prototype is followed and the difference is listed at the end for him to settle.
 
-Screens: `screens-waiting-rows/` (`side-by-side.png`: prototype list, app list, prototype open payment, app open
+Screens: `2026-11-26-screens-waiting-rows/` (`side-by-side.png`: prototype list, app list, prototype open payment, app open
 "your move"; `list.png`, `open-fix.png`, `open-move.png` alone). Demo data shaped like his: scenario
 `LifelogE2E/scenarios/W1.json` over `fixtures/wire/life/read_thread_waiting.json` (two signed-out networks, six guessed
 people, two of his own steps).

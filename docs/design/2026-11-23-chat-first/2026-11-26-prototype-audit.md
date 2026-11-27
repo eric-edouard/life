@@ -1,6 +1,6 @@
 # Prototype audit, 26 Nov 2026
 
-Source: `prototypes/shell.html` (S), `settings-board.html`, `answer-components.html`; approved deviations: `2026-11-26-lab-decisions.md`, `2026-11-26-original-components.md`. App: `apps/lifelog/apps/ios/Lifelog` (A). Read-only audit; no Swift edited. Not every file was read line by line: DraftBlock, Pieces, LinkCard, AskParts, IncidentCards, ConnectionPage, EdgeView were only grepped (marked "unread" below).
+Source: `2026-11-25-app-v4.html` (S), `2026-11-25-settings-board.html`, `2026-11-25-answer-components.html`; approved deviations: `2026-11-26-lab-decisions.md`, `2026-11-26-original-components.md`. App: `apps/lifelog/apps/ios/Lifelog` (A). Read-only audit; no Swift edited. Not every file was read line by line: DraftBlock, Pieces, LinkCard, AskParts, IncidentCards, ConnectionPage, EdgeView were only grepped (marked "unread" below).
 
 Global: no approved document allows SF Symbols in place of the prototype's own stroke glyphs. Every SF Symbol standing in for a prototype glyph is a mismatch unless a row says otherwise.
 

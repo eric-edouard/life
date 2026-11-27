@@ -4,7 +4,7 @@ Research only. Server read at `origin/main` c5b2092c0 (same server code as local
 
 Status: **drawn+answerable** (OK), **drawn only** (DR: shown, nothing to tap or no wording), **decoded, not drawn** (DEC), **not decoded** (ND: dropped by the Kit), **designed, not on wire** (DES). 'Flow test' says `built` (a scenario in `LifelogE2E/scenarios/`: S1 S2 C1 C3 C5 C10 C16 O2 O3 O4 O7, eleven in all) or `planned` (an ID in `docs/research/2026-11-26-ios-e2e/test-map.md`, nothing built). 'Catalog' is the Debug `DesignSystem/Catalog.swift` page that draws the state (pages: values, blocks, thread, items, asks, settings, aura); the catalog draws components with fixed data, it never decodes a wire fixture except its own one draft card.
 
-Three findings sit under every row. (1) **No ask is listed in the thread.** `ThreadRead` keeps only `kind: "ask"` items and the app draws one only inside an answer's `items` block (`Items/ItemsBlock.swift`), so a card nobody cites (an ending check, a voice, a delivered agent card) is seen only through a push or after 'What's waiting on me?'. (2) The P1 commit 14af8475d deleted every per-kind card body (voice naming, create sheet, pay code, same-as, bulk, plan, context); the Kit still decodes their fields, the app draws none. (3) shell.html designs payment and call cards but no card for voice naming, new matter, ending, same person, contacts card, at organization or your move. (4) Every group draws as title + question + option buttons; evidence (`said`, `clips`, `needs`, `plan`, `context`) is not shown.
+Three findings sit under every row. (1) **No ask is listed in the thread.** `ThreadRead` keeps only `kind: "ask"` items and the app draws one only inside an answer's `items` block (`Items/ItemsBlock.swift`), so a card nobody cites (an ending check, a voice, a delivered agent card) is seen only through a push or after 'What's waiting on me?'. (2) The P1 commit 14af8475d deleted every per-kind card body (voice naming, create sheet, pay code, same-as, bulk, plan, context); the Kit still decodes their fields, the app draws none. (3) 2026-11-25-app-v4.html designs payment and call cards but no card for voice naming, new matter, ending, same person, contacts card, at organization or your move. (4) Every group draws as title + question + option buttons; evidence (`said`, `clips`, `needs`, `plan`, `context`) is not shown.
 
 
 ## Check groups (what kind of ask Life holds)
@@ -174,9 +174,9 @@ Three findings sit under every row. (1) **No ask is listed in the thread.** `Thr
 | held asks ('While you were in your meeting') | host/life-thread.ts (not on wire) | none | HeldSeparator in DS only | designed, not on wire | planned N9 | held separator |
 | settings offer by thread (read_thread settings offer) | not on wire (planned G) | none | OfferBlock in DS | designed, not on wire | planned S7 | offer block |
 | aura colour / state ('Make it teal') | no wire kind | none | EdgeView aura + Catalog aura page | designed, not on wire | planned E3 | aura page |
-| instruction as a switch (S8) | no wire kind | none | none; in shell.html only | designed, not on wire | planned S8 | no |
-| answered-away bottom line / skipped ask line | no wire kind | none | shell.html only | designed, not on wire | planned C18 C19 | no |
-| payment box / call script (shell.html 'pay', 'call') | needs account/amount/text exist on wire | Need.swift | shell.html draws them; app does not | decoded, not drawn | planned C14 | no |
+| instruction as a switch (S8) | no wire kind | none | none; in 2026-11-25-app-v4.html only | designed, not on wire | planned S8 | no |
+| answered-away bottom line / skipped ask line | no wire kind | none | 2026-11-25-app-v4.html only | designed, not on wire | planned C18 C19 | no |
+| payment box / call script (2026-11-25-app-v4.html 'pay', 'call') | needs account/amount/text exist on wire | Need.swift | 2026-11-25-app-v4.html draws them; app does not | decoded, not drawn | planned C14 | no |
 
 ## Counts (126 rows)
 

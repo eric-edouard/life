@@ -2,7 +2,7 @@
 
 Reference: the nine pieces the app v4 prototype adds, the drifts between the prototype, the decided docs and the brand,
 and the decisions the owner takes before the phone bundles (P2, P3) build from it. The prototype is
-[`prototypes/shell.html`](prototypes/shell.html), published as the owner's private artifact
+[`2026-11-25-app-v4.html`](2026-11-25-app-v4.html), published as the owner's private artifact
 [app v4](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF). The current spec
 ([`2026-11-23-current-spec.md`](2026-11-23-current-spec.md)) and the v4 plan
 ([`../../plans/2026-11-25-overhaul/README.md`](../../plans/2026-11-25-overhaul/README.md)) still win where this page
@@ -195,7 +195,7 @@ names none of which matched, a second text field with no way to submit, and answ
 
 The owner asked to compare the approved rows with the lab's tiles (one card per page, the next peeking, dots and
 "1 of N"), with the same made-up asks at 3, 8 and 20. They are drawn in the prototype under "A list of matters: rows or
-tiles", and exported to [`screens-list-vs-tiles-2026-11-27/`](screens-list-vs-tiles-2026-11-27/).
+tiles", and exported to [`2026-11-27-screens-list-vs-tiles/`](2026-11-27-screens-list-vs-tiles/).
 
 | | Rows (approved) | Tiles (lab) |
 |---|---|---|

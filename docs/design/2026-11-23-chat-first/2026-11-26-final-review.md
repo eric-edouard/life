@@ -1,8 +1,8 @@
 # Final design review, v4.1 chat-first iPhone app (origin/main edd33d542)
 
-Judged against, in order: the approved prototype (`prototypes/shell.html`), the rulebook
+Judged against, in order: the approved prototype (`2026-11-25-app-v4.html`), the rulebook
 (`2026-11-26-original-components.md`, "Start from his seat" and "The owner's answers" first), `docs/brand.md`, and his lab
-decisions (`origin/v41-design-cards:docs/design/chat-first/2026-11-26-lab-decisions.md`).
+decisions (`origin/v41-design-cards:docs/design/2026-11-23-chat-first/2026-11-26-lab-decisions.md`).
 
 **Verdict: fail.** The rating, the top fade, Reduce Motion, the pairing sheet and the generated pages hold. The slow answer
 empties the thread for seconds, and the unfolded ask, the notice and the row's faces still differ from the prototype.
@@ -17,7 +17,7 @@ empties the thread for seconds, and the unfolded ask, the notice and the row's f
   text size through `simctl ui content_size accessibility-extra-extra-extra-large`.
 - Prototype: headless Chromium at phone size, its own scenario buttons (waiting, rate, async, offline, mac, pendant,
   house).
-- Screens: `screens-final-review/<name>.png` is app (left) beside prototype (right); raw shots in `app/` and `proto/`;
+- Screens: `2026-11-26-screens-final-review/<name>.png` is app (left) beside prototype (right); raw shots in `app/` and `proto/`;
   recordings `app/m1-slow-answer.mp4`, `app/reduce-motion-m1.mp4`, `app/person-open.mp4`.
 - The Mac's load was 17 to 170 during the run (other sessions); timings below are what the simulator showed.
 

@@ -237,4 +237,4 @@ One line under his words says what Life is doing now, until its answer starts (o
 
 - How the answer shapes are made (the plan decides).
 - The icons of the two round buttons; what Later offers; haptics; the edge's brand exception.
-- Settings: 9 proposals, none decided yet ([`prototypes/README.md`](prototypes/README.md), "Settings: open").
+- Settings: 9 proposals, none decided yet ([`2026-11-25-prototypes.md`](2026-11-25-prototypes.md), "Settings: open").

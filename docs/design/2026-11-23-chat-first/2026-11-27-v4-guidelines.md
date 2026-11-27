@@ -3,7 +3,7 @@
 Reference: the rules a builder or an agent follows when drawing anything Life shows on the phone, one line each, with
 its source. The first part holds only what the owner approved; open proposals are listed apart at the end and are not
 rules until the owner says yes. Where a source and this page differ, the source wins: fix this page. The approved prototype is
-[`prototypes/shell.html`](prototypes/shell.html) (published as "app v4").
+[`2026-11-25-app-v4.html`](2026-11-25-app-v4.html) (published as "app v4").
 
 Sources: [product](../../product.md), [brand](../../brand.md), [spec](2026-11-23-current-spec.md),
 [design system](2026-11-25-app-v4-design-system.md) (the owner's 11 answers of 26 Nov),
@@ -85,5 +85,5 @@ Sources: [product](../../product.md), [brand](../../brand.md), [spec](2026-11-23
 - Two-line rows: 10 px above and below, the mark on the first line, Later centred; drop "Your move". [design system](2026-11-25-app-v4-design-system.md#ask-rows-titles-and-the-leading-mark-proposal-26-nov-2026)
 - A row leads with who it is with, else the matter's icon, else a mark by kind; never a tick. [design system](2026-11-25-app-v4-design-system.md#ask-rows-titles-and-the-leading-mark-proposal-26-nov-2026)
 - Voices to name: one row in "N more", one voice at a time, at most one suggestion first, names typed in the Ask Life field. [design system](2026-11-25-app-v4-design-system.md#voices-to-name-proposal-26-nov-2026)
-- Lists are rows, not tiles: a list of matters or asks is always rows. Tiles are never used for matters. They are allowed only for a run of at most 5 asks of one kind, each answered with one tap. Code decides this, not the agent per answer, and there is no setting. A list in an answer shows its first 8 rows, then "N more". [design system](2026-11-25-app-v4-design-system.md#a-list-of-matters-rows-or-tiles-proposal-27-nov-2026), [screens](screens-list-vs-tiles-2026-11-27/)
+- Lists are rows, not tiles: a list of matters or asks is always rows. Tiles are never used for matters. They are allowed only for a run of at most 5 asks of one kind, each answered with one tap. Code decides this, not the agent per answer, and there is no setting. A list in an answer shows its first 8 rows, then "N more". [design system](2026-11-25-app-v4-design-system.md#a-list-of-matters-rows-or-tiles-proposal-27-nov-2026), [screens](2026-11-27-screens-list-vs-tiles/)
 - v5 idea, turn by turn: adopt parts. First slice: each ask starts a fresh screen, Life working in the centre under a mesh while the edge dims. [v5 proposal](2026-11-27-v5-turns-proposal.md)

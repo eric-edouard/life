@@ -1,7 +1,7 @@
 import LifeConnector
 import SwiftUI
 
-// The thread's components (docs/design/chat-first/2026-11-25-app-v4-design-system.md): what the screens are built
+// The thread's components (docs/design/2026-11-23-chat-first/2026-11-25-app-v4-design-system.md): what the screens are built
 // from. Pure views over plain values, no store: the catalog shows each in every state, and a screen only assembles.
 
 /// A mark on a message: the rating's three marks, and 👀 for work handed on. Monotone in Life's interface (owner,

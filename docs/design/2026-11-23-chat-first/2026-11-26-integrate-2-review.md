@@ -1,7 +1,7 @@
 # Integrate 2 review (PR #1414, head 17299d473)
 
 Fresh design review of what PR #1414 draws on the iPhone, against the only approved reference: the v4 prototype
-(`origin/main:docs/design/chat-first/prototypes/shell.html`) and `docs/brand.md`. The design lab was not used.
+(`origin/main:docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`) and `docs/brand.md`. The design lab was not used.
 
 **Verdict: fail.** Of the six items, only the quick edit chips' look at the default size matches. Four items differ
 from the prototype, and two are clipped or broken at the largest text size.
@@ -15,7 +15,7 @@ from the prototype, and two are clipped or broken at the largest text size.
   after it. Scenario C20 (rating), the Debug catalog (`thread`, `asks`), and three scratch scenarios on the existing
   wire fixtures (`read_thread_handed`, `read_thread_late_reply`, `read_thread_draft` with three edits). Default text
   size, then the largest (accessibility XXXL).
-- Screenshots in `screens-integrate-2-review/`, app on the left, prototype on the right.
+- Screenshots in `2026-11-26-screens-integrate-2-review/`, app on the left, prototype on the right.
 - Tooling note: driving the simulator with `agent-device` failed first (its session would not attach to the app,
   `SESSION_NOT_FOUND`); everything after that was driven and shot through `argent`. The text size was set with
   `simctl ui content_size` (argent has no such tool).

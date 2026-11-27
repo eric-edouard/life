@@ -7,15 +7,15 @@ order in them is made up: the live artifacts use the owner's real questions, the
 
 | File | What it is | Its live artifact (private to the owner) |
 |---|---|---|
-| `shell.html` | The interactive phone: the thread, the field, the edge, asks, profiles, answers to real questions, failures, notifications, and since 25 Nov (v4) long work handed off, redrafts, reactions, "How am I doing?", Undo after a send, settings in the thread, held asks and the spending stop. The side panel drives it. | [app v4](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF); before v4: [Life shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg) |
-| `answer-components.html` | The answer components side by side (text, items, pictures, table, phrase, document, place) | [Answer components](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R) |
-| `settings-board.html` | Settings: 9 proposals, not decided (below) | [Settings proposals](https://claude.ai/artifact/WajtHgFc6Z1PLE2izdBjzo) |
+| `2026-11-25-app-v4.html` | The interactive phone: the thread, the field, the edge, asks, profiles, answers to real questions, failures, notifications, and since 25 Nov (v4) long work handed off, redrafts, reactions, "How am I doing?", Undo after a send, settings in the thread, held asks and the spending stop. The side panel drives it. | [app v4](https://claude.ai/artifact/CvbKKXFzYTko1SZMNB2GrF); before v4: [Life shell prototype](https://claude.ai/artifact/7DNThcrd9u89WPWhjfBFCg) |
+| `2026-11-25-answer-components.html` | The answer components side by side (text, items, pictures, table, phrase, document, place) | [Answer components](https://claude.ai/artifact/USSnwciU3CovKtHYrXoj7R) |
+| `2026-11-25-settings-board.html` | Settings: 9 proposals, not decided (below) | [Settings proposals](https://claude.ai/artifact/WajtHgFc6Z1PLE2izdBjzo) |
 
 ## Read first
 
-1. [`../2026-11-23-current-spec.md`](../2026-11-23-current-spec.md): what is decided, in one place. It wins over the prototype where they differ.
-2. [`../2026-11-23-design-decisions.md`](../2026-11-23-design-decisions.md): how each decision was reached.
-3. [`../2026-11-23-answer-components.md`](../2026-11-23-answer-components.md) and [`../../../plans/2026-11-23-chat-first-app.md`](../../../plans/2026-11-23-chat-first-app.md).
+1. [`2026-11-23-current-spec.md`](2026-11-23-current-spec.md): what is decided, in one place. It wins over the prototype where they differ.
+2. [`2026-11-23-design-decisions.md`](2026-11-23-design-decisions.md): how each decision was reached.
+3. [`2026-11-23-answer-components.md`](2026-11-23-answer-components.md) and [`../../plans/2026-11-23-chat-first-app.md`](../../plans/2026-11-23-chat-first-app.md).
 4. `docs/product.md` and `docs/brand.md` (tokens in `assets/brand/tokens.css`).
 
 ## The owner's standing rules for design

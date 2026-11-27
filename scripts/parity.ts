@@ -18,15 +18,15 @@ import {
 } from "./design-compare";
 
 // The parity board (docs/plans/2026-11-26-app-matches-prototype.md): each state of the approved prototype
-// (`prototypes/shell.html`, one side-panel button) beside the app reaching it in a flow test over the same made-up data.
+// (`2026-11-25-app-v4.html`, one side-panel button) beside the app reaching it in a flow test over the same made-up data.
 // `bun run parity [row …] [--no-app] [--verdicts <file>] [--digest <board url>]` writes `parity/board.json` and the pairs.
 // A row is green when every column it has passes: Looks (the reviewer's score of the pair, 8 or more; the words-and-boxes
 // gaps are its evidence), Works (the flow test, which checks the calls the app made), Taps (no more than the
 // prototype's), Accessibility (Apple's audit, blocking only as `blockingA11yOf` says), Owner (his "not right" is a failing note until the next batch fixes it).
 
 const REPO = join(import.meta.dir, "..");
-const PROTO = join(REPO, "docs/design/chat-first/prototypes/shell.html");
-const OUT = join(REPO, "docs/design/chat-first/parity");
+const PROTO = join(REPO, "docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html");
+const OUT = join(REPO, "docs/design/2026-11-23-chat-first/parity");
 const SHOTS = "/tmp/lifelog-parity"; // FlowTest.shoot's
 const RESULT = "/tmp/lifelog-e2e-dd/result.xcresult"; // e2e-phone.ts's
 const FRAME: [number, number] = [390, 844];
