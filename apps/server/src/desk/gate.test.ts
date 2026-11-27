@@ -2,7 +2,7 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HOUR, iso } from "../core/clock";
+import { clock, HOUR, iso } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as deskRead from "../host/desk-read";
 import { DECISIONS } from "../memory/decision-lines";
@@ -213,7 +213,8 @@ test("a failing gate never keeps a card from him: a failed call delivers it, and
       agent: "agt_0123456789ab",
       ask: `Pick a day ${n}`,
       context: "A made-up reason to ask.",
-      deadline: at(48),
+      // The real clock: requestDecision checks the deadline against now.
+      deadline: iso(clock().getTime() + 48 * HOUR),
       follow: [],
       options: [
         { id: "tue", label: "Tuesday" },
