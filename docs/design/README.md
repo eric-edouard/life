@@ -1,9 +1,10 @@
 # Designs
 
 Every design of Life's app, by date, each named `YYYY-MM-DD-<name>` by the day it was first made. Open them in the
-designs app (`apps/design`): `bun run design` on the Mac, or https://designs.ericedouard.com from any device, deployed
-by `bun run design:deploy` from what git holds. It lists every design, note and screenshot here by date, shows a page
-whole on any screen, and draws the design system from `tokens.css`. These files are the only source: nothing is
+designs app (`apps/design`): https://designs.ericedouard.com from any device, served by the Mac from its live checkout
+(`bun run design`, kept up by launchd), so it always shows what the checkout holds. It lists every design, note and
+screenshot here by date, shows a page whole on any screen, and draws the design system from `tokens.css`. Added to a
+phone's home screen, it opens full screen on the approved prototype. These files are the only source: nothing is
 published as a copy (no claude.ai artifacts). A new design goes here, dated, and this table says its status.
 
 The pages share their parts instead of copying them. Life's brand is [`assets/brand/tokens.css`](../../assets/brand/tokens.css).

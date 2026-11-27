@@ -27,8 +27,8 @@ artifacts; these files are now the only source. Every person, place, business an
 
 ## Working on a prototype
 
-- Edit the file here, check it in the designs app (`bun run design`, see [the index](../README.md)), and deploy it
-  (`bun run design:deploy`) for the owner to try on his phone. Never publish a copy elsewhere: these files are the
+- Edit the file here, check it in the designs app ([the index](../README.md)): the owner sees it there at once,
+  on his phone too. Never publish a copy elsewhere: these files are the
   source. Every name, place, business and number in them stays made up.
 - The shell is one file: CSS first, then a script with the asks (`ASKS`), the questions he tries (`TRY`), the failures
   (`SYSD`) and the profiles (`PEOPLE`). Its side panel lists every scenario.

@@ -7,6 +7,17 @@
       name="viewport"
     >
     <title>Life designs</title>
+    <!-- Added to the home screen it opens full screen on the approved prototype. No service worker: every open is
+         fetched from the Mac, so it is always the latest. -->
+    <link href="/manifest.webmanifest" rel="manifest">
+    <link href="/apple-touch-icon.png" rel="apple-touch-icon">
+    <meta content="yes" name="apple-mobile-web-app-capable">
+    <meta
+      content="black-translucent"
+      name="apple-mobile-web-app-status-bar-style"
+    >
+    <meta content="Life" name="apple-mobile-web-app-title">
+    <meta content="#000000" name="theme-color">
   </head>
   <body>
     <div id="root"></div>

@@ -3,8 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "deploy": "vite build && bun x wrangler@4.48.0 pages deploy dist --project-name life-designs --branch main",
     "dev": "vite"
   },
   "dependencies": {

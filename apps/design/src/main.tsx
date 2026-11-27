@@ -178,10 +178,30 @@ function Meta({ item }: { item: Item }) {
   );
 }
 
+/** At phone width the prototype fills the screen: its drawn status bar (`.sb`) goes, the phone's real one shows. */
+const hideDrawnStatusBar = (frame: HTMLIFrameElement) => {
+  const page = frame.contentDocument;
+  const style = page?.createElement("style");
+  if (page && style) {
+    style.textContent = "@media (max-width:500px){.sb{display:none}}";
+    page.head.append(style);
+  }
+};
+
 /** A design page, live. Below its layout width (and above a phone's) it is scaled down whole to fit the box. */
-function Frame({ path }: { path: string }) {
+function Frame({ app = false, path }: { app?: boolean; path: string }) {
   const box = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
   const [size, setSize] = useState({ height: 0, width: 0 });
+  useEffect(() => {
+    const el = frame.current;
+    if (!(app && el)) {
+      return;
+    }
+    const on = () => hideDrawnStatusBar(el);
+    el.addEventListener("load", on);
+    return () => el.removeEventListener("load", on);
+  }, [app]);
   useEffect(() => {
     const el = box.current;
     if (!el) {
@@ -202,11 +222,12 @@ function Frame({ path }: { path: string }) {
   const scale = fits ? 1 : size.width / DESIGN_WIDTH;
   return (
     <div
-      className="relative min-h-0 flex-1 overflow-hidden rounded-panel bg-card"
+      className={`relative min-h-0 flex-1 overflow-hidden bg-card ${app ? "" : "rounded-panel"}`}
       ref={box}
     >
       <iframe
         className="absolute top-0 left-0 origin-top-left"
+        ref={frame}
         src={urlOf(path)}
         style={{
           height: size.height / scale,
@@ -406,6 +427,22 @@ function Home() {
   );
 }
 
+/** Opened from the home screen: the approved prototype alone, full screen, as the app would be. */
+function AppScreen() {
+  const approved = ITEMS.find((i) => i.status === "Approved");
+  if (!approved) {
+    return <Home />;
+  }
+  return (
+    <div className="fixed inset-0 flex">
+      <Frame app path={approved.path} />
+    </div>
+  );
+}
+
+const STANDALONE =
+  matchMedia("(display-mode: standalone)").matches ||
+  (navigator as { standalone?: boolean }).standalone === true;
 const LIST_KEY = "design.list";
 const WIDE = "(min-width: 64rem)";
 
@@ -435,50 +472,70 @@ function App() {
       // Storage refused: the choice lasts this visit only.
     }
   };
+  // From the home screen, home is the prototype itself, the list a drawer under a small grabber.
+  const isApp = STANDALONE && route === "";
+  const shown = list && !isApp;
+  // Wide: beside the page when shown; else a drawer when open (the app screen's), else gone.
+  let asideWide = "lg:hidden";
+  if (shown) {
+    asideWide = "lg:translate-x-0";
+  } else if (drawer) {
+    asideWide = "lg:fixed lg:h-auto";
+  }
   let page: ReactNode = <Viewer path={route} />;
-  if (route === "") {
+  if (isApp) {
+    page = <AppScreen />;
+  } else if (route === "") {
     page = <Home />;
   } else if (route === "system") {
     page = <DesignSystem />;
   }
   return (
     <div
-      className={`min-h-dvh lg:grid ${list ? "lg:grid-cols-[16rem_1fr]" : "lg:grid-cols-[1fr]"}`}
+      className={`min-h-dvh lg:grid ${shown ? "lg:grid-cols-[16rem_1fr]" : "lg:grid-cols-[1fr]"}`}
     >
       <button
-        aria-expanded={drawer || list}
+        aria-expanded={drawer || shown}
         aria-label="Designs"
-        className="fixed top-3 left-3 z-30 grid size-9 place-items-center rounded-full bg-glass text-fg backdrop-blur"
-        onClick={toggle}
+        className={
+          isApp
+            ? "fixed top-[env(safe-area-inset-top)] left-1/2 z-30 grid h-6 w-16 -translate-x-1/2 place-items-center"
+            : "fixed top-3 left-3 z-30 grid size-9 place-items-center rounded-full bg-glass text-fg backdrop-blur"
+        }
+        onClick={isApp ? () => setDrawer(!drawer) : toggle}
         type="button"
       >
-        <svg
-          aria-hidden="true"
-          className="size-4"
-          fill="none"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeWidth="1.5"
-          viewBox="0 0 16 16"
-        >
-          <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
-        </svg>
+        {isApp ? (
+          <span className="h-1 w-9 rounded-full bg-glass" />
+        ) : (
+          <svg
+            aria-hidden="true"
+            className="size-4"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.5"
+            viewBox="0 0 16 16"
+          >
+            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />
+          </svg>
+        )}
       </button>
       <aside
-        className={`fixed inset-y-0 left-0 z-20 w-[min(20rem,86vw)] bg-sheet pt-12 transition-transform duration-200 lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:bg-bg ${drawer ? "translate-x-0" : "-translate-x-full"} ${list ? "lg:translate-x-0" : "lg:hidden"}`}
+        className={`fixed inset-y-0 left-0 z-20 w-[min(20rem,86vw)] bg-sheet pt-12 transition-transform duration-200 lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:bg-bg ${drawer ? "translate-x-0" : "-translate-x-full"} ${asideWide}`}
       >
         <Sidebar onPick={() => setDrawer(false)} route={route} />
       </aside>
       {drawer ? (
         <button
           aria-label="Close the list"
-          className="fixed inset-0 z-10 bg-bg/60 lg:hidden"
+          className={`fixed inset-0 z-10 bg-bg/60 ${shown ? "lg:hidden" : ""}`}
           onClick={() => setDrawer(false)}
           type="button"
         />
       ) : null}
       <main
-        className={`min-w-0 px-3 pt-14 pb-3 sm:px-4 lg:pt-3 lg:pr-3 ${list ? "lg:pl-2" : "lg:pl-16"}`}
+        className={`min-w-0 px-3 pt-14 pb-3 sm:px-4 lg:pt-3 lg:pr-3 ${shown ? "lg:pl-2" : "lg:pl-16"}`}
       >
         {page}
       </main>
