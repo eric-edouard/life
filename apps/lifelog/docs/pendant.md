@@ -139,7 +139,7 @@ there: sync follows the Pendant's own events.
   Nor is the one just before it: a status can arrive before the page the Pendant just sealed. Once that page is
   saved, the phone counts that status's backlog again, so heard-through follows each status without another one.
   While a backlog is still on the Pendant, heard-through runs to the last page of the unbroken run the phone saved,
-  less 3 s: the Pendant sends oldest first, so speech goes up as it arrives, never only after the whole backlog.
+  less 3 s (`docs/processing.md`), so speech goes up as it arrives, never only after the whole backlog.
   So audio follows each detector stretch either way.
 - **Foreground fallback.** While the app is in the foreground it runs a cycle every 5 minutes, in case an event was
   missed.

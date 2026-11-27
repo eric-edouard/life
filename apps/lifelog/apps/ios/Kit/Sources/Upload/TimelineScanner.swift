@@ -33,6 +33,11 @@ public struct TimelineSnapshot: Sendable {
         try await scanner.start(ofPage: page)
     }
 
+    /// When the last run of a page at or below `page` plays; `nil` while none is stored. Never a later page's.
+    public func start(ofLastRunAtOrBelow page: UInt64) async throws -> CaptureInstant? {
+        try await scanner.start(ofLastRunAtOrBelow: page)
+    }
+
     /// The analyzers' labels overlapping any of `ranges`.
     public func windows(overlapping ranges: [Range<CaptureInstant>]) async throws -> [ActivityWindow] {
         try await scanner.windows(overlapping: ranges)
@@ -168,11 +173,8 @@ public actor TimelineScanner {
         try store.spanEnd(deviceID: deviceID, atOrBefore: instant)
     }
 
-    /// When the last run of a page at or before `page` starts: with `page` the end of the unbroken run the phone saved
-    /// (`Backlog.savedPage`), everything captured before it is stored. `nil` while none is indexed.
-    public func start(ofSavedPage page: UInt64) throws -> CaptureInstant? {
-        try store.spans(deviceID: deviceID, startingBelow: page + 1).lazy.flatMap { $0.runs.reversed() }
-            .first { $0.page <= page }?.start
+    func start(ofLastRunAtOrBelow page: UInt64) throws -> CaptureInstant? {
+        try store.spans(deviceID: deviceID, startingBelow: page + 1).first?.runs.last { $0.page <= page }?.start
     }
 
     func start(ofPage page: UInt64) throws -> CaptureInstant? {

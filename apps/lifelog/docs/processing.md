@@ -55,7 +55,8 @@ when the network returns. A run cut short loses nothing: the next resumes. Captu
    `heardThrough` is the capture time up to which every page is on the phone: stored, a recorded gap, or held (an
    undecodable page kept for the owner), so a held page never stops uploads (`PageSink.savedIndex`; ACK still stops
    there). It comes from the Pendant's last status that had nothing more to send, less 3 s
-   (`FactsBuilder.savedThrough`): the page being written holds 1.5 s of audio (1.64 s at the 99th percentile), and a
+   (`FactsBuilder.savedThrough`); while a backlog is still on the Pendant, from the start of the last page of the
+   unbroken run the phone saved, less 3 s (`Backlog.savedPage`), since the Pendant sends oldest first. The page being written holds 1.5 s of audio (1.64 s at the 99th percentile), and a
    sealed page reaches the phone 77 ms to 0.5 s after the next one opens, never before (measured over 44k pages), so the
    Pendant's clock is within a fraction of a second of the phone's. Speech still going on always reaches
    heard-through, so it never ends a fragment. It runs at most 10 minutes past the newest stored audio (`FactsBuilder.quietAllowanceMillis`): the Pendant stores

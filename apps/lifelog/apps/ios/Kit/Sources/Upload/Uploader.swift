@@ -124,11 +124,13 @@ public actor Uploader {
             try await scanner.storedSeen(from: stored)
         }
         newestStored = try await timeline.audioEnd(atOrBefore: CaptureInstant(millis: .max))
-        // While the Pendant holds a backlog: what is before the run's last saved page. It sends oldest first, so a quiet
-        // stretch in that run is silence, never audio still to come; speech goes as it arrives (27 Nov 2026).
+        // While the Pendant holds a backlog: what is before the saved run's last page. It sends oldest first, so every
+        // page below it is on the phone (stored, a gap, or held, as for `savedThrough`); speech goes as it arrives
+        // instead of after the whole backlog (27 Nov 2026).
         var saved = savedThrough.map(CaptureInstant.init)
         if saved == nil, let savedPage {
-            saved = try await scanner.start(ofSavedPage: savedPage)?.advanced(by: -FactsBuilder.savedMarginMillis)
+            saved = try await timeline.start(ofLastRunAtOrBelow: savedPage)?
+                .advanced(by: -FactsBuilder.savedMarginMillis)
         }
         let heard = FactsBuilder.heardThrough(
             savedThrough: saved,
