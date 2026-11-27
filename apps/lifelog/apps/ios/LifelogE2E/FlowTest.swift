@@ -160,10 +160,12 @@ class FlowTest: XCTestCase {
     /// His taps since launch (`tap`, `askLife`'s field and Send, a row unfolded): the parity board's Taps column.
     var taps = 0
     private var shot: String?
-    private static let parity = URL(filePath: "/tmp/lifelog-parity")
+    /// The checkout's own folder (`scripts/e2e-dirs.ts`, as `TEST_RUNNER_PARITY_SHOTS`).
+    private static let parity = URL(
+        filePath: ProcessInfo.processInfo.environment["PARITY_SHOTS"] ?? "/tmp/lifelog-parity")
 
     /// The parity board's app side (`bun run parity`): the screen as a picture, the accessibility tree as text (each
-    /// element's label, value, type and frame) and Apple's accessibility audit, in `/tmp/lifelog-parity/<row>.*`.
+    /// element's label, value, type and frame) and Apple's accessibility audit, in `PARITY_SHOTS/<row>.*`.
     func shoot(_ row: String) {
         shot = row
         let out = Self.parity
