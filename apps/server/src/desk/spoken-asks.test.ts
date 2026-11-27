@@ -97,7 +97,7 @@ test("a spoken ask is one ask of the main session: his words in his thread with 
     await d.receive();
     const ref = await d.toldMain(1);
     expect(d.s.fake.said.at(-1)?.message).toContain(
-      `His words, spoken to Life ("hey Life"; \`fetch\` job${n}:0@x opens the talk around them): "hey Life, add test milk to my list ${n}"`
+      `His words, spoken to Life ("hey Life", turn 0 of conversation \`conv_${n}\`): "hey Life, add test milk to my list ${n}"`
     );
     expect(d.entryOf(id)).toMatchObject({
       answered_at: null,

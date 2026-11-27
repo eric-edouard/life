@@ -100,8 +100,9 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
     {
       key: a.id,
       spoken: {
+        conversation: String(a.after.conversation ?? ""),
         isUnsure: a.after.confidence === "low",
-        ref: a.instruction?.ref ?? "",
+        turn: Array.isArray(a.after.turns) ? Number(a.after.turns[0]) : 0,
       },
       words: a.instruction?.quote ?? "",
     },
