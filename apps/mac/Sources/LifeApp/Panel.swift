@@ -96,8 +96,12 @@ struct Panel: View {
         }
         Button {
           Task {
-            link = URL(
+            let made = URL(
               string: await Helper.run(["pair", "--link"]).out.trimmingCharacters(in: .whitespacesAndNewlines))
+            link = made
+            // The code lasts 5 minutes and the QR carries the phone's token: both go then (SECURITY.md).
+            try? await Task.sleep(for: .seconds(300))
+            if link == made { link = nil }
           }
         } label: {
           Text("Pair an app").frame(maxWidth: .infinity).padding(.vertical, 9)
