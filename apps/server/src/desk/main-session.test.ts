@@ -18,6 +18,7 @@ import {
 import { MAIN_SESSION_PATH } from "../host/http/http";
 import { localKey } from "../host/http/local-key";
 import { MOVE_REASONS } from "../host/move-read";
+import { askPageOf, RECIPIENT_RULE } from "../memory/card-request";
 import { decisionsNow } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as matters from "../memory/matters";
@@ -26,7 +27,7 @@ import { readToldLife } from "../memory/told-life";
 import { complaintOf, isComplaint } from "../records/ledger-entry";
 import type { MainSessionLine } from "../records/main-session-wire";
 import type { AgentChange } from "../records/registered-agent";
-import { openAssignment, register } from "./agent-actions";
+import { openAssignment, register, rulesOf } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import { receiveComplaints } from "./complaint-intake";
 import { wakeDue } from "./desk-clock";
@@ -747,4 +748,13 @@ test("a main session's run past its limit is cancelled; one that ignores the can
   expect(await endWithinLimit(ignoresCancel, quick, 50, 5)).toEqual({
     ok: true,
   });
+});
+
+// His direction of 27 Nov 2026: a name that fits several people is picked from context, asked only when unsure.
+test("the draft page, every agent's rules and the main session's brief hold the recipient rule", () => {
+  expect(askPageOf("ask/draft")).toContain(RECIPIENT_RULE);
+  expect(MAIN_BRIEF).toContain(RECIPIENT_RULE);
+  expect(rulesOf({ brief: "", id: "agent_test" }, true)).toContain(
+    RECIPIENT_RULE
+  );
 });
