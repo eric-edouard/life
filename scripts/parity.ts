@@ -351,12 +351,12 @@ async function shootPrototype(rows: Row[]) {
   return { design: new Map(shots), titles };
 }
 
-/** The flows, in the heavy lane (one simulator job on the Mac at a time); already inside it (a push's check), at once. */
+/** The flows, in the heavy lane (one simulator job on the Mac at a time; at once inside a push's check, `heavy.sh`'s rule). */
 function runFlows(rows: Row[]) {
   Bun.spawnSync(["rm", "-rf", SHOTS, RESULT]); // a build that fails leaves no stale result behind
   Bun.spawnSync(
     [
-      ...(process.env.HEAVY_HELD ? [] : [join(REPO, "tools/heavy.sh")]),
+      join(REPO, "tools/heavy.sh"),
       "bun",
       join(REPO, "scripts/e2e-phone.ts"),
       ...rows.map((r) => r.flow),
