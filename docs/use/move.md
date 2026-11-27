@@ -16,7 +16,7 @@ your Life at a time: two would read the same sources twice and hand your agent e
 2. Instead of **Start Life**, press **Import an export…** and pick the export folder. Life checks every file against the
    list, copies everything in, and counts it again. It refuses to import over an install that has already started.
 3. Allow Life in Full Disk Access again. Your settings came with the export; check the sources you want are on.
-4. Give the secrets again: the API key if you use one, the lifelog token.
+4. Give the secrets again: the API key if you use one, and voice's ElevenLabs key in Settings, Voice.
 5. Under **Reaching Life**, press the same button as before. The new Mac has a new Tailscale name, so
    [update the connector's address](connect.md) in Claude or ChatGPT and pair them again.
 

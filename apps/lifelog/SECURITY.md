@@ -36,6 +36,10 @@ with the device token only when its Apple Health source is enabled.
   tokens Lifelog Host mints, the ElevenLabs key, the tunnel token, the backup password and the helper's
   Claude sign-in; Codex's sign-in is in the helper's own Codex home beside it. `~/Library/Application Support/lifelog/server.env` (mode 0600; Host refuses to start the server
   if others can read it) holds keys Host doesn't manage, such as APNs and Resend.
+  Once Life.app runs voice (`life voice start`), Life's helper is the file's one writer (`host/voice.ts`: it mints the
+  tokens and keeps the ElevenLabs key and the Claude token Life.app's Settings give it on stdin) and reads it to start
+  each process and to read lifelog with the device token; Life.app's pairing QR carries the device token beside Life's
+  pairing code (the owner's yes of 28 Nov 2026).
 - **The server** stores only the sha256 of each token. Tokens never go on a command line: the tunnel token reaches
   `cloudflared` through its environment, which `ps` doesn't show.
 - **A development checkout** keeps its secrets in gitignored `.env` files.

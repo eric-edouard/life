@@ -17,11 +17,13 @@ With voice on, Life also gets:
 
 ## In the app
 
-1. In Lifelog Host's settings, under **Life**, press **Copy Life's lifelog settings**: it copies lifelog's address
-   and a token for Life.
-2. Open Life's settings. Under **Sources**, turn on **Pendant**, Life's name for the lifelog source.
-3. Fill in **lifelog address** (for example `https://lifelog.your-tailnet.ts.net`) and **lifelog token**, then press
-   **Save**. The token goes to the Keychain, and Life restarts its services to read the new settings.
+1. Open Life's settings. Under **Voice**, paste your ElevenLabs API key and press **Start fresh** (or **Import an
+   export…** to bring recordings from another Mac). Life.app runs voice on this Mac from then on, even while Life is
+   closed.
+2. Under **Voice summaries**, sign in to ChatGPT or save a Claude token: summaries run on that subscription.
+3. Under **Sources**, turn on **Pendant**, Life's name for the lifelog source.
+4. In Life's menu, press **Pair an app** and point your iPhone's Camera at the code: one scan pairs the phone with Life
+   and with voice.
 
 Open the status window: the **Watcher** card says when Life last heard from lifelog. A conversation's words are
 searchable within minutes; its episodes and facts come after the night's run.
