@@ -1,7 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
-import { publicPortRoutes } from "./server";
+import { VOICE_URL } from "../../sources/lifelog-call";
+import { publicPortRoutes, voiceAddressOf } from "./server";
 
 // A made-up voice server: echoes what reached it, a gzipped answer, a long wait, and its map page.
 const seen: { path: string; auth: string | null; sha: string }[] = [];
@@ -95,4 +96,11 @@ test("the speaker map stays off Life's origin, a look-alike path is not the voic
 test("with no voice server set, Life has no /voice", async () => {
   const res = await publicPortRoutes("").request("/voice/health");
   expect(res.status).toBe(404);
+});
+
+test("/voice forwards to the setting, else voice's own address on his own Life only", () => {
+  const set = "http://127.0.0.1:9";
+  expect(voiceAddressOf({ own: false, set })).toBe(set);
+  expect(voiceAddressOf({ own: true, set: undefined })).toBe(VOICE_URL);
+  expect(voiceAddressOf({ own: false, set: undefined })).toBeUndefined();
 });

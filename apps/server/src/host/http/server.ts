@@ -3,7 +3,9 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { off } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
+import { isOwnLife } from "../../core/platform";
 import { connector, settings } from "../../core/settings";
+import { VOICE_URL } from "../../sources/lifelog-call";
 import { ownerTokens } from "./auth";
 import { HEADERS, LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { keyRefusal } from "./local-key";
@@ -81,10 +83,24 @@ for (const file of BRAND) {
 }
 
 /**
- * The connector's parts: its issuer, /mcp (behind Life's own tokens) and Life's brand, bodies up to 256 KiB; and, with
- * the `lifelog` setting, the voice server's routes under `/voice`.
+ * Where `/voice` forwards: the `lifelog` setting, else voice's own address on his own Life alone (a demo Life never
+ * fronts his voice); none, no `/voice`.
  */
-export function publicPortRoutes(voice = settings().lifelog?.url) {
+export const voiceAddressOf = ({
+  own,
+  set,
+}: {
+  own: boolean;
+  set: string | undefined;
+}) => set ?? (own ? VOICE_URL : undefined);
+
+/**
+ * The connector's parts: its issuer, /mcp (behind Life's own tokens) and Life's brand, bodies up to 256 KiB; and the
+ * voice server's routes under `/voice` (`voiceAddressOf`).
+ */
+export function publicPortRoutes(
+  voice = voiceAddressOf({ own: isOwnLife(), set: settings().lifelog?.url })
+) {
   const { origin, resource } = connector();
   const life = createIssuer(origin, resource);
   const verify = ownerTokens({

@@ -21,7 +21,7 @@ import {
   readJobState,
   stopRunning,
 } from "../core/service";
-import { setSettings, settings } from "../core/settings";
+import { settings } from "../core/settings";
 import {
   readOwnerOnly,
   readVoiceSecrets,
@@ -489,10 +489,6 @@ export async function voiceCommand(args: string[]) {
     return 2;
   }
   if (verb === "start") {
-    // The phone reaches voice through Life's origin (`/voice`), which forwards to the `lifelog` address: loopback here.
-    if (!settings().lifelog) {
-      setSettings({ lifelog: { url: VOICE_URL } });
-    }
     console.log(JSON.stringify(await voiceStart(), null, 2));
     return 0;
   }
