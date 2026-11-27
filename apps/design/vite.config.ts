@@ -9,6 +9,7 @@ import { extname, join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { LATEST_URL, newestCommitsOf, ROOT } from "./src/catalog";
 
 const REPO = join(import.meta.dirname, "../..");
 const SERVED = ["docs/design", "assets/brand"];
@@ -48,6 +49,16 @@ const servedFiles = () =>
     .concat(parityFiles())
     .filter((f) => f && existsSync(join(REPO, f)));
 
+/** Each docs/design file's newest commit, in one git log: [path under docs/design, unix seconds]. */
+const latestCommits = () =>
+  newestCommitsOf(
+    execFileSync(
+      "git",
+      ["log", "--format=%x00%ct", "--name-only", "--", ROOT],
+      { cwd: REPO, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
+    )
+  ).map(([f, t]) => [f.slice(ROOT.length), t]);
+
 function servedFolders(): Plugin {
   let served = new Set(servedFiles());
   return {
@@ -66,6 +77,12 @@ function servedFolders(): Plugin {
         }
       });
       server.middlewares.use((req, res, next) => {
+        if (req.url === LATEST_URL) {
+          // Read at each ask (the sheet opening), so a fast-forward of the checkout shows with no restart.
+          res.setHeader("Content-Type", "application/json");
+          res.end(JSON.stringify(latestCommits()));
+          return;
+        }
         const path = decodeURIComponent(
           (req.url ?? "").split("?")[0] ?? ""
         ).slice(1);
