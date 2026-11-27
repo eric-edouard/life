@@ -22,7 +22,9 @@ and seen working live, first on the owner's own Photos library, then on a second
   - Life never asks what it could find out or do itself; it asks only what only the user can do or decide.
   - Before any real work, the user sees a cheap preview of the result (a clickable fake, a sample done for real, an
     outline), and approving it is approving the plan.
-  - Life's artifact system (pages Life makes and hosts) is assumed: it is planned elsewhere.
+  - Life's artifact system (pages Life makes and hosts, with data and public links) is a separate effort (owner, 28 Nov
+    2026); nothing of it exists in Life yet, and "Life serves no page" changes there. Previews, the done page and
+    live results wait on it.
   - Git is assumed present; bundling it in Life.app is life#1515.
   - How agents build is the owner's engineering method, never the model's choice: Life's variant of `work-on-code`,
     one fixed stack (Bun and TypeScript), quality judged on the output (looks, works, bugs surfaced), and independent
@@ -51,6 +53,15 @@ and seen working live, first on the owner's own Photos library, then on a second
 - [Other people's data in a project](./tickets/22-other-peoples-data.md) — kept with the project; the public page shows only what the preview approved.
 - [Life suggests](./tickets/23-life-suggests.md) — ideas as pre-ticked choices in the questions and the preview; follow-ups as one card on the done page.
 - [Build order](./tickets/15-build-order.md) — record and handover, playbook skill, access card, artifact previews and live results, batch send, screens, security and docs; then the trial and live runs.
+- [Technical: the project record](./tickets/25-tech-project-record.md) — `goal` and `dropped` in the schema, one status enum, the phone's `ProjectStatus`, glossary and SCHEMA.
+- [Technical: registering the project's agent](./tickets/26-tech-registering-the-projects-agent.md) — a tick rule beside `openIntentions` registers it with the goal as `said`; handed work kind `project`; `fetch` opens `thread:` refs.
+- [Technical: promotion](./tickets/27-tech-promotion.md) — a `promote` door tool; code writes the project from the user's kept words (truth/ rule amended); a fresh agent, no move.
+- [Technical: the project's folder](./tickets/28-tech-the-projects-folder.md) — `<LIFE_STATE_DIR>/projects/<id>/` with its own git; the agents repo keeps notes only.
+- [Technical: shipping the playbook skill](./tickets/29-tech-the-playbook-skill.md) — a `skills/` folder copied into Life.app and on pi's skills list.
+- [Technical: the access card](./tickets/30-tech-the-access-card.md) — an `access` need kind, a watcher beside the payments one, the Mac helper's silent status reads and prompts, Photos usage string and entitlement.
+- [Technical: the quiet line and done](./tickets/31-tech-the-quiet-line-and-done.md) — `doing` and `eta` on the wait; the done push through the card push.
+- [Technical: the cost cap](./tickets/32-tech-the-cost-cap.md) — a `budget` instruction scoped to the project, read by the spending stop, caps summed against the month.
+- [Technical: live results and batch send](./tickets/33-tech-live-results-and-batch-send.md) — an `artifact_activity` event channel; `drafts[]` on a card, sent and contested per chat.
 
 ## Not yet specified
 

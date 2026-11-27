@@ -77,7 +77,7 @@ struct ItemRow: View {
             [look?.line, ask.check?.deadline.map { when($0) }].compactMap(\.self).joined(separator: " · ").nilIfEmpty
         case .later: ask.later.map { "Later · \(when($0, withTime: true))" } ?? "Later"
         case .waitingOnSomeone: waitingLine
-        case .settled: ask.closed?.sent == nil ? "Done" : keptTo.map { "Sent to \($0)" } ?? "Sent"
+        case .settled: ask.closed?.sent == nil ? "Done" : recipient.map { "Sent to \($0)" } ?? "Sent"
         case .outdated: ask.closed?.withdrawn?.why ?? "Out of date"
         case .underWay: nil
         }
@@ -99,12 +99,23 @@ struct ItemRow: View {
     /// out of date, when the wire no longer carries the draft.
     @State private var kept: Glyph.Mark?
     @State private var keptTo: String?
+    /// Who a draft is for: its card's, or as kept. A settled card names no one (#1493).
+    private var recipient: String? { ask.check?.draft?.to ?? keptTo }
     /// Its face (the prototype's "their face or mark"): who it is for, their picture or initial; else its matter's icon;
     /// else a mark by kind (`icon`).
     private var look: AskLook? { ask.check.map(AskLook.init) }
     private var face: ItemFace? {
-        look?.face ?? (ask.check?.draft?.to ?? keptTo).flatMap { $0.first }.map { .initial(String($0)) }
-            ?? (ask.check?.matter ?? ask.check?.onMatters?.first)?.symbol.map { .symbol($0) }
+        look?.face ?? recipient.flatMap { $0.first }.map { .initial(String($0)) }
+            ?? matterFace
+    }
+    /// Its matter's icon, the one reader: the prototype's own marks for a place (a pin) and a bank, else the symbol.
+    private var matterFace: ItemFace? {
+        let matter = ask.check?.matter ?? ask.check?.onMatters?.first
+        return switch matter?.icon {
+        case "bank": .mark(.bank)
+        case "place": .mark(.pin)
+        default: matter?.symbol.map { .symbol($0) }
+        }
     }
     private var icon: Glyph.Mark {
         if let check = ask.check {
@@ -122,7 +133,7 @@ struct ItemRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            if isBrought, let lead { Text(lead).font(.body15).foregroundStyle(Palette.fg) }
+            if isBrought || ask.state == .outdated, let lead { Text(lead).font(.body15).foregroundStyle(Palette.fg) }
             row
             if isConfirmingUndo || (action.isRunning && ask.undoLine != nil) { undo.appears(Motion.fade) }
             if hasRating { rating.appears() }

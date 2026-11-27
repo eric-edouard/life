@@ -627,13 +627,24 @@ struct RowValue: View {
     var body: some View {
         HStack(spacing: 8) {
             if let text { Text(text).font(.line).foregroundStyle(Palette.muted) }
-            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold)).foregroundStyle(
-                Palette.muted
-            )
-            .accessibilityHidden(true)
+            Image(systemName: "chevron.forward").font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Palette.muted).accessibilityHidden(true)
         }
         .frame(minHeight: 44)
     }
+}
+
+/// A chevron in its own round disc: a settings block's row that opens a page.
+struct RoundChevron: View {
+    var body: some View {
+        Image(systemName: "chevron.forward").font(.system(size: 14, weight: .semibold)).foregroundStyle(Palette.fg)
+            .frame(width: 36, height: 36).background(Palette.tint, in: .circle).accessibilityHidden(true)
+    }
+}
+
+/// The hairline between a block's rows.
+struct Hairline: View {
+    var body: some View { Rectangle().fill(Palette.tint).frame(height: 1) }
 }
 
 /// A row's value that is one of a few choices, in the system's menu.

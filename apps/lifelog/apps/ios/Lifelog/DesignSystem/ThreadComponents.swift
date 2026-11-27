@@ -32,7 +32,8 @@ struct ReactionMark: View {
     let reaction: Reaction
 
     var body: some View {
-        Text(reaction.rawValue).font(.line).accessibilityHidden(true)
+        // The system font: an emoji in Manrope's line box measures as clipped.
+        Text(reaction.rawValue).font(.callout).accessibilityHidden(true)
     }
 }
 
@@ -205,6 +206,8 @@ enum ItemFace: Equatable {
     case network(String)
     /// The matter's icon (an SF Symbol), when no one is behind the ask.
     case symbol(String)
+    /// The matter's icon the prototype draws with its own mark (a place's pin, a bank).
+    case mark(Glyph.Mark)
 }
 
 /// One item of the thread as a bare row that unfolds: its round face, the title, a line under it that says how it
@@ -298,6 +301,7 @@ struct ThreadItemRow<Detail: View>: View {
             case .network(let network): NetworkMark(network: network, size: isOpen ? 24 : 22)
             case .symbol(let name):
                 Image(systemName: name).font(.system(size: isOpen ? 19 : 17)).foregroundStyle(Palette.muted)
+            case .mark(let mark): Glyph(mark, size: isOpen ? 22 : 20).foregroundStyle(Palette.muted)
             case nil: Glyph(icon, size: isOpen ? 22 : 20).foregroundStyle(Palette.muted)
             }
         }
@@ -417,34 +421,57 @@ struct RatingRow: View {
     var identify: (Reaction) -> String? = { _ in nil }
 
     var body: some View {
-        HStack(spacing: Metrics.Spacing.s) {
-            Text(picked == nil ? question : "Thanks").font(.line).foregroundStyle(Palette.muted)
-                .contentTransition(.opacity)
-            Spacer(minLength: 0)
-            ForEach(Reaction.rating, id: \.self) { mark in
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Metrics.Spacing.s) {
+                words
+                Spacer(minLength: 0)
+                marks
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                words.padding(.top, Metrics.Spacing.s)
+                HStack(spacing: Metrics.Spacing.s) { marks }
+            }
+        }
+        .buttonStyle(.plain).padding(.horizontal, Metrics.Spacing.l)
+        .background(Palette.card, in: .rect(cornerRadius: Metrics.tapTarget / 2))
+        .opacity(picked == nil ? 1 : Metrics.Opacity.faded)
+        .motion(Motion.standard, value: picked)
+    }
+
+    private var words: some View {
+        Text(picked == nil ? question : "Thanks").font(.line).foregroundStyle(Palette.muted)
+            .contentTransition(.opacity)
+    }
+
+    @ViewBuilder private var marks: some View {
+        ForEach(Reaction.rating, id: \.self) { mark in
+            Button {
+                pick(mark)
+            } label: {
+                ReactionMark(reaction: mark).fixedSize()
+                    .frame(minWidth: Metrics.ratingMark, minHeight: Metrics.tapTarget).contentShape(.rect)
+            }
+            // Read as its word, never the emoji (whose glyph overflows its text box: the audit's "clipped").
+            .accessibilityRepresentation {
                 Button {
                     pick(mark)
                 } label: {
-                    ReactionMark(reaction: mark).frame(width: Metrics.ratingMark, height: Metrics.tapTarget)
+                    Image(systemName: "star")
                 }
                 .accessibilityLabel(
-                    ["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate"
-                )
-                .identified(identify(mark))
-                .scaleEffect(picked == mark ? 1.1 : 1).opacity(picked == nil || picked == mark ? 1 : 0)
-                .disabled(picked != nil)
+                    ["bad": "Not good", "okay": "Good", "good": "Great"][RatingMark.of(mark).rawValue] ?? "Rate")
             }
-            if picked == nil {
-                Button(action: close) {
-                    Glyph(.close, size: 14).foregroundStyle(Palette.faint).frame(
-                        width: Metrics.ratingMark, height: Metrics.tapTarget)
-                }
-                .accessibilityLabel("Close")
-            }
+            .identified(identify(mark))
+            .scaleEffect(picked == mark ? 1.1 : 1).opacity(picked == nil || picked == mark ? 1 : 0)
+            .disabled(picked != nil)
         }
-        .buttonStyle(.plain).padding(.horizontal, Metrics.Spacing.l).background(Palette.card, in: .capsule)
-        .opacity(picked == nil ? 1 : Metrics.Opacity.faded)
-        .motion(Motion.standard, value: picked)
+        if picked == nil {
+            Button(action: close) {
+                Glyph(.close, size: 14).foregroundStyle(Palette.faint).frame(
+                    width: Metrics.ratingMark, height: Metrics.tapTarget)
+            }
+            .accessibilityLabel("Close")
+        }
     }
 }
 

@@ -112,6 +112,8 @@ for (const d of udids) {
     "all",
     "com.ericedouard.lifelog",
   ]);
+  // The prototype is drawn dark; the app's Appearance is Auto, so the simulators are dark like it.
+  run(["xcrun", "simctl", "ui", d.udid, "appearance", "dark"]);
 }
 const visible = udids[0]?.udid ?? "";
 run(["xcrun", "simctl", "bootstatus", visible]);

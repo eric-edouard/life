@@ -36,7 +36,7 @@ const RULES: Record<string, RegExp> = {
 
 const CAPS: Record<string, Record<string, number>> = {
   "Items/VoicesRow.swift": {
-    capsule: 2,
+    capsule: 1,
     height: 2,
     padding: 4,
     radius: 1,
