@@ -4,12 +4,12 @@ NEW=$1
 LOG="$HOME/Library/Application Support/Life/state/log/$(date -u +%Y-%m-%d).jsonl"
 rollback() {
   echo "$1: rolling back"
-  osascript -e 'quit app "Life"'; sleep 8; pkill -f "/Applications/Life.app/Contents/Helpers/life"
+  osascript -e 'quit app "Life"'; sleep 8; pkill -f "^/Applications/Life.app/Contents/Helpers/life "
   rm -rf /Applications/Life.app && mv /Applications/Life-previous.app /Applications/Life.app && open /Applications/Life.app
   exit 1
 }
 osascript -e 'quit app "Life"'; sleep 8
-pkill -f "/Applications/Life.app/Contents/Helpers/life" ; sleep 2
+pkill -f "^/Applications/Life.app/Contents/Helpers/life " ; sleep 2
 rm -rf /Applications/Life-previous.app && mv /Applications/Life.app /Applications/Life-previous.app
 START=$(date -u +%Y-%m-%dT%H:%M:%S)
 ditto "$NEW" /Applications/Life.app && open /Applications/Life.app
