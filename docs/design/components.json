@@ -6,37 +6,37 @@
       "variations": [
         {
           "name": "Idle",
-          "page": "/edge.html#rest",
+          "page": "2026-11-28-edge-states.html#rest",
           "row": "data-s-rest",
           "status": "designed"
         },
         {
           "name": "You speak",
-          "page": "/edge.html#listen",
+          "page": "2026-11-28-edge-states.html#listen",
           "row": "data-s-listen",
           "status": "designed"
         },
         {
           "name": "Life works",
-          "page": "/edge.html#work",
+          "page": "2026-11-28-edge-states.html#work",
           "row": "data-s-work",
           "status": "designed"
         },
         {
           "name": "An answer lands",
-          "page": "/edge.html#landed",
+          "page": "2026-11-28-edge-states.html#landed",
           "row": null,
           "status": "designed"
         },
         {
           "name": "Still: no Mac answers",
-          "page": "/edge.html#still",
+          "page": "2026-11-28-edge-states.html#still",
           "row": null,
           "status": "designed"
         },
         {
           "name": "Each in turn",
-          "page": "/edge.html#cycle",
+          "page": "2026-11-28-edge-states.html#cycle",
           "row": null,
           "status": "designed"
         }
@@ -522,7 +522,8 @@
           "name": "The kinds",
           "row": null,
           "status": "designed",
-          "page": "2026-11-23-chat-first/2026-11-25-answer-components.html"
+          "page": "2026-11-23-chat-first/2026-11-25-answer-components.html",
+          "wide": true
         },
         {
           "name": "The house, as it is written",

@@ -78,11 +78,13 @@ export const urlOf = (path: string) => `/${ROOT}${path}`;
 export interface Variation {
   name: string;
   on?: string;
-  /** Another design page to draw instead of the prototype. */
+  /** Another design page to draw instead of the prototype, its state in the hash when it takes one. */
   page?: string;
   /** The part of the phone it draws, the latest match; none: the whole phone. */
   part?: string;
   row: string | null;
   scene?: string[];
   status: string;
+  /** Drawn across the whole row (a page wider than the phone). */
+  wide?: boolean;
 }

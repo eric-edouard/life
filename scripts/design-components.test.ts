@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Variation } from "../apps/design/src/catalog";
 import components from "../docs/design/components.json";
@@ -69,5 +69,17 @@ test("each scene and part is the prototype's, and a status is typed, never In th
     }
     expect(["next", "waiting", "designed"]).toContain(v.status);
     expect(v.status === "waiting").toBe(Boolean(v.on));
+  }
+});
+
+test("each page a variation draws is a file of docs/design", () => {
+  for (const v of variations) {
+    const path = v.page?.split("#")[0];
+    if (path) {
+      expect([
+        v.name,
+        existsSync(join(import.meta.dir, "../docs/design", path)),
+      ]).toEqual([v.name, true]);
+    }
   }
 });
