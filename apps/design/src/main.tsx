@@ -1,6 +1,7 @@
 import files from "virtual:design-files";
 import { marked } from "marked";
 import {
+  createElement,
   StrictMode,
   type TouchEvent,
   useEffect,
@@ -26,6 +27,7 @@ import {
   urlOf,
 } from "./catalog";
 import { Components, Glow } from "./components";
+import { dragOf, isClosingDrag } from "./sheet";
 import "./styles.css";
 
 const PATHS = pathsOf(files);
@@ -130,7 +132,10 @@ function Sidebar({
           <h2 className="m-0 px-2.5 font-semibold text-heading text-muted">
             Scenes
           </h2>
-          <div className="-mx-3 flex snap-x snap-mandatory scroll-px-3 gap-1.5 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none]">
+          <div
+            className="-mx-3 flex snap-x snap-mandatory scroll-px-3 gap-1.5 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none]"
+            data-scenes
+          >
             {scenes.map((scene, i) => (
               <button
                 aria-pressed={scene.getAttribute("aria-pressed") === "true"}
@@ -504,24 +509,22 @@ const readList = () => {
 /** The page for a route ("" the prototype): a design system page, else an entry. On the home-screen app a design page
  *  is the whole screen, anything else scrolls in its own box clear of the status bar and home indicator. */
 function Page({
-  isApp,
   onScenes,
   route,
 }: {
-  isApp: boolean;
   onScenes: (scenes: HTMLButtonElement[]) => void;
   route: string;
 }) {
   const path = route || (PROTOTYPE?.path ?? "");
-  if (isApp && path.endsWith(".html") && filesIn(path).length > 0) {
+  if (STANDALONE && path.endsWith(".html") && filesIn(path).length > 0) {
     return <AppScreen onScenes={onScenes} path={path} />;
   }
-  let page = <Viewer path={path} />;
-  if (isSystemPage(route)) {
-    const Draw = SYSTEM_PAGES[route].draw;
-    page = <Draw />;
-  }
-  return isApp ? (
+  const page = isSystemPage(route) ? (
+    createElement(SYSTEM_PAGES[route].draw)
+  ) : (
+    <Viewer path={path} />
+  );
+  return STANDALONE ? (
     <div className="fixed inset-0 overflow-y-auto overscroll-contain px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-[calc(env(safe-area-inset-bottom)+5rem)]">
       {page}
     </div>
@@ -533,11 +536,9 @@ function Page({
 /** Opens the list: a round button; on the home-screen app it floats low on the right, in reach of the thumb, above the
  *  design's field and home indicator. */
 function MenuButton({
-  isApp,
   isOpen,
   onClick,
 }: {
-  isApp: boolean;
   isOpen: boolean;
   onClick: () => void;
 }) {
@@ -545,7 +546,7 @@ function MenuButton({
     <button
       aria-expanded={isOpen}
       aria-label="Designs"
-      className={`fixed z-30 grid place-items-center rounded-full bg-glass text-fg backdrop-blur ${isApp ? "right-[max(env(safe-area-inset-right),0.5rem)] bottom-[calc(env(safe-area-inset-bottom)+7.5rem)] size-11 opacity-70" : "top-3 left-3 size-9"}`}
+      className={`fixed z-30 grid place-items-center rounded-full bg-glass text-fg backdrop-blur ${STANDALONE ? "right-[max(env(safe-area-inset-right),0.5rem)] bottom-[calc(env(safe-area-inset-bottom)+7.5rem)] size-11 opacity-70" : "top-3 left-3 size-9"}`}
       onClick={onClick}
       type="button"
     >
@@ -564,58 +565,65 @@ function MenuButton({
   );
 }
 
-/** How far down a swipe on the open sheet closes it, in pixels. */
-const CLOSES_AT = 80;
-
 /** The list's look: on the home-screen app a sheet from the bottom, swiped down to close; else a drawer from the left
  *  (beside the page on a wide screen when shown). Same list, same motion. */
-const asideOf = (isApp: boolean, open: boolean, shown: boolean) => {
-  if (isApp) {
+const asideOf = (open: boolean, shown: boolean) => {
+  if (STANDALONE) {
     return `inset-x-0 bottom-0 top-[calc(max(env(safe-area-inset-top),1rem)+1.5rem)] rounded-t-panel pt-2 pb-[env(safe-area-inset-bottom)] ${open ? "translate-y-0" : "translate-y-full"}`;
   }
   return `inset-y-0 left-0 w-[min(20rem,86vw)] pt-12 lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:bg-bg ${open ? "translate-x-0" : "-translate-x-full"} ${shown ? "lg:translate-x-0" : "lg:hidden"}`;
 };
 
-/** A swipe down on the sheet, while its list is at its top, drags it and past CLOSES_AT closes it. */
+/** On the home-screen app, a swipe down on the sheet drags it and, far enough, closes it: only from a list at its
+ *  top, never from the sideways row of scenes. */
 const useSwipeDown = (close: () => void) => {
   const from = useRef<number | null>(null);
-  const offsetOf = (e: TouchEvent<HTMLElement>) =>
-    Math.max(0, (e.touches[0]?.clientY ?? 0) - (from.current ?? 0));
+  const drag = useRef(0);
+  if (!STANDALONE) {
+    return {};
+  }
   return {
     onTouchEnd: (e: TouchEvent<HTMLElement>) => {
-      const moved = Number.parseFloat(e.currentTarget.style.translate || "0");
       e.currentTarget.style.translate = "";
       e.currentTarget.style.transition = "";
       from.current = null;
-      if (moved > CLOSES_AT) {
+      if (isClosingDrag(drag.current)) {
         close();
       }
     },
     onTouchMove: (e: TouchEvent<HTMLElement>) => {
-      if (from.current !== null) {
-        e.currentTarget.style.translate = `0 ${offsetOf(e)}px`;
+      const y = e.touches[0]?.clientY;
+      if (from.current === null || y === undefined) {
+        return;
       }
+      drag.current = dragOf(from.current, y);
+      e.currentTarget.style.translate = `0 ${drag.current}px`;
     },
     onTouchStart: (e: TouchEvent<HTMLElement>) => {
-      const list = e.currentTarget.querySelector("nav");
+      const isAtTop = !e.currentTarget.querySelector("nav")?.scrollTop;
+      const isOnScenes = (e.target as Element).closest("[data-scenes]");
       from.current =
-        (list?.scrollTop ?? 0) > 0 ? null : (e.touches[0]?.clientY ?? null);
+        isAtTop && !isOnScenes ? (e.touches[0]?.clientY ?? null) : null;
+      drag.current = 0;
       e.currentTarget.style.transition = "none";
     },
   };
 };
 
-/** The latest changed entries, asked of the server each time the list opens (the checkout moves every minute). */
+/** The latest changed entries, asked of the server each time the list opens (the checkout moves every minute); none
+ *  when the ask fails, and an answer that comes after the list closed is dropped. */
 const useLatest = (open: boolean) => {
   const [latest, setLatest] = useState<Latest>([]);
   useEffect(() => {
     if (!open) {
       return;
     }
-    fetch(LATEST_URL)
-      .then((r) => (r.ok ? r.json() : []))
+    const ask = new AbortController();
+    fetch(LATEST_URL, { signal: ask.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
       .then((commits) => setLatest(latestOf(ENTRIES, commits)))
-      .catch(() => setLatest([]));
+      .catch(() => ask.signal.aborted || setLatest([]));
+    return () => ask.abort();
   }, [open]);
   return latest;
 };
@@ -627,14 +635,13 @@ function App() {
   // A wide screen: the list beside the page, or hidden so the design takes the whole width; remembered per device.
   const [list, setList] = useState(readList);
   // From the home screen every design is the whole screen, the list a sheet under a floating button.
-  const isApp = STANDALONE;
-  const shown = list && !isApp;
+  const shown = list && !STANDALONE;
   const swipe = useSwipeDown(() => setDrawer(false));
-  const latest = useLatest(isApp && drawer);
+  const latest = useLatest(STANDALONE && drawer);
   // The open design's scene buttons: set when it loads, emptied when it closes.
   const [scenes, setScenes] = useState<HTMLButtonElement[]>([]);
   const toggle = () => {
-    if (isApp || !matchMedia(WIDE).matches) {
+    if (STANDALONE || !matchMedia(WIDE).matches) {
       setDrawer(!drawer);
       return;
     }
@@ -649,12 +656,12 @@ function App() {
     <div
       className={`min-h-dvh lg:grid ${shown ? "lg:grid-cols-[16rem_1fr]" : "lg:grid-cols-[1fr]"}`}
     >
-      <MenuButton isApp={isApp} isOpen={drawer || shown} onClick={toggle} />
+      <MenuButton isOpen={drawer || shown} onClick={toggle} />
       <aside
-        className={`fixed z-20 flex flex-col bg-sheet transition-transform duration-200 ${asideOf(isApp, drawer, shown)}`}
-        {...(isApp ? swipe : {})}
+        className={`fixed z-20 flex flex-col bg-sheet transition-transform duration-200 ${asideOf(drawer, shown)}`}
+        {...swipe}
       >
-        {isApp ? (
+        {STANDALONE ? (
           <span className="mx-auto h-1 w-9 flex-none rounded-full bg-glass" />
         ) : null}
         <div className="min-h-0 flex-1">
@@ -677,7 +684,7 @@ function App() {
       <main
         className={`min-w-0 px-3 pt-14 pb-3 sm:px-4 lg:pt-3 lg:pr-3 ${shown ? "lg:pl-2" : "lg:pl-16"}`}
       >
-        <Page isApp={isApp} onScenes={setScenes} route={route} />
+        <Page onScenes={setScenes} route={route} />
       </main>
     </div>
   );

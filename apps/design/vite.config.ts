@@ -49,15 +49,27 @@ const servedFiles = () =>
     .concat(parityFiles())
     .filter((f) => f && existsSync(join(REPO, f)));
 
-/** Each docs/design file's newest commit, in one git log: [path under docs/design, unix seconds]. */
-const latestCommits = () =>
+const git = (...args: string[]) =>
+  execFileSync("git", args, {
+    cwd: REPO,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+
+/** Each docs/design file's newest commit, in one git log: [path under docs/design, unix seconds]. Read again only
+ *  when HEAD moved. */
+let latest = { commits: [] as [string, number][], head: "" };
+const latestCommits = () => {
+  const head = git("rev-parse", "HEAD").trim();
+  if (head !== latest.head) {
+    latest = { commits: readLatestCommits(), head };
+  }
+  return latest.commits;
+};
+const readLatestCommits = () =>
   newestCommitsOf(
-    execFileSync(
-      "git",
-      ["log", "--format=%x00%ct", "--name-only", "--", ROOT],
-      { cwd: REPO, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
-    )
-  ).map(([f, t]) => [f.slice(ROOT.length), t]);
+    git("log", "--format=%x00%ct", "--name-only", "--", ROOT)
+  ).map(([f, t]): [string, number] => [f.slice(ROOT.length), t]);
 
 function servedFolders(): Plugin {
   let served = new Set(servedFiles());
