@@ -1,0 +1,164 @@
+/* Every value comes from Life's brand (assets/brand/tokens.css): Tailwind's own colours, sizes and radii are cleared,
+   so a class can only name a token. */
+@import "../../../assets/brand/tokens.css";
+@import "tailwindcss";
+
+/* Tailwind's own values go first, in a block of their own (the formatter sorts properties within a block). */
+@theme {
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --font-weight-*: initial;
+  --radius-*: initial;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-card: var(--card);
+  --color-tile: var(--tile);
+  --color-sheet: var(--sheet);
+  --color-paper: var(--paper);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-flag: var(--flag);
+  --color-ai: var(--ai);
+  --color-ok: var(--ok);
+  --color-on: var(--on);
+  --color-tint: var(--tint);
+  --color-glass: var(--glass);
+  --color-wash: var(--wash);
+  --font-sans: var(--sans);
+  --font-mono: var(--font-mono);
+  --text-profile: var(--text-profile);
+  --text-header: var(--text-header);
+  --text-title: var(--text-title);
+  --text-body: var(--text-body);
+  /* "line" is also a colour: the size of a row's line is text-row-line. */
+  --text-row-line: var(--text-line);
+  --text-heading: var(--text-heading);
+  --text-meta: var(--text-meta);
+  --font-weight-regular: 450;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 650;
+  --radius-control: var(--control-radius);
+  --radius-block: var(--block-radius);
+  --radius-panel: var(--panel-radius);
+  --radius-full: 9999px;
+}
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--text-body);
+  font-weight: 450;
+  -webkit-font-smoothing: antialiased;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ai);
+  outline-offset: 2px;
+}
+
+/* A note written in Markdown, in the brand's type scale. */
+.note {
+  max-width: 68ch;
+  line-height: 1.6;
+}
+.note h1 {
+  margin: 0 0 24px;
+  font-size: var(--text-profile);
+  font-weight: 650;
+  line-height: 1.25;
+}
+.note h2 {
+  margin: 48px 0 16px;
+  font-size: var(--text-header);
+  font-weight: 650;
+}
+.note h3 {
+  margin: 32px 0 8px;
+  font-size: var(--text-title);
+  font-weight: 650;
+}
+.note p,
+.note ul,
+.note ol,
+.note table,
+.note pre,
+.note blockquote {
+  margin: 0 0 16px;
+}
+.note ul,
+.note ol {
+  padding-left: 24px;
+}
+.note li {
+  margin: 4px 0;
+}
+.note a {
+  color: var(--fg);
+  text-decoration-color: var(--faint);
+  text-underline-offset: 3px;
+}
+.note a:hover {
+  text-decoration-color: var(--fg);
+}
+.note code {
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--wash);
+  border-radius: 6px;
+}
+.note pre {
+  padding: 16px;
+  overflow-x: auto;
+  background: var(--card);
+  border-radius: var(--control-radius);
+}
+.note pre code {
+  padding: 0;
+  background: none;
+}
+.note blockquote {
+  padding-left: 16px;
+  color: var(--muted);
+  box-shadow: inset 2px 0 var(--line);
+}
+.note img {
+  max-width: 100%;
+  border-radius: var(--control-radius);
+}
+.note table {
+  display: block;
+  overflow-x: auto;
+  font-size: var(--text-line);
+  border-collapse: collapse;
+}
+.note th {
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+}
+.note th,
+.note td {
+  padding: 8px 16px 8px 0;
+  vertical-align: top;
+  box-shadow: inset 0 -1px var(--line);
+}
+.note hr {
+  height: 1px;
+  margin: 32px 0;
+  background: var(--line);
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

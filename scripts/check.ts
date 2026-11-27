@@ -31,6 +31,7 @@ END { exit failed }`;
 const steps: Record<string, string[]> = {
   biome: ["bun", "x", "--bun", "ultracite", "check"],
   cases: ["bun", "scripts/cases-check.ts"],
+  "design types": ["bun", "x", "--bun", "tsc", "--noEmit", "-p", "apps/design"],
   fallow: ["bun", "x", "--bun", "fallow", "--fail-on-issues"],
   // The identity service's real test needs the models (its AGENTS.md); these need none.
   "identity test": [
@@ -72,6 +73,7 @@ const steps: Record<string, string[]> = {
     "./apps/server/src/",
     "./scripts/",
     "./apps/edge/",
+    "./apps/design/",
   ],
   types: ["bun", "x", "--bun", "tsc", "--noEmit"],
   // Replays his answered voices (on his Mac only) against the committed counts.

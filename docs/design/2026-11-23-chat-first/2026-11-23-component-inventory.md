@@ -12,7 +12,7 @@ Issue #1373 was not readable; its features are taken from the brief and marked "
   page or sheet from Life's own reads, no model turn; ask = becomes the owner's words and a turn of the main session.
 - **Where**: edge = always-on layer; thread = a block in the conversation; page = pushed with Back; sheet; notification.
 - **Today** names a file under `apps/lifelog/apps/ios/Lifelog/` ("ios/") or a board of the previous design canvas
-  ([Kit boards](https://claude.ai/artifact/MT2ut8ZZnzJJzkTC8i9x6m): `KitRows`, `KitAnswers`, `KitStates`, `KitToasts`, ...).
+  (Kit boards (a claude.ai copy, since retired): `KitRows`, `KitAnswers`, `KitStates`, `KitToasts`, ...).
   "Sent by Life" means the data is outside data the main session sends, never a ref the app reads.
 - Examples use made-up names (Idris, Hélène, Halden house), as the boards do.
 - "Unsure" means I did not verify it in code.

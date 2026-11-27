@@ -11,10 +11,25 @@
       "!!docs/design"
     ]
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "javascript": {
     "globals": ["Bun"]
   },
   "overrides": [
+    {
+      "includes": ["apps/design/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noJsxPropsBind": "off"
+          }
+        }
+      }
+    },
     {
       "includes": ["**"],
       "linter": {
