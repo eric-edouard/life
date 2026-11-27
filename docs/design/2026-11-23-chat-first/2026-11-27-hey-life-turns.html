@@ -6,7 +6,7 @@
 <title>Hey Life, turn by turn</title>
 <!-- A proposal (27 Nov 2026), not approved: "hey Life" from the owner's seat, in the turn by turn direction
      (2026-11-27-v5-turns.html). Every state and how it moves into the next. Made-up data. Design only. -->
-<link rel="stylesheet" href="../components.css">
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
 <link rel="stylesheet" href="2026-11-27-turns.css">
 <style>
 .page{max-width:1320px;margin:0 auto;padding:32px 16px 64px}
@@ -117,7 +117,7 @@ function me(words,from,wait){return '<div class="me"><small>You</small><q>'+word
 var FROM='To your pendant · 14:02';
 var ANSWER='<div class="ans"><span class="life-lbl">Life</span><h2>Yes: dinner Saturday at 8, and she’ll book.</h2><p>She asked an hour ago. Here’s a reply, for your yes:</p>'+
  '<div class="card"><div class="chead">'+WA+'Jade<span>Open WhatsApp ↗</span></div><div class="inq">Dinner Saturday? 8 at Café Rive, I can book</div><div class="bub">8 works, book it! 🙌</div>'+
- '<button class="prim">Send to Jade</button><div class="two" style="display:flex;gap:8px"><button>Later</button><button>Other words</button></div></div></div>';
+ '<button class="prim">Send to Jade</button><div class="two"><button>Later</button><button>Other words</button></div></div></div>';
 var F={
  heard:lock('Life heard you','“'+ASK+'”',null,1),
  open:phone('rising',me(ASK,FROM),''),
@@ -126,9 +126,9 @@ var F={
  ready:lock('Life','Yes: dinner Saturday at 8, and she’ll book. A reply is ready for Jade.',['Send to Jade','Open']),
  unclear:phone('rising',me('Did Jade <s>…</s>',FROM)+'<div class="state">I didn’t catch all of it.<div class="acts"><button class="p">Say it again</button><button>Type it</button></div></div>',''),
  unclearLock:lock('Life didn’t catch all of it','“Did Jade …” Tap to say it again or type it.'),
- offline:phone('rising still',me(ASK,'Waiting for your Mac · since 13:40',1)+'<div class="state">Your Mac isn’t answering.<span>Your ask is kept. I’ll answer when the Mac is back. You don’t need to ask again.</span></div>',''),
+ offline:phone('rising still',me(ASK,'To your pendant · 14:02 · waiting for your Mac',1)+'<div class="state">Your Mac hasn’t answered since 13:40.<span>Your ask is kept. I’ll answer when the Mac is back. You don’t need to ask again.</span></div>',''),
  offlineLock:lock('Life heard you','“'+ASK+'” Your Mac isn’t answering, so I’ll answer when it’s back.'),
- failed:phone('answered',me('Add oat milk to my list','To your pendant · 14:02')+'<div class="ans"><span class="life-lbl">Life</span><h2>I couldn’t add it to your list.</h2><p>Reminders isn’t answering on your Mac. I’ll add it as soon as it is, and tell you.</p><div class="two" style="display:flex;gap:8px"><button>Try now</button><button>Never mind</button></div></div>','What else is on my list?'),
+ failed:phone('answered',me('Add oat milk to my list','To your pendant · 14:02')+'<div class="ans"><span class="life-lbl">Life</span><h2>I couldn’t add it to your list.</h2><p>Reminders isn’t answering on your Mac. I’ll add it as soon as it is, and tell you.</p><div class="two"><button>Try now</button><button>Never mind</button></div></div>','What else is on my list?'),
  failedLock:lock('Life couldn’t do it','“Add oat milk to my list”: Reminders isn’t answering. I’ll add it when it is.'),
  lateLock:lock('Life heard you','“'+ASK+'”, said at 14:02. Writing your words down took a while; on it now.').replace('<div class="t">14:02</div>','<div class="t">14:35</div>'),
  late:phone('working',me(ASK,'To your pendant at 14:02 · heard at 14:35')+'<div class="step"><span>Reading your chat with</span> <b>Jade</b><em>Thinking…</em></div>','').replace('<span>14:02</span>','<span>14:35</span>'),
