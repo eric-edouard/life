@@ -289,40 +289,56 @@ export function gmailCopier({
     }
     return JSON.parse(r.stdout.trim() || "{}") as T;
   };
-  /** One account's newer mail, then its next page of backfill: how many messages were new. */
-  const copyAccount = async (db: Database, account: string) => {
-    const get = (id: string) => read<Got>(account, ["get", id]);
+  /** One page of a search's ids: `page` the token to start from (none: the first). */
+  const searchIds = async (
+    account: string,
+    query: string,
+    max: number,
+    page: string
+  ) => {
+    const r = await read(account, [
+      "messages",
+      "search",
+      query,
+      `--max=${max}`,
+      "--ids-only",
+      ...(page ? [`--page=${page}`] : []),
+    ]);
+    return {
+      ids: (r.messages ?? []).map((m) => m.id),
+      next: r.nextPageToken ?? "",
+    };
+  };
+  /** One account's newer mail, newest first, page after page until a page holds nothing new: a gap (a Mac asleep) is caught up. */
+  const copyNewer = async (
+    db: Database,
+    account: string,
+    get: (id: string) => Promise<Got>
+  ) => {
     const newest = db
       .query<{ at: string | null }, [string]>(
         "select max(at) as at from messages where account = ?"
       )
       .get(account)?.at;
     const query = liveQueryOf(newest ?? undefined);
-    // Newest first, page after page, until a page holds nothing new: the mail of a gap (a Mac asleep) is caught up.
     let added = 0;
-    let livePage = "";
-    for (let n = 0; n < LIVE_PAGES; n++) {
+    let page = "";
+    for (let n = 0; n < LIVE_PAGES; n += 1) {
       // biome-ignore lint/performance/noAwaitInLoops: each page follows the one before
-      const live = await read(account, [
-        "messages",
-        "search",
-        query,
-        `--max=${LIVE_MAX}`,
-        "--ids-only",
-        ...(livePage ? [`--page=${livePage}`] : []),
-      ]);
-      const fresh = await insertNew(
-        db,
-        account,
-        (live.messages ?? []).map((m) => m.id),
-        get
-      );
+      const found = await searchIds(account, query, LIVE_MAX, page);
+      const fresh = await insertNew(db, account, found.ids, get);
       added += fresh;
-      livePage = live.nextPageToken ?? "";
-      if (!(fresh && livePage)) {
+      page = found.next;
+      if (!(fresh && page)) {
         break;
       }
     }
+    return added;
+  };
+  /** One account's newer mail, then its next page of backfill: how many messages were new. */
+  const copyAccount = async (db: Database, account: string) => {
+    const get = (id: string) => read<Got>(account, ["get", id]);
+    let added = await copyNewer(db, account, get);
     const cursor = db
       .query<{ done: number; page: string | null }, [string]>(
         "select page, done from cursors where account = ?"
@@ -332,21 +348,9 @@ export function gmailCopier({
       return added;
     }
     const page = cursor?.page ?? "";
-    const back = await read(account, [
-      "messages",
-      "search",
-      BACKFILL_QUERY,
-      `--max=${BACKFILL_MAX}`,
-      "--ids-only",
-      ...(page ? [`--page=${page}`] : []),
-    ]);
-    added += await insertNew(
-      db,
-      account,
-      (back.messages ?? []).map((m) => m.id),
-      get
-    );
-    const token = back.nextPageToken ?? "";
+    const back = await searchIds(account, BACKFILL_QUERY, BACKFILL_MAX, page);
+    added += await insertNew(db, account, back.ids, get);
+    const token = back.next;
     // A page token that doesn't move would walk the same page forever: the mailbox is done.
     const done = !token || token === page ? 1 : 0;
     db.run(

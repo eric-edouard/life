@@ -17,6 +17,8 @@ const at = (s: number) => setSystemTime(new Date(T0 + s * 1000));
 const ME = "me@example.com";
 const EPOCH = new Date(0);
 const dir = () => mkdtempSync(join(tmpdir(), "gmail-archive-"));
+/** The live step's query (newer mail), as opposed to the backfill's. */
+const LIVE_SEARCH = /^(newer_than|after:)/;
 const ok = { code: 0, killed: null, stderr: "", stdout: "" };
 
 interface Answer {
@@ -81,7 +83,7 @@ function fakeGog() {
       );
     }
     const page = (args.find((a) => a.startsWith("--page=")) ?? "").slice(7);
-    const asked = /^(newer_than|after:)/.test(args[2] ?? "")
+    const asked = LIVE_SEARCH.test(args[2] ?? "")
       ? { ids: live.get(account) ?? [], next: undefined }
       : (pages.get(`${account}|${page}`) ?? { ids: [], next: undefined });
     return Promise.resolve({
@@ -217,7 +219,7 @@ test("the backfill walks the mailbox a page a pass, then is done for good", asyn
   at(240);
   expect(await copy()).toBe(0);
   const backfills = () =>
-    g.searches().filter((c) => !/newer_than|after:/.test(c.join(" ")));
+    g.searches().filter((c) => !LIVE_SEARCH.test(c[4] ?? ""));
   expect(backfills().map((c) => c.includes("--page=p2"))).toEqual([
     false,
     true,
