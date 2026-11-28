@@ -125,9 +125,8 @@ public enum ContextMarkdown {
         case let heading as Heading: [.heading(level: heading.level <= 2 ? 2 : 3, inlines(heading))]
         case let paragraph as Paragraph: [.paragraph(inlines(paragraph))]
         case let list as ListItemContainer: [.list(items(list, isNested: false))]
-        case let quote as BlockQuote: [quoteBlock(quoted(quote))]
-        case let code as CodeBlock: [.code(code.code.trimmingCharacters(in: .newlines))]
-        case let html as HTMLBlock: [.paragraph([Inline(html.rawHTML.trimmingCharacters(in: .whitespacesAndNewlines))])]
+        case let code as CodeBlock: [.code(codeText(code))]
+        case let html as HTMLBlock: [.paragraph(line(html))]
         case let table as Table:
             [
                 .table(
@@ -139,9 +138,7 @@ public enum ContextMarkdown {
         }
     }
 
-    private static func quoteBlock(_ quote: (text: [Inline], source: [Inline]?)) -> ContextBlock {
-        .quote(quote.text, source: quote.source)
-    }
+    private static func codeText(_ code: CodeBlock) -> String { code.code.trimmingCharacters(in: .newlines) }
 
     /// A quote's words, its paragraphs one per line; its source when its last line, after its words, is `*…*` alone.
     private static func quoted(_ quote: BlockQuote) -> (text: [Inline], source: [Inline]?) {
@@ -164,11 +161,35 @@ public enum ContextMarkdown {
         return (lines(paragraphs), source)
     }
 
-    /// Blocks as one run of lines: a paragraph's runs, any other block as its Markdown text.
+    /// Blocks as one run of lines, each read for what it is: a quote or a list inside a list item or a quote is its
+    /// words formatted, never its Markdown source.
     private static func lines(_ blocks: [any Markup]) -> [Inline] {
         blocks.enumerated().flatMap { index, block in
-            (index > 0 ? [Inline("\n")] : [])
-                + ((block as? InlineContainer).map(inlines) ?? [Inline(block.format())])
+            (index > 0 ? [Inline("\n")] : []) + line(block)
+        }
+    }
+
+    private static func line(_ block: any Markup) -> [Inline] {
+        switch block {
+        case let container as InlineContainer: return inlines(container)
+        case let quote as BlockQuote:
+            let (text, source) = quoted(quote)
+            return text + (source.map { [Inline("\n")] + $0 } ?? [])
+        case let list as ListItemContainer:
+            return items(list, isNested: true).enumerated().flatMap { index, item in
+                (index > 0 ? [Inline("\n")] : []) + [Inline(item.marker + " ")] + item.text
+            }
+        case let code as CodeBlock: return [Inline(codeText(code), isCode: true)]
+        case let html as HTMLBlock: return [Inline(html.rawHTML.trimmingCharacters(in: .whitespacesAndNewlines))]
+        case let table as Table:
+            // A table's rows as lines, its cells joined by " · ".
+            let rows = [Array(table.head.cells)] + table.body.rows.map { Array($0.cells) }
+            return rows.enumerated().flatMap { index, cells in
+                (index > 0 ? [Inline("\n")] : [])
+                    + cells.enumerated().flatMap { at, cell in (at > 0 ? [Inline(" · ")] : []) + inlines(cell) }
+            }
+        // A break or any block still unknown: its children's words, never its source.
+        default: return lines(Array(block.children))
         }
     }
 

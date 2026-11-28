@@ -4,11 +4,10 @@ import { DAY, iso } from "../core/clock";
 import { setSettings } from "../core/settings";
 import { CARD, CARD_SELF_CHECK } from "../memory/card-request";
 import type { InboxCheck } from "../memory/checks";
-import { DECISIONS } from "../memory/decision-lines";
+import { DECISIONS, doneSeenByOf } from "../memory/decision-lines";
 import {
   answerDecision,
   decisionsNow,
-  doneSeenByOf,
   requestDecision,
 } from "../memory/decisions";
 import { needsShownOf } from "../memory/needs";
@@ -192,7 +191,7 @@ test("only money out of exactly that amount in that currency, booked on or after
   ];
   expect(await readSeenDone([card])).toEqual(new Map());
   booked.push(payment({ amount: -4500.004, id: "exact" }));
-  expect(await lookForDone(card)).toBe("payments:exact");
+  expect(await lookForDone(card)).toEqual({ eventId: "payments:exact" });
 });
 
 test("only a payment to the card's payee is its payment: by the bank's merchant, whole words, in the card's currency", async () => {
@@ -213,7 +212,7 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
   ];
   expect(await readSeenDone([card])).toEqual(new Map());
   booked.push(payment({ id: "bank", merchant: "MS. LEE, ANN" }));
-  expect(await lookForDone(card)).toBe("payments:bank");
+  expect(await lookForDone(card)).toEqual({ eventId: "payments:bank" });
   // The bank's whole line is read, past what a reader is shown (80 characters).
   booked = [
     payment({
@@ -221,7 +220,7 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
       merchant: `${"NORTHERN DISTRICT FRESH MARKET STALL ".repeat(3)}(A/C Name: MS. ANN LEE)`,
     }),
   ];
-  expect(await lookForDone(card)).toBe("payments:long");
+  expect(await lookForDone(card)).toEqual({ eventId: "payments:long" });
   // A EUR card is never seen by another currency's payment worth as much in EUR.
   const euro = await transfer({
     needs: [NEEDS[0], { currency: "EUR", kind: "amount", value: 118.4 }],
@@ -252,9 +251,9 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
   ];
   expect(initialCard && (await readSeenDone([initialCard]))).toEqual(new Map());
   booked = [payment({ id: "theirs", merchant: "LEE SHOP (A/C Name: A LEE)" })];
-  expect(initialCard && (await lookForDone(initialCard))).toBe(
-    "payments:theirs"
-  );
+  expect(initialCard && (await lookForDone(initialCard))).toEqual({
+    eventId: "payments:theirs",
+  });
   // An account name holding brackets is read whole.
   const bracketed = await transfer({
     needs: [{ ...NEEDS[0], holder: "North (UK) Services Ltd" }, NEEDS[1]],
@@ -266,15 +265,15 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
       merchant: "NORTH (A/C Name: North (UK) Services Ltd)",
     }),
   ];
-  expect(bracketedCard && (await lookForDone(bracketedCard))).toBe(
-    "payments:uk"
-  );
+  expect(bracketedCard && (await lookForDone(bracketedCard))).toEqual({
+    eventId: "payments:uk",
+  });
   booked = [
     payment({ id: "bare", merchant: "A/C Name: North (UK) Services Limited" }),
   ];
-  expect(bracketedCard && (await lookForDone(bracketedCard))).toBe(
-    "payments:bare"
-  );
+  expect(bracketedCard && (await lookForDone(bracketedCard))).toEqual({
+    eventId: "payments:bare",
+  });
   // A word asked twice is there twice; a surname that reads like a company's form is still a name.
   const twice = await transfer({
     needs: [{ ...NEEDS[0], holder: "Li Li" }, NEEDS[1]],
@@ -293,7 +292,9 @@ test("only a payment to the card's payee is its payment: by the bank's merchant,
   ];
   expect(coCard && (await readSeenDone([coCard]))).toEqual(new Map());
   booked = [payment({ id: "lili", merchant: "MS. LI LI" })];
-  expect(twiceCard && (await lookForDone(twiceCard))).toBe("payments:lili");
+  expect(twiceCard && (await lookForDone(twiceCard))).toEqual({
+    eventId: "payments:lili",
+  });
   // A card with no payee's name is refused when asked.
   for (const holder of ["Mr.", "Co., Ltd."]) {
     // biome-ignore lint/performance/noAwaitInLoops: cases run in order
@@ -367,7 +368,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
     transfer({ needs: [{ currency: "baht", kind: "amount", value: 4500 }] })
   ).rejects.toThrow('Read fetch("ask/amount")');
   await expect(transfer({ needs: [{ kind: "iban" }] })).rejects.toThrow(
-    "Expected 'account' | 'amount' | 'apify' | 'app' | 'event' | 'link' | 'place' | 'text' | 'qr'"
+    "Expected 'access' | 'account' | 'amount' | 'apify' | 'app' | 'event' | 'link' | 'place' | 'text' | 'qr'"
   );
   await expect(
     transfer({ needs: [{ kind: "link", url: "shopapp://pay/1" }] })
@@ -397,7 +398,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
 });
 
 test("the card's rules are short and each part's are a fetch away", async () => {
-  expect(CARD.length - CARD_SELF_CHECK.length).toBeLessThan(1600);
+  expect(CARD.length - CARD_SELF_CHECK.length).toBeLessThan(1650);
   expect(CARD_SELF_CHECK.length).toBeLessThan(1000);
   const page = await openById("ask/payment", undefined, undefined, () =>
     Promise.resolve("")

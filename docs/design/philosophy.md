@@ -184,13 +184,19 @@ line links there.
 ### Drafts
 
 - A draft is branded per app: the app's own logo, the chat's name and size ("Halden house · 5"), "Open WhatsApp ↗" in
-  the app's colour; no app name (owner, 23 Nov 2026).
+  the app's colour (owner, 23 Nov 2026).
 - A quoted message looks like its app everywhere: its mark, its colour, its link (owner, 26 Nov 2026).
 - At most the last 5 cited messages plus the one replied to; older ones are "Earlier in WhatsApp"; unrelated ones in
   between are one quiet count, not tappable (owner, 23 Nov 2026).
 - Tapping any message opens the real chat (owner, 23 Nov 2026).
-- His messages and the draft take the app's colour mixed into black; the draft has a 1.5 px dashed outline in that
-  colour that fades once sent ([brand, no borders][brand-values]) (owner, 21 and 23 Nov 2026).
+- The chat is one global component, used wherever a chat shows: only the messages that matter to the ask, the rest
+  one quiet count ("3 unrelated messages"); never an endless scroll; it scrolls, and opens at the bottom on the latest;
+  it looks like its app (that app's look, adapted to Life's), and draws every capability of the app's capability grid
+  (reply, mention, reaction, file) (owner, 28 Nov 2026).
+- A draft card's head: the person's or group's picture (initials when none) and name, the app's name, and an arrow that
+  opens that chat (owner, 28 Nov 2026; replaces 23 Nov's "no app name").
+- His messages take the app's colour mixed into black; the draft takes the app's own sent-bubble colour (WhatsApp's
+  green), with a 1.5 px dashed outline that fades once sent ([brand, no borders][brand-values]) (owner, 21, 23 and 28 Nov 2026).
 - Quick edits (shorter, warmer, other words) change a draft before it goes and need no Undo (owner, 23 Nov 2026).
 - A held ask (another open ask into the same chat) waits behind the open one and is asked when it settles
   (owner, 26 Nov 2026).
@@ -223,6 +229,19 @@ line links there.
   (owner, 23 Nov 2026).
 - Life failing to answer says "I couldn't answer that."; tapping his bubble asks again; never "tell the caretaker"
   (owner, 23 Nov 2026).
+- Answer his question directly, as an assistant would, then go on: "What's on today" shows the day's list at once (no
+  reveal step by step), then "You also have 3 decisions to make" and lists them (owner, 28 Nov 2026).
+- "Did Jade answer?": "Yes, Jade answered at 9:12. Here's what she said.", then the chat, then the ready draft with its
+  options (owner, 28 Nov 2026).
+- "Tell Ben…" needs no lead line: straight to the draft card (owner, 28 Nov 2026).
+- A card that arrives says first why, in one line: "Sam just texted that Café Dalon is closed today. Here's your
+  draft." (owner, 28 Nov 2026).
+- A day's events are a vertical list; a sideways row stops working past three (owner, 28 Nov 2026).
+- One standard format for a day ("What's on today", "How's my day"), the same in every answer and follow-up
+  (owner, 28 Nov 2026).
+- The act first, its figure second: "Pay the electricity bill", then 84 € (owner, 28 Nov 2026).
+- A block proposed for an answer must read on its own: no row he can't place (a bare "Maps", a lone event title, a
+  floating face) (owner, 28 Nov 2026).
 
 ### While Life works
 
@@ -356,6 +375,8 @@ line links there.
 
 - Every proposal is tried on a real matter of his, not only a made-up one; real data stays in private places, never
   the repo (owner, 23 Nov 2026).
+- A design brief, to a person or an agent, starts from this page: decisions already taken here are never asked again
+  or redesigned away (owner, 28 Nov 2026: "I've already taken decisions on this").
 - Prototypes are edited in this folder and checked in the designs app; never published as a copy elsewhere; every
   name, place and number in them made up (owner, 25 Nov 2026).
 - A new or changed card is first scored, as a screenshot only, by a reviewer with no context (owner, 26 Nov 2026).
@@ -375,6 +396,9 @@ line links there.
 
 ## Open questions
 
+- Onboarding, round 1 ([host][onb-host], [phone][onb-phone]): the phone's onboarding in Life's thread rather than its own
+  screens; the menu bar's dots (grey when working, blue while connecting, coral when it needs him); a recovery key
+  shown once; drawn, not decided.
 - Turn by turn, before it ships: the arrivals rule first, then live items in history, "You" and "Life" labels against
   marks, centred reading, turns taller than the screen, the mesh beside the edge, the largest text sizes ([proposal][v5]).
 - Turn by turn's first slice and the order after it ([proposal][v5]); the rows-or-tiles rule (rows always, tiles only
@@ -406,6 +430,17 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 [layout][layout], [nav][nav].
 
 ### 28 Nov 2026
+
+- Turn by turn review ([turn by turn][tbt]): variation A is the base: its idle, typing, hold to talk, Life works, slow
+  ask, failed read and the "Hey Life" notification replaced in place are kept as they are; B's answer flow for "Did
+  Jade answer?" wins. Earlier turns: a full-screen pager with magnetic snapping, not every turn shown at once. The
+  comparison page switches scenes and variations with no full reload; the next variations are per topic (motion, an
+  answer's content) rather than whole apps. Chat replies get their own exploration: three variations of the one chat
+  component.
+- Cards: one main button with the rest as small pills; the middle of a card drawn its own way per kind; shown: what
+  happens if he doesn't answer, Life's plan steps, the sources read, next suggestions. One shape for every card or a
+  shape per kind is explored in variations on App v4's data, unfolding on a tap.
+- The edge glow is off by default in the app, on only by his setting; the designs keep it.
 
 - The turn by turn prototypes play the real flow ([real flow][realflow]): one quiet step line while Life works
   ([product][product-rules]); a question about a message an agent already drafted a reply to brings that card, Send one
@@ -550,11 +585,14 @@ Reversed later:
 [ds-voices]: 2026-11-23-chat-first/2026-11-25-app-v4-design-system.md#voices-to-name-proposal-26-nov-2026
 [ds-tiles]: 2026-11-23-chat-first/2026-11-25-app-v4-design-system.md#a-list-of-matters-rows-or-tiles-proposal-27-nov-2026
 [v4]: 2026-11-23-chat-first/2026-11-25-app-v4.html
+[onb-host]: 2026-11-28-onboarding/index.html
+[onb-phone]: 2026-11-28-onboarding/phone.html
 [settings]: 2026-11-23-chat-first/2026-11-25-settings-board.html
 [v5]: 2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md
 [heylife]: 2026-11-23-chat-first/2026-11-27-hey-life-turns.html
 [turns]: ../handoff/2026-11-27-turn-by-turn.md
-[realflow]: 2026-11-27-turn-by-turn-v2/2026-11-28-real-flow.md
+[realflow]: 2026-11-28-turn-by-turn-v3/2026-11-28-real-flow.md
+[tbt]: https://github.com/eric-edouard/life/blob/040db13018a0272148422c3a6de4d35aea305fa7/docs/design/2026-11-27-turn-by-turn-v2/index.html
 [spec]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md
 [log]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-design-decisions.md
 [inventory]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-component-inventory.md

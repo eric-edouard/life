@@ -237,6 +237,7 @@ How Life works:
 - [Sources](docs/sources.md): what each source reads and how
 - [Schema](docs/SCHEMA.md): every file in the memory
 - [The agent, the connector and actions](docs/tasks.md)
+- [Helpers](docs/helpers.md): the existing helper for each job in the server, before you add one
 - [Operations](docs/operations.md): schedule, services, backups, measuring, the read commands
 - [Status reads](docs/status-reads.md): the connector's JSON status reads, for developers
 

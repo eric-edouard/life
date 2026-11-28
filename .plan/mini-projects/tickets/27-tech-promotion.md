@@ -15,3 +15,5 @@ Paths are under `apps/server/src/` unless they start elsewhere; found by a code 
 - A door tool `promote` for agents (`desk/desk-door.ts`, `desk/agent-actions.ts`), naming the handed work's thread entry and the agent's notes on that ask.
 - Code writes the project through `changeDirectoryEntry` with `said` = that entry's words (`handed_work.entry_id` → `thread_entry.words`), never the agent's text; the agent's word only triggers it. `AGENTS.md`'s "Only the owner writes truth/" gains this door (strict path).
 - Then `openOneOffProjects` registers the project's agent; its first wake also carries the old agent's notes on that ask. No `moveAssignment`: the Personal agent's shared assignment stays whole; it drops that ask.
+
+Built: https://github.com/eric-edouard/life/pull/1560

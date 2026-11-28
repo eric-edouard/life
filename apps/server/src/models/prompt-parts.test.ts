@@ -77,7 +77,7 @@ test("no prompt names the owner by a pronoun or as the owner: {{owner}} is his n
   }
 });
 
-/** The readings written for his own screen (AGENTS.md: they address him as "you"); every other stored line keeps his name. */
+/** The readings written for his own screen (.claude/rules/models-and-prompts.md: they address him as "you"); every other stored line keeps his name. */
 const TO_HIM = [
   "memory-matter-situation.v1",
   "memory-project-situation.v2",

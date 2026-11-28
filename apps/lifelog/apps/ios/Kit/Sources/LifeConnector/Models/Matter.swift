@@ -10,7 +10,7 @@ public enum MatterStatus: String, UnknownTolerant, Sendable {
 
 /// A project's status as stored in his directory; the app shows `active` and `waiting` as one, underway.
 public enum ProjectStatus: String, UnknownTolerant, Sendable, Encodable {
-    case active, waiting, parked, done
+    case active, waiting, parked, done, dropped
     case unknown
 
     /// Whether its matters are worked on: active or waiting (`isUnderway`, `records/truth.ts`).

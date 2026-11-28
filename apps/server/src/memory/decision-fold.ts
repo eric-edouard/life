@@ -12,9 +12,11 @@ import {
   type SendFailed,
   Stored,
 } from "./decision-lines";
+import { draftsOf } from "./draft";
 
 // A decision as stored, read: its lines folded in order into `Decision`s (the first answer, withdrawal and end
-// stand; a `not sent:` or `not_found` outcome voids the answer).
+// stand; a `not sent:` of every draft, or a `not_found`, voids the answer; an old or one-draft `asked` line reads as
+// `drafts` of one).
 
 /** `d` with its answer voided by the `not sent:` or `not_found` outcome `l`, or his Undo: the card is open again, the answer kept in `voided`. */
 export const voidedBy = (
@@ -31,20 +33,35 @@ export const voidedBy = (
     ...d,
     ...outcome,
     answer: undefined,
-    send: undefined,
+    sends: [],
     voided: [
       ...(d.voided ?? []),
       ...(d.answer
         ? [
             {
               answer: d.answer,
-              ...(outcome ?? { send: d.send, undone: l as AnswerWithdrawn }),
+              ...(outcome ?? { undone: l as AnswerWithdrawn }),
             },
           ]
         : []),
     ],
   };
 };
+
+/** Draft `i`'s send outcome among `sends` (`draftIndex`, absent for the first), if it has one. */
+export const sendOf = (sends: Decision["sends"], i: number) =>
+  sends.find((s) => (s.draftIndex ?? 0) === i);
+
+/** Whether every draft of `d` has its send outcome (one line each, `draftIndex`): its send ended. */
+export const isSendEndedOf = (d: Pick<Decision, "drafts" | "sends">) =>
+  d.drafts.every((_, i) => sendOf(d.sends, i));
+
+/** Whether nothing of `d`'s send went: every draft ended `not sent:`. Then his answer is voided and the card open again; once any draft went, or may have, it stays answered and nothing is sent twice (the owner's decision of 28 Nov 2026). */
+const isNothingSentOf = (d: Pick<Decision, "drafts" | "sends">) =>
+  isSendEndedOf(d) &&
+  d.sends.every(
+    (s) => s.kind === "send-failed" && s.error.startsWith("not sent:")
+  );
 
 /** `d` with Life's look `l` read: the first `seen` stands; a `not_found` is an answer's look's outcome only, and voids it; else unchanged. */
 function withDoneSeen(d: Omit<Decision, "state">, l: DoneSeen) {
@@ -90,11 +107,12 @@ function withLine(
     case "done-seen":
       return withDoneSeen(d, l);
     case "send-failed":
-      return l.error.startsWith("not sent:")
-        ? voidedBy(d, l)
-        : { ...d, send: l };
-    case "sent":
-      return { ...d, send: l };
+    case "sent": {
+      const sent = { ...d, sends: [...d.sends, l] };
+      return isNothingSentOf(sent)
+        ? voidedBy(sent, sent.sends[0] as SendFailed)
+        : sent;
+    }
     case "answer-withdrawn":
       return d.answer ? voidedBy(d, l) : d;
     default:
@@ -115,7 +133,8 @@ export const readAll = () =>
       }
       const d = all.get(l.id);
       if (l.kind === "asked") {
-        all.set(l.id, l);
+        const { draft: _one, drafts: _batch, ...asked } = l;
+        all.set(l.id, { ...asked, drafts: draftsOf(l), sends: [] });
       } else if (d) {
         all.set(l.id, withLine(d, l));
       }
