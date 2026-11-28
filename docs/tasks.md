@@ -281,13 +281,13 @@ reads the rest of its settings. How the report and the alerts go out:
 - A crash of any `bun life` command (thrown, or a promise nobody awaited) is a `run.error` line of step `crash`; the
   daily triage reads them.
 - Every send goes out once per key (`sendReport` skips one whose keys are all in the last 8 days of `email.sent`).
-- Each new voice ask: a push to his phone, "Life heard you", which its outcome replaces (the same `pushId`; `notifyPhone`, through the voice server), so a missing one
-  tells him at once it was not heard. Never his words. Voice asks come only from the voice server, so without it there is none to push.
-- Each new card in his inbox, of every kind: its own push, "1 new card" with the badge (every open card that blocks
-  him) and its `pushId` (`pushNewCards`, `host/card-push.ts`); past the first 5 of Life's own checks in one look, one
-  push "N more new cards" for the rest. Each kind's level is his `notifications` setting (off sends nothing). The
-  first run pushes nothing. Never a title, name, question or ref: his phone reads the card and writes the
-  notification's text.
+- Each new voice ask: a push to his phone, `thread.heard`, which its outcome replaces under the same `pushId`
+  (`thread.answered` or `thread.failed`; `notifyPhone`, through the voice server), so a missing one tells him at once
+  it was not heard. Never his words. Voice asks come only from the voice server, so without it there is none to push.
+- Each agent's card the gate delivers: its own push, `card.new` with its `pushId` (`pushNewCards`, `host/card-push.ts`);
+  Life's own checks wait in the inbox and push nothing. Each kind's level is his `notifications` setting (off sends
+  nothing), and no push carries a badge: the app counts its own inbox. The first run pushes nothing. Never a title,
+  name, question or ref: his phone reads the card and writes the notification's text.
 - Into a chat: only a card's draft (text, or a file, a reply, a reaction, mentions, as the chat allows), exactly as shown, into the one chat Life resolved when the card was asked, once, when
   he picks its one `outgoing` option alone through `answer_check` (in the app, or with Send on the card's notification, on his phone or Watch) (`answerDecision`, `memory/draft-send.ts`), through
   Life's own bridge for that network (a new 1:1 WhatsApp chat is opened by its number first), or, for iMessage, through

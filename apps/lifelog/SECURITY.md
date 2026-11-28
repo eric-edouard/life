@@ -16,7 +16,7 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | A chat voice note's Thai turns, cut from its audio (the owner's yes, 20 Nov 2026) | ElevenLabs Scribe, as a block's Thai turns; the rest is heard on the Mac and nothing of the audio is kept | Their terms; `voice_note_hearings` keeps its key (the file's sha256) and its words, so it is sent once |
 | A field's dictation on the phone (`POST /dictation/transcript`) | Heard on the Mac; its Thai turns, or all of it when mostly Thai, go to ElevenLabs Scribe with vocabulary hints that can name people | Their terms (zero retention is enterprise-only, so not asked); lifelog keeps no audio and no words, only operational events (`dictation.heard`: its length, route, billable seconds and turns left unheard; `elevenlabs.done` or `.failed`) |
 | Instant dictation (`POST /live-words/token`), only while his `dictationHeard` switch is `instant` (off by default; the token is refused otherwise) | A field's dictation goes from the phone straight to ElevenLabs Scribe (realtime) over a WebSocket opened with a single-use token (15 minutes, spent on connect) this Mac mints; the ElevenLabs key stays on the Mac. A run whose stream fails is heard on the Mac instead (the dictation row), so its Thai turns may reach Scribe twice | Their terms (zero retention is enterprise-only, so not asked); lifelog keeps no audio, no words and never logs the token (`live_words.token_failed` only) |
-| Push alerts' text (the voices-to-name count, "open lifelog", Life's "heard you" notices, its new-card notices: a count and an opaque id; never what was said) | Apple's push service, on its way to the phone | Apple's terms; silent pushes carry no text |
+| Pushes: ids only (the owner's yes of 28 Nov 2026): a push kind from a fixed list, a push level, opaque push ids; an alert's words are fixed per kind ("New card", "Open lifelog"…), never what was said, a name or a count | Life's push relay (`life-push.fly.dev`, built and not deployed yet), for any install without the app's own APNs key, then Apple's push service, on their way to the phone | The relay keeps none of them; Apple's terms; a background push carries no words |
 | Text sent for summaries | Your ChatGPT or Claude account, through Codex or Claude Code | Your subscription's consumer terms |
 | Audio for the speaker re-split (11 Nov 2026), once and only with the owner's OK | Modal's GPUs, in a container's memory for its call | Kept nowhere: no Volume, logs print counts only |
 
@@ -35,7 +35,8 @@ with the device token only when its Apple Health source is enabled.
 - **The Mac:** `~/Library/Application Support/lifelog-quiet/secrets.json` (mode 0600 in a 0700 folder) holds the
   tokens Lifelog Host mints, the ElevenLabs key, the tunnel token, the backup password and the helper's
   Claude sign-in; Codex's sign-in is in the helper's own Codex home beside it. `~/Library/Application Support/lifelog/server.env` (mode 0600; Host refuses to start the server
-  if others can read it) holds keys Host doesn't manage, such as APNs and Resend.
+  if others can read it) holds keys Host doesn't manage, such as Resend and, on the developer's install alone, the app's
+  APNs key (every other install pushes through Life's push relay, which holds it).
   Once Life.app runs voice (`life voice start`), Life's helper is the file's one writer (`host/voice.ts`: it mints the
   tokens and keeps the ElevenLabs key and the Claude token Life.app's Settings give it on stdin) and reads it to start
   each process and to read lifelog with the device token; Life.app's pairing QR carries the device token beside Life's
@@ -66,7 +67,8 @@ the server compares its hash.
 - **Through your own domain** (a Cloudflare tunnel), the server is on the public internet behind its tokens. Add
   Cloudflare Access in front if you can.
 - **Through Life's origin** (`/voice/…`), Life's server forwards each request to it as it came, so it is as public as
-  Life's connector, behind its own tokens; its map page is not reachable there.
+  Life's connector, behind its own tokens; its map page is not reachable there. The phone's iroh streams land on that same
+  origin ([SECURITY.md](../../SECURITY.md), "Network").
 - The ElevenLabs webhook route refuses everything unless `ELEVENLABS_WEBHOOK_SECRET` is set, and then checks each
   call's signature.
 - The optional identity service (`apps/identity`) listens on every interface with a shared secret: run it on the

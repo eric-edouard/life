@@ -399,9 +399,12 @@ When ElevenLabs' webhook completes a job, a summary run ends, transcription is s
 audio it could send while the Pendant records (see Latency), the server sends the app a silent push
 (`content-available`, priority 5, `"lifelog": "processing"`) to its alert push token. The app runs the driver at once,
 in the foreground or woken in the background. iOS may hold or drop such pushes, and never delivers them after a
-force-quit, so the next Bluetooth sync or launch catches up. Each push is an `apns.sent` event. The same token gets two
-alert pushes: once a morning, the number of voices waiting to be named, and "Open lifelog" when the Pendant's audio has
-waited on the phone past the owner's delay (see Latency).
+force-quit, so the next Bluetooth sync or launch catches up. Each push is an `apns.sent` event. The same token gets one
+alert of the server's own, "Open lifelog" when the Pendant's audio has waited on the phone past the owner's delay (see
+Latency), and the ones Life asks for. Every push is a `Push` (`@life/server/src/core/push`): a kind, a level and opaque
+ids, never words, a count or a badge; an alert's fixed words per kind live in `apns-request.ts`. Without the app's own
+APNs key the server sends each to Life's push relay (`push-relay.ts`, `life-push.fly.dev`, built and not deployed yet),
+which holds that key.
 
 ### Location
 

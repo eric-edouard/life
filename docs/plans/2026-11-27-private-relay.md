@@ -8,9 +8,10 @@ leak to Life's developer?", and the answer, read from the code alone, is no.
 
 ## Where things stand
 
-Today a user reaches their Mac through Tailscale Funnel ([connect](../use/connect.md)). It works, but needs a
-Tailscale account, a sign-in and an allowed Funnel: too much for someone who just installed an app. The owner's
-own install adds a Cloudflare Worker in front (`apps/edge/`, a bridge until #137).
+Until this landed, a user reached their Mac through Tailscale Funnel ([connect](../use/connect.md)). It works, but needs
+a Tailscale account, a sign-in and an allowed Funnel: too much for someone who just installed an app. Since #1573 the
+phone pairs from the QR and dials the Mac's key, and Tailscale stays for an assistant's connector. The owner's own
+install adds a Cloudflare Worker in front (`apps/edge/`, a bridge until #137).
 
 ## The design: iroh in both apps (chosen 28 Nov 2026)
 
@@ -50,8 +51,10 @@ while neither exists. #1610 holds the design, what was built, its caveats, the c
 ## Milestones
 
 - [x] Choice: iroh (28 Nov 2026).
-- [ ] Mac side: keypair, iroh endpoint, the pairing QR with key and relay, discovery off.
-- [ ] iPhone app: iroh endpoint, dial the paired key, the voice and connector traffic over it.
+- [x] Mac side: keypair, iroh endpoint, the pairing QR with key and relay, discovery off (#1573: `host/http/iroh.ts`,
+      `macAddressOf`, `provePairing`/`isPairedPhone`, `pair --link`, `connect --local`).
+- [x] iPhone app: iroh endpoint, dial the paired key, the voice and connector traffic over it (`MacLink` and `MacRoute`,
+      #1573).
 - [ ] Our own iroh relay before launch.
 - [ ] SECURITY.md "Network" and "What leaves the Mac", architecture.md, use/connect.md updated; #137 closed by it.
 

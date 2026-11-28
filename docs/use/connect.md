@@ -9,6 +9,18 @@ for them that address has to be public, through Tailscale Funnel. Only Life's si
 is served before an app you paired signs in. Claude Code runs on your own devices and can keep the address private to
 your tailnet.
 
+## Your phone
+
+Nothing to set up: your phone reaches your Mac by itself, with the key your Mac puts in its pairing QR (Life's menu,
+**Pair an app**; [install](install.md) has the scan). Tailscale is not needed for it, and a Mac with no Tailscale at all
+serves the phone alone:
+
+```sh
+bun life connect --local
+```
+
+A Mac restored from an export makes a new key, so pair your phone again from a fresh code.
+
 ## Put Life on your tailnet
 
 1. Open Life's settings from the menu bar. Under **Reaching Life**, press **Public, for ChatGPT and Claude.ai**, or
@@ -62,10 +74,11 @@ Ask about something from the last week.
 
 ## From a checkout
 
-For development, the two buttons are commands. They act on the checkout's own state, not the app's: for an app
+For development, the buttons are commands. They act on the checkout's own state, not the app's: for an app
 install, use the buttons.
 
 ```sh
+bun life connect --local    # on this Mac's own loopback (a phone that reaches it over iroh)
 bun life connect            # on your tailnet
 bun life connect --public   # through Funnel
 bun life pair               # prints a pairing code

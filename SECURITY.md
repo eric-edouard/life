@@ -94,8 +94,16 @@ A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his paymen
 
 The connector (`/mcp`) is served by the Mac, behind Life's own OAuth (pairing codes,
 PKCE). Its origin also forwards `/voice/…` to the voice server on loopback, as it came, behind the voice server's own tokens
-(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
-optionally a tunnel he controls.
+(never its map page). Life serves no page; the app's local port needs a local key and is never exposed.
+
+The phone reaches the Mac over iroh (`host/http/iroh.ts`), with no domain and no account. The Mac makes a key on the Mac
+(`SECRETS.macKey`), never sent: its endpoint id is that key's public half, and the pairing QR names the id with the one
+relay (`IROH_RELAY`, n0's). Discovery is off, so nothing looks the Mac up: the link already says where it is. Every
+stream the endpoint accepts becomes one connection to the public port, which serves Life and voice alike, and only for
+the phones Life paired: a phone proves a live pairing's code on one stream (`life/pair/1`, `provePairing`: 5 minutes,
+5 tries shared with the sign-in page, a wrong code spends one, an agent's pairing binds nothing), and every other
+endpoint id is closed before a byte reaches the port (`isPairedPhone`). Tailscale stays the fallback and the way an
+assistant's connector is reached ([connect](docs/use/connect.md)); a Mac without it runs `bun life connect --local`.
 
 Life's helper reads voice's `secrets.json` (owner-only; `host/voice.ts` its one writer): to start voice's launchd jobs
 with their keys and to read voice with the phone's device token. His own Life.app's "Pair an app" QR (never a checkout's or a second
@@ -174,17 +182,23 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   its bridge where the room's own features allow it then, or his GitHub comment deleted through `gh`; never iMessage or mail.
 - To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
   and the to-do items with Google Tasks as the backend.
-- To his own voice server: his corrections about recordings, for each voice ask a "Life heard you" notice, then its outcome
-  under the same id ("Life answered" or "Life couldn't do it"), never his words or Life's, and, for each new card in his
-  inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new
-  cards", the number of cards that block him (the badge), the push's level (passive, active or time-sensitive) and,
-  for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title or
-  a question). The voice server pushes it to his phone through Apple; his phone then reads the card from the connector and
-  writes the notification's text itself, shown on his lock screen and his Watch. When cards leave his inbox (answered,
-  withdrawn, lapsed), a background push carries their same opaque ids alone, and the phone removes their notifications.
-  An appointment Life added to his calendar is pushed the same way (his word of 21 Nov 2026): the words "Added to
-  your calendar", its kind `calendar.added`, its level and its opaque id alone; the phone reads the event from the
-  connector (`read_appointments`).
+- To his own voice server, which Life's helper runs on the Mac: his corrections about recordings, and the pushes to his
+  phone, ids only (his yes of 28 Nov 2026; `core/push.ts`): a push kind from a fixed list (a new card, an appointment
+  added to his calendar, a voice ask heard, answered or failed, cards gone from his inbox, the Pendant's audio waiting
+  or processed), a push level (passive, active or time-sensitive) and opaque push ids of 16 hex characters made with a
+  key that never leaves the Mac. Never a word of his or Life's, a ref, a name, a title or a count, and no badge: the
+  phone counts its inbox itself. An alert's words are fixed per kind ("New card", "Added to your calendar", "Life heard
+  you"…), the same for everyone, written where it is sent (`apns-request.ts`); his phone then reads the card or the
+  event from the connector and writes the notification's text itself, on his lock screen and his Watch. When cards
+  leave his inbox (answered, withdrawn, lapsed), a background push carries their same opaque ids alone, and the phone
+  removes their notifications.
+- To Life's push relay, when it is deployed (`life-push.fly.dev`; built in `apps/lifelog/apps/server/push-relay`, not
+  deployed yet): the same pushes from any install without the app's own APNs key; it sees the phone's push token,
+  the push kind, its ids and its level, signs them with that key and sends them on to Apple's push service, keeping
+  none of them. An install holding the app's own APNs key sends them to Apple directly.
+- To n0, through the one iroh relay (`aps1-1.relay.n0.iroh.link`, `IROH_RELAY`): the phone's traffic to this Mac when a
+  direct path fails, encrypted end to end between the Mac's key and the phone's, so the relay can't read it; it sees the
+  two endpoint ids, their IP addresses, when they connect and how much moves. One n0 relay until Life runs its own.
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 - To a messaging network, through its bridge, on his sign-in from his app (`sign_in_to_network`): the cookies, password
@@ -207,10 +221,8 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
-- The iroh relay (planned, `docs/plans/2026-11-27-private-relay.md`; Life doesn't use it yet) forwards the iPhone
-  app's traffic when a direct path fails. It is encrypted end to end between the Mac's and the phone's keys, so the
-  relay can't read it. It sees metadata: the devices' IP addresses, when they connect and how much data moves.
-  n0's public relays during development, Life's own before launch.
+- The iroh relay carries the phone's traffic when a direct path fails. It is encrypted end to end between the Mac's key
+  and the phone's, so the relay can't read it, only delay or drop it; what it sees is in "What leaves the Mac".
 - Full Disk Access makes Life a high-value target on the Mac.
 - A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
   every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility

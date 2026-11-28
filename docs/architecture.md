@@ -20,7 +20,9 @@ memory, across voice and every other source, is Life's.
   read. The chapter units already stored stay as they are: facts, his ratings and corrections cite them.
 - Life writes to the voice server through one logged helper, `writeVoiceServer`, in three ways only: `forward`, the owner's explicit
   corrections (speaker, title, rename, merge); his answer to a voice card (`answerNamingQueue`, the voice server's
-  `/naming-queue/answer`); and `notifyPhone`, a push with no words of his.
+  `/naming-queue/answer`); and `notifyPhone`, a push that says only its kind, its level and its ids (`Push`,
+  `core/push.ts`), never a word: the voice server words an alert per kind and sends it to Apple, and the phone writes
+  the card's own text from the connector (SECURITY.md, "What leaves the Mac").
 - Memory does not move into the voice server: memory about one person comes from voice, chats and mail together, and chats must
   not leave the Mac, nor their text go to a third party for embeddings. Life embeds its own texts with the embedder
   Lifelog Host runs, on loopback (`memory/vectors.ts`): the one call to the voice server's side outside its REST contract.
@@ -188,8 +190,13 @@ someone else is capped at 0.6 confidence.
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
   the prompt. (A developer's benchmark, the question cases, gives one Codex call Life's connector, reads only.)
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
-- The connector is reached through the owner's tailnet (or a tunnel the owner controls), behind Life's OAuth.
-  The owner's install is a bridge until #137: a Cloudflare Worker (`apps/edge/`) on every path of his public address passes
+- The connector is reached over iroh (`host/http/iroh.ts`: one endpoint on the Mac's key, both ALPNs, every stream it
+  accepts piped to the public port, which `serve()` starts beside the public listener) or through the owner's tailnet (or
+  a tunnel the owner controls), behind Life's OAuth either way. On the phone, `MacLink` dials the paired key and opens a
+  bridge on the device's own loopback, and `MacRoute` sends a request for the paired origin there (`LifeHTTP.data`,
+  `LifeHTTP.bytes`, `ServerClient.request`), the origin again when no dial works; a Mac without Tailscale runs
+  `bun life connect --local`.
+- The owner's install is a bridge until #137: a Cloudflare Worker (`apps/edge/`) on every path of his public address passes
   each request as is to the Mac's Tailscale Funnel on port 8443 (HTTPS a VPN lets through, unlike the tunnel's 7844),
   so his connector's URL never changes. It decides nothing; the Mac's OAuth guards every path.
 

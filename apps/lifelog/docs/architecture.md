@@ -116,7 +116,8 @@ On the phone, each piece of state has one owner, and only that owner writes it:
 matters, a matter in full, the agents and the month's model spending (`ModelSpending`), each a `ReadState` (`LifeConnector`, in Kit). The phone is paired to Life by
 the code its Mac shows, through Life's own sign-in, and calls the connector like any app; the fixtures of what it reads
 are written by Life's server tests (`fixtures/wire/life/`). His actions (answer, agents, his edits of a matter) are
-`ActionState`s in `LifeStore.actions`, run by `LifeActions`; a push opens its card by `pushId` and sets the badge.
+`ActionState`s in `LifeStore.actions`, run by `LifeActions`; a push opens its card by `pushId` and carries no words or
+count, so the app writes the notification's text from the connector and sets the badge from its own inbox read.
 Everyone a read names is a `Party`, kept by ref in `LifeStore.parties` (a `PartyBook`: the newest read of each wins,
 and a read begun before a new pairing changes nothing), whose pictures `PictureCache` fetches in batches; every screen draws a person or an organization with `DesignSystem/PartyPieces.swift` (`PartyDisc` and the
 row, pick and chip built on it), never initials of its own; a draft's chat strip names its senders and marks its
