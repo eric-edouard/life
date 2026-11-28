@@ -207,14 +207,10 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
-- Our relays (`apps/relay`; Life doesn't use them yet, `docs/plans/2026-11-27-private-relay.md`): hostedbyme.app
-  passes TLS through, and the iroh relay forwards the iPhone app's end-to-end encrypted traffic when a direct path
-  fails. Neither can decrypt. They see metadata: which install is online, IP addresses, when, and how much data
-  moves. A user who wants none of that runs their own relay.
-- The developer owns hostedbyme.app, so they could get a certificate for a user's address. The iPhone app is unaffected: it
-  reaches the Mac over iroh by the Mac's own key, with no certificate (planned). A browser opening a shared artifact, and Claude.ai or ChatGPT
-  reaching the connector, would accept it. Every certificate is public in Certificate Transparency logs, and the Mac is
-  to warn on one it didn't request (planned): detected, not prevented. Only the user's own domain or relay removes this.
+- The iroh relay (planned, `docs/plans/2026-11-27-private-relay.md`; Life doesn't use it yet) forwards the iPhone
+  app's traffic when a direct path fails. It is encrypted end to end between the Mac's and the phone's keys, so the
+  relay can't read it. It sees metadata: the devices' IP addresses, when they connect and how much data moves.
+  n0's public relays during development, Life's own before launch.
 - Full Disk Access makes Life a high-value target on the Mac.
 - A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
   every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility

@@ -1,8 +1,7 @@
 # Reaching Life with no domain and no Tailscale
 
-Plan: give every install a public address on Life's own domain, through a relay that can never read what passes
-through it, so a user who has no domain, no Cloudflare and no Tailscale account can connect their phone and their
-assistant in one step.
+Plan: Life's iPhone app reaches the user's Mac from anywhere with nothing to set up (no domain, no Tailscale, no
+account), through nothing that can read what passes.
 
 The test this plan must pass: a user asks their own AI agent to audit Life's public repository and answer "can my data
 leak to Life's developer?", and the answer, read from the code alone, is no.
@@ -13,144 +12,50 @@ Today a user reaches their Mac through Tailscale Funnel ([connect](../use/connec
 Tailscale account, a sign-in and an allowed Funnel: too much for someone who just installed an app. The owner's
 own install adds a Cloudflare Worker in front (`apps/edge/`, a bridge until #137).
 
-OpenTunnel, opencode's relay, shows the shape that removes the account: each server gets a random address like
-`https://<16 hex>.<host>.opentunnel.xyz`, and the relay passes the encrypted connection through by its hostname
-without opening it. This plan builds the same shape on Life's domain, with one difference that matters: each Mac makes
-and keeps its own key (OpenTunnel says it uses a wildcard certificate; whoever holds a wildcard key can read the
-traffic of every server under it).
+## The design: iroh in both apps (chosen 28 Nov 2026)
 
-The developer never runs anyone's Life or Voice server, now or later. Everything stays on the user's Mac; the relay
-only carries encrypted bytes.
+[iroh](https://github.com/n0-computer/iroh) (Apache-2.0, 1.0, official Swift bindings) is a library inside the Mac app
+and the iPhone app. No extra app, no account, no VPN prompt.
 
-## The design
+1. **The Mac makes its own key.** On first run, Life makes a keypair on the Mac (never written anywhere else, never
+   sent). Its public key is the Mac's address.
+2. **Pairing carries the key.** The Mac shows a QR code with its public key and its relay; the iPhone app keeps them.
+   From then on the app dials that key and nothing else: no certificate authority, no domain, so nobody, the developer
+   included, can stand in for the Mac.
+3. **Direct first.** iroh punches through the home router and connects the phone straight to the Mac (iroh reports
+   about 95% of data direct); at home it stays on the local network. Voice audio, the heavy part, mostly never leaves
+   the two devices' path.
+4. **A relay only when direct fails.** It forwards bytes encrypted end to end between the two keys, so it can't read
+   them. Development uses n0's free public relays; before launch Life runs its own iroh relay (open source, one small
+   machine; TLS there can end at the host, since what it carries is already encrypted end to end), so no third party
+   sees even metadata.
+5. **No public discovery.** iroh's lookup service stays off: pairing already says where the Mac is.
 
-1. **The relay forwards, never decrypts.** A small open-source service on `*.hostedbyme.app` (bought 27 Nov 2026 at Porkbun) reads the
-   hostname from the first packet of a TLS connection (SNI) and pipes the still-encrypted connection to the Mac that
-   registered it, over one outbound connection the Mac keeps open. It holds no certificate for any user's address.
-   The relay is OpenTunnel's server ([anomalyco/opentunnel](https://github.com/anomalyco/opentunnel), MIT; chosen
-   28 Nov 2026), pinned to a reviewed commit, and the Mac talks to it with its TypeScript client
-   (`@opentunnel/client`).
-2. **Each Mac makes its own key.** On first run, Life makes a private key on the Mac (never written anywhere else, never
-   sent) and picks a random id. It asks Let's Encrypt for a certificate for `<random id>.hostedbyme.app` with the
-   TLS-ALPN-01 challenge, which arrives through the relay still encrypted, so the Mac answers it itself. Renewal is the
-   same, every 60 days. The relay and the developer never see the key.
-3. **Life's iPhone app doesn't use the web address: it talks to the Mac over iroh.** iroh
-   ([n0-computer/iroh](https://github.com/n0-computer/iroh), Apache-2.0, 1.0 with Swift bindings; chosen 28 Nov 2026)
-   is a library inside both apps: the phone dials the Mac's public key, connects directly whenever it can (iroh reports
-   about 95% of data direct), and falls back to a relay that forwards bytes it can't read. Pairing happens next to the
-   Mac (a QR code), and the code carries the Mac's key and how to reach it. No certificate authority is involved, so
-   owning the domain gives the developer no way in, and the heavy traffic (voice audio) mostly never touches our relay.
-   Two settings: our own iroh relay beside OpenTunnel's (never n0's public ones, which would add a third party), and
-   no public discovery (pairing already says where the Mac is).
-4. **The Mac watches the public certificate logs.** Every public certificate is published in Certificate Transparency
-   logs. Life checks them for its own address and warns the user when a certificate it did not request appears. This
-   protects what can't use iroh: Claude.ai and ChatGPT connectors, which call from their makers' servers, and
-   browsers opening shared artifacts. These are the web address's only users.
-5. **Shared artifacts are encrypted with a key in the link.** An artifact shared with someone else is encrypted on the
-   Mac, and its key goes after the `#` in the link, which browsers never send to any server. The page that decrypts it
-   is served by the Mac through the relay, so its code is the repository's.
-
-Tailscale stays as an option for users who already have it.
+Tailscale stays as an option for users who already have it, and for Claude.ai and ChatGPT connectors, which need a
+public web address that iroh doesn't give.
 
 ## What an audit will find
 
-From the repository alone, an agent can check that:
+From the repository alone, an agent can check that the key is made on the Mac and no code path sends it, that the
+iPhone app dials only the key it paired with, and that discovery is off. A relay, honest or not, can delay or drop
+traffic, never read it. What it sees, and SECURITY.md says: the devices' IP addresses, when they connect and how much
+data moves.
 
-- TLS ends in Life's code on the Mac, and the relay's code has no certificate and no way to decrypt;
-- the private key is made on the Mac and no code path sends it;
-- the iPhone app accepts only the key it paired with;
-- the Mac alerts on a certificate it did not request.
+## Parked: a public web address (#1610)
 
-It cannot check what actually runs on the relay server, and does not need to: with points 3 and 4, a dishonest relay
-can delay or drop traffic, never read it.
-
-What the relay does see, and SECURITY.md must say once: the address used, the user's IP addresses, when they connect
-and how much data moves. Addresses are random ids, never names, because the certificate logs are public.
-
-## Bring your own
-
-hostedbyme.app is the default and free. A user who doesn't want to trust the developer's domain or relay picks one of
-these in Life's settings (prices checked 28 Nov 2026, per year):
-
-| Option | Removes | Costs |
-|---|---|---|
-| Their own domain on our relay | the domain owner's certificate | the domain: a `.com` is about $10–12 a year (Cloudflare at cost, Porkbun $11.81) |
-| Their own domain and their own relay | both caveats | the domain, plus about $90 a year for `apps/relay` on Fly (two small machines, a dedicated IPv4, a volume) |
-
-- Own domain: one CNAME record to the relay. The Mac gets its own certificate over TLS-ALPN-01 through the relay, so
-  only the user's DNS can issue for it. The relay still sees the metadata above.
-- Own relay: `apps/relay` deployed from the repository in one step.
-- Domains: buy a `.com`. Cheap first years hide high renewals (`.xyz` $1.29 then $14.21, `.site` $1.96 then $28.84),
-  and the cheapest endings (`.top`) are on spam blocklists.
-- Not offered: Cloudflare Tunnel (Cloudflare decrypts the traffic); Tailscale Funnel is free but Tailscale owns its
-  domain, the same caveat as ours.
-
-## Where the relay runs
-
-On Fly.io (chosen 28 Nov 2026), the one developer-friendly host found that passes raw TCP on port 443 under our own
-wildcard domain without holding a certificate: a raw TCP service (only Fly's `proxy_proto` handler, which adds the visitor's address) behind one dedicated anycast IPv4, so
-a phone anywhere reaches the nearest region. About $9 a month for three regions (three 256 MB machines and the IPv4),
-egress $0.02 per GB in Europe and North America, $0.04 in Asia. Users pay nothing. Railway, Render, Koyeb,
-Northflank, Zeabur, DigitalOcean's App Platform and Cloudflare's proxy were ruled out: each decrypts, or allows only
-HTTP, or gives a random port.
-
-- A Mac connects to the nearest region; a visitor may arrive at another. The relay keeps its own registry of which
-  machine holds each Mac and pipes across regions over Fly's private network (6PN). The Mac sends heartbeats: one
-  report says long 6PN connections drop.
-- Fly's removal of TCP idle timeouts is a forum post, not its docs: test a connection idle for hours before launch.
-- A user who wants their own relay runs `fly launch --from <this repository>`, allocates a dedicated IPv4 and points
-  their own wildcard record at it; the relay's `fly.toml` keeps passthrough. Fly has no one-click button.
-- DNS stays at Porkbun, where the domain is registered; the relay edits only its ACME records, with a key limited to DNS on hostedbyme.app.
-
-## The relay software
-
-OpenTunnel already does what step 1 needs: blind SNI passthrough, a mesh over Fly's private network that forwards a
-visitor to the machine holding the Mac's connection, WebSocket bridging with reconnects, per-tenant limits and
-draining on deploy, running in 11 Fly regions. Its own setup is ours: raw TCP on 443 behind a dedicated IPv4.
-
-What we change or check before launch:
-
-- Ownership: it gives a Mac a bearer token for its id. Patch it so the Mac proves ownership with a signature from its
-  own key.
-- Certificates: it issues a certificate per tunnel over DNS-01 from the Mac's CSR, so it never holds the key but does
-  hold our DNS. Prefer the Mac's own TLS-ALPN-01 (the server replays the ClientHello untouched, so it should pass;
-  untested). Either way, steps 3 and 4 hold.
-- Open creation: until creation is gated (#1545), tunnel creation is slowed in `apps/relay/fly.toml` (3 an hour per address).
-- Its MySQL dependency (PlanetScale in its production): pick the smallest database Fly can run beside it.
-- Size and age: about 18,000 lines of Rust, eight months old, one main maintainer. We pin a commit we reviewed and
-  read each upgrade's diff before taking it.
-
-Rejected: sish (one region; an offline Mac's name can be taken), frp (one region, large), piko (routes HTTP, not
-TLS), rathole, bore and chisel (no SNI routing), and writing our own (1,000 to 2,000 lines, mostly rebuilding the
-mesh and limits OpenTunnel has).
-
-## Open questions
-
-- Each user's address needs no DNS change at onboarding: one wildcard record points `*.hostedbyme.app` at the relay.
-- Let's Encrypt issues at most 50 new certificates a week per registered domain; renewals don't count. When new
-  installs near 40 a week, ask Let's Encrypt to raise it for hostedbyme.app (its rate limit adjustment form, by
-  domain). The Public Suffix List comes after launch, at thousands of users: it declines smaller projects and entries
-  made to get around rate limits. At that scale its reason is that browsers keep one user's address from setting
-  cookies on another's.
-- Whether the Claude.ai and ChatGPT connectors are worth a warning in the app that they rely on point 4 only.
+Shared artifacts and assistant connectors need an address a browser can open. That was `*.hostedbyme.app` through an
+SNI-passthrough relay (OpenTunnel on Fly), built and tested end to end on 28 Nov 2026, then parked to save its cost
+while neither exists. #1610 holds the design, what was built, its caveats, the costs and how to bring it back.
 
 ## Milestones
 
-- [x] Domain: hostedbyme.app.
-- [x] Host: Fly.io.
-- [x] Relay software: OpenTunnel.
-- [x] OpenTunnel self-hosted on Fly (Singapore), a test tunnel served end to end (28 Nov 2026).
-- [ ] Keypair ownership patch; TLS-ALPN-01 from the Mac tested; two more regions.
-- [ ] Mac side: key, random id, outbound connection, TLS-ALPN-01 certificate and renewal.
-- [ ] iroh in both apps: the Mac's key and relay in the pairing code, our own iroh relay on Fly, discovery off.
-- [ ] Certificate log watch and its warning.
-- [ ] Encrypted shared artifacts (with the artifacts work).
-- [ ] Bring your own: the relay routes a user's verified domain to their tunnel; the Mac's setting for a domain or a
-  relay; a `docs/use/` how-to.
+- [x] Choice: iroh (28 Nov 2026).
+- [ ] Mac side: keypair, iroh endpoint, the pairing QR with key and relay, discovery off.
+- [ ] iPhone app: iroh endpoint, dial the paired key, the voice and connector traffic over it.
+- [ ] Our own iroh relay before launch.
 - [ ] SECURITY.md "Network" and "What leaves the Mac", architecture.md, use/connect.md updated; #137 closed by it.
 
 ## Debt plan
 
-The relay replaces the owner's Cloudflare Worker (`apps/edge/`) and the Funnel setup becomes optional, so the
-connector has one public path instead of two. Nothing new is stored in `memory/`; the key lives with Life's other
-secrets (`SECRETS`, `secret.ts`).
+iroh replaces the owner's Cloudflare Worker (`apps/edge/`) for the app, and the Funnel setup becomes optional.
+Nothing new is stored in `memory/`; the key lives with Life's other secrets (`SECRETS`, `secret.ts`).
