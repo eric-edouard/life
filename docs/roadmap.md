@@ -33,7 +33,7 @@ The gaps, biggest first:
 
 - A signed, notarized, downloadable Life.app.
 - Lifelog Host inside Life.app, so the pendant needs one app on the Mac.
-- lifelog's iPhone app on TestFlight.
+- The phone app on TestFlight.
 - A model engine signed in without Terminal (OpenRouter first).
 - Bridges linked from the app (a QR code, a code, a browser sign-in), with prebuilt binaries.
 - Tailscale guided step by step, or another way to reach Life.

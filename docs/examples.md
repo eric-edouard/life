@@ -22,7 +22,7 @@ cites and the message it was quoted from.
 >
 > **2. Be home Saturday 17 October to let the plumber in for the kitchen sink:** kept.
 > - The promise: *"I'll be home Saturday morning to let the plumber in"* (obs_031fc9a8b3e7)
-> - Your lifelog shows Hans fixed the sink at the flat at 10:00 that Saturday. He told you *"the drain pipe was cracked,
+> - Your recordings show Hans fixed the sink at the flat at 10:00 that Saturday. He told you *"the drain pipe was cracked,
 >   I put in a new one"* (obs_a5b48d28a3c9, ep_3d2da4745984).
 >
 > **Coming up:** on 21 October, Claire Dupont said she'll send the 2027 lease for you to sign before the end of October

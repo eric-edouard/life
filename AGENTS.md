@@ -4,11 +4,11 @@ A self-running memory of one person's life (the owner), built on his Mac from hi
 Notes, git and imported assistant chats: sources → units → episodes → observations → people and area pages, plus an
 always-on archive of deleted messages and old note versions. Shipped as Life.app; a checkout is for development.
 
-The pendant pipeline (lifelog: the iPhone app, the voice server, the Mac helper, Lifelog Host) lives in `apps/lifelog`,
-with its own `AGENTS.md`. It runs as its own service. Life reads it only through its REST contract
-(`apps/lifelog/apps/server/openapi.json`), never its code or its database; lifelog may use Life's `core/`. Only instants
-cross that contract: a local day is Life's to bound (`zoneAt`). The iPhone app is a client of Life's connector, paired
-like any app; it holds no second API. One gate, `bun run check` at the root, covers both.
+Voice, Life's voice layer (the pendant pipeline: the phone app, the voice server, the Mac helper, Lifelog Host), lives
+in `apps/lifelog`, with its own `AGENTS.md`. The voice server runs as its own process; Life reads it only through its
+REST contract (`apps/lifelog/apps/server/openapi.json`), never its code or its database; the voice server may use
+Life's `core/`. Only instants cross that contract: a local day is Life's to bound (`zoneAt`). The phone app is a client
+of Life's connector, paired like any app; it holds no second API. One gate, `bun run check` at the root, covers both.
 
 ## Where to look
 
@@ -93,7 +93,7 @@ doc named.
   labels); each file has named writers, and code rewrites only the derived folders listed in `memory.md`. One lock
   (`memory-lock.ts`) guards every writer but the single-line appends listed there.
 - **What he deletes is one `deleted` correction, applied at read**, through `deleteFromMemory` alone (preview, then the
-  write on its digest). lifelog's chapter units stay as stored. Both in `memory.md`.
+  write on its digest). The voice server's chapter units stay as stored. Both in `memory.md`.
 - **A rename or a new field backfills**: one migration in code, with his OK on the list, run by the app under the lock;
   never by hand or from a worktree. The desk store changes shape only by a store step. `memory.md`.
 - **The export copies in `imports/<source>/` are never rewritten, merged or deleted without his yes.**

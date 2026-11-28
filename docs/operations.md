@@ -43,7 +43,7 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 ## Settings
 
 One file says how this install differs from another: `LIFE_STATE_DIR/settings.json` (`apps/server/src/core/settings.ts`, zod strict). It holds
-the connector's origin, lifelog's address, Life's mail, the engine, the backup, the repos folder, the
+the connector's origin, the voice server's address, Life's mail, the engine, the backup, the repos folder, the
 sources, `describePhotos` (the local photo describer), the agents' report senders, the Reminders and Past calendar plugins.
 
 - A part left out is off, never an error: a fresh install with no settings runs.
@@ -63,7 +63,7 @@ every Keychain secret in its environment:
 | Service | What it does |
 |---|---|
 | `archive` (kept running) | Every 5 s copies WhatsApp, the bridged networks (LINE, Instagram, Messenger, LinkedIn, Telegram, from the bridges' homeserver), and each new version of every Apple Note into `MACHINE_DIR/archive/`, opening a closed app hidden. A busy store is waited for up to 5 s; a store failing for an hour turns the archive card and the source cards red (the nightly email lists every open incident). See `docs/sources.md`. |
-| `watch` (kept running) | Long-polls lifelog's change feed into its store, rewrites the lifelog units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every lifelog unit again after a truth/ edit), hears "hey Life", runs the minute pass, serves the connector. |
+| `watch` (kept running) | Long-polls the voice server's change feed into its store, rewrites the voice units from where a page touched and their index rows (the whole index when a unit went or a code rule dropped or took one back, or a file under memory/ or truth/ is newer than it; every voice unit again after a truth/ edit), hears "hey Life", runs the minute pass, serves the connector. |
 | `desk` (kept running while his `desk` setting is set) | The desk (`apps/server/src/desk/`): every 5 s starts the registered agents' turns that are due (his answer and a new agent's first turn first, then an event (`nextWakeOf`: once its queue has been quiet 5 minutes, at most 10 after the first, and never sooner than 10 after the assignment's last turn), a deadline, a retry), at most 3 a tick, before its polls, none while its runtime's `block` says it can't run; a failed turn is retried after 5, 10 and 20 minutes, and an event is dropped only after 4 turns that began failed to take it (a turn that never began, offline or out of quota, counts none), while his answer, its retries spent, is tried again every 20 minutes, never at once, and is still dropped after `MAX_HANDED` (4) turns that began failed to take it; every 5 s reads his answers to their decisions (and their lapses), every 30 s the new messages and his pendant's new recordings (the voice units of today and yesterday), into their queues (an agent's wait, and the wide net for an agent on a matter: `matter.related`, `desk/matter-net.ts`), and ends the turns a restart left behind. It serves the door on `127.0.0.1:46202`. Its store is `LIFE_STATE_DIR/desk/desk.sqlite`, its key `LIFE_STATE_DIR/desk/desk.key`. Every 5 s it applies his word about his agents (`change_registered_agent`, his asks of `desk`), each once (a start asks its runtime's `block` first; an agent whose first turn never begins, or not within the desk's begin limit, is ended and its run stopped, why in `why_not_started`); every 5 s, before the hand-out, it receives his new complaints for the caretaker (`receiveComplaints`; at most 1,000 ledger lines a tick); with `desk.handOut` set, at most every 10 minutes it looks for a matter to start an agent on (`handOutNext`; under either cap it reads no matter). A scheduled task posts a line for the report with `bun life desk report-line '{"source":…,"line":…,"link":…}'`. A tick over 5 minutes exits it, and the app starts it again. Off, the app starts none. |
 | `memory nightly` (every 30 min) | A tick: its schedule (`schedule.ts`) decides what is due (below). |
 
@@ -119,10 +119,10 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
   the repos, then episodes, extract, closeness, pages, the index, one commit in `OWNER_DATA_DIR`, and the report.
   By hand, `bun life memory episodes` and `extract` read the last `--days` days (7), or `--from YYYY-MM-DD [--to …]`: the
   units behind a fact lost to a bug are read again by their days, never a whole backfill.
-  After the matter directions the night picks the icons of the open matters with none for their name and goal (`pickMatterIcons`, 40 matters a call on the fast tier; the watcher too, one call a tick, `ICON_CALLS_A_DAY` a day), then writes the matter situations (`bun life memory matter-situations`: one call per matter of two steps or more whose steps, goal or later records changed, the newest within 120,000 characters a night) and the project situations (`bun life memory project-situations`: one call per project underway with a running matter, only when its matters' words or its entry changed, never on the clock or a rename, over the records the directions step read; at 10 years still those projects alone, 30,000 characters each).
+  After the matter directions the night picks the icons of the open matters with none for their name and goal (`pickMatterIcons`, 40 matters a call on the fast tier; the watcher too, one call a tick, `ICON_CALLS_A_DAY` a day), then reads each open step he owes whose words or his `what-to-ask` words on it changed (`stepReadings`, 25 steps a call grouped by those words, on the fast tier, at most 60 calls a night, the newest first: typically 1 to 3 calls; a change of his words reads every open step he owes again), then writes the matter situations (`bun life memory matter-situations`: one call per matter of two steps or more whose steps, goal or later records changed, the newest within 120,000 characters a night) and the project situations (`bun life memory project-situations`: one call per project underway with a running matter, only when its matters' words or its entry changed, never on the clock or a rename, over the records the directions step read; at 10 years still those projects alone, 30,000 characters each).
   After the index and the links the night writes the day records (`memory/day-records.ts`): one call on his engine per day of its window that closed (before today), oldest first, only when that day's evidence changed (its `inputs` digest, refs only: its episodes, facts shown, summaries, payments and moved matters' steps), each shown the records of the 3 days before for linking. At 10 years still one to three calls a night, about 8,000 tokens each (about $0.003); a past day is never read again by the night. A backfill of past days needs his OK (about $10 for 10 years).
   It reads his chats and mail of every year once (about a minute and a half, old mail mostly) and counts every
-  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), keeps the mentions of the stored replies (`mentions/<month>.json`, derived; `bun life memory mentions` counts them by how they are placed, never a word), and asks lifelog
+  exchange again (`exchange-counts.json`, derived; by hand: `bun life memory exchange-counts`), keeps the mentions of the stored replies (`mentions/<month>.json`, derived; `bun life memory mentions` counts them by how they are placed, never a word), and asks the voice server
   which days the pendant recorded on (`recorded-days.json`, derived, for coverage; by hand: `bun life memory
   recorded-days`; a few seconds); closeness takes its last three years, the
   communication styles (`bun life memory communication-styles`; at most 200 calls a night, a person at most weekly) and the personas the rest. With the `histories` add-on on, the same read gives the histories their
@@ -176,7 +176,7 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
 bun life memory hear-voice-notes --from 2026-01-01 --to 2026-01-31
 ```
 
-Hears the chat voice notes of those days through lifelog (no model call, no memory lock: each line is one synchronous
+Hears the chat voice notes of those days through the voice server (no model call, no memory lock: each line is one synchronous
 append to `memory/files.jsonl`); Thai turns cost Scribe's price, once per note. `historical-units` over the same months
 then shows their words in older units; the nightly window shows them on its own.
 
@@ -227,28 +227,28 @@ enabled source is available and the passages' collected windows are complete.
 
 ## The watcher
 
-- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute and pushes what is new in his inbox, each kind at the level his `notifications` setting gives it (the badge counts what blocks him, `blockingCountOf`); `checksNow` reads the checks again only when its key changed (a file it reads, truth/ included, never units: the watcher's syncs write them; his day, the open decisions, a desk start, the queued voices: one read of his lifelog a minute, whose last list stands while it is down); while a run holds the memory lock only a new decision pushes (`seen-cards.json` in the watcher's folder, written when it changes; the first run pushes nothing).
-- Lifelog units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
-  conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when lifelog
-  retires or drops it. Extraction reads today's conversations once lifelog has settled them (`closed`). Only
+- New cards: `pushNewCardsIfChanged` (`host/card-push.ts`) runs each minute and pushes what is new in his inbox, each kind at the level his `notifications` setting gives it (the badge counts what blocks him, `blockingCountOf`); `checksNow` reads the checks again only when its key changed (a file it reads, truth/ included, never units: the watcher's syncs write them; his day, the open decisions, a desk start, the queued voices: one read of the voice server a minute, whose last list stands while it is down); while a run holds the memory lock only a new decision pushes (`seen-cards.json` in the watcher's folder, written when it changes; the first run pushes nothing).
+- Voice units come from the store the watcher keeps (`LIFE_STATE_DIR/watch/`; `bun life status`), one per
+  conversation and local day; a live conversation with a stored chapter unit keeps its chapters, which go when the voice server
+  retires or drops it. Extraction reads today's conversations once the voice server has settled them (`closed`). Only
   the watcher calls `poll`: a page folded in anywhere else would never be heard. Its `marks` table (his spans'
   spans, refs only) is the one thing there not rebuilt from the feed.
-- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by lifelog's own signals (its
-  voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation lifelog settled
+- It hears a conversation once its speech is complete (`speechIn`, `hear.ts`), by the voice server's own signals (its
+  voice-source contract): a recording nobody spoke after for 30 s (`endedOnSilence`), or a conversation the voice server settled
   (`closed`); never a timing rule of Life's. Only an ask whose wake has no speaker yet waits longer (`NAMING_MS`,
-  40 s) for lifelog to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
-  becomes an ask only once lifelog names the owner.
+  40 s) for the voice server to name the owner; a `low` ask stays low. A turn with no speaker yet that holds the misheard wake
+  becomes an ask only once the voice server names the owner.
 - The minute pass (`tick`, `watch.ts`) runs on its own one-minute timer beside the hearing loop, never awaited by it
-  (a lifelog outage never stops it): Reminders read back (the read takes about 10 s, `sync.pull` in the
+  (a voice server outage never stops it): Reminders read back (the read takes about 10 s, `sync.pull` in the
   log). The report's Actions section lists every ask.
-- When `apple-health` is ready, the minute timer syncs lifelog's measurements into `watch/apple-health.sqlite`, one pass at a time. It is derived: a lost copy is fetched again from sequence zero; a failed page waits for the next minute.
+- When `apple-health` is ready, the minute timer syncs the voice server's measurements into `watch/apple-health.sqlite`, one pass at a time. It is derived: a lost copy is fetched again from sequence zero; a failed page waits for the next minute.
 - With `describePhotos` on and the photos source ready, every 10 minutes it describes the newest photos not yet handled, taken from the setting's day on (`{"from": "YYYY-MM-DD"}`; older ones wait for a backfill) (60 a pass,
   newest first) with a local model: Qwen3.5-9B under llama.cpp, started for the pass and stopped after, downloaded once to `MACHINE_DIR/models`
   (pinned sizes and hashes, `core/pinned.ts`). Progress is the photos source card (Described n of m, No image, Last failure) and the log kind `photos.describe`.
 - Every hour (and at start) it keeps the person pictures (`memory/person-pictures.ts`): the pictures each person shows, his Contacts' first, then each ready source's with `pictures` in `SOURCES`' order (Messages' shared photos, the bridges' avatars), placed through `who.ts` (a card by `cardOwnerOf`). Each kept once as a 216 px JPEG (72 pt at 3x), `MACHINE_DIR/person-pictures/<id>.jpg`, its id the original bytes' digest; the index `MACHINE_DIR/person-pictures.json` (`{ built, people: { "person:x": [{ source, id }] } }`) replaced whole; when a reader can't read (access denied, a bridge's database gone), nothing changes. Never the night's; per Mac, so never exported or backed up (rebuilt within the hour).
 - Its startup line `actions: remctl ready` (in the watcher's log) is the check that the service can reach remctl.
 
-**Offline means delayed, never lost.** The Mac is the host. The lifelog cursor is gap-free, hearing reaches back a
+**Offline means delayed, never lost.** The Mac is the host. The voice server cursor is gap-free, hearing reaches back a
 week (`RECENT_MS`; skipped turns are logged) and delivery waits for a good poll, so nothing alerts on an outage.
 Reachability rests on the Mac being kept awake. Reconsider a server only on a measured loss (an ask lost, or acted on
 late with harm), or spoken asks above about one a day for a month.
@@ -360,7 +360,7 @@ first.
   the data repo's `docs/evals/`). Run it after a change to episodes or extraction.
 - **Timeline score:** `bun scripts/timeline.ts <truth.json>` scores the episodes memory holds for a truth file's days
   (the data repo's `docs/evals/truth-*.json`) against its hand-checked timeline, by code, no model: found, merged,
-  missed, extra, duplicates, and start, end and place against lifelog's stays.
+  missed, extra, duplicates, and start, end and place against the voice server's stays.
 - **Fact checks:** `bun scripts/eval.ts --fact-check-answers` scores the memory against the owner's fact-check answers (`memory/scores.jsonl`).
   From 29 Oct 2026 the fact checks he answers are the doubtful ones, not a random spread: don't compare a score across that day. From 14 Nov 2026 nothing is drawn: his answers on people are corrections, so the stored facts stay and are graded, but new ones come only from a line with a doubt of its own.
   Only a score after a re-read means anything. It holds the lock through its judge calls: not near 05:00.
@@ -391,18 +391,18 @@ first.
   counts only. A run spends: on Codex it is refused over the quota reserve, like an eval; an API engine has no such
   reserve, so the dry run's numbers, shown to him first, are the only guard on cash.
 - **Voice naming score:** `bun scripts/voice-naming-score.ts` scores the stored voice guesses against the voices he
-  answered (`basis: owner` in lifelog's `GET /speakers/voices`: a person, `not_relevant` or "A stranger", `ownAnswerOf`); lifelog gives no date, but a
+  answered (`basis: owner` in the voice server's `GET /speakers/voices`: a person, `not_relevant` or "A stranger", `ownAnswerOf`); the voice server gives no date, but a
   guess is only made for a voice no one had answered, so an answer there is since. `--hidden --trial <folder> [--from YYYY-MM-DD] [--run]`
   asks the naming again for the parts holding a voice he answered (a person, not relevant or "A stranger"), those voices shown as unnamed (`hidden` in `namingOf`:
-  no name on its lines, not counted among the people who could be there; its likeness is lifelog's, which already judges it without the span's own exemplars; an answered voice has left the naming queue, so it is its own voice group and its sound signal is its own likeness), into the trial folder, which
+  no name on its lines, not counted among the people who could be there; its likeness is the voice server's, which already judges it without the span's own exemplars; an answered voice has left the naming queue, so it is its own voice group and its sound signal is its own likeness), into the trial folder, which
   must be outside his data, then scores that folder; without `--run` it prints the parts, calls and voices it would
-  ask. Known leak: about 3.5% of lifelog's exemplars carry an older conversation id and can remain in a voice's likeness. Through the REST contract it also cannot hide that other conversations of his answers name the same people (who
+  ask. Known leak: about 3.5% of the voice server's exemplars carry an older conversation id and can remain in a voice's likeness. Through the REST contract it also cannot hide that other conversations of his answers name the same people (who
   was heard in person before, the briefs), and a stored line's voice rows are today's. It prints counts only: wrong per
   100 at sure and at likely, by voice (each counted once, by its newest guess) and by guess; voices with no
   likeness apart; `me` guesses; the talking words named right; guesses on voices he answered not relevant; how many voices he answered "A stranger" were guessed a person or him, at sure and at likely; the doubted
   names (named by sound, shown unnamed by rule 3, as now recognised) and how many the model named as the same
   person; mixed voices and voices he answered turn by turn (no answer on the voice) are left out and counted apart.
-  By group (one card per part and answer) it prints each level against its bar on his answers: likely (asks "Is this X?") 85 right in 100, sure 97 (the bar before a sure guess could ever start a row ticked; today none does, his word of 21 Nov 2026); a level under its bar is lowered in code on those numbers (no automatic step-down: his answers are lifelog's, read per stored line).
+  By group (one card per part and answer) it prints each level against its bar on his answers: likely (asks "Is this X?") 85 right in 100, sure 97 (the bar before a sure guess could ever start a row ticked; today none does, his word of 21 Nov 2026); a level under its bar is lowered in code on those numbers (no automatic step-down: his answers are the voice server's, read per stored line).
   The calls are the night's and the watcher's (`voiceNaming`, `inBatches`, the engine in settings). Show him the numbers before
   switching on `voiceGuessesShown`, the setting that shows a sure or likely guess as "probably X" when a
   conversation's words are opened (`fetch`) and nowhere else; absent means off, like `voiceNaming`.
@@ -482,7 +482,7 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
 
 - `search <words> [--from d --to d]`: opens with the situations of the people it names, else his own (when no
   day bounds it), then the other situations' lines citing an episode it shows; then episodes, observations (each says who spoke when not the
-  owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), lifelog's exact spoken words
+  owner: "by" a sender, "heard as" a voice), units (a section says when it is cut at 12), the voice server's exact spoken words
   (the best 20, each with a conversation id and a turn), chat passages (the best 10), note versions and messages to AI assistants, then mail (no newsletters nor Life's own,
   the best 5 thread-days). These sections read collected passages of any age, never raw source scans. `--from`/`--to` bound every section. Each
   section ranks by meaning and by words (holding them all), fused (`fuse`); by words alone, said in its first line,
@@ -504,11 +504,11 @@ Everything is in the CLI (`bun life memory …`), and the connector's tools are 
   closeness, reach, details, communication style, episodes, situation, open matters, `knows`), within about 6,000
   characters, `more` counting what it left out; `latest` their newest exchanges as JSON, five a page; `reach` every account they are reached on as JSON, a page within 6,000 characters (the end of a long Contacts label cut, never a handle or link), `--span <n>` the number of accounts to skip (`now`'s `moreReach` and each page's `next` name the refs, e.g. `fetch person:ana/reach/18`); the other parts
   prose of about 6,000 characters, each ending with its next reads, which `fetch` opens too. `--before` pages back
-  `evidence` and `latest`. No name: the list, closest first. An unknown name is looked for among lifelog's speakers
+  `evidence` and `latest`. No name: the list, closest first. An unknown name is looked for among the voice server's speakers
   and near names.
 - `area <name>`, `topics [tag]`, `checks` (everything Life would like him to verify, counted and listed, to read before asking the owner anything).
 - `places --at <instant|date> | --place <name> | --latitude n --longitude n [--radius m] [--from d --to d]`: where
-  the owner was (lifelog's location stays), with the conversations recorded during each. Life does no geocoding.
+  the owner was (the voice server's location stays), with the conversations recorded during each. Life does no geocoding.
 - `chats --who <name|handle> | --chat <id> [--from d --to d] [--before instant]`: WhatsApp, the bridged networks and iMessage,
   today included (messages deleted for everyone shown marked), the latest 200.
 - `repos [project|area|repo]` (CLI only): code repos by project and their last 30 days of commits; the directory is

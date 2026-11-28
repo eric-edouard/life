@@ -136,7 +136,7 @@ export const sceneOf = (
                 fetched.push(turns.size);
                 const spoken = voice.spoken ?? new Map();
                 return voice.fails
-                  ? Promise.reject(new Error("lifelog unreachable"))
+                  ? Promise.reject(new Error("voice server unreachable"))
                   : Promise.resolve(spoken);
               },
             }
