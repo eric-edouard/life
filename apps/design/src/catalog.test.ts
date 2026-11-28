@@ -8,6 +8,7 @@ import {
   newestCommitsOf,
   pathsOf,
   ROOT,
+  seenAfter,
   tabsOf,
   unseenOf,
 } from "./catalog";
@@ -152,6 +153,25 @@ test("unseen: changed since last opened, a page never opened counts once it has 
     "lab/index.html",
     "b.md",
   ]);
+});
+
+test("seen after opening a page: the first visit records every page, a later one only the page opened", () => {
+  const entries = ["a.html", "b.md"].map((path) => ({
+    about: "",
+    path,
+    title: path,
+  }));
+  const stamps: [string, number][] = [
+    ["a.html", 300],
+    ["b.md", 400],
+  ];
+  expect(seenAfter(null, entries, [], "a.html")).toBeNull();
+  const first = seenAfter(null, entries, stamps, "a.html");
+  expect(first).toEqual({ "a.html": 300, "b.md": 400 });
+  expect(seenAfter(first, entries, stamps, "a.html")).toBeNull();
+  expect(seenAfter({ "a.html": 100 }, entries, stamps, "a.html")).toEqual({
+    "a.html": 300,
+  });
 });
 
 test("how long ago, short", () => {

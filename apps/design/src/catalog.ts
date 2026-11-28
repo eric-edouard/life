@@ -6,7 +6,7 @@ import { lexer, type Tokens } from "marked";
 
 export const ROOT = "docs/design/";
 /** Where the designs app asks when each design file last changed (`readChangeStamps` in vite.config.ts). */
-export const LATEST_URL = "/__design-latest";
+export const STAMPS_URL = "/__design-stamps";
 
 export interface Entry {
   about: string;
@@ -144,6 +144,27 @@ export const unseenOf = (
       .filter((e) => changedAtOf(e.path, stamps) > (seen[e.path] ?? 0))
       .map((e) => e.path)
   );
+
+/** What was seen after opening a page, or null when nothing changes (no stamps yet, or already seen at its stamp).
+ *  The first visit (`seen` null) records every entry's stamp, so only changes made after it show. */
+export const seenAfter = (
+  seen: Record<string, number> | null,
+  entries: Entry[],
+  stamps: [string, number][],
+  opened: string
+) => {
+  const at = changedAtOf(opened, stamps);
+  if (stamps.length === 0 || seen?.[opened] === at) {
+    return null;
+  }
+  return {
+    ...(seen ??
+      Object.fromEntries(
+        entries.map((e) => [e.path, changedAtOf(e.path, stamps)])
+      )),
+    [opened]: at,
+  };
+};
 
 /** How long ago a time was, short: "just now", "12 min ago", "2 h ago", "3 d ago". */
 export const agoOf = (seconds: number, now = Date.now()) => {
