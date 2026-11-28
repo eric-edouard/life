@@ -4,7 +4,8 @@ import SwiftUI
 import UIKit
 
 /// The whole app: the thread, the field at the bottom, the edge, and two round buttons at the top (what waits on him,
-/// the pendant). No tab bar and no other screen; the rest opens over it.
+/// the pendant), which the iPhone Duo puts in its system bar instead. No tab bar and no other screen; the rest opens
+/// over it.
 struct RootView: View {
     @Environment(SyncStore.self) private var sync
     @AppStorage(Appearance.key) private var appearance = Appearance.auto
@@ -68,7 +69,8 @@ struct RootView: View {
                 Palette.bg.ignoresSafeArea()
                 if life.isPaired {
                     ThreadView(
-                        thread: thread, screen: screen, actions: actions, topHeight: topHeight, fieldHeight: fieldHeight
+                        thread: thread, screen: screen, actions: actions,
+                        topHeight: hasControlsInSystemBar ? 0 : topHeight, fieldHeight: fieldHeight
                     )
                 } else {
                     Button("Pair Life") { sheet = .settings }.buttonStyle(.pill(.filled, size: .compact)).padding(
@@ -78,7 +80,7 @@ struct RootView: View {
             // An overlay, not an inset: an inset that fills the height (as this one did) leaves the thread only what is
             // left under it, and the thread then starts in the wrong place.
             .overlay(alignment: .top) {
-                if !isOnTheRight {
+                if !hasControlsInSystemBar {
                     buttons.onGeometryChange(for: CGFloat.self) {
                         $0.size.height
                     } action: {
@@ -86,14 +88,12 @@ struct RootView: View {
                     }
                 }
             }
-            // On the right, nothing covers the thread's top.
-            .onChange(of: isOnTheRight, initial: true) { if isOnTheRight { topHeight = 0 } }
             .modifier(SideBarReader(edge: $sideBar))
-            // On the iPhone Duo, in every posture, the system places them on the right under its status bar (Apple's
-            // iPhone Duo guidance): the pendant, and what waits on him as numbers only, a group of its own.
-            .toolbar(isOnTheRight ? .visible : .hidden, for: .navigationBar)
+            // On the iPhone Duo, in every posture, the system bar holds them under its status bar (Apple's iPhone Duo
+            // guidance): the pendant, then what waits on him as two badged icons, a group of its own.
+            .toolbar(hasControlsInSystemBar ? .visible : .hidden, for: .navigationBar)
             .toolbar {
-                if isOnTheRight {
+                if hasControlsInSystemBar {
                     // Custom views stay in a horizontal bar unless they prefer the side one (iOS 27.1).
                     if #available(iOS 27.1, *) { rightControls.axisBehavior(.verticalPreferred) } else { rightControls }
                 }
@@ -249,7 +249,7 @@ struct RootView: View {
     /// The iPhone Duo: its system bar on the side (folded, or unfolded on its side), or unfolded upright (the only
     /// iPhone regular both ways; a large iPhone on its side is regular wide only). A regular iPhone keeps the two round
     /// buttons over the thread.
-    private var isOnTheRight: Bool { sideBar != nil || (sizeClass == .regular && heightClass == .regular) }
+    private var hasControlsInSystemBar: Bool { sideBar != nil || (sizeClass == .regular && heightClass == .regular) }
 
     private var isRecording: Bool {
         if case .recording = capture.status.recording { true } else { false }

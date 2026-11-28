@@ -351,7 +351,9 @@ struct BadgedIcon: View {
             .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
             .overlay(alignment: .topTrailing) {
                 Text("\(count)").font(.metaStrong).monospacedDigit().foregroundStyle(Palette.on)
-                    .padding(.horizontal, Metrics.Spacing.xs).frame(minWidth: Metrics.badge, minHeight: Metrics.badge)
+                    .padding(.horizontal, Metrics.Spacing.xs).frame(
+                        minWidth: Metrics.countBadge, minHeight: Metrics.countBadge
+                    )
                     .background(color, in: .capsule).fixedSize()
             }
             .accessibilityElement(children: .ignore)
