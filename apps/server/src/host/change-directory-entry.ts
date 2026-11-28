@@ -116,6 +116,10 @@ function idOf(id: string | undefined, name: string) {
   return made ? slug.parse(made) : refuse("give an `id`.");
 }
 
+/** The id an entry added by change `a` takes (`idOf`): a caller that acts on it once written (a one-off project's agent). */
+export const addedIdOf = (a: Pick<Change, "id" | "name">) =>
+  idOf(a.id, need(a.name, "`name`"));
+
 /** The list each kind of entry is in, its file `<list>.yaml`. */
 const LISTS = {
   area: "areas",

@@ -96,9 +96,9 @@ public struct ThreadWireEntry: Codable, Sendable, Equatable, Identifiable {
 
     /// Work handed on from it: what kind, since when, and how long that kind takes (a median of the last, ms).
     public struct Handed: Codable, Sendable, Equatable {
-        /// `HANDED_KINDS` (`desk/desk-turn-reads.ts`).
+        /// `HandedKind` (`desk/desk-turn-reads.ts`): `HANDED_KINDS` and `project`.
         public enum Kind: String, UnknownTolerant, Codable, Sendable {
-            case booking, lookup, other, redraft, reply, research
+            case booking, lookup, other, project, redraft, reply, research
             case unknown
         }
         public let kind: Kind

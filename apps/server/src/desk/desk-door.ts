@@ -12,6 +12,7 @@ import {
   restoreAppointment,
 } from "../host/appointments-calendar";
 import {
+  addedIdOf,
   changeDirectoryEntry,
   DirectoryEntryChange,
 } from "../host/change-directory-entry";
@@ -90,9 +91,9 @@ import {
 } from "./main-session";
 import {
   openOneOffProject,
+  pendingPlaceOf,
   promote,
   readHandedConversation,
-  readOneOffProject,
 } from "./one-off-projects";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
@@ -463,32 +464,35 @@ function doorServer(desk: Desk, id: string) {
     DirectoryEntryChange,
     async ({ said, ...change }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      const done = await changeDirectoryEntry({ ...change, said: words });
-      // A one-off project goes to its own agent at once, his entry handed on (`openOneOffProject`); the tick retries a refusal.
+      // A new one-off project: his entry waits for its agent (`pendingPlaceOf`), registered at once; a refusal, the tick's.
       const project =
-        change.kind === "project" && change.goal
-          ? await readOneOffProject(change.goal)
+        change.action === "add" && change.kind === "project" && change.goal
+          ? addedIdOf(change)
           : undefined;
-      const opened = project?.goal
-        ? await openOneOffProject(desk, { goal: project.goal, id: project.id })
-        : null;
-      if (opened && "assignment" in opened && turn) {
-        handOn(
-          desk,
-          turn.id,
-          opened.assignment,
-          "project",
-          clock().toISOString()
-        );
-        acted(turn, {
-          agent: agentNameOf(opened.agent),
-          kind: "agent",
-          told: project?.goal ?? words,
-        });
-        return { done, ...opened };
+      const done = await changeDirectoryEntry({
+        ...change,
+        id: project ?? change.id,
+        said: words,
+      });
+      if (project === undefined || !turn) {
+        acted(turn, { kind: "done" });
+        return done;
       }
-      acted(turn, { kind: "done" });
-      return done;
+      handOn(
+        desk,
+        turn.id,
+        pendingPlaceOf(project),
+        "project",
+        clock().toISOString()
+      );
+      const opened = await openOneOffProject(desk, project);
+      acted(
+        turn,
+        "error" in opened
+          ? { kind: "done" }
+          : { agent: agentNameOf(opened.agent), kind: "agent", told: words }
+      );
+      return { done, ...opened };
     }
   );
   door(

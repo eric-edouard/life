@@ -797,7 +797,9 @@ export async function tick(desk: Desk, isPollDue = true) {
     log("desk.gate", { ...errorOf(error), ok: false })
   );
   if (isPollDue) {
-    await openOneOffProjects(desk);
+    await openOneOffProjects(desk).catch((error: unknown) =>
+      log("desk.one_off_project", { ...errorOf(error), ok: false })
+    );
     await writeRuntimeBlocks(desk);
     // A message a wait wants gets its `message.received` before any arrival falls back to another agent.
     if (await pollMessages(desk, people)) {

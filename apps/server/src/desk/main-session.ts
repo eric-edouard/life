@@ -698,8 +698,7 @@ export function tellAgent(
     "connector",
     "his words through Tell Life to one agent"
   );
-  // At the ask's own instant, as its agent reads it (`readSpokenAsk`): `promote` finds his entry by it.
-  handOn(desk, turn, place, kind, line.instruction?.at ?? line.at);
+  handOn(desk, turn, place, kind, line.at);
   return { agent, ask: line.id, assignment: place, kind, state: "handed" };
 }
 

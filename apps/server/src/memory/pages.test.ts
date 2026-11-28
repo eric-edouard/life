@@ -27,7 +27,7 @@ test("an area page holds its underway projects in full and only counts the parke
   expect(hold).toContain("Project Project shop (shop, active)");
   expect(hold).toContain("Project Project visa (visa, waiting)");
   expect(hold).not.toContain("Project old-1");
-  expect(hold).toContain("41 parked or done");
+  expect(hold).toContain("41 parked, done or dropped");
   expect(hold).toContain("truth/projects/shop.md, truth/projects/visa.md");
   const done = areaHold({ id: "work", name: "Work" } as Area, [
     project("old", "done"),

@@ -357,6 +357,16 @@ const isGoneOf = (
   gone.has(threadEntryRefOf(e.id)) ||
   (JSON.parse(e.refs) as string[]).some((r) => gone.has(r));
 
+/** His thread entry `entry` as he still sees it (its words and when), none when it was deleted (`isGoneOf`): what may leave the thread for an agent or his directory. */
+export function shownEntryOf(db: Database, entry: number) {
+  const e = db
+    .query<Pick<EntryRow, "asked_at" | "id" | "refs" | "words">, [number]>(
+      "select id, asked_at, words, refs from thread_entry where id = ? and deleted_at is null"
+    )
+    .get(entry);
+  return e && !isGoneOf(deletionsNow().refs, e) ? e : undefined;
+}
+
 /** How many of his entries before the one handed an agent reads with it, within `DAY`. */
 const AROUND = 10;
 
@@ -366,11 +376,7 @@ const AROUND = 10;
  * named by a deletion, or citing what one removed), as `readThread` hides them.
  */
 export function conversationAroundOf(db: Database, entry: number) {
-  const at = db
-    .query<{ asked_at: string }, [number]>(
-      "select asked_at from thread_entry where id = ?"
-    )
-    .get(entry)?.asked_at;
+  const at = shownEntryOf(db, entry)?.asked_at;
   if (!at) {
     return [];
   }

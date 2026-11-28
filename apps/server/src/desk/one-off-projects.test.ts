@@ -1,6 +1,7 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, setSystemTime, test } from "bun:test";
 import { cpSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { clock } from "../core/clock";
 import { BUILT_IN_RUNTIME, DESK_AGENT } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { ask } from "../host/asks";
@@ -11,7 +12,9 @@ import { openAssignment, register } from "./agent-actions";
 import { recordHandedWork } from "./desk-store";
 import { firstTurnOf } from "./first-turns";
 import {
+  openOneOffProject,
   openOneOffProjects,
+  pendingPlaceOf,
   promote,
   readHandedConversation,
 } from "./one-off-projects";
@@ -24,28 +27,8 @@ import { setup } from "./test-desk";
 
 const TRUTH = join(OWNER_DATA_DIR, "truth");
 const BACKUP = `${TRUTH}.one-off-backup`;
-beforeAll(() => cpSync(TRUTH, BACKUP, { recursive: true }));
-afterAll(() => {
-  rmSync(TRUTH, { force: true, recursive: true });
-  cpSync(BACKUP, TRUTH, { recursive: true });
-  rmSync(BACKUP, { force: true, recursive: true });
-});
-
-const desk = () => {
-  const t = setup();
-  t.desk.runtimes = { [BUILT_IN_RUNTIME]: t.fake.runtime };
-  return t;
-};
-const agentsOn = (t: ReturnType<typeof setup>, project: string) =>
-  t.desk.db
-    .query<{ brief: string; id: string }, [string]>(
-      "select id, brief from agent where project = ?"
-    )
-    .all(project);
-
-test("a one-off project gets one agent, on his ask, never again once it ended; an ongoing one gets none", async () => {
-  const t = desk();
-  const goal = "Make a page for the bakery's opening day";
+beforeAll(async () => {
+  cpSync(TRUTH, BACKUP, { recursive: true });
   await changeDirectoryEntry({
     action: "add",
     id: "work",
@@ -53,14 +36,42 @@ test("a one-off project gets one agent, on his ask, never again once it ended; a
     name: "Work",
     said: "Add a Work area",
   });
-  await changeDirectoryEntry({
+});
+afterAll(() => {
+  rmSync(TRUTH, { force: true, recursive: true });
+  cpSync(BACKUP, TRUTH, { recursive: true });
+  rmSync(BACKUP, { force: true, recursive: true });
+  setSystemTime();
+});
+
+const desk = () => {
+  const t = setup();
+  t.desk.runtimes = { [BUILT_IN_RUNTIME]: t.fake.runtime };
+  return t;
+};
+type T = ReturnType<typeof desk>;
+const agentsOn = (t: T, project: string) =>
+  t.desk.db
+    .query<{ brief: string; id: string }, [string]>(
+      "select id, brief from agent where project = ?"
+    )
+    .all(project);
+const oneOff = (name: string, goal: string, status?: "dropped") =>
+  changeDirectoryEntry({
     action: "add",
     area: "work",
     goal,
     kind: "project",
-    name: "Bakery page",
+    name,
     said: goal,
+    status,
   });
+
+test("a one-off project gets one agent, on his ask, his waiting entry moved to it; never again once stopped; none when dropped or ongoing", async () => {
+  const t = desk();
+  const goal = "Make a page for the bakery's opening day";
+  await oneOff("Bakery page", goal);
+  await oneOff("Old shelf", "Sell the old shelf", "dropped");
   await changeDirectoryEntry({
     action: "add",
     area: "work",
@@ -68,58 +79,103 @@ test("a one-off project gets one agent, on his ask, never again once it ended; a
     name: "Garden",
     said: "Add a Garden project",
   });
+  t.desk.db.run(
+    "insert into thread_entry (id, asked_at, words) values (3, ?, ?)",
+    [clock().toISOString(), goal]
+  );
+  recordHandedWork(
+    t.desk.db,
+    3,
+    pendingPlaceOf("bakery-page"),
+    "project",
+    clock().toISOString()
+  );
   await openOneOffProjects(t.desk);
   await openOneOffProjects(t.desk);
   const [agent] = agentsOn(t, "bakery-page");
   expect(agentsOn(t, "bakery-page")).toEqual([
     { brief: goal, id: expect.any(String) },
   ]);
-  expect(agentsOn(t, "garden")).toEqual([]);
-  t.desk.db.run("update agent set status = 'ended' where id = ?", [
+  expect([agentsOn(t, "old-shelf"), agentsOn(t, "garden")]).toEqual([[], []]);
+  expect(
+    t.desk.db
+      .query("select assignment_id from handed_work where entry_id = 3")
+      .get()
+  ).toEqual({
+    assignment_id: ownAssignmentOf(t.desk.db, agent?.id ?? "") ?? "",
+  });
+  t.desk.db.run("update agent set status = 'stopped' where id = ?", [
     agent?.id ?? "",
   ]);
-  await openOneOffProjects(t.desk);
+  expect(await openOneOffProject(t.desk, "bakery-page")).toMatchObject({
+    error: expect.stringContaining("stopped or ended"),
+  });
+  expect(await openOneOffProject(t.desk, "old-shelf")).toMatchObject({
+    error: expect.stringContaining("dropped"),
+  });
   expect(agentsOn(t, "bakery-page")).toHaveLength(1);
 });
 
-test("promote writes the project from his thread entry's words, never the agent's; a retry finishes the same one; its agent reads the talk around his ask", async () => {
-  const t = desk();
-  const personal = register(t.desk, {
-    brief: "Test: the Personal agent",
-    folder: t.dir,
-    role: "personal",
-    runtime: BUILT_IN_RUNTIME,
-  });
+/** The Personal agent told `quote` from his entry `entry` (words `words`), on main session turn `turn`; its assignment and the ask. */
+async function told(
+  t: T,
+  entry: number,
+  turn: number,
+  words: string,
+  quote: string
+) {
+  const personal =
+    t.desk.db
+      .query<{ id: string }, []>("select id from agent where role = 'personal'")
+      .get()?.id ??
+    register(t.desk, {
+      brief: "Test: the Personal agent",
+      folder: t.dir,
+      role: "personal",
+      runtime: BUILT_IN_RUNTIME,
+    });
   const own =
     ownAssignmentOf(t.desk.db, personal) ??
     openAssignment(t.desk, personal, { openedBy: "owner" });
-  const words = "Clean up my Downloads folder, it is a mess";
+  t.desk.db.run(
+    "insert into thread_entry (id, asked_at, words, turn_id) values (?, ?, ?, ?)",
+    [entry, clock().toISOString(), words, turn]
+  );
   const line = ask(
     {
-      at: new Date().toISOString(),
-      quote: "Clean up my Downloads folder",
-      ref: "test-promote",
+      at: clock().toISOString(),
+      quote,
+      ref: `tell-life:${turn}:tell_agent:t${entry}`,
     },
     { agent: DESK_AGENT, to: own },
     "connector",
     "test"
   );
+  recordHandedWork(t.desk.db, entry, own, "other", line.at);
   await receiveSpokenAsks(t.desk);
-  t.desk.db.run(
-    "insert into thread_entry (id, asked_at, words, answer) values (4, ?, 'What is in my Downloads?', 'Mostly installers.'), (5, ?, ?, null)",
-    [
-      new Date(Date.now() - 60_000).toISOString(),
-      new Date().toISOString(),
-      words,
-    ]
-  );
-  recordHandedWork(t.desk.db, 5, own, "other", line.instruction?.at ?? "");
   const s = assignmentOf(t.desk.db, own);
   if (!s) {
     throw new Error("no assignment");
   }
+  return { ask: line.id, s };
+}
+
+test("promote writes the project from his entry's words, never the agent's; a retry finishes the same one; two asks of one entry; its agent reads the talk around his ask", async () => {
+  const t = desk();
+  t.desk.db.run(
+    "insert into thread_entry (id, asked_at, words, answer) values (4, ?, 'What is in my Downloads?', 'Mostly installers.')",
+    [new Date(clock().getTime() - 60_000).toISOString()]
+  );
+  const words = "Clean up my Downloads folder, it is a mess";
+  const { ask: id, s } = await told(
+    t,
+    5,
+    9,
+    words,
+    "Clean up my Downloads folder"
+  );
   const o = {
-    ask: line.id,
+    ask: id,
     name: "Downloads cleanup",
     notes: "Mostly old installers.",
   };
@@ -170,4 +226,22 @@ test("promote writes the project from his thread entry's words, never the agent'
   ).toMatchObject({
     error: expect.stringContaining("not handed to you"),
   });
+  // A deleted entry leaves the thread for no one: never promoted, never read.
+  const gone = await told(
+    t,
+    6,
+    10,
+    "Plan the move to the new flat",
+    "Plan the move"
+  );
+  t.desk.db.run(
+    "update thread_entry set deleted_at = ?, words = null where id = 6",
+    [clock().toISOString()]
+  );
+  expect(
+    await promote(t.desk, gone.s, { ask: gone.ask, name: "Move" })
+  ).toMatchObject({
+    error: expect.stringContaining("not kept"),
+  });
+  expect(readHandedConversation(t.desk, gone.s, 6)).toEqual({ entries: [] });
 });
