@@ -32,7 +32,7 @@ import type { People } from "./who";
 
 // The voice naming on arrival (docs/glossary.md, "voice naming"): the watcher's daytime pass of the night's voice naming,
 // his yes of 21 Nov 2026 to a third daytime model step. It asks during a conversation (a voice group said
-// `LIVE_GROUP_WORDS`) or once lifelog closed it, never before a meeting, and asks and stores exactly as the night does.
+// `LIVE_GROUP_WORDS`) or once the voice server closed it, never before a meeting, and asks and stores exactly as the night does.
 
 const { prompt: PROMPT } = READS.voice_naming;
 
@@ -41,7 +41,7 @@ export const LIVE_GROUP_WORDS = 150;
 /** The most voice naming calls on his day, the night's included: a runaway guard for the day's step. */
 export const NAMINGS_A_DAY = 50;
 
-/** The spoken conversations of the watcher's voice read, cut as the night cuts them (`exchangesOf`), each with whether lifelog closed every one of its conversations. */
+/** The spoken conversations of the watcher's voice read, cut as the night cuts them (`exchangesOf`), each with whether the voice server closed every one of its conversations. */
 export function recentConversationsOf(voice: RecentVoice) {
   const turns: SpokenTurn[] = voice.built
     .flatMap((b) =>
@@ -108,7 +108,7 @@ export type Outside = typeof OUTSIDE;
 
 /**
  * The day's voice naming (his yes of 21 Nov 2026 to a third daytime model step), on the watcher's voice read: a
- * conversation holding a voice group is read when lifelog closed it (once per process: `examined`, its first turn's
+ * conversation holding a voice group is read when the voice server closed it (once per process: `examined`, its first turn's
  * ref), or, still under way, when a group is due (`isGroupDue`). A short one is read only when worth it
  * (`isWorthNaming`, on the chats of its own window first, so a conversation that is not costs no 90-day read). Asked
  * and stored exactly as the night's (`readVoiceNamingWork`, `voiceNaming`), within `NAMINGS_A_DAY`; skipped while a

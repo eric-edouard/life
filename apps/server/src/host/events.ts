@@ -42,7 +42,7 @@ export const DECISION_WITHDRAWN = "decision.withdrawn";
 export const DRAFT_CONTESTED = "draft.contested";
 /** The holder kept its card against the waiting card of the agent woken: the desk's event alone, with the holder's why. */
 export const DRAFT_KEPT = "draft.kept";
-/** A call of his that ended, once lifelog holds its words: the desk's event alone (`pollCalls`), never the connector's. */
+/** A call of his that ended, once the voice server holds its words: the desk's event alone (`pollCalls`), never the connector's. */
 export const CALL_ENDED = "call.ended";
 /** His complaint (his words through Ask Life), received for the caretaker: the desk's event alone, its payload the ask's id, never his words (`desk/complaint-intake.ts`). */
 export const COMPLAINT_RECEIVED = "complaint.received";
@@ -395,7 +395,7 @@ const wantedOf = (filter: EventFilter, people?: People) =>
  * Whether an event is one `filter` wants, decided here only (the connector's polls and the desk's agent waits), by the
  * rules of `Matchable`: by app or channel, chat, his own or others', who (a message's writer, or who was on a call,
  * whoever placed it), a pattern on its text, a quantity's range, a GitHub repo and a place: the event's own point within `radius_m`
- * of the filter's coordinates (the stay's point as lifelog gives it, unlike `read_places_visited`'s circle mode, which
+ * of the filter's coordinates (the stay's point as the voice server gives it, unlike `read_places_visited`'s circle mode, which
  * weighs each fix's accuracy). Null when its person is no one Life knows (none are needed for a filter with no person).
  */
 export function matcherOf(filter: EventFilter, people?: People) {

@@ -12,9 +12,9 @@ import { isOnline } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
-import { voiceServerMissing } from "../sources/voice-server-call";
 import { emlxPart } from "../sources/mail";
 import { readVoiceNoteWords, toOggOpus } from "../sources/voice-notes";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { fileRefOf, isGone } from "./deletions";
 import { deletionsNow, FILES, runAt } from "./memory-files";
 import { begin, chunks, inBatches, readsOf } from "./run";
@@ -24,7 +24,7 @@ import { dayNow, localDate } from "./zones";
 // A message's files: each read once into memory/files.jsonl, when its message arrives (`describeFilesOnArrival`, from
 // the watcher) or at night (`describeFiles`, from `gather`), then shown as a line of its message (`showFiles`) with
 // what was read off it, so every step, search and the connector see it with no path of their own. A voice note (a
-// message's audio) is heard by lifelog's speech pipeline, its words kept like a PDF's text. Video and a file never
+// message's audio) is heard by the voice server's speech pipeline, its words kept like a PDF's text. Video and a file never
 // read on this Mac stay a tag.
 
 const MESSAGE_FILE_DESCRIPTION_PROMPT = "message-file-description.v1";
@@ -37,7 +37,7 @@ const PER_CALL = 8;
 export const FILES_ON_ARRIVAL_A_DAY = 100;
 /** The words kept of a file. */
 const TEXT_MAX = 1000;
-/** The words kept of a voice note: ten minutes of speech, lifelog's longest. */
+/** The words kept of a voice note: ten minutes of speech, the voice server's longest. */
 const VOICE_TEXT_MAX = 10_000;
 /** The long side, in pixels, of the image a model is shown. */
 const IMAGE_PX = 1600;
@@ -138,9 +138,9 @@ interface Content {
 type Read = { image: string } | { text: string };
 
 const isVoiceNote = (f: SourceFile) => f.mime.startsWith("audio/");
-/** A voice note lifelog did not answer is asked again after this, by whichever pass meets it. */
+/** A voice note the voice server did not answer is asked again after this, by whichever pass meets it. */
 const VOICE_RETRY_AFTER = 5 * MIN;
-/** When each voice note lifelog did not answer was last asked, in this process. */
+/** When each voice note the voice server did not answer was last asked, in this process. */
 const voiceAskedAt = new Map<string, number>();
 const isVoiceDue = (ref: string) =>
   clock().getTime() - (voiceAskedAt.get(ref) ?? 0) >= VOICE_RETRY_AFTER;
@@ -155,7 +155,7 @@ export const asChatOrNot = (e: SourceEvent, isChat: boolean): SourceEvent =>
     : { ...e, files: e.files.filter((f) => !isVoiceNote(f)) };
 
 /**
- * Whether a file is worth reading: on this Mac, and an image, a PDF, a document or a voice note while lifelog is set up
+ * Whether a file is worth reading: on this Mac, and an image, a PDF, a document or a voice note while the voice server is set up
  * and the note not asked in the last minutes (never a video).
  */
 const readable = (f: SourceFile): f is Readable =>
@@ -203,7 +203,7 @@ export async function toJpeg(src: string, out: string, px: number) {
 }
 
 /**
- * Read by code: a document's text, a PDF's text layer, a voice note's words (lifelog, keyed by the file's own sha256
+ * Read by code: a document's text, a PDF's text layer, a voice note's words (the voice server, keyed by the file's own sha256
  * so a note is paid for once; nothing while it is busy). Else the JPEG a model is shown: a photo, a scan's first page.
  */
 async function prepare(
@@ -470,7 +470,7 @@ const triedOnArrival = new Set<string>();
  * tick): nothing when none is due. Offline or with the day's limit spent, it still reads what costs no model call (a
  * document, a PDF, a voice note) and describes no image.
  * ponytail: a failed file is not retried until a restart, the night takes it within its 7 days; a backoff if that
- * matters. A voice note is the exception: lifelog busy, the next tick asks again (local, nothing paid twice).
+ * matters. A voice note is the exception: The voice server busy, the next tick asks again (local, nothing paid twice).
  */
 export async function describeFilesOnArrival(events: SourceEvent[]) {
   const { atMost, due } = filesDueOnArrival(

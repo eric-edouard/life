@@ -77,7 +77,7 @@ export async function findUnit(id: string) {
   return unit ? hit({ kind: "unit", unit }) : miss(`no unit ${id}`);
 }
 
-/** A turn of lifelog's store, where it is in its conversation. */
+/** A turn of the voice server's store, where it is in its conversation. */
 export async function findTurn(
   id: string,
   t: { jobId: string; turnIndex: number },

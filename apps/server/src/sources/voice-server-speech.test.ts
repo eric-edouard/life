@@ -3,14 +3,14 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { apply, openStore, Page, storeFiles } from "./voice-server";
-import { recordingsOf } from "./voice-server-speech";
 import {
   conversation,
   pageFixture,
   voiceStore as store,
   turnFixture,
 } from "./store-fixtures";
+import { apply, openStore, Page, storeFiles } from "./voice-server";
+import { recordingsOf } from "./voice-server-speech";
 
 const FROM = "2026-10-14T10:00:00.000Z";
 const TO = "2026-10-14T10:10:00.000Z";
@@ -142,7 +142,7 @@ test("a withdrawn recording inside the call keeps the words pending until a reco
     ],
   });
   expect(recordingsOf(s, FROM, TO)).toBeNull();
-  // lifelog joins the re-sent pages into a recording that starts at another page.
+  // The voice server joins the re-sent pages into a recording that starts at another page.
   put(s, { jobs: [{ ...job("j0b", 2), pages: [[2, 4]] }] });
   expect(recordingsOf(s, FROM, TO)).toEqual([
     { turn: "j1:0@2026-10-14T10:02:00.000Z", turns: 2 },

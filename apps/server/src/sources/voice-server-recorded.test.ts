@@ -8,7 +8,7 @@ const stretch = (startAt: number) => ({
   startAt: iso(startAt),
 });
 
-/** A lifelog that can tell since `since`, with one stretch at the start of each page asked; and what it was asked. */
+/** A voice server that can tell since `since`, with one stretch at the start of each page asked; and what it was asked. */
 function lifelog(since: string | null) {
   const asked: [string, string][] = [];
   const ask = (from: string, until: string) => {

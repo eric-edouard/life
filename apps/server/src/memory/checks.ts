@@ -103,7 +103,7 @@ import { dayNow } from "./zones";
 // The checks: everything waiting on his word, in one shape, with no limit: a guess of Life's his word would settle,
 // shown with its evidence while something rides on it (Life uses its guess meanwhile), a decision an agent asks, or a
 // new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
-// store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
+// store: a correction, a fact-check answer, the decision's answer, the voice server's naming queue, or the desk (a Start).
 
 /** What a decision's card holds beyond every check's shape (`checks.ts`): its `ask` line, its `recommended` option, his suggested next asks (`follow`), a draft's quick `edits`, what a replacing card `changed`, its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (d: Decision) => ({
@@ -477,7 +477,7 @@ const CHECKS_READ = [
   ZONES,
 ];
 
-/** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
+/** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices the voice server queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
   voices: CheckInputs["voices"],
@@ -502,7 +502,7 @@ export async function checksAndKeyNow(
 ) {
   const fixes = await fixesNow(budget, dayNow());
   const queue = await readNamingQueue();
-  // Guesses that cannot be read leave the cards as lifelog suggests; the answer reads them again and refuses then.
+  // Guesses that cannot be read leave the cards as the voice server suggests; the answer reads them again and refuses then.
   const guessed = await withVoiceGuesses(queue).catch((e) => {
     log("run.error", { ...errorOf(e), step: "voice.guesses" });
     return queue;

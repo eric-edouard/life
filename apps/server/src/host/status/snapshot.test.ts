@@ -233,7 +233,7 @@ test(
     const server = voiceServer({
       "/status": () => ({ pendant: { knownAt, recording: "recording" } }),
     });
-    // Past the snapshot's cache of lifelog's status, which earlier tests filled.
+    // Past the snapshot's cache of the voice server's status, which earlier tests filled.
     const later = performance.now() + DAY;
     const timer = spyOn(performance, "now").mockReturnValue(later);
     try {

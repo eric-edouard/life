@@ -5,19 +5,19 @@ import { EMBEDDER_MODEL } from "../core/embedder";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { readImessage } from "../sources/imessage";
-import { apply, readConversations } from "../sources/voice-server";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   conversation,
   imessageFixture,
-  voiceServer,
-  voiceStore,
   noteData,
   notesFixture,
   pageFixture,
   turnFixture,
+  voiceServer,
+  voiceStore,
   whatsappFixture,
 } from "../sources/store-fixtures";
+import { apply, readConversations } from "../sources/voice-server";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
 import { batchLines } from "./exchanges";
@@ -32,8 +32,8 @@ import {
   type Built,
   conversationLabel,
   lifeChat,
-  voiceUnitsOf,
   MARKED,
+  voiceUnitsOf,
 } from "./units";
 import { embedNew } from "./vectors";
 import {
@@ -679,7 +679,7 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
     )[0]?.speaker;
   expect(scoped("lifelog|call-a")).toBe("person:weinstock");
   expect(scoped("lifelog|call-b")).toBe("unknown:David");
-  // How lifelog heard an unnamed voice prefixes its words: over the phone, or nearby but not talking with him.
+  // How the voice server heard an unnamed voice prefixes its words: over the phone, or nearby but not talking with him.
   const heard = (kind: string, withOwner: boolean) =>
     voiceLines(
       [t(1, false)],

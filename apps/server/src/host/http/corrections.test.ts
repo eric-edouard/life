@@ -1,8 +1,8 @@
 import { afterAll, expect, test } from "bun:test";
 import { clock } from "../../core/clock";
 import { logEvents, logFileOf } from "../../core/log";
-import { forward } from "../../sources/voice-server";
 import { voiceServer } from "../../sources/store-fixtures";
+import { forward } from "../../sources/voice-server";
 import { correct } from "./mcp";
 
 const server = voiceServer({
@@ -24,7 +24,7 @@ test("forward sends the four corrections and nothing else", async () => {
   await expect(forward("delete_person", { id: "p1" })).rejects.toThrow(
     "not a forwardable correction"
   );
-  // Each write is logged by its body's field names, never their values or lifelog's answer.
+  // Each write is logged by its body's field names, never their values or the voice server's answer.
   const written = logEvents(logFileOf(clock().toISOString()), "lifelog.write")
     .filter((l) => l.path === "/people/p1")
     .slice(-2);

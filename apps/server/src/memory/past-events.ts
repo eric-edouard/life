@@ -29,12 +29,12 @@ import { readPeople } from "./who";
 import { time } from "./zones";
 
 // The Past calendar (his request, 21 Oct): what it should hold. Every episode, as an event with what happened, who,
-// where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
+// where he was (the voice server's stays), the conversations recorded, what Life noted and every unit it was read from. A
 // one-way projection of the episodes: each event carries its episode's id and a hash of what it shows,
 // an episode that changed is written again, one gone (hidden, or read again as something else) is deleted.
 // `host/past-calendar.ts` writes it.
 
-// ponytail: an episode goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
+// ponytail: an episode goes on the calendar 2 h after it ends, so the voice server has its stays: they are read once, when it
 // is written, and are not in its hash. Hash them (a read per episode each tick) if late stays turn out to matter.
 const SETTLE = 2 * HOUR;
 // The description's layout, in the hash: a new one writes every event again (21 Nov 2026: the map links).

@@ -8,7 +8,7 @@ import { voiceServerMissing } from "./voice-server-call";
 /** How a push interrupts him: Apple's `interruption-level` (passive: Notification Center only, no sound). */
 export type PushLevel = "passive" | "active" | "time-sensitive";
 
-/** A push to his phone through lifelog (`POST /notifications`): words (`title` and `body` together) and/or the `badge`, its `level`, a card's opaque `pushId` (or an appointment's, with `kind` `calendar.added`); or, alone, the `pushId`s of cards that left his inbox (`removed`, a background push). Never his words or a ref. */
+/** A push to his phone through the voice server (`POST /notifications`): words (`title` and `body` together) and/or the `badge`, its `level`, a card's opaque `pushId` (or an appointment's, with `kind` `calendar.added`); or, alone, the `pushId`s of cards that left his inbox (`removed`, a background push). Never his words or a ref. */
 export interface Push {
   badge?: number;
   body?: string;
@@ -25,7 +25,7 @@ export const PUSH_ID = /^[0-9a-f]{16}$/;
 export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
   createHmac("sha256", key).update(ref).digest("hex").slice(0, 16);
 
-/** A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. Whether lifelog took it. */
+/** A push to his phone through the voice server, logged like a correction; nothing without the voice server set up. Never throws: a failure is its log line. Whether the voice server took it. */
 export async function notifyPhone(push: Push) {
   if (voiceServerMissing()) {
     return false;

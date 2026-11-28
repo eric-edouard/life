@@ -43,13 +43,7 @@ if (import.meta.main) {
       .all()
       .map((c) => ({
         id: c.id,
-        turns: turnsBetween(
-          store,
-          c.id,
-          "",
-          "9999",
-          voiceNames(people.truth)
-        ),
+        turns: turnsBetween(store, c.id, "", "9999", voiceNames(people.truth)),
       }))
       .toSorted((a, b) =>
         digest("sha1", a.id, 12).localeCompare(digest("sha1", b.id, 12))

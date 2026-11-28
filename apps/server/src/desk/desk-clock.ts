@@ -50,7 +50,12 @@ import { readMatterBook } from "../memory/matters";
 import { type People, readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { isWokenOnlyByHisWords } from "../records/registered-agent";
-import { readStore, storeFiles, WATCH, withStore } from "../sources/voice-server";
+import {
+  readStore,
+  storeFiles,
+  WATCH,
+  withStore,
+} from "../sources/voice-server";
 import { recordingsOf } from "../sources/voice-server-speech";
 import { matterRecordOf, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
@@ -198,7 +203,7 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
 
 /**
  * Queues `call.ended` for each open assignment whose wait wants a call that ended in the last 12 hours
- * (`readEndedCalls`), once lifelog holds the call's words (`recordingsOf`): the chat, the span, who was on it and where
+ * (`readEndedCalls`), once the voice server holds the call's words (`recordingsOf`): the chat, the span, who was on it and where
  * its turns are, never a word. A call with no turn inside (the pendant was off) queues nothing and is looked at again
  * next poll until it is 12 hours old; the queue keeps it once per agent and call (`queue`), so no cursor is kept. `at` is the time the polls look back from, passed
  * so a replay can set the evening.

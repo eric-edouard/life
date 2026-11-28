@@ -12,13 +12,13 @@ import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decision-lines";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
-import { apply, type Stay } from "../../sources/voice-server";
 import {
   conversation,
-  voiceStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../../sources/store-fixtures";
+import { apply, type Stay } from "../../sources/voice-server";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,

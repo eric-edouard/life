@@ -8,13 +8,13 @@ import { LEDGER, tasksOf } from "../memory/memory-files";
 import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as messageFiles from "../memory/message-files";
-import { apply } from "../sources/voice-server";
 import {
   turnFixture as fed,
+  pageFixture,
   voiceServer,
   voiceStore,
-  pageFixture,
 } from "../sources/store-fixtures";
+import { apply } from "../sources/voice-server";
 import type { Health } from "./health";
 import { hear } from "./hear";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions

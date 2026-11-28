@@ -415,7 +415,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log(JSON.stringify(readSettings(), null, 2));
     return Promise.resolve(0);
   },
-  /** What the lifelog watcher says about itself (derived/watch/health.json). */
+  /** What the voice server watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),
   /** Validates truth/: schemas plus every reference between people, chats, projects and areas. */
   async validate() {
@@ -430,7 +430,7 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /** Voice's processes as launchd jobs (host/voice.ts): `voice start [--refresh]|stop|status`, its keys and recordings for Life.app's Settings (`key`, `backup-password`, `sign-in-chatgpt`, `export`, `import`), or `voice run <child>`, which launchd runs. */
   voice: () => voiceCommand(process.argv.slice(3)),
-  /** Follows lifelog's change feed and keeps the lifelog units current; never returns (kept running by the app). */
+  /** Follows the voice server's change feed and keeps the voice server units current; never returns (kept running by the app). */
   watch,
 };
 

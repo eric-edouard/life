@@ -17,7 +17,7 @@ import {
 } from "./who";
 import { localDate } from "./zones";
 
-// The voice checks: each voice lifelog asks him to name, as one of the checks (`checksOf`).
+// The voice checks: each voice the voice server asks him to name, as one of the checks (`checksOf`).
 
 /**
  * A queue item's clips and evidence as a card shows them: one of a recording holding words he deleted goes. A turn's key
@@ -42,7 +42,7 @@ export const shownClipsOf = (
   };
 };
 
-/** Every voice lifelog asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
+/** Every voice the voice server asks him to name, none left out but those he called several people (not asked in v1: one answer would give them all to one). */
 export const voiceChecksOf = (
   people: Pick<People, "nameOf" | "names" | "partyOf" | "refOf" | "resolve">,
   voices: readonly GuessedQueueItem[]
@@ -79,11 +79,11 @@ export const voiceChecksOf = (
         notSent: null,
         onMatters: [],
         onSilence: null,
-        // The people it could be are `likelyPeople`, lifelog's suggestion first; "Yes" only when that suggestion is in use.
+        // The people it could be are `likelyPeople`, the voice server's suggestion first; "Yes" only when that suggestion is in use.
         options: LIFE_CHECKS.voice.options.filter(
           (o) => who || o.id !== "is-them"
         ),
-        // "Yes" is pre-ticked only on the person lifelog's likeness scored (`personId`), never on a name heard beside it.
+        // "Yes" is pre-ticked only on the person the voice server's likeness scored (`personId`), never on a name heard beside it.
         preTicked: preTickedOf(
           {
             kind: "voice",
@@ -105,7 +105,7 @@ export const voiceChecksOf = (
         ridesOn: { matterIds: [], matters: 0, observations: 0, pages: 0 },
         said: null,
         since: null,
-        // The person lifelog suggests, what makes it a guess in use; null: none (`urgencyOf`).
+        // The person the voice server suggests, what makes it a guess in use; null: none (`urgencyOf`).
         subject: who ? known : null,
         title: LIFE_CHECKS.voice.title,
         voiceGuesses: (item.guessed ?? []).flatMap((r) =>

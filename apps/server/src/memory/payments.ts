@@ -129,7 +129,7 @@ export async function placedOn(
   }
 }
 
-/** His stays on each day `from` to `to` (none without lifelog, or when it cannot be read). */
+/** His stays on each day `from` to `to` (none without the voice server, or when it cannot be read). */
 async function staysOn(from: string, to: string) {
   if (voiceServerMissing()) {
     return [];
@@ -138,7 +138,7 @@ async function staysOn(from: string, to: string) {
   for (let d = from; d <= to; d = daysBefore(d, -1)) {
     days.push(d);
   }
-  // One lifelog read per day: its `visits` stops at 200 stays (lifelog `location.ts`), fewer than a month holds.
+  // One voice server read per day: its `visits` stops at 200 stays (the voice server's `location.ts`), fewer than a month holds.
   const each = await Promise.all(
     days.map((d) => staysOf({ at: d }).catch(() => null))
   );

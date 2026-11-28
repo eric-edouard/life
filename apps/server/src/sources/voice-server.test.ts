@@ -6,8 +6,15 @@ import { join } from "node:path";
 import { z } from "zod";
 import { AppleHealthPage } from "./apple-health";
 import {
+  conversation,
+  pageFixture,
+  voiceStore as store,
+  turnFixture,
+  voiceServer,
+} from "./store-fixtures";
+import { VoiceNoteWords } from "./voice-notes";
+import {
   apply,
-  VoiceServerStatus,
   newestTurn,
   openStore,
   ownerSpoke,
@@ -21,6 +28,7 @@ import {
   Transcript,
   turnPlace,
   turnsBetween,
+  VoiceServerStatus,
   visits,
   writeMarks,
 } from "./voice-server";
@@ -37,14 +45,6 @@ import {
   Voices,
   voiceNamesOf,
 } from "./voice-speakers";
-import {
-  conversation,
-  voiceServer,
-  pageFixture,
-  voiceStore as store,
-  turnFixture,
-} from "./store-fixtures";
-import { VoiceNoteWords } from "./voice-notes";
 
 const since = new Date("2026-10-01T00:00:00Z");
 const JEAN = "person-jean";
@@ -230,7 +230,7 @@ test("a turn's place in its conversation, and a person's conversations newest fi
   expect(turnPlace(s, "job-1", 9)).toBeNull();
   const named = (byId: Map<string, string>) =>
     conversationsWith(s, [ANNE], byId).map((c) => [c.id, c.names]);
-  // The directory's name beats the one lifelog gave, as in a unit's label.
+  // The directory's name beats the one the voice server gave, as in a unit's label.
   expect(named(new Map([[ANNE, "Anne Directory"]]))).toEqual([
     ["c2", ["Anne Directory"]],
     ["c1", ["Anne Directory"]],
@@ -398,7 +398,7 @@ test("a store made before the contract's closed and endedOnSilence opens, drops 
   }
 });
 
-// lifelog's published contract, in this repo, kept current by the gate's openapi step.
+// The voice server's published contract, in this repo, kept current by the gate's openapi step.
 const CONTRACT = join(
   import.meta.dir,
   "../../../lifelog/apps/server/openapi.json"
@@ -603,7 +603,7 @@ test("a feed page parses with or without lifelog's generated title, and a store 
 });
 
 test("visits: lifelog's 404 (no place the phone named matches) is no stays", async () => {
-  // No route: the test server answers 404, as lifelog does when nothing matches.
+  // No route: the test server answers 404, as the voice server does when nothing matches.
   const server = voiceServer({});
   try {
     expect(await visits({ place: "Nowhere" })).toEqual([]);
@@ -638,7 +638,7 @@ test("a turn holds the marks whose wake it is, as lifelog has the turn now: regr
   expect(marked("c2")).toEqual([[R0, "r0b"], []]);
   // Heard again unchanged: nothing to rebuild.
   expect(writeMarks(s, "c2", "", [[R0, "r0b"]])).toBe(false);
-  // lifelog transcribed the recording again: another turn at the same index (a new start) is not the wake.
+  // The voice server transcribed the recording again: another turn at the same index (a new start) is not the wake.
   apply(
     s,
     pageFixture({
@@ -656,7 +656,7 @@ test("a turn holds the marks whose wake it is, as lifelog has the turn now: regr
       ],
     })
   );
-  // lifelog names someone else for the wake turn: no longer his mark.
+  // The voice server names someone else for the wake turn: no longer his mark.
   apply(
     s,
     pageFixture({
@@ -723,7 +723,7 @@ test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none
     expect(await readPhoneZone()).toBeNull();
     beat = null;
     expect(await readPhoneZone()).toBeNull();
-    // An answer it can't read is lifelog unreadable: a throw, never a guess.
+    // An answer it can't read is the voice server unreadable: a throw, never a guess.
     beat = "not a heartbeat";
     await expect(readPhoneZone()).rejects.toThrow();
   } finally {

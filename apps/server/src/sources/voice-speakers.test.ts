@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { voiceServer } from "./store-fixtures";
 import { withStore } from "./voice-server";
 import {
   answerNamingQueue,
@@ -8,7 +9,6 @@ import {
   readNamingQueueNow,
   readVoiceNames,
 } from "./voice-speakers";
-import { voiceServer } from "./store-fixtures";
 
 const DANA = "00000000-0000-4000-8000-000000000001";
 const KOFI = "00000000-0000-4000-8000-000000000002";
@@ -33,7 +33,7 @@ const server = voiceServer({
 afterAll(() => server.close());
 
 const ids = (q: { id: string }[]) => q.map((i) => i.id);
-/** Lifelog's queue held open: each GET waits until `answerGet` gives it its list. */
+/** The voice server's queue held open: each GET waits until `answerGet` gives it its list. */
 const held: ((list: unknown) => void)[] = [];
 const holdQueue = () => {
   queue = () => new Promise((r) => held.push(r));
@@ -55,7 +55,7 @@ test("the inbox's queue: the first read waits, then the last list comes at once 
   // One process for every test file: another may have kept a list first, so this server's shows on a later read.
   await until(() => shows("job-1:speaker_1"));
   holdQueue();
-  // At once, twice: the kept list, with one read of lifelog behind it.
+  // At once, twice: the kept list, with one read of the voice server behind it.
   expect(ids(await readNamingQueue())).toEqual(["job-1:speaker_1"]);
   expect(ids(await readNamingQueue())).toEqual(["job-1:speaker_1"]);
   await until(() => held.length > 0);

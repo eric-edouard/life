@@ -1,17 +1,17 @@
 import {
   LIVE,
+  nameOf,
+  type Store,
   type VoiceTurn,
   type VoiceTurnRow,
   voiceTurnOf,
-  nameOf,
-  type Store,
 } from "./voice-server";
 
 // The live conversations Life lists by who spoke or when, each with what its label needs (`conversationLabel`).
 
 /**
  * The live conversations (`c`) matching `rest` (a `where` tail and `order by`), each with the names of the people other
- * than the owner who spoke in it, as the directory names them (`byId`, `voiceNames`) else as lifelog does.
+ * than the owner who spoke in it, as the directory names them (`byId`, `voiceNames`) else as the voice server does.
  */
 function conversationRows(
   store: Store,
@@ -38,7 +38,7 @@ function conversationRows(
     }));
 }
 
-/** The live conversations where lifelog's person (or one of the people) `personIds` spoke, newest first. */
+/** The live conversations where the voice server's person (or one of the people) `personIds` spoke, newest first. */
 export const conversationsWith = (
   store: Store,
   personIds: string[],
@@ -68,9 +68,9 @@ export const conversationsBetween = (
   );
 
 /**
- * Every turn of the live conversations, oldest first, each with its lifelog conversation (the voice store's, so the
+ * Every turn of the live conversations, oldest first, each with its voice server conversation (the voice store's, so the
  * words of one fetch and the voices it heard are asked of it). The spoken conversations are cut from these
- * (`memory/spoken-conversations.ts`), whatever conversation lifelog put them in.
+ * (`memory/spoken-conversations.ts`), whatever conversation the voice server put them in.
  */
 export const readSpokenTurns = (store: Store, byId: Map<string, string>) =>
   store.db

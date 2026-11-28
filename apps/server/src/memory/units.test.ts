@@ -11,25 +11,25 @@ import type { SourceEvent } from "../records/source";
 import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { readAssistant } from "../sources/assistants";
-import {
-  apply,
-  type VoiceConversation,
-  openStore,
-  readConversations,
-  WATCH,
-} from "../sources/voice-server";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   claudeExport,
   conversation as feedConversation,
-  voiceServer,
-  voiceStore,
   noteData,
   notesFixture,
   pageFixture,
   runFixture,
   turnFixture,
+  voiceServer,
+  voiceStore,
 } from "../sources/store-fixtures";
+import {
+  apply,
+  openStore,
+  readConversations,
+  type VoiceConversation,
+  WATCH,
+} from "../sources/voice-server";
 import { LIFE_MAIL } from "./email";
 import { gather } from "./gather";
 import { IMPORTED, keptConversations, readUnits, UNITS } from "./memory-files";
@@ -44,11 +44,11 @@ import {
   conversationLabel,
   isFrozen,
   lifeChat,
-  voiceUnitsOf,
   MARKED,
   messageUnits,
   oneToOne,
   speakerOf,
+  voiceUnitsOf,
 } from "./units";
 import { foldsOf, unitNow } from "./who";
 import { chatLines } from "./words";
@@ -320,7 +320,7 @@ test("a conversation across midnight is two units; a conversation with a stored 
     ["2026-10-26", "2026-10-25T23:30:00.000Z"],
   ]);
   expect(voiceUnitsOf([late], new Set([late.id]))).toEqual([]);
-  // A chapter unit carries lifelog's summary; a placeholder (never summarized) and a repo-day's summary don't freeze.
+  // A chapter unit carries the voice server's summary; a placeholder (never summarized) and a repo-day's summary don't freeze.
   expect(isFrozen({ source: "lifelog", summary: "A summary." })).toBe(true);
   expect(isFrozen({ source: "lifelog", summary: "" })).toBe(false);
   expect(isFrozen({ source: "lifelog" })).toBe(false);
@@ -734,7 +734,7 @@ test("a conversation that moves to another day leaves its old day's file; other 
   }
 });
 
-/** A stored lifelog unit of conversation `key` on 20 Oct: a chapter when it has a summary. */
+/** A stored the voice server unit of conversation `key` on 20 Oct: a chapter when it has a summary. */
 const storedVoice = (id: string, key: string, summary?: string): Unit => ({
   date: "2026-10-20",
   end: "2026-10-20T10:20:00.000Z",
@@ -778,7 +778,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
       [unitId("lifelog", "c2", "2026-10-20"), "c2"],
     ]);
     expect((await readUnits())[0]).toEqual(chapter);
-    // lifelog retires c1 into c3: c1's chapter goes with it, c3's days come.
+    // The voice server retires c1 into c3: c1's chapter goes with it, c3's days come.
     const touched = apply(
       store,
       pageFixture({
@@ -964,7 +964,7 @@ test("a processing run reads a stored chapter unit as stored, a marked one still
     ...storedVoice("unit_00000000000d", "conv-1", "A summary."),
     marked: ["job-1:0@x"],
   };
-  // lifelog set up, its store holding conv-1 live (no words: no conversation-day either way).
+  // The voice server set up, its store holding conv-1 live (no words: no conversation-day either way).
   const server = voiceServer({});
   const store = openStore();
   apply(store, pageFixture({ conversations: [feedConversation("conv-1")] }));

@@ -9,6 +9,6 @@ export const unitId = (...parts: string[]) =>
 /** The id of the chat-day (thread-day, note-day, repo-day, device-day, measurement-day or photo-day) an event is in. */
 export const dayUnitId = (e: SourceEvent) =>
   unitId(e.source, e.chat, localDate(e.at));
-/** The id of a lifelog conversation's day (its conversation-day). */
+/** The id of a voice server conversation's day (its conversation-day). */
 export const voiceUnitId = (conversation: string, date: string) =>
   unitId("lifelog", conversation, date);

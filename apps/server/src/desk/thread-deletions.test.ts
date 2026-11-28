@@ -12,13 +12,13 @@ import {
 } from "../memory/instructions";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { Correction } from "../records/observation";
-import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import {
   conversation,
-  voiceServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import { openDesk } from "./desk-store";
 import { askedOf, setup } from "./test-desk";
 import { blankDeletedThreadEntries } from "./thread-deletions";

@@ -31,7 +31,7 @@ const stay = (north = 0, over: Partial<Stay> = {}): Stay => ({
   ...over,
 });
 
-/** A desk whose lifelog holds `list` (failing with `lifelog.why`), and an agent after its first turn waiting on `filters`. */
+/** A desk whose voice server holds `list` (failing with `lifelog.why`), and an agent after its first turn waiting on `filters`. */
 async function waitingOn(...filters: Partial<EventFilter>[]) {
   const s = setup();
   const list: Stay[] = [];

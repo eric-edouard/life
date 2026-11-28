@@ -13,7 +13,7 @@ export const madeBy = {
   run: "r1",
 };
 
-/** A lifelog unit (a conversation-day about shop repairs, 9 Oct), unless `over` says otherwise. */
+/** A voice server unit (a conversation-day about shop repairs, 9 Oct), unless `over` says otherwise. */
 export const unit = (over: Partial<Unit> = {}): Unit => ({
   date: "2026-10-09",
   end: "2026-10-09T10:20:00.000Z",

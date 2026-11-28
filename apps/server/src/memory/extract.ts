@@ -71,7 +71,7 @@ const BOND_MAX = 10;
 const EPISODE_MAX = 20;
 
 /**
- * The ids of the conversations lifelog has settled (the contract's `closed`, its own signal, never a timing rule of
+ * The ids of the conversations the voice server has settled (the contract's `closed`, its own signal, never a timing rule of
  * Life's): their units are final enough to read before the day is over.
  */
 export const closedConversations = (conversations: VoiceConversation[]) =>
@@ -80,7 +80,7 @@ export const closedConversations = (conversations: VoiceConversation[]) =>
 const size = (s: Source) => s.lines.reduce((n, l) => n + l.text.length, 0);
 
 /**
- * Whether extraction may read a unit now: all but a lifelog conversation of today that is still open (its own signal,
+ * Whether extraction may read a unit now: all but a voice server conversation of today that is still open (its own signal,
  * `closed`). A chat of today is read at once; its later lines are read as new ones (`continuedFrom`).
  */
 export const isReadable = (b: Built, today: string, closed: Set<string>) =>
@@ -152,7 +152,7 @@ export function groupsOf(
 
 /**
  * The `demoted` units no call reads, to be written `unkept`: one outcome per unit. A demoted unit still worth a line is
- * read with its episode; one whose lines came back empty (a transcript lifelog no longer has) is in no call.
+ * read with its episode; one whose lines came back empty (a transcript the voice server no longer has) is in no call.
  */
 export const unkeptOf = (
   demoted: Built[],
@@ -623,7 +623,7 @@ export async function extract(evidence: Evidence) {
       await one(call, k === 0 ? bdir : `${bdir}-${k}`);
     }
   });
-  // Names lifelog gave a voice that the directory doesn't know (a chat's unknown senders are handles, not names).
+  // Names the voice server gave a voice that the directory doesn't know (a chat's unknown senders are handles, not names).
   for (const { unit } of finished.filter(
     (s) => kindOf(s.unit.source) === "voice"
   )) {

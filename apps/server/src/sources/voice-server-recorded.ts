@@ -2,7 +2,7 @@ import { z } from "zod";
 import { DAY, iso } from "../core/clock";
 import { call } from "./voice-server-call";
 
-// What lifelog says of the pendant's recording (its `GET /recorded`), read by the night into the recorded days
+// What the voice server says of the pendant's recording (its `GET /recorded`), read by the night into the recorded days
 // (memory/recorded-days.ts).
 
 export const Recorded = z.object({
@@ -15,7 +15,7 @@ export type Recorded = z.infer<typeof Recorded>;
 const PAGE = 31 * DAY;
 
 /**
- * Every stretch the pendant recorded up to `to`, oldest first, and `since` when lifelog can tell. Asked a page at a
+ * Every stretch the pendant recorded up to `to`, oldest first, and `since` when the voice server can tell. Asked a page at a
  * time, newest first, stopping at the page `since` falls in: nothing is held before it, and with none (`since` null)
  * nothing is held at all. A stretch crossing a page's edge comes back in both, whole: its one reader keeps days
  * (`recordedDaysOf`), so none is merged.

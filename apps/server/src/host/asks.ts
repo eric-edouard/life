@@ -89,7 +89,7 @@ export function asksFor(agent: string, cursor?: string, limit = PAGE) {
 }
 
 /**
- * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, lifelog's feed
+ * Where each ask's time went, in the order recorded (`bun life asks`): when he spoke, his words ended, the voice server's feed
  * had all of them, Life recorded the ask; null where unknown (not speech, or before 20 Oct). An old split's parts are
  * left out (they share their parent's times), and his complaints (`isComplaint`).
  */

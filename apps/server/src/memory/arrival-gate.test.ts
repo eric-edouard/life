@@ -4,7 +4,7 @@ import { eventKey, type SourceEvent } from "../records/source";
 import type { VoiceConversation } from "../sources/voice-server";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { unread } from "./episodes";
-import { applyRules, voiceUnitsOf, messageUnits } from "./units";
+import { applyRules, messageUnits, voiceUnitsOf } from "./units";
 
 const NOW = Date.parse("2026-11-10T12:00:00.000Z");
 const ago = (minutes: number) => new Date(NOW - minutes * MIN).toISOString();

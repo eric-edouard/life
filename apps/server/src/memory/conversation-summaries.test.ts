@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { stamp } from "../models/llm";
-import { apply, openStore } from "../sources/voice-server";
 import {
   conversation,
-  voiceServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore } from "../sources/voice-server";
 import {
   conversationSummaries,
   conversationSummaryPart,

@@ -179,8 +179,8 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
 }
 
 /**
- * One at a time, in his inbox's order: the phone shows them as they come. Each one lifelog took is a
- * `card.push_accepted` line (lifelog may still skip Apple), by its push id.
+ * One at a time, in his inbox's order: the phone shows them as they come. Each one the voice server took is a
+ * `card.push_accepted` line (the voice server may still skip Apple), by its push id.
  */
 async function pushInOrder(pushes: Push[], badge: number) {
   for (const p of pushes) {

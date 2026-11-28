@@ -345,7 +345,7 @@ const whoOf = (resolve: (s: string) => string | null) => ({
   truth: { people: [] },
 });
 
-// Voice answers released together (the phone's held answers): each reads lifelog's queue after the one before it
+// Voice answers released together (the phone's held answers): each reads the voice server's queue after the one before it
 // landed, so all land, and one that fails does not stop the next.
 test("voice answers given at once are read and answered one at a time, and all land", async () => {
   const resolve = () => null;
@@ -460,7 +460,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     await import("../sources/voice-speakers"),
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p" });
-  // The voice naming guessed Dana for the voices lifelog calls Dana: the card asks "Is this Dana?".
+  // The voice naming guessed Dana for the voices the voice server calls Dana: the card asks "Is this Dana?".
   const guesses = spyOn(
     await import("./voice-guesses"),
     "withVoiceGuesses"
@@ -521,7 +521,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     await expect(answerCheck(voice, { options: ["is-them"] })).rejects.toThrow(
       "give person or name"
     );
-    // The card he saw changed in lifelog (now several people, another suggestion, or one more recording): nothing is sent.
+    // The card he saw changed in the voice server (now several people, another suggestion, or one more recording): nothing is sent.
     const sent = send.mock.calls.length;
     for (const now of [
       { ...known, kind: "several" as const },
@@ -702,7 +702,7 @@ test("someone else, named as a person lifelog knows by an id the card does not l
   }
 });
 
-// His report of 22 Nov: a voice that was his own could not be named him. Naming him assigns lifelog's owner id, never
+// His report of 22 Nov: a voice that was his own could not be named him. Naming him assigns the voice server's owner id, never
 // a new person by his directory name.
 test("a voice named him is assigned to lifelog's owner, and refused before lifelog has heard him", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);

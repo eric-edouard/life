@@ -4,20 +4,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import type { ReadReply } from "../records/read-reply";
-import { apply, readConversations } from "../sources/voice-server";
-import type { NamingQueueItem } from "../sources/voice-speakers";
 import {
   conversation,
-  voiceServer,
-  voiceStore,
   pageFixture,
   turnFixture,
+  voiceServer,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply, readConversations } from "../sources/voice-server";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import { READ_REPLIES } from "./memory-files";
 import { READS, storeReply } from "./read-replies";
 import type { Truth } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
-import { type Built, voiceUnitsOf, unnamedTurnKey } from "./units";
+import { type Built, unnamedTurnKey, voiceUnitsOf } from "./units";
 import {
   conversationOf,
   voiceGuessesNow,
@@ -347,7 +347,7 @@ test("a voice card asks about the one person the group's sure or likely guesses 
     // Two people guessed: no one.
     expect(voiceSuggestionOf(who, guessed as NamingQueueItem)).toBeNull();
     expect(card({})).toBe("person:dana");
-    // Lifelog's heard name agrees, a new person's too; its person or name naming someone else leaves no one.
+    // The voice server's heard name agrees, a new person's too; its person or name naming someone else leaves no one.
     expect(card({ kind: "new_person", name: "Dana" })).toBe("person:dana");
     expect(card({ name: "Kofi" })).toBeNull();
     expect(card({ personId: "lf-dana" })).toBe("person:dana");
@@ -355,13 +355,13 @@ test("a voice card asks about the one person the group's sure or likely guesses 
     expect(card({ guessed: ["person:dana", "person:zed"] })).toBe(
       "person:dana"
     );
-    // Lifelog's suggestion alone, nothing guessed, names no one: its sound or a name heard says nothing of who could be
+    // The voice server's suggestion alone, nothing guessed, names no one: its sound or a name heard says nothing of who could be
     // there (a friend living far away, matched by sound to a recording made where he was): "Who is this?".
     expect(card({ guessed: [], kind: "new_person", name: "Dana" })).toBeNull();
     expect(card({ guessed: [], personId: "lf-dana" })).toBeNull();
-    // Someone lifelog knows by no id is still asked (his yes of 22 Nov 2026): "Yes" names them to Voice by their name.
+    // Someone the voice server knows by no id is still asked (his yes of 22 Nov 2026): "Yes" names them to Voice by their name.
     expect(card({ likely: [] })).toBe("person:dana");
-    // An id his directory does not know is who lifelog names it (life#963): "Yes" assigns that id, not a new name.
+    // An id his directory does not know is who the voice server names it (life#963): "Yes" assigns that id, not a new name.
     expect(card({ likely: ["lf-new"] })).toBe("person:dana");
     expect(
       voiceIdOf(who, { likely: ["lf-new"], personId: null }, "person:dana")
@@ -376,7 +376,7 @@ test("a voice card asks about the one person the group's sure or likely guesses 
     expect(card({ name: null, names: voiceNames, personId: "lf-new" })).toBe(
       "person:dana"
     );
-    // A month file torn mid-line: the read throws (the inbox keeps lifelog's suggestion, an answer refuses).
+    // A month file torn mid-line: the read throws (the inbox keeps the voice server's suggestion, an answer refuses).
     appendFileSync(join(folder, "2026-08.jsonl"), "{not json\n");
     await expect(withVoiceGuesses([item], folder, months)).rejects.toThrow();
   } finally {

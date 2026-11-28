@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
 import type { VoiceConversation } from "../sources/voice-server";
-import { voiceUnitsOf, turnKey } from "./units";
+import { turnKey, voiceUnitsOf } from "./units";
 
 const said = (
   n: number,

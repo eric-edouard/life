@@ -158,7 +158,7 @@ export const sceneOf = (
 };
 /** Today's voice as the reader is given it, and the words its turns' fetch gives back. */
 export interface Voice extends RecentVoice {
-  /** Fetching the turns' words fails (lifelog unreachable). */
+  /** Fetching the turns' words fails (the voice server unreachable). */
   fails?: boolean;
   spoken?: Map<string, SourceLine[]>;
 }

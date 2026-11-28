@@ -11,7 +11,7 @@ import { call } from "./voice-server-call";
 const instant = z.iso.datetime({ offset: true });
 const span = { endAt: instant, id: z.string(), startAt: instant };
 /**
- * The measurements in lifelog's REST contract, never its database. lifelog checks what it stores (ids, activity
+ * The measurements in the voice server's REST contract, never its database. The voice server checks what it stores (ids, activity
  * names); Life reads only what it uses, so a stricter reader can never stall the copy.
  */
 export const Measurement = z.discriminatedUnion("kind", [

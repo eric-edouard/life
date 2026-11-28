@@ -123,7 +123,7 @@ export function chatDays(
   return days;
 }
 
-/** Who a voice lifelog named (its person id, its name) is as someone he heard: the person it resolves to, never him. */
+/** Who a voice the voice server named (its person id, its name) is as someone he heard: the person it resolves to, never him. */
 export const heardPersonOf = (
   resolve: (s: string) => string | null,
   id: string | null | undefined,
@@ -134,7 +134,7 @@ export const heardPersonOf = (
 };
 
 /**
- * Every turn of someone he spoke with in his recordings since `since` (`speakerTurns`: live conversations, lifelog's own
+ * Every turn of someone he spoke with in his recordings since `since` (`speakerTurns`: live conversations, the voice server's own
  * speakers), with the person it resolves to (`heardPersonOf`) and where it was recorded.
  */
 export function heardTurnsOf(

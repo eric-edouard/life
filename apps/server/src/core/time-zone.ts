@@ -1,4 +1,4 @@
-// What a time zone is, imported by lifelog's server too: no import of its own, so it carries no Life module along.
+// What a time zone is, imported by the voice server too: no import of its own, so it carries no Life module along.
 
 // An IANA name Intl knows, never an offset ("+07:00"): his days follow the zone's rules.
 const ZONE_NAME = /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/;

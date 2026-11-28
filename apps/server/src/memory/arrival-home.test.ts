@@ -56,7 +56,7 @@ test("a Later that waits for home ends when read once he arrived home, not elsew
   await recordArrivalHome(later(4));
   expect(laterUntilOf("dec_home", later(4))).toBeUndefined();
   expect(lines()).toBe(1);
-  // Nothing waits any more: lifelog is not asked again.
+  // Nothing waits any more: The voice server is not asked again.
   seen.mockClear();
   await recordArrivalHome(later(5));
   expect(seen).not.toHaveBeenCalled();

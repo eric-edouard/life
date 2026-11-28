@@ -3,13 +3,13 @@ import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type Closeness, Correction } from "../records/observation";
 import type { SourceEvent } from "../records/source";
-import { apply } from "../sources/voice-server";
 import {
   conversation,
-  voiceStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply } from "../sources/voice-server";
 import {
   bucket,
   chatDays,

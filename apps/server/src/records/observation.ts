@@ -71,14 +71,14 @@ export const Observation = z
     source: z
       .object({
         channel: SourceName,
-        // lifelog: jobId:turnIndex@capturedAt; chats and mail: the message id.
+        // The voice server: jobId:turnIndex@capturedAt; chats and mail: the message id.
         ref: z.string().min(1),
       })
       .strict(),
     /** Who said or wrote the cited line: person:<slug>, unknown:<label>, or agent:<name> (an agent's report, never a person). */
     speaker: z.string(),
     /**
-     * The handle or name the cited line's author came from (a chat sender; for a voice, lifelog's id, else its name), from
+     * The handle or name the cited line's author came from (a chat sender; for a voice, the voice server's id, else its name), from
      * 21 Oct 2026: readers resolve it again (`aboutNow`), so a later identity fix needs no new reading.
      */
     speakerFrom: z.string().optional(),
@@ -223,7 +223,7 @@ export type Cut = z.infer<typeof Cut>;
  * cards) whose line is gone, and `cuts` (words inside a line, by their places and a digest, never the words themselves).
  * `oldHashes` are the hashes of the units it changed, so a fact read from those words is deleted, not replaced; `shown`
  * the derived reads (a persona, a history's month, a situation) it was shown to, which must be redone before they show
- * again. `withSources`: his word covers the copies in the sources too (raw text in an app's store, lifelog, a backup
+ * again. `withSources`: his word covers the copies in the sources too (raw text in an app's store, the voice server, a backup
  * stays as it is until code can purge it). Never a person, a project or an area: those are `change_directory_entry`'s.
  */
 export const Correction = z

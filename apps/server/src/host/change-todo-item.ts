@@ -237,7 +237,7 @@ export const autoAddedFrom = (actions: readonly LedgerEntry[], obs: string) =>
  * Why the auto-add permission (his yes, decision 2 of the 21 Oct review) may not add a to-do item from this observation, or
  * nothing when it may. All of it derived from the ledger: it is off until his words in a Claude session turn it on
  * (`setAutoAdd`, the latest such line standing), and off again once a to-do item it added was removed after that (his undo),
- * it adds at most AUTO_ADD_DAILY a day (his local day), only from his current importance-3 to-do or promise in a lifelog
+ * it adds at most AUTO_ADD_DAILY a day (his local day), only from his current importance-3 to-do or promise in a voice server
  * turn the store credits to him now (`mine`); a shared list is the backend's `shared`, checked last (it reads his lists).
  */
 export function autoAddRefusal(g: {

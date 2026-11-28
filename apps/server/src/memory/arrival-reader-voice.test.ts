@@ -1,13 +1,13 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, daysBefore, HOUR, MIN } from "../core/clock";
-import { apply, openStore, WATCH } from "../sources/voice-server";
 import {
   conversation as feedConversation,
-  voiceServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore, WATCH } from "../sources/voice-server";
 import { CONFIRMS_A_DAY, readRecentVoice } from "./arrival-reader";
 import {
   ASK,
@@ -134,7 +134,7 @@ test("voice: an offline read of a conversation that turns out not his asks his e
 });
 
 test("voice: a conversation reopened or a speaker corrected within one pass is read as the store's one read saw it", async () => {
-  // A made-up closed conversation in the watcher's store: his turn, then Sam's; the words from a fake lifelog.
+  // A made-up closed conversation in the watcher's store: his turn, then Sam's; the words from a fake voice server.
   const [first, last, late] = [ago(20), ago(12), ago(16)];
   const server = voiceServer({
     "/transcription-jobs/job-r/transcript": () => ({

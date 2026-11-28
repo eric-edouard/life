@@ -1,5 +1,5 @@
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
-import { authorOf, type VoiceTurn, turnRef } from "../sources/voice-server";
+import { authorOf, turnRef, type VoiceTurn } from "../sources/voice-server";
 import { voiceKey } from "../sources/voice-speakers";
 import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
@@ -15,7 +15,7 @@ import { isTalkingWithOwner, messageLine, turnLines } from "./words";
 import { localDate, time } from "./zones";
 
 // The spoken conversations (docs/glossary.md): the owner's recorded speech cut where nobody speaks for
-// `CONVERSATION_ENDS_AFTER`, whoever was there, and the parts a long one is read in. Cut by code from lifelog's turns
+// `CONVERSATION_ENDS_AFTER`, whoever was there, and the parts a long one is read in. Cut by code from the voice server's turns
 // (their words fetched when read), never stored.
 
 /** A conversation of at least this many characters, with someone else talking, gets a summary. */
@@ -26,7 +26,7 @@ export const isSummarised = (parts: readonly SpokenPart[]) =>
 /** A part holds at most this many characters: a longer conversation is cut at its longest silence. */
 export const CONVERSATION_PART_CHARS = 150_000;
 
-/** A recorded turn and the lifelog conversation it is in (`readSpokenTurns`). */
+/** A recorded turn and the voice server conversation it is in (`readSpokenTurns`). */
 export type SpokenTurn = VoiceTurn & { conversation: string };
 
 /** The spoken conversations among `turns` that are over as of `now` (`isFinished`), oldest first. */
@@ -35,13 +35,13 @@ export const spokenConversationsOf = (turns: SpokenTurn[], now: Date) =>
     isFinished(c, now, CONVERSATION_ENDS_AFTER)
   );
 
-/** One line of a part as lifelog has it: who spoke it, which voice of its recording, and the words. */
+/** One line of a part as the voice server has it: who spoke it, which voice of its recording, and the words. */
 export interface SpokenVoice {
-  /** The lifelog person id (else the name) that named it, as `authorOf`; null for him or a voice nobody named. */
+  /** The voice server person id (else the name) that named it, as `authorOf`; null for him or a voice nobody named. */
   from: string | null;
   /** The voice's label in its recording (`voiceKey`). */
   label: string;
-  /** The name lifelog gave it, as the directory names it now; null for him or a voice nobody named. */
+  /** The name the voice server gave it, as the directory names it now; null for him or a voice nobody named. */
   name: string | null;
   owner: boolean;
   text: string;
@@ -114,7 +114,7 @@ function cutsOf(sizes: number[], gaps: number[]) {
 
 /**
  * The parts a spoken conversation is read in, whatever its length (the summaries keep the long ones, `isSummarised`), or
- * none when no line is anyone's but his. Its words are fetched from lifelog (`turnLines`): a voice lifelog heard from a screen, nearby or as an
+ * none when no line is anyone's but his. Its words are fetched from the voice server (`turnLines`): a voice the voice server heard from a screen, nearby or as an
  * announcement is left out, one it never classified or heard over a phone is kept. A voice no one named is `V1`, `V2`… by its
  * first line (distinct per recording and label); a failed fetch throws.
  */

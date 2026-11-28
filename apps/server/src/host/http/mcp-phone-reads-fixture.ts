@@ -6,7 +6,7 @@ import { partyOf } from "../../memory/party";
 
 // The made-up records behind the phone's reads (`mcp-phone-reads.test.ts`).
 
-/** Gran's person in lifelog, a voice's likely speaker. */
+/** Gran's person in the voice server, a voice's likely speaker. */
 const GRAN_VOICE = "00000000-0000-4000-8000-000000000001";
 const line = (id: string, text: string, over = {}) => ({
   about: undefined,

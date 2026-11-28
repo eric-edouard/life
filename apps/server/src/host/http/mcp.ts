@@ -206,7 +206,7 @@ const Correct = Fix.extend({
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
-/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark, icon or project: his token only), or one of lifelog's four. */
+/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark, icon or project: his token only), or one of the voice server's four. */
 export async function correct(
   a: z.infer<typeof Correct>,
   agent?: string,

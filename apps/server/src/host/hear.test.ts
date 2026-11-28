@@ -2,14 +2,14 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { DESK_AGENT } from "../core/names";
 import { LEDGER, tasksOf } from "../memory/memory-files";
-import { apply, readConversations, whose } from "../sources/voice-server";
 import {
   conversation,
   turnFixture as fed,
+  pageFixture,
   voiceServer,
   voiceStore,
-  pageFixture,
 } from "../sources/store-fixtures";
+import { apply, readConversations, whose } from "../sources/voice-server";
 import { hear, spansIn, speechIn, type Turn, wakes } from "./hear";
 
 test('"hey Life" wakes Life as lifelog writes it (audit of 21 Oct), never an idiom', () => {
@@ -79,7 +79,7 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
-// audit-4-hej-agent: lifelog wrote his "hey Life" as "Hej Life" (no speaker) and "Hey, live": no ask was made.
+// audit-4-hej-agent: The voice server wrote his "hey Life" as "Hej Life" (no speaker) and "Hey, live": no ask was made.
 test("“Hej Life” from an unattributed voice is a low ask, from a named other none; “hey, live” is his low ask only", () => {
   const asks = spansIn(
     [
@@ -186,7 +186,7 @@ test("speech is complete once its last turn is someone else's, ends a recording 
   const nobody = fed(1, "2026-10-19T10:00:09.000Z", null, null);
   expect(state(true, [his])).toBe("complete");
   expect(state(false, [his])).toBe("open");
-  // lifelog could not tell (an older recording): unknown, so wait.
+  // The voice server could not tell (an older recording): unknown, so wait.
   expect(state(null, [his])).toBe("open");
   // Settled: nothing more will join it.
   expect(state(false, [his], true)).toBe("complete");

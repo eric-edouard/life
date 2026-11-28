@@ -35,13 +35,13 @@ import {
 } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
-import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import {
   conversation,
-  voiceServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import { deleteFromMemoryAndTodoItems } from "./deletion-door";
 
 // A deletion end to end, on made-up data: a voice turn's words cut in a recorded conversation, previewed, refused on a
@@ -67,9 +67,9 @@ const ENGINE = "claude" as const;
 
 const said = (text: string) => ({ speakerId: "speaker_0", text });
 
-/** The lifelog stand-in: one closed conversation of two turns, its transcript held apart as lifelog holds it. */
+/** The voice server stand-in: one closed conversation of two turns, its transcript held apart as the voice server holds it. */
 const WORDS = "Meet me at the pier at noon.";
-/** Each word of `WORDS` with its milliseconds into the turn: lifelog's own timing of a turn's words. */
+/** Each word of `WORDS` with its milliseconds into the turn: The voice server's own timing of a turn's words. */
 const TIMED = [
   [0, 1000, 5],
   [1000, 2000, 3],
@@ -390,7 +390,7 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
     });
     expect((await chatHits("pier", range)).join("\n")).not.toContain("pier");
 
-    // A call's span over that turn: its clip holds lifelog's words at places of its own, so a line he cut shows none.
+    // A call's span over that turn: its clip holds the voice server's words at places of its own, so a line he cut shows none.
     const page = await fetchOf("c1", 0, 200, openStore, {
       at: AT,
       until: "2026-10-14T09:00:30.000Z",
@@ -425,7 +425,7 @@ test("a chapter unit is never read again: a deletion names its turn, never its h
   setSettings({ sources: ["lifelog"] });
   try {
     recorded();
-    // A chapter as lifelog stored it before conversation-days: its own summary, and a hash no read ever rebuilds.
+    // A chapter as the voice server stored it before conversation-days: its own summary, and a hash no read ever rebuilds.
     const chapter = "unit_0000000000bb";
     const chapterHash = "aaaaaaaaaaaaaaaa";
     await writeUnits(

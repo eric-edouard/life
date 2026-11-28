@@ -338,7 +338,7 @@ export async function reindexUnits(units: Unit[], path = INDEX) {
 
 /**
  * What changed since the full rebuild's reads began (its `rebuilt` row), so a correction is searchable within the
- * minute: `truth` (a file under truth/ newer: the lifelog units carry its names, so they are built again too), `index`
+ * minute: `truth` (a file under truth/ newer: The voice server units carry its names, so they are built again too), `index`
  * (any other file under memory/ newer, units/ and episodes/ aside, which the watcher writes itself; or no index, or one
  * from before the row), or null. A superset of what the rebuild reads: a list of its inputs would drift.
  */

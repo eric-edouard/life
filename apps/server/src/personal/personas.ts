@@ -253,7 +253,7 @@ const dayInput = (d: ShownDay) => ({
   with: d.with,
 });
 
-/** A recorded conversation-day before its sample has read its words; a chapter (`isFrozen`) lifelog holds no turns of is its summary. */
+/** A recorded conversation-day before its sample has read its words; a chapter (`isFrozen`) the voice server holds no turns of is its summary. */
 interface Recording extends Sampled {
   unit: Unit;
 }
@@ -278,7 +278,7 @@ export const recordingsOf = (units: Unit[], refs: Set<string>) =>
 
 /**
  * The sampled recordings with their words (`spokenLines`), his and `refs`' turns only, days kept in order to `budget`
- * characters; a chapter's words too while lifelog holds its turns, else its title and summary as context, never quoted.
+ * characters; a chapter's words too while the voice server holds its turns, else its title and summary as context, never quoted.
  */
 export async function spokenOf(
   recordings: Recording[],
