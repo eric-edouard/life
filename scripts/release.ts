@@ -1,4 +1,5 @@
 import { mkdir, rm, symlink } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { HOUR } from "@life/server/src/core/clock";
 import { execOk } from "@life/server/src/core/proc";
@@ -6,33 +7,42 @@ import { execOk } from "@life/server/src/core/proc";
 // A release a friend can open, published: Life.app signed with the owner's Developer ID under the hardened runtime,
 // notarized and stapled; a zip of it (what Sparkle downloads, listed in appcast.xml with its EdDSA signature) and a DMG
 // holding it, Lifelog Host beside it when its path is given (`LIFELOG_HOST_APP`); all three as a GitHub release of the
-// repository the releases go to (`LIFE_RELEASES_REPO`, owner/name). `LIFE_RELEASE_DRY=1` stops before anything leaves the
-// Mac: no notarization (any identity signs), no GitHub release; the built files and the command it would run are shown. Usage:
-//   LIFE_SIGN_IDENTITY="Developer ID Application: …" LIFE_NOTARY_PROFILE=<notarytool profile> \
+// repository the releases go to (`LIFE_RELEASES_REPO`, owner/name). `LIFE_RELEASE_DRY=1` stops before anything is
+// published: everything is built, signed and notarized, and the command it would run is shown. Usage:
 //   LIFE_RELEASES_REPO=<owner/name> LIFE_SPARKLE_KEY=<public EdDSA key> LIFE_VERSION=0.1.0 bun scripts/release.ts
-// Set up once by the maintainer (docs/releasing.md): the Developer ID certificate, `xcrun notarytool
-// store-credentials`, Sparkle's `generate_keys` (its private key stays in the Keychain), the repo.
+// Signing and notarizing use the maintainer's release keychain (`SIGNING_KEYCHAIN`: the Developer ID certificate and the
+// notarytool profile, whose password is in 1Password, never here); `LIFE_SIGN_IDENTITY` and `LIFE_NOTARY_PROFILE` override
+// the identity and the profile. Set up once (docs/releasing.md): the certificate, `xcrun notarytool store-credentials`,
+// Sparkle's `generate_keys` (its private key stays in the Keychain), the repo.
 
 const ROOT = join(import.meta.dir, "..");
 const out = join(ROOT, "dist");
 const dry = !!process.env.LIFE_RELEASE_DRY;
-const identity = process.env.LIFE_SIGN_IDENTITY;
-const profile = process.env.LIFE_NOTARY_PROFILE;
+const SIGNING_KEYCHAIN = join(
+  homedir(),
+  "Library",
+  "Keychains",
+  "life-signing.keychain-db"
+);
+const identity =
+  process.env.LIFE_SIGN_IDENTITY ??
+  "Developer ID Application: Eric Amilhat (FA22AU429R)";
+const profile = process.env.LIFE_NOTARY_PROFILE ?? "life-notary";
 const version = process.env.LIFE_VERSION;
 const repo = process.env.LIFE_RELEASES_REPO;
 if (
   !(
-    (dry || (identity?.startsWith("Developer ID Application") && profile)) &&
-    identity &&
+    identity.startsWith("Developer ID Application") &&
     version &&
     repo &&
     process.env.LIFE_SPARKLE_KEY
   )
 ) {
   throw new Error(
-    "a release needs LIFE_SIGN_IDENTITY (a Developer ID Application identity), LIFE_NOTARY_PROFILE, LIFE_RELEASES_REPO, LIFE_SPARKLE_KEY and LIFE_VERSION"
+    "a release needs a Developer ID Application identity, LIFE_RELEASES_REPO, LIFE_SPARKLE_KEY and LIFE_VERSION"
   );
 }
+process.env.LIFE_SIGN_IDENTITY = identity;
 // The app's feed: the latest release's appcast.
 process.env.LIFE_APPCAST_URL = `https://github.com/${repo}/releases/latest/download/appcast.xml`;
 
@@ -40,17 +50,9 @@ const run = (cmd: string[]) => execOk(cmd, { cwd: ROOT, timeout: HOUR });
 
 /** Sends a file to Apple's notary service, waits for its answer, and staples the ticket to `staple`. */
 async function notarize(file: string, staple: string) {
-  if (dry) {
-    return;
-  }
   await run([
-    "xcrun",
-    "notarytool",
-    "submit",
-    file,
-    "--keychain-profile",
-    profile as string,
-    "--wait",
+    ...["xcrun", "notarytool", "submit", file, "--wait"],
+    ...["--keychain-profile", profile, "--keychain", SIGNING_KEYCHAIN],
   ]);
   await run(["xcrun", "stapler", "staple", staple]);
 }
