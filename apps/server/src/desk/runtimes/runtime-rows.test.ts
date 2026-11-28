@@ -142,8 +142,8 @@ test("the rows put the door's key in the environment, never in a command; each n
 test("a second Life's agent takes none of his settings, tools or instruction files: its door alone, a frozen copy's its reads too (their secrets in its environment, never an argument), its turns sent where `ANTHROPIC_BASE_URL` says; his own runs as he set the programs up", async () => {
   const rows = runtimeRowsOf(false);
   expect(
-    (rows.claude.meta?.(a) as { claudeCode: { options: object } }).claudeCode
-      .options
+    (rows.claude.meta?.(a) as { claudeCode: { options: object } } | undefined)
+      ?.claudeCode.options
   ).toMatchObject({ allowedTools: ["mcp__desk"] });
   expect((await rows.claude.spawn(a)).env.LIFELOG_TOKEN).toBeUndefined();
   process.env.LIFELOG_TOKEN = "t-made-up";
