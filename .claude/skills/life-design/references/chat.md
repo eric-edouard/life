@@ -12,13 +12,7 @@ One component, used wherever a chat shows: in a draft card, in an answer ("Did J
 - The three looks explored (as the app, as Life's thread, as a transcript): `docs/design/2026-11-28-chat-component/index.html`.
   Until he picks one, `CB.chat` is what turn by turn v3 draws.
 
-## The rules in force (philosophy.md, "Drafts", 28 Nov)
+## The rules
 
-- Head: the person's or group's picture (initials when none), the name, the app's name, and an arrow that opens that chat.
-- Only the messages that matter to the ask; the rest one quiet count ("3 unrelated messages"), not tappable. At most
-  the last 5 cited messages plus the one replied to; older ones are "Earlier in WhatsApp".
-- It scrolls, and opens at the bottom on the latest; never an endless scroll. Tapping a message opens the real chat.
-- It looks like its app, adapted to Life's look. His messages take the app's colour mixed into black.
-- The draft takes the app's own sent-bubble colour with a 1.5 px dashed outline that fades once sent. Quick edits
-  (Shorter, Warmer, In French) need no Undo.
-- One open draft per chat: another ask into the same chat waits behind it.
+`docs/design/philosophy.md`, "Drafts" (the 28 Nov lines win over the 23 Nov ones).
+

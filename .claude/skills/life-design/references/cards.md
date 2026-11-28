@@ -18,19 +18,10 @@ without marking it "new component".
 - A draft on a card: `apps/server/src/memory/draft.ts` (`MessageDraft:22`, `StoredDraft:76`, several drafts with one
   Send all: `isBatchOf:115`). See `chat.md`.
 
-## The rules in force (philosophy.md, "Items and asks", "Buttons and colour", 28 Nov log)
+## The rules
 
-- One decision per card: what, why, what each answer does. The title is the one-line ask, verb first.
-- A card that arrives says first why, in one line ("Sam just texted that Café Dalon is closed today. Here's your draft.").
-- One main button, cream, full width, saying what it does ("Send to Nora"); the rest small equal pills. Side by side,
-  Later first and the main answer on the right.
-- The middle is drawn per kind: a payment is the act first, then the amount large, the payee and IBAN in mono, the
-  reference, and a button that opens his bank; a calendar add is when, where, reminder; a fix is why and numbered steps;
-  a choice is option cards with Life's pick in blue.
-- Also shown: what happens if he doesn't answer (`onSilence`), Life's plan steps (`plan`), the sources read
-  (`context` links), next suggestions (`follow`).
-- No matter shown on an ask; no "more details" button; every fact once.
-- Taps show their result on the button: doing, then done for a second, then the new state; failures on the button.
+`docs/design/philosophy.md`, "Items and asks", "Buttons and colour", "Taps and feedback" and the 28 Nov log (cards:
+one main button, the middle per kind, what happens if he does not answer, plan steps, sources, next suggestions).
 
 ## Designs to start from
 

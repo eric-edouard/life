@@ -4,8 +4,8 @@ Designing? Use the life-design skill (`.claude/skills/life-design/SKILL.md`); th
 
 What any person or agent reads before designing a screen or building a component, in this order. On what a screen should
 be, an earlier source wins over a later one, and within one the newest dated line wins; what the system really does
-(6, 7) bounds what can be built, so a design it can't carry proposes the change, marked "new block". Every design or component brief names this page (`AGENTS.md`,
-Workflow); nothing else is put in front of an agent on its own.
+(6, 7) bounds what can be built, so a design it can't carry proposes the change, marked "new block". Every design or component brief names the life-design skill, which
+opens this page when it needs more (`AGENTS.md`, "Anything a person sees").
 
 ## What it must follow
 
