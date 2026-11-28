@@ -4,7 +4,11 @@ import { NO_LONGER_OPEN } from "../memory/answer-check";
 import { inboxOf, isInboxCheck } from "../memory/check-urgency";
 import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
+import { findMessage } from "../memory/find-refs";
 import type { HeldRead } from "../memory/life-checks";
+import { readFiles, showFiles } from "../memory/message-files";
+import { readObservationSource } from "../memory/read-appointments";
+import { withPayeeAccountsOf } from "../memory/your-move";
 import {
   agentOf,
   beingFixedOf,
@@ -120,7 +124,7 @@ export const unchangedOf = (version: string) => ({
  */
 export async function readInbox(
   limit: number,
-  o: { after?: string; ifNot?: string; pushId?: string } = {}
+  o: { after?: string; his?: boolean; ifNot?: string; pushId?: string } = {}
 ) {
   const shown = (await openChecksAndKeyNow()).checks.filter(isInboxCheck);
   const from = o.after ? shown.findIndex((c) => c.ref === o.after) + 1 : 0;
@@ -138,11 +142,30 @@ export async function readInbox(
   if (o.ifNot === version) {
     return unchangedOf(version);
   }
+  const checks = o.pushId
+    ? shown.filter((c) => c.pushId === o.pushId)
+    : shown.slice(from, from + limit);
   return {
-    checks: o.pushId
-      ? shown.filter((c) => c.pushId === o.pushId)
-      : shown.slice(from, from + limit),
+    checks: hisChecksOf(checks, o.his),
     ...counts,
     version,
   };
 }
+
+/** A step observation's source message as Life read it, its files as lines, unredacted (`withPayeeAccountsOf`'s only reader). */
+function readStepSourceText(step: string) {
+  const source = readObservationSource(step);
+  const found =
+    source && findMessage({ message: source.ref, source: source.channel });
+  return found?.found
+    ? showFiles([found.event], readFiles())[0]?.text
+    : undefined;
+}
+
+/** Checks as a reader sees them; `his` (his own app's read: `read_inbox`, `read_matter` on his token) adds the payee's IBAN to his payment cards (`withPayeeAccountsOf`). */
+export const hisChecksOf = <
+  C extends Parameters<typeof withPayeeAccountsOf>[0][number],
+>(
+  checks: readonly C[],
+  his = false
+) => (his ? withPayeeAccountsOf(checks, readStepSourceText) : checks);

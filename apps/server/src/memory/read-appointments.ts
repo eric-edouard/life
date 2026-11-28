@@ -20,6 +20,16 @@ import type { People } from "./who";
 // its push's id or its own, and `fetch` of its `apt_` ref. Worked out when read from the night's appointments, the
 // arrival's (`memory/arrival-appointments.ts`) and the calendar sync's lines; nothing is stored for it.
 
+/** Where an observation was said: its source and the message (or turn) it cites, from the index; null when none. */
+export const readObservationSource = (id: string) =>
+  readIndex((db) =>
+    db
+      .query<{ channel: string; ref: string }, [string]>(
+        "select channel, ref from observations where id = ?"
+      )
+      .get(id)
+  );
+
 /** What the sheet reads, once per request: the people, the matter book, and a message by its key (`find-refs.ts`). */
 export interface AppointmentReads {
   book: () => ReturnType<typeof readMatterBook>;
@@ -44,13 +54,7 @@ function sourceMessageOf(
     }
   }
   for (const id of observations) {
-    const ref = readIndex((db) =>
-      db
-        .query<{ channel: string; ref: string }, [string]>(
-          "select channel, ref from observations where id = ?"
-        )
-        .get(id)
-    );
+    const ref = readObservationSource(id);
     const e = ref && reads.message(`${ref.channel}|${ref.ref}`);
     if (e) {
       return e;
