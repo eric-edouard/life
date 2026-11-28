@@ -6,8 +6,8 @@ import { checksAndKeyNow, checksNow } from "../memory/checks";
 import type { Decision } from "../memory/decision-lines";
 import { findMessage } from "../memory/find-refs";
 import type { HeldRead } from "../memory/life-checks";
-import { readIndex } from "../memory/memory-files";
 import { readFiles, showFiles } from "../memory/message-files";
+import { readObservationSource } from "../memory/read-appointments";
 import { withPayeeAccountsOf } from "../memory/your-move";
 import {
   agentOf,
@@ -154,14 +154,9 @@ export async function readInbox(
 
 /** A step observation's source message as Life read it, its files as lines, unredacted (`withPayeeAccountsOf`'s only reader). */
 function readStepSourceText(step: string) {
-  const row = readIndex((db) =>
-    db
-      .query<{ channel: string; ref: string }, [string]>(
-        "select channel, ref from observations where id = ?"
-      )
-      .get(step)
-  );
-  const found = row && findMessage({ message: row.ref, source: row.channel });
+  const source = readObservationSource(step);
+  const found =
+    source && findMessage({ message: source.ref, source: source.channel });
   return found?.found
     ? showFiles([found.event], readFiles())[0]?.text
     : undefined;

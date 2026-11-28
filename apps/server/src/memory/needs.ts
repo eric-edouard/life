@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PayerRef, type PayWith } from "../core/settings";
+import { Currency, PayerRef, type PayWith } from "../core/settings";
 import { isoDateTime } from "../records/fields";
 import {
   ACCESS_CHECKS,
@@ -57,7 +57,7 @@ const Account = z
   .strict();
 const Amount = z
   .object({
-    currency: z.string().regex(/^[A-Z]{3}$/, "an ISO code: THB, EUR"),
+    currency: Currency,
     kind: z.literal("amount"),
     /** Who pays when not him: a project or organization of his directory, by its ref; it picks his pay-with app. */
     payer: PayerRef.optional(),

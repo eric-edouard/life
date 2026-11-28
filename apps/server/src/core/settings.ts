@@ -85,6 +85,9 @@ export const Aura = z
   })
   .strict();
 
+/** A currency's ISO code: THB, EUR. */
+export const Currency = z.string().regex(/^[A-Z]{3}$/, "an ISO code: THB, EUR");
+
 /** Who pays when not him: a project or an organization (or person) of his directory, by its ref. */
 export const PayerRef = z.string().regex(/^(?:person|project):[\w.-]+$/);
 
@@ -97,6 +100,7 @@ export const PayWith = z
   .array(
     z
       .object({
+        // The `app` need's own two fields (`memory/needs.ts`), which core cannot import.
         app: z
           .object({
             name: z.string().min(1).max(60),
@@ -104,7 +108,7 @@ export const PayWith = z
             url: z.url({ protocol: /^https$/ }),
           })
           .strict(),
-        currency: z.string().regex(/^[A-Z]{3}$/),
+        currency: Currency,
         payer: PayerRef.optional(),
       })
       .strict()

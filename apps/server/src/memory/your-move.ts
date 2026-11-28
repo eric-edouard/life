@@ -282,7 +282,7 @@ export function yourMoveChecksOf(
 
 /**
  * Life's own payment cards as his app reads them (his yes of 28 Nov 2026, SECURITY.md): a your move card with an
- * `amount` and no `account` gets the payee's IBAN, exactly as written in its step's source (`sourceTextOf`, the message
+ * `amount` gets the payee's IBAN, exactly as written in its step's source (`sourceTextOf`, the message
  * and its files' lines, unredacted), when that holds exactly one (`parseIban`). Only on his app's reads (`read_inbox`,
  * `read_matter`): never in the checks every other reader shares. Pure.
  */
@@ -296,10 +296,7 @@ export function withPayeeAccountsOf<
   return checks.map((c) => {
     const needs = c.needs ?? [];
     const text =
-      c.kind === "your move" &&
-      c.subject &&
-      amountOf(needs) &&
-      !needs.some((n) => n.kind === "account")
+      c.kind === "your move" && c.subject && amountOf(needs)
         ? sourceTextOf(c.subject)
         : undefined;
     const iban = text && parseIban(text);

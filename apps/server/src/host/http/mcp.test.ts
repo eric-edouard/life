@@ -19,6 +19,7 @@ import {
   voiceStore,
 } from "../../sources/store-fixtures";
 import { apply, type Stay } from "../../sources/voice-server";
+import { hisChecksOf } from "../inbox";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,
@@ -31,7 +32,7 @@ import {
   token,
   verify,
 } from "./mcp-test-harness";
-import { NOT_HIS } from "./mcp-tool";
+import { isHisRead, NOT_HIS } from "./mcp-tool";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
 const HIS_ONLY = ["read_resource_samples", "read_spending"];
@@ -727,4 +728,12 @@ test("delete_from_memory is his: an agent's token is refused, and `said` is requ
   const missing = await call({ agent: undefined }, unsaid);
   expect(missing).toMatchObject({ isError: true });
   expect(missing.content[0].text).toContain("said");
+});
+
+test("only his own app's read gets his payment cards' payee IBAN: never an agent's claim, never the reads-only server", () => {
+  expect(isHisRead(buildServer())).toBe(true);
+  expect(isHisRead(buildServer(), "agent_1")).toBe(false);
+  expect(isHisRead(buildServer(true))).toBe(false);
+  const card = { kind: "your move", needs: [], subject: "obs_000000000091" };
+  expect(hisChecksOf([card], false)).toEqual([card]);
 });

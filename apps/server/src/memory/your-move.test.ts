@@ -10,7 +10,7 @@ import {
 import { checksOf, type InboxCheck } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import type { Check } from "./life-checks";
-import { Need, needsShownOf } from "./needs";
+import { Need, needsShownOf, parseAmount } from "./needs";
 import { placesOf, withPayeeAccountsOf } from "./your-move";
 import { localDate } from "./zones";
 
@@ -465,4 +465,16 @@ test("a project's payment gets the project's pay-with app; a step with two amoun
     });
     expect(none?.needs).toEqual([]);
   }
+});
+
+test("an amount is read only when one is written with its currency", () => {
+  const read = (t: string) => parseAmount(t)?.value;
+  expect(read("Pay the glazier €132")).toBe(132);
+  expect(read("1 250,50 € due")).toBe(1250.5);
+  expect(read("1.250 THB")).toBe(1250);
+  expect(read("12.5 EUR")).toBe(12.5);
+  expect(parseAmount("$5")).toMatchObject({ currency: "USD", value: 5 });
+  expect(read("invoice 12, 88 EUR, paid 88 EUR")).toBe(88);
+  expect(read("40 EUR or 50 EUR")).toBeUndefined();
+  expect(read("100 PDF pages")).toBeUndefined();
 });
