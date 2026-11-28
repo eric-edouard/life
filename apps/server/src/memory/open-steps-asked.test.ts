@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Observation } from "../records/observation";
+import { HOW_ASKED } from "./check-urgency";
 import { checksOf } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import { type MatterRecords, matterBookOf } from "./matter-read";
@@ -7,9 +8,11 @@ import { inheritEndings, succeedsOf } from "./re-read-succession";
 import { OWNER } from "./read-truth";
 import { OWED_BY_HIM } from "./your-move";
 
-// The rule (his word of 27 Nov 2026): an open step of his stays asked until there is evidence it ended, or his word.
-// One walk from the records to his inbox over every path that once hid one: a re-read, a to-do item in his list, a
-// reading of "over" citing nothing, a missed day, a quiet matter, a mailer's notice, a stopped agent. Made-up matters.
+// The rule (his words of 27 and 28 Nov 2026): an open step of his stays asked until there is evidence it ended, or his
+// word; only his words, or its being someone else's or his own work elsewhere, move it to its matter's page alone.
+// One walk from the records to his matters' pages over every path that once hid one: a re-read, a to-do item in his
+// list, a reading of "over" citing nothing, a missed day, a quiet matter, a mailer's notice, a stopped agent, a step
+// read as someone else's. Made-up matters.
 
 const TODAY = "2026-11-20";
 const pad = (n: number) => String(n).padStart(12, "0");
@@ -104,9 +107,22 @@ test("every open step of his is asked, or has a recorded ending", () => {
     inputs([], {
       heldByAgents: [holdOn(byStopped.id, { status: "stopped" })],
       matters: book,
+      // The quiet step read as someone else's (card sort, 28 Nov 2026): hidden from his inbox, still on its matter's page.
+      stepReadingOf: (_, s) =>
+        s.ref === quiet.id
+          ? {
+              by: null,
+              handledBy: "someone_else",
+              money: "none",
+              urgency: "normal",
+            }
+          : undefined,
       today: TODAY,
     })
   );
+  expect(
+    checks.find((c) => c.subject === quiet.id)?.[HOW_ASKED]?.isMoveHidden
+  ).toBe(true);
   const asked = new Set(checks.flatMap((c) => c.ridesOn.matterIds));
   const his = book.flatMap((v) =>
     v.steps

@@ -21,7 +21,7 @@ Never hand-edit or wipe `memory/`, except appending his corrections or labels. I
 - `complaints.jsonl`: `recordComplaints`, run by the desk; it may drop only a torn last line.
 - `publications.jsonl`: `publishUnits`.
 - `matter-icons.jsonl`: `pickMatterIcons`; `matter-directions.jsonl`: `memory/matter-directions.ts`. His
-  `matter-icon` or `matter-direction` correction wins.
+  `matter-icon` or `matter-direction` correction wins. `step-readings.jsonl`: `stepReadings`.
 - `links.jsonl`: `memory/links.ts`, read through `endingsRead` (`memory/endings.ts`): a link ends its step "probably"
   until his word.
 - `matters.jsonl`: `memory/matters.ts`. Only the current prompt's lines are read, so a prompt bump changes every matter
@@ -85,8 +85,9 @@ processes: `inTurn`, `oneAtATimeAcross`). One Life per Mac: the archive, the wat
 - An unplaced name is asked only while the person matters, never a description or a name he said not to name
   (`nameGroupsOf`, life#724). A sure guess (`INFERRED_SURE_AT`) or an organization (`isSettledGuess`) is never asked.
 - What blocks him comes only from `urgencyOf` (`check-urgency.ts`). His inbox holds every open ask but an ending check
-  (`isInboxCheck`; 22 Nov 2026), in `inboxOrderOf`'s order; the badge counts what blocks (a your move card only when
-  due within 3 days).
+  (`isInboxCheck`; 22 Nov 2026) and a your move card `askOfStep` hides, in `inboxOrderOf`'s order; the badge counts what
+  blocks (a your move card only when `askOfStep` says so). `askOfStep` is the one rule for his steps: the model's step
+  readings, code's dates and floor (28 Nov 2026).
 - An agent's card pushes once, when the gate delivers it (`desk/gate.ts`); Life's own checks push nothing
   (25 Nov 2026). Time-sensitive only within 3 hours of its deadline, else per his `interrupt` or `quiet` instruction
   (`pushLevelOf`), never for a sensitive subject. None of his words go through Apple.

@@ -2,7 +2,8 @@ import { afterEach, expect, setSystemTime, test } from "bun:test";
 import { clock, DAY, HOUR } from "../core/clock";
 import { handedOutSince, heldByAgents } from "../host/desk-read";
 import { isHeldOf } from "../memory/held-matters";
-import { dismissedIdsOf } from "../memory/read-matters";
+import { dismissedIdsOf } from "../memory/matter-pins";
+import { matterFinderOf } from "../memory/matter-read";
 import { register } from "./agent-actions";
 import {
   CARD_WITHIN_MS,
@@ -57,7 +58,7 @@ const pick = (
     facts: {
       agentFor: () => "agt_000000000001",
       decisions: [],
-      dismissed: dismissedIdsOf(matters, over.dismissed ?? []),
+      dismissed: dismissedIdsOf(matterFinderOf(matters), over.dismissed ?? []),
       isDue: () => false,
       isHeld: over.isHeld ?? heldOn(),
       isHis: () => true,

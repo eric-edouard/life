@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, daysBefore, HOUR, iso } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import { Level } from "../core/names";
 import { cardInstructionsOf } from "../host/card-push";
 import { assignmentOfCard, lastTurns } from "../host/desk-read";
 import { appOpenSinceOf, ownerStateNow } from "../host/owner-state";
@@ -36,7 +37,6 @@ const DEADLINE_MARGIN = 3 * HOUR;
 /** How long a card is held for a better moment, by its urgency (high waits only under his `quiet`). */
 const HOLD_FOR = { high: 3 * HOUR, low: MAX_HOLD, normal: 3 * HOUR } as const;
 
-const Level = z.enum(["low", "normal", "high"]);
 export const GateReadings = z.object({
   canActNow: z.boolean(),
   goodMoment: z.boolean(),
