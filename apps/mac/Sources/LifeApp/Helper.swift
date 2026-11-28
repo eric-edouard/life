@@ -18,7 +18,10 @@ enum Helper {
     var env = ProcessInfo.processInfo.environment
     let home = FileManager.default.homeDirectoryForCurrentUser.path
     let helpers = Bundle.main.bundleURL.appending(path: "Contents/Helpers")
-    let extra = [helpers.appending(path: "tools/bin").path, helpers.path, "\(home)/.local/bin", "\(home)/.bun/bin", "/opt/homebrew/bin", "/usr/local/bin"]
+    let extra = [
+      helpers.appending(path: "tools/bin").path, helpers.path, "\(home)/.local/bin", "\(home)/.bun/bin",
+      "/opt/homebrew/bin", "/usr/local/bin",
+    ]
     env["PATH"] = (extra + [env["PATH"] ?? "/usr/bin:/bin"]).joined(separator: ":")
     env["LIFE_CODE_DIR"] = resources.path
     env["LIFE_OWNER_DATA_DIR"] = data.path
