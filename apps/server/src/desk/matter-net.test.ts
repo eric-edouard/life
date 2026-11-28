@@ -295,7 +295,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
   const n = calls.length;
   await pollRecordings(desk, readPeopleOnce());
   expect(calls.length).toBe(n);
-  // His words read wrong (lifelog down): read again on the next poll, and Ana's voice, folded into her since, wakes it.
+  // His words read wrong (the voice server down): read again on the next poll, and Ana's voice, folded into her since, wakes it.
   held = unit(at(12));
   said = [...said, line(at(12), "the beads, the pickup", "person:ana-voice")];
   spoken.mockRejectedValueOnce(new Error("down"));

@@ -8,11 +8,11 @@ import { writeJson } from "@life/server/src/core/files";
 import { digest } from "@life/server/src/core/hash";
 import { withOf } from "@life/server/src/memory/exchange-reads";
 import { OWNER } from "@life/server/src/memory/read-truth";
-import { lifelogNames } from "@life/server/src/memory/units";
+import { voiceNames } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
 import { transcripts, voiceLines } from "@life/server/src/memory/words";
 import type { SourceEvent } from "@life/server/src/records/source";
-import { turnsBetween, withStore } from "@life/server/src/sources/lifelog";
+import { turnsBetween, withStore } from "@life/server/src/sources/voice-server";
 import { setFile, type TestSet } from "./memory-pilot";
 
 const [LEAST, MOST, PER_PERSON] = [20, 480, 8];
@@ -43,13 +43,7 @@ if (import.meta.main) {
       .all()
       .map((c) => ({
         id: c.id,
-        turns: turnsBetween(
-          store,
-          c.id,
-          "",
-          "9999",
-          lifelogNames(people.truth)
-        ),
+        turns: turnsBetween(store, c.id, "", "9999", voiceNames(people.truth)),
       }))
       .toSorted((a, b) =>
         digest("sha1", a.id, 12).localeCompare(digest("sha1", b.id, 12))

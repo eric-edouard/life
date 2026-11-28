@@ -2,8 +2,12 @@ import { clock, iso, MIN } from "../core/clock";
 import { settings } from "../core/settings";
 import { localTime, time } from "../memory/zones";
 import { readCalendarEvents } from "../sources/google-calendar-events";
-import { lifelogStatus, newestTurn, whereAt } from "../sources/lifelog";
-import { lifelogMissing } from "../sources/lifelog-call";
+import {
+  newestTurn,
+  readVoiceServerStatus,
+  whereAt,
+} from "../sources/voice-server";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { readDesk } from "./desk-read";
 
 // What he is doing now, in place of fixed quiet hours (the v4 plan, verdict 12): one line from the signals Life has,
@@ -54,7 +58,7 @@ async function calendarLine(now: Date) {
 
 /** The phone's last report, when fresh: a Focus on, a call connected. */
 async function phoneLines(now: Date) {
-  const beat = (await lifelogStatus()).phoneHeartbeat;
+  const beat = (await readVoiceServerStatus()).phoneHeartbeat;
   if (
     !beat?.observedAt ||
     now.getTime() - Date.parse(beat.observedAt) > PHONE_FRESH
@@ -110,7 +114,7 @@ export function appOpenSinceOf(now = clock()) {
  * then each signal that holds (a calendar event, a Focus, a call, talking, just arrived or between places). Never throws: a signal that fails is left out.
  */
 export async function ownerStateNow(now = clock()) {
-  const isVoice = !lifelogMissing();
+  const isVoice = !voiceServerMissing();
   const read = await Promise.allSettled([
     within(calendarLine(now)),
     isVoice ? within(phoneLines(now)) : Promise.resolve([]),

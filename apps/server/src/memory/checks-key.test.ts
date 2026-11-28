@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { writeJson } from "../core/files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as voices from "../sources/lifelog-voices";
+import * as voices from "../sources/voice-speakers";
 import { checksAndKeyNow } from "./checks";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as lock from "./memory-lock";

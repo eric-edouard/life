@@ -1,7 +1,7 @@
 import { digest } from "../core/hash";
 import type { Correction, Cut } from "../records/observation";
 import type { SourceEvent } from "../records/source";
-import { parseTurnRef } from "../sources/lifelog";
+import { parseTurnRef } from "../sources/voice-server";
 
 // A deletion (docs/glossary.md): his word that something goes from memory, kept as one line of corrections.jsonl (kind
 // `deleted`) and applied by every read of the words it removed: a ref's line is gone whole, a cut's words are blanked, and

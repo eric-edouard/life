@@ -1,8 +1,8 @@
 import type { SourceName } from "../core/names";
 import type { Unresolved } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { parseTurnRef } from "../sources/lifelog";
-import { readTurnClip } from "../sources/lifelog-voices";
+import { parseTurnRef } from "../sources/voice-server";
+import { readTurnClip } from "../sources/voice-speakers";
 import { isCut, isGone } from "./deletions";
 import { plain } from "./doubts";
 import type { Check, Said } from "./life-checks";
@@ -16,7 +16,7 @@ import type { People } from "./who";
 import { readEach, spokenLines, unitLines } from "./words";
 
 // What a name check shows of its sentence: the line of the unit that holds the name, verbatim, with who said it, to
-// whom, when; for a spoken one, its clip and lifelog's word timings. One unit read per
+// whom, when; for a spoken one, its clip and the voice server's word timings. One unit read per
 // card, read when the inbox is, kept while its unit's hash is the same, so a new read of the inbox reads only the names
 // that are new or whose unit changed. A unit that cannot be read leaves the card with the observation's quote.
 
@@ -95,7 +95,7 @@ export async function readNameContexts(
           return null;
         }
         const to = unit.title === unit.key ? null : unit.title;
-        // A turn he deleted or cut words in keeps no clip: lifelog's clip would play its words as they were.
+        // A turn he deleted or cut words in keeps no clip: the voice server's clip would play its words as they were.
         const turn = parseTurnRef(found.ref);
         const d = deletionsNow();
         const clip =
@@ -111,7 +111,7 @@ export async function readNameContexts(
         next.set(w.line.id, { context, hash: unit.hash });
         return context;
       } catch {
-        // lifelog or an archive not answering: the card keeps the observation's quote, and the next read tries again.
+        // The voice server or an archive not answering: the card keeps the observation's quote, and the next read tries again.
         return null;
       }
     }

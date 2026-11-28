@@ -94,7 +94,7 @@ function nameIndex(people: Pick<Person, "aliases" | "id" | "name">[]) {
 /**
  * Every handle in the directory to the person who owns it: `exact`, each as written; `contact`, each phone and email by
  * its contact key (`contactKeyOf`), so one written another way ("06 11 11 11 11", "+33611111111") still meets. A
- * Telegram id, a GitHub login or a lifelog id is only ever exact.
+ * Telegram id, a GitHub login or a voice server id is only ever exact.
  */
 const handleIndex = (people: Person[]) => ({
   contact: new Map(
@@ -202,7 +202,7 @@ export function readingOf(
     const ks = keysOf(nameOrHandle);
     const words = kindKeysOf(nameOrHandle, key);
     const truth = meet(handles, key, ks.slice(0, 2));
-    // A name as lifelog gives it, its parentheses left out ("Jean (Me)").
+    // A name as the voice server gives it, its parentheses left out ("Jean (Me)").
     const bare = key ? "" : nameKey(nameOrHandle.trim().replace(PAREN, ""));
     const named = bare ? names.get(bare) : undefined;
     const guesses = words.map((k) => guessed.get(k));

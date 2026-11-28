@@ -28,7 +28,7 @@ import {
   readVoiceSecrets,
   secretOf,
   VOICE_URL,
-} from "../sources/lifelog-call";
+} from "../sources/voice-server-call";
 
 // Voice: the pendant pipeline's processes on this Mac (its server, the Mac helper, speaker recognition, the embedder),
 // each a launchd job Life's helper installs (`voiceStart`), so a Life crash, quit or update never stops them: the server

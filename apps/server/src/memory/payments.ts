@@ -3,8 +3,8 @@ import { redact } from "../core/redact";
 import { payments } from "../payments/backend";
 import type { Payment } from "../payments/contract";
 import type { Episode } from "../records/episode";
-import type { Stay } from "../sources/lifelog";
-import { lifelogMissing } from "../sources/lifelog-call";
+import type { Stay } from "../sources/voice-server";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { bounds } from "./episode-span";
 import { episodesWhere } from "./memory-files";
 import { amountWordsOf } from "./needs";
@@ -129,16 +129,16 @@ export async function placedOn(
   }
 }
 
-/** His stays on each day `from` to `to` (none without lifelog, or when it cannot be read). */
+/** His stays on each day `from` to `to` (none without the voice server, or when it cannot be read). */
 async function staysOn(from: string, to: string) {
-  if (lifelogMissing()) {
+  if (voiceServerMissing()) {
     return [];
   }
   const days: string[] = [];
   for (let d = from; d <= to; d = daysBefore(d, -1)) {
     days.push(d);
   }
-  // One lifelog read per day: its `visits` stops at 200 stays (lifelog `location.ts`), fewer than a month holds.
+  // One read of the voice server per day: its `visits` stops at 200 stays (the voice server's `location.ts`), fewer than a month holds.
   const each = await Promise.all(
     days.map((d) => staysOf({ at: d }).catch(() => null))
   );

@@ -94,7 +94,7 @@ export const FileEntry = z
 
 export type FileEntry = z.infer<typeof FileEntry>;
 
-/** L1: one conversation-day, chat-day or mail thread-day (or one of lifelog's chapters, as stored). Refs, hashes and metadata; never raw text. */
+/** L1: one conversation-day, chat-day or mail thread-day (or one of the voice server's chapters, as stored). Refs, hashes and metadata; never raw text. */
 export const Unit = z
   .object({
     date: isoDate,
@@ -110,7 +110,7 @@ export const Unit = z
     marked: z.array(z.string()).optional(),
     // As the source names them, unresolved (unknown:<name or sender>, person:me): readers map them (`unitNow`, who.ts).
     people: z.array(z.string()),
-    // lifelog: the first and last turn's jobId:turnIndex@capturedAt (a chapter: conversation#chapter and its first turn's); chats: first and last message id; mail: message ids.
+    // The voice server: the first and last turn's jobId:turnIndex@capturedAt (a chapter: conversation#chapter and its first turn's); chats: first and last message id; mail: message ids.
     refs: z.array(z.string()).min(1),
     schemaVersion: z.literal(1),
     source: SourceName,
@@ -126,7 +126,7 @@ export const Unit = z
         removed: z.int().min(0).optional(),
       })
       .strict(),
-    // A lifelog chapter's own summary, as stored (it makes the unit frozen, `isFrozen`); a repo-day's commit subjects.
+    // A voice chapter's own summary, as stored (it makes the unit frozen, `isFrozen`); a repo-day's commit subjects.
     summary: z.string().optional(),
     title: z.string(),
   })

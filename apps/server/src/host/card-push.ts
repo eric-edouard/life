@@ -14,13 +14,13 @@ import { instructionsFor } from "../memory/instructions";
 import { isLocked } from "../memory/memory-lock";
 import { cardSubjectOf } from "../memory/who";
 import { dayNow } from "../memory/zones";
-import { WATCH } from "../sources/lifelog";
+import { WATCH } from "../sources/voice-server";
 import {
   notifyPhone,
   type Push,
   type PushLevel,
   pushIdOf,
-} from "../sources/lifelog-push";
+} from "../sources/voice-server-push";
 import { inboxChecksNow } from "./inbox";
 
 // A push for each agent's card the gate delivers, once, the only push of cards (the v4 plan, bundle E; Life's own checks
@@ -180,8 +180,8 @@ async function pushNew(open: Open[], total?: number, now = clock()) {
 }
 
 /**
- * One at a time, in his inbox's order: the phone shows them as they come. Each one lifelog took is a
- * `card.push_accepted` line (lifelog may still skip Apple), by its push id.
+ * One at a time, in his inbox's order: the phone shows them as they come. Each one the voice server took is a
+ * `card.push_accepted` line (the voice server may still skip Apple), by its push id.
  */
 async function pushInOrder(pushes: Push[], badge: number) {
   for (const p of pushes) {
