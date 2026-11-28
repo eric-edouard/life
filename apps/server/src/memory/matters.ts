@@ -241,7 +241,7 @@ export function readMatterPins(
     (last?: DirectionPin[]) => [...(last ?? [])],
     (all, b) => {
       for (const d of b.directions) {
-        all.push({ at: b.at, by: "life", ...d });
+        all.push({ at: b.at, by: "life", prompt: b.madeBy.prompt, ...d });
       }
     }
   );

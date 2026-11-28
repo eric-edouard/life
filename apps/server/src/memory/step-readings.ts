@@ -5,7 +5,11 @@ import { Level } from "../core/names";
 import { isoDateTime, MadeBy } from "../records/fields";
 import { HandledBy, StepMoney } from "./check-urgency";
 import { instructionsOn, whatToAskNow } from "./instructions";
-import type { MatterStepNow, MatterView } from "./matter-read";
+import {
+  type MatterStepNow,
+  type MatterView,
+  OWED_BY_HIM,
+} from "./matter-read";
 import { MEMORY } from "./memory-files";
 import {
   begin,
@@ -16,7 +20,7 @@ import {
   readsOf,
 } from "./run";
 import type { People } from "./who";
-import { OWED_BY_HIM, type StepReadings } from "./your-move";
+import type { StepReadings } from "./your-move";
 
 // Step readings (docs/glossary.md): the memory's fast tier reads each open step he owes, with his `what-to-ask` words in
 // force on it, and gives who does it (`handledBy`), how soon it needs him (`urgency`), its money and the instruction

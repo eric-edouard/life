@@ -3,10 +3,9 @@ import type { Observation } from "../records/observation";
 import { HOW_ASKED } from "./check-urgency";
 import { checksOf } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
-import { type MatterRecords, matterBookOf } from "./matter-read";
+import { type MatterRecords, matterBookOf, OWED_BY_HIM } from "./matter-read";
 import { inheritEndings, succeedsOf } from "./re-read-succession";
 import { OWNER } from "./read-truth";
-import { OWED_BY_HIM } from "./your-move";
 
 // The rule (his words of 27 and 28 Nov 2026): an open step of his stays asked until there is evidence it ended, or his
 // word; only his words, or its being someone else's or his own work elsewhere, move it to its matter's page alone.

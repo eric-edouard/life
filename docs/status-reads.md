@@ -108,6 +108,16 @@ most one month: its day files, live days and the desk's turns ended in it (`turn
 gives each agent its current session's `spending` (`since`, `tokens`, `equivalent`, `provider`), `read_matter` its
 agents' turns' (`tokens`, `equivalent`).
 
+## integrations
+
+`read_integrations`, his token only (an agent's is refused; the tokenless server has none), and `/status/integrations`
+on the local port: what he can turn on and where each stands, for setup and onboarding (`integrationsNow`,
+`host/integrations.ts`). One row each for the AI, voice, the pendant, every source on this system and every messaging
+network: its `requirements` in the order he meets them, each with `done` read now, and its `state` (`off`,
+`waiting_on_user`, `connecting`, `working`, `broken`) with `why` in plain words, both `integrationHealthOf`'s, the same
+judgement the status window's source cards show. Nothing stored; each read is cached (newest 3 s, bridges 15 s, the
+engine check 1 minute, voice 15 s).
+
 ## changes
 
 Every change to the memory, past a cursor: `{items, count, remaining, cursor, observedAt}`. `count` is the items
@@ -202,12 +212,13 @@ native SwiftUI. **Read-only**: it changes nothing, sends nothing, and adds no co
   (`snapshot`); a source's card is its descriptor's (`SOURCES`: `label`, `silentAfter`, `newest`, each read by the
   source's own module), the Mac's probes are `apps/server/src/host/status/mac.ts`. `apps/server/src/host/status/snapshot-detail.ts` gives a card's history and log lines
   (`detail`) and a run's steps and what it wrote (`runDetail`, from `read_processing_runs` and `read_memory_changes`). `apps/server/src/host/http/status-reads.ts` serves
-  them as JSON on the local port only (`/status/snapshot`, `/status/card/<id>`, `/status/run?id=`), behind the local
+  them as JSON on the local port only (`/status/snapshot`, `/status/integrations`, `/status/card/<id>`, `/status/run?id=`), behind the
   key; the app decodes them (`StatusSnapshot.swift`) and reads the status snapshot every 3 s while the window is open.
-- **Health.** Broken vs quiet (`toneOf`): red only when Life can't read or run a part; silence is grey, amber past its
+- **Health.** Broken vs quiet (`toneOf`, `host/integration-health.ts`): red only when Life can't read or run a part; silence is grey, amber past its
   source's `silentAfter` (Pendant 6 h between 08:00 and 01:00, WhatsApp and iMessage 24 h, Mail 12 h, LINE, Instagram, Messenger,
-  LinkedIn, Telegram and Git 3 d, Notes 7 d). A source's state is its real read: `missing()` (set up?), then its `newest()` (its own store
-  read now); a failed read is red with its error. A card in trouble offers a sentence to paste into a Claude session.
+  LinkedIn, Telegram and Git 3 d, Notes 7 d). A source's state is `integrationHealthOf`'s (`host/integration-health.ts`): a
+  requirement not met (a permission, its keys, signing in), then `missing()` (set up?), then its real read, `newest()` (its own
+  store read now), and its bridge's check; a failed read is red with its error. A card in trouble offers a sentence to paste into a Claude session.
 - **Content.** In full (a message's first words, ask quotes, raw log lines) behind a Show content switch.
 - **Look.** Life's brand (`docs/brand.md`, its fonts bundled from `apps/mac/Fonts`), light or dark as the Mac is set: no prose, the parts flowing
   left to right as data does, a card opening in place over the status snapshot.

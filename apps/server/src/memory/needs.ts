@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { isoDateTime } from "../records/fields";
-import {
-  ACCESS_CHECKS,
-  type AccessStatuses,
-  accessLineOf,
-  accessStepsOf,
-} from "./access";
+import { ACCESS_CHECKS } from "../records/integration";
+import { type AccessStatuses, accessLineOf, accessStepsOf } from "./access";
 import { oneLine } from "./draft";
 import { nameKey } from "./units";
 

@@ -491,6 +491,13 @@ export const matterPeopleOf = (
   v: Pick<MatterView, "owedTo" | "waitingOn" | "with">
 ) => uniq([...v.owedTo, ...v.waitingOn, ...v.with]);
 
+/** The steps he owes, that a card asks: a task of his (`to_do`), a promise, an item open in his to-do list; never a wait on someone. */
+export const OWED_BY_HIM: MatterStepNow["kind"][] = [
+  "promise",
+  "to_do",
+  "todo_item",
+];
+
 /** Running: open and not dormant, or open and marked important. What `read_matters` lists. */
 export const isRunning = (
   v: Pick<MatterView, "open" | "status"> &
@@ -554,7 +561,7 @@ export const matterOfSteps = <V extends Found>(
 ) => matterFinderOf(book)(refs, prefer);
 
 /** Whether `v` got a step, or a step's ending, that `pin` was not drafted on: its next step is then out of date. Pure. */
-const isNewerThan = (
+export const isNewerThan = (
   v: { steps: readonly MatterStepNow[] },
   pin: DirectionPin,
   today: string
@@ -680,62 +687,6 @@ const contextKeptOf = (p: DirectionPin, was: NextStep | undefined) =>
   was.waitsOn === p.nextStep.waitsOn
     ? { context: was.context }
     : {};
-
-/**
- * Whether Life drafts `v`'s direction: running and grouped, with none yet or a step, a step's ending or an open step's
- * date passing newer than its latest pin; or, when
- * that pin is Life's, a blind one (no `laterShown`: drafted before it saw later records) or, while `v` is in its offer
- * window (`offerEndOf`), one of its newest later records (`later`, read only then) that the draft was not shown. His own
- * pin is never redrafted over an outside record. Pure.
- */
-export const isDirectionDue = (
-  v: MatterView,
-  latest: DirectionPin | undefined,
-  later: () => readonly string[],
-  today: string
-) => {
-  if (v.lone || !isRunning(v)) {
-    return false;
-  }
-  if (!(latest && v.goal) || isNewerThan(v, latest, today)) {
-    return true;
-  }
-  const end = offerEndOf(v);
-  const { laterShown } = latest;
-  return (
-    latest.by === "life" &&
-    (!laterShown ||
-      Boolean(
-        end && today <= end && later().some((id) => !laterShown.includes(id))
-      ))
-  );
-};
-
-/**
- * The test of "which matters of `book` are due a direction" (`isDirectionDue`), by matter id: for the night's step and
- * the new matter check. The later records are read (`laterShownOf`) only for a matter in its offer window whose latest
- * pin is Life's. Pure.
- */
-export function directionDueOf(
-  book: readonly MatterView[],
-  rec: Pick<MatterRecords, "directions" | "observations" | "refOf">,
-  today: string
-) {
-  const directions = directionsOf(matterFinderOf(book), rec.directions);
-  const byId = new Map(book.map((v) => [v.id, v]));
-  return (id: string) => {
-    const v = byId.get(id);
-    return (
-      v !== undefined &&
-      isDirectionDue(
-        v,
-        directions.get(v)?.latest,
-        () => laterShownOf(v, rec.observations, rec.refOf).map((o) => o.id),
-        today
-      )
-    );
-  };
-}
 
 /** A matter's text in meaning: its name and goal. What its net (`netOf`) and its icon (`readLifeIcons`) compare. Pure. */
 export const matterTextOf = (v: Pick<MatterView, "goal" | "name">) =>

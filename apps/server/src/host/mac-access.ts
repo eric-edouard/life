@@ -10,10 +10,10 @@ import { HOME, permissionsHelperPath } from "../core/platform";
 import { exec, execOk } from "../core/proc";
 import {
   ACCESS_STATUSES,
-  type AccessCheck,
   AccessStatus,
   type AccessStatuses,
 } from "../memory/access";
+import type { AccessCheck } from "../records/integration";
 
 // The Mac's side of an access card: its statuses read silently and a missing step shown to him. Every read and prompt
 // runs in the permissions helper (`life-eventkit access`), a process Life.app started, so the answer is Life's grant, never
@@ -58,6 +58,10 @@ const helper = () => {
   return path;
 };
 
+/** Whether Full Disk Access is on: read from the one file only it opens, never by asking the helper. */
+export const readFullDiskAccess = (): z.infer<typeof AccessStatus> =>
+  unreadable(TCC_DB, "no") ? "missing" : "done";
+
 /** The Mac's statuses now, from the helper, the protected file and the disk, written whole to `ACCESS_STATUSES` when they changed (the inbox's key moves with it). */
 export async function readAccessNow(): Promise<AccessStatuses> {
   const read = HelperStatuses.parse(
@@ -68,7 +72,7 @@ export async function readAccessNow(): Promise<AccessStatuses> {
     freeGb: Math.floor((disk.bavail * disk.bsize) / GB),
     statuses: {
       ...read,
-      full_disk_access: unreadable(TCC_DB, "no") ? "missing" : "done",
+      full_disk_access: readFullDiskAccess(),
     },
   };
   if (!isDeepStrictEqual(readJson(ACCESS_STATUSES), now)) {

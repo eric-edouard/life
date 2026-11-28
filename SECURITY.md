@@ -124,6 +124,8 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   read only, Life's own left out) that overlap it: each guest it offers as a possible speaker (a name, or an address no
   one is known by), with the event's title and time in their brief (his yes of 22 Nov 2026: that provider already gets his
   messages).
+- With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
+  minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.
