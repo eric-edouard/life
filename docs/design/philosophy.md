@@ -396,6 +396,9 @@ line links there.
 
 ## Open questions
 
+- Onboarding, round 1 ([host][onb-host], [phone][onb-phone]): the phone's onboarding in Life's thread rather than its own
+  screens; the menu bar's dots (grey when working, blue while connecting, coral when it needs him); a recovery key
+  shown once; drawn, not decided.
 - Turn by turn, before it ships: the arrivals rule first, then live items in history, "You" and "Life" labels against
   marks, centred reading, turns taller than the screen, the mesh beside the edge, the largest text sizes ([proposal][v5]).
 - Turn by turn's first slice and the order after it ([proposal][v5]); the rows-or-tiles rule (rows always, tiles only
@@ -582,6 +585,8 @@ Reversed later:
 [ds-voices]: 2026-11-23-chat-first/2026-11-25-app-v4-design-system.md#voices-to-name-proposal-26-nov-2026
 [ds-tiles]: 2026-11-23-chat-first/2026-11-25-app-v4-design-system.md#a-list-of-matters-rows-or-tiles-proposal-27-nov-2026
 [v4]: 2026-11-23-chat-first/2026-11-25-app-v4.html
+[onb-host]: 2026-11-28-onboarding/index.html
+[onb-phone]: 2026-11-28-onboarding/phone.html
 [settings]: 2026-11-23-chat-first/2026-11-25-settings-board.html
 [v5]: 2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md
 [heylife]: 2026-11-23-chat-first/2026-11-27-hey-life-turns.html

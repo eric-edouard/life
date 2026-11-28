@@ -149,6 +149,12 @@ export const notifyArgs = (title: string, body: string) =>
 export const llamaServer = () =>
   process.env.LIFE_LLAMA_SERVER ?? Bun.which("llama-server");
 
+/** A bridge's program built into the app (`LIFE_BRIDGES_DIR`, by `scripts/app.ts`); none in a checkout without it. */
+export const bundledBridge = (network: string) =>
+  process.env.LIFE_BRIDGES_DIR
+    ? join(process.env.LIFE_BRIDGES_DIR, network)
+    : undefined;
+
 /** Google Chrome, for a bridge's sign-in window (`host/sign-in-browser.ts`): the Mac's; none elsewhere. */
 export const CHROME = WINDOWS
   ? undefined

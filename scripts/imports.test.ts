@@ -63,7 +63,7 @@ const withScripts = new Map([
 ]);
 
 // No module imports one that imports it back, type-only imports included (fallow's cycle check skips those): a
-// capability's implementations import its contract.ts, and only its registry imports them (.claude/rules/one-way.md).
+// capability's implementations import its contract.ts, and only its registry imports them (docs/helpers.md).
 test("no import cycles in the server's code", () => {
   const known = new Set(files);
   const edges = new Map<string, string[]>();
@@ -205,7 +205,7 @@ test("no importance is compared with or capped at a bare number: KEEP_AT, SEARCH
   expect(linesMatching(BARE_IMPORTANCE, [])).toEqual([]);
 });
 
-// .claude/rules/one-way.md: now is `clock()`, in lifelog too (78 direct reads until 8 Nov 2026).
+// docs/helpers.md: now is `clock()`, in lifelog too (78 direct reads until 8 Nov 2026).
 test("now is read only through clock()", () => {
   expect(
     linesMatching(DIRECT_CLOCK, ["apps/server/src/core/clock.ts"], true)

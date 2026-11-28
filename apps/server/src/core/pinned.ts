@@ -42,6 +42,23 @@ export const uvRelease = (arch: "amd64" | "arm64"): Pin => ({
   url: `https://github.com/astral-sh/uv/releases/download/0.12.24/uv-${arch === "arm64" ? "aarch64" : "x86_64"}-apple-darwin.tar.gz`,
 });
 
+/** gog (Google Calendar, Tasks, Gmail send; `core/gog.ts`), from its release: a folder holding the `gog` program. */
+export const GOG_VERSION = "0.48.0";
+export const gogRelease = (arch: "amd64" | "arm64"): Pin => ({
+  sha256:
+    arch === "arm64"
+      ? "a8c6142fcb9f41f0eff02ffef78298cbe4981061f149c2b3a42d5a13bad931bd"
+      : "423d8ac93530e13cd7cb599de2655db3262ddc763181996771d74188ffcefc5a",
+  url: `https://github.com/steipete/gogcli/releases/download/v${GOG_VERSION}/gogcli_${GOG_VERSION}_darwin_${arch}.tar.gz`,
+});
+
+/** git's source (GPL v2), which `scripts/bundled-tools.ts` builds: macOS has no real git until the developer tools are installed (#1515). */
+export const GIT_VERSION = "2.56.1";
+export const GIT_SOURCE: Pin = {
+  sha256: "f0b0bf89264b9bd2e1c640363e7529643989da76281600473c50745cd34a607f",
+  url: `https://mirrors.edge.kernel.org/pub/software/scm/git/git-${GIT_VERSION}.tar.xz`,
+};
+
 /** What the bundles keep of the release: the server and the libraries it loads from beside it (@loader_path). */
 const LLAMA_LOADED = [
   "llama-server",
