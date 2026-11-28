@@ -176,15 +176,14 @@ function draftSentOf(draft: StoredDraft, line?: Decision["sends"][number]) {
       to: draft.to,
     };
   }
-  if (line) {
-    return {
-      at: line.at,
-      canRetry: false,
-      reason: line.error,
-      state: line.error.startsWith("not sent:") ? "not_sent" : "may_have_gone",
-    };
+  if (!line) {
+    return { state: "pending" };
   }
-  return { state: "pending" };
+  // Each state a literal: the phone's contract test reads them (`ContractTests.swift`).
+  const failed = { at: line.at, canRetry: false, reason: line.error };
+  return line.error.startsWith("not sent:")
+    ? { ...failed, state: "not_sent" }
+    : { ...failed, state: "may_have_gone" };
 }
 
 /** An act's outcome line as the proof shows it: when, and its error or what it made, without its line's bookkeeping. */
