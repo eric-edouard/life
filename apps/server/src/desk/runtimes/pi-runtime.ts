@@ -206,8 +206,12 @@ const settingsOf = (
   ],
   httpIdleTimeoutMs: SILENT_RETRY_MS,
   quietStartup: true,
-  // His skills where Claude Code reads them, beside `~/.agents/skills`, which pi reads itself.
-  skills: claude ? [join(claude, "skills")] : [],
+  // Life's own skills (the engineering playbook), then his where Claude Code reads them, beside `~/.agents/skills`, which
+  // pi reads itself.
+  skills: [
+    join(LIFE_CODE_DIR, "skills"),
+    ...(claude ? [join(claude, "skills")] : []),
+  ],
 });
 
 /** His Claude folder, where Claude Code reads his instructions and hooks (a test passes its own). */

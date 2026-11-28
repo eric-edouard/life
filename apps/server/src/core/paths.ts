@@ -51,6 +51,8 @@ export const LIFE_STATE_DIR = real(
 export const DESK_STORE = join(LIFE_STATE_DIR, "desk", "desk.sqlite");
 /** Where an agent started with no folder (and no repo of its project on the Mac) runs: a folder of its own, `<agt_…>`, made by the desk. */
 export const DESK_AGENT_FOLDERS = join(LIFE_STATE_DIR, "desk", "agents");
+/** One-off projects' work folders, `<id>/` each with its own repo: where its agent's sessions run, made when it registers, kept after it ends (the owner, 28 Nov 2026: outside his agents repo). */
+export const PROJECT_WORK_FOLDERS = join(LIFE_STATE_DIR, "projects");
 /** Where the desk's pi keeps its sessions (`sessions/`) and its agent folder (`desk/runtimes/pi-runtime.ts`). */
 export const PI_DIR = join(LIFE_STATE_DIR, "desk", "pi");
 // ponytail: each run leaves its ~24 KB copy for the OS to clear (an exit hook doesn't fire under bun test); delete

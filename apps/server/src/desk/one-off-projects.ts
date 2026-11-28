@@ -1,6 +1,10 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import { PROJECT_WORK_FOLDERS } from "../core/paths";
+import { gitOut } from "../core/proc";
 import {
   addedIdOf,
   changeDirectoryEntry,
@@ -48,6 +52,16 @@ const hasEverHadAgent = (db: Desk["db"], project: string) =>
   db.query("select 1 from agent where project = ? limit 1").get(project) !==
   null;
 
+/** One-off project `id`'s work folder (`PROJECT_WORK_FOLDERS`), made with its own repo when missing; never removed, so it is kept after its agent ends. */
+function madeWorkFolderOf(id: string) {
+  const folder = join(PROJECT_WORK_FOLDERS, id);
+  if (!existsSync(join(folder, ".git"))) {
+    mkdirSync(folder, { recursive: true });
+    gitOut(folder, ["init", "-q"]);
+  }
+  return folder;
+}
+
 /** Project `id`'s active agent, if any. */
 const activeOf = (db: Desk["db"], id: string) =>
   db
@@ -77,7 +91,7 @@ const isWaitingFor = (db: Desk["db"], p: Project) => {
 
 /**
  * One-off project `id`'s active agent and its own assignment, holding his entry (`handed_work`, kind `project`) when the
- * project came from an ask. With none, registers one (`start`, its runtime checked first) while the project is under way,
+ * project came from an ask. With none, registers one (`start`, its runtime checked first; in its work folder) while the project is under way,
  * its goal still his words (`handedProjectOf`) and it never had one. The agent, its delivery and the handoff marked
  * taken are one transaction: a crash leaves all or nothing. Why not, as `{error}`; throws while the desk keeps its most
  * agents.
@@ -101,10 +115,12 @@ export async function openOneOffProject(
   if (refused) {
     return { error: `Not done: project ${id}: ${refused}.` };
   }
+  // Its sessions run in its work folder; an agent already on it keeps its own.
+  const folder = active ? undefined : madeWorkFolderOf(id);
   const opened = db.transaction(() => {
     const started = active
       ? { id: active }
-      : start(desk, c, briefOf(id), { blocked });
+      : start(desk, { ...c, folder }, briefOf(id), { blocked });
     if ("error" in started) {
       return started;
     }

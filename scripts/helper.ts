@@ -81,6 +81,8 @@ await Promise.all([
   ].map((f) => cp(join(ROOT, f), join(resources, f), { recursive: true })),
   cp(join(ROOT, "prompts"), join(resources, "prompts"), { recursive: true }),
   cp(join(ROOT, "assets"), join(resources, "assets"), { recursive: true }),
+  // Life's skills for its agents (the engineering playbook): pi lists them, a one-off project's first turn reads its path.
+  cp(join(ROOT, "skills"), join(resources, "skills"), { recursive: true }),
   cp(join(ROOT, CODEX), join(resources, CODEX)),
 ]);
 console.log(`helper: ${join(out, "life")}, resources: ${resources}`);
