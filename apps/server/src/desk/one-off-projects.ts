@@ -52,14 +52,13 @@ const hasEverHadAgent = (db: Desk["db"], project: string) =>
   db.query("select 1 from agent where project = ? limit 1").get(project) !==
   null;
 
-/** One-off project `id`'s work folder (`PROJECT_WORK_FOLDERS`), made with its own repo when missing; never removed, so it is kept after its agent ends. */
-function madeWorkFolderOf(id: string) {
+/** Makes one-off project `id`'s work folder (`PROJECT_WORK_FOLDERS`), with its own repo, when missing; never removed, so it is kept after its agent ends. `start` runs its agent there. */
+function makeWorkFolder(id: string) {
   const folder = join(PROJECT_WORK_FOLDERS, id);
   if (!existsSync(join(folder, ".git"))) {
     mkdirSync(folder, { recursive: true });
     gitOut(folder, ["init", "-q"]);
   }
-  return folder;
 }
 
 /** Project `id`'s active agent, if any. */
@@ -115,12 +114,13 @@ export async function openOneOffProject(
   if (refused) {
     return { error: `Not done: project ${id}: ${refused}.` };
   }
-  // Its sessions run in its work folder; an agent already on it keeps its own.
-  const folder = active ? undefined : madeWorkFolderOf(id);
+  if (!active) {
+    makeWorkFolder(id);
+  }
   const opened = db.transaction(() => {
     const started = active
       ? { id: active }
-      : start(desk, { ...c, folder }, briefOf(id), { blocked });
+      : start(desk, c, briefOf(id), { blocked });
     if ("error" in started) {
       return started;
     }

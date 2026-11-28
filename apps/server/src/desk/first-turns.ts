@@ -23,7 +23,7 @@ const CARETAKER_FIRST_TURN =
   " Your first turn reads each complaint it was woken on (`read_complaint`) and starts on it: his words are your plan. A change still goes to him first, as a card with the exact change.";
 
 /** Life's engineering playbook, shipped with Life (`skills/`): named by its path, so every runtime reads it. */
-const PLAYBOOK = join(
+export const PLAYBOOK = join(
   LIFE_CODE_DIR,
   "skills",
   "engineering-playbook",

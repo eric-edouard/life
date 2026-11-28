@@ -15,3 +15,5 @@ Decided with the owner on 28 Nov 2026. The agent's work (its scripts, `PLAN.md`,
 agents repo under the project; the result goes where the user would look: a visible folder for a file (a PDF, a CV),
 or a Life page for something to open (a site, a report). Kept after the end (Progress and the end); tools are tried on
 a sample before the real data (the playbook).
+
+Built: https://github.com/eric-edouard/life/pull/1588 (the work itself lives in its project work folder, outside the agents repo, per ticket 28: the owner, 28 Nov 2026; the agents repo keeps its notes only).

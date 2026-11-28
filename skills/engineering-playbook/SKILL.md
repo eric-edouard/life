@@ -60,4 +60,4 @@ The aim: a result that looks and feels great (the approved preview), works with 
 - `exiftool` (file metadata).
 - ImageMagick (`magick`: images).
 - `agent-browser` (checking your own pages).
-- Adding a tool takes the owner's yes, as this playbook's author; never ask the user.
+- Adding a tool takes the yes of Life's developer, who writes this playbook; never ask the user.
