@@ -8,12 +8,7 @@ import { log } from "../../core/log";
 import { OWNER_ASKER } from "../../core/names";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
-import {
-  changeSetting,
-  connector,
-  SettingChange,
-  settings,
-} from "../../core/settings";
+import { changeSetting, SettingChange } from "../../core/settings";
 import { CARD, DecisionRequest } from "../../memory/card-request";
 import { changeFeed, MAX_PAGE, readObservation } from "../../memory/changes";
 import { byAsked, checksOnMatterOf } from "../../memory/checks";
@@ -90,7 +85,7 @@ import {
 import { readMatterSpending, withAgentSpending } from "../spending-read";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
-import { text } from "./http";
+import { connector, connectorOrigin, text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
 import { deleteFromMemoryTool } from "./mcp-deletions";
 import { integrationsTool } from "./mcp-integrations";
@@ -232,8 +227,8 @@ export async function correct(
  * `logsArguments` into its own log) and to an agent of his own Life on pi (`life connector-reads`).
  */
 export function buildServer(readsOnly = false, logsArguments = false) {
-  // Over stdio (reads only) there may be no public origin, and no icons.
-  const origin = settings().connector?.origin;
+  // Over stdio (reads only) the connector may be off: no icons.
+  const origin = connectorOrigin();
   const server = new McpServer(
     {
       icons: origin

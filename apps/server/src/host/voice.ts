@@ -29,6 +29,8 @@ import {
   secretOf,
   VOICE_URL,
 } from "../sources/voice-server-call";
+import { connector, connectorOrigin } from "./http/http";
+import type { MacLinkAddress } from "./http/mac-link";
 
 // Voice: the pendant pipeline's processes on this Mac (its server, the Mac helper, speaker recognition, the embedder),
 // each a launchd job Life's helper installs (`voiceStart`), so a Life crash, quit or update never stops them: the server
@@ -90,6 +92,8 @@ export interface VoiceInputs {
   build: string;
   /** The owner's own server keys voice doesn't manage (APNs, Resend…): `server.env`. */
   extra: Record<string, string>;
+  /** Whether a tunnel serves Life's origin (`connector`): without one, no one can call voice's ElevenLabs webhook. */
+  hasTunnel: boolean;
   /** The address the phone reaches the server at: Life's origin and `/voice`, else this Mac alone. */
   publicUrl: string;
   secrets: Record<string, unknown>;
@@ -120,7 +124,8 @@ export const recordingsEnvOf = (support: string) => ({
 /**
  * The server's environment: its recordings, the token hashes (never the tokens), the owner's keys, the address the phone
  * reaches, restic when backups are on, speaker recognition when it is on, the build, and `server.env` under them:
- * restic's and speaker recognition's keys are voice's, set or unset, so turning either off can't be undone by it.
+ * restic's and speaker recognition's keys are voice's, set or unset, so turning either off can't be undone by it. Without a
+ * tunnel no one can call its ElevenLabs webhook, so `server.env`'s is dropped: each send waits for its transcript.
  */
 export function serverEnvOf(v: VoiceInputs): Record<string, string> {
   const s = (key: string) => secretOf(v.secrets, key);
@@ -145,7 +150,12 @@ export function serverEnvOf(v: VoiceInputs): Record<string, string> {
   });
   const extra = Object.fromEntries(
     Object.entries(v.extra).filter(
-      ([k]) => !(k.startsWith("RESTIC_") || k.startsWith("IDENTITY_"))
+      ([k]) =>
+        !(
+          k.startsWith("RESTIC_") ||
+          k.startsWith("IDENTITY_") ||
+          (!v.hasTunnel && k.startsWith("ELEVENLABS_WEBHOOK_"))
+        )
     )
   );
   return { ...extra, ...recordingsEnvOf(v.at.support), ...own };
@@ -246,12 +256,13 @@ export async function readVoiceInputs(
     string,
     string
   >;
-  const origin = settings().connector?.origin;
+  const origin = connectorOrigin();
   return {
     at,
     backups: settings().voice?.backups === true,
     build: await build(),
     extra,
+    hasTunnel: origin !== undefined && connector().hasTunnel,
     publicUrl: origin ? `${origin}/voice` : VOICE_URL,
     secrets,
     speakers: settings().voice?.speakers !== false,
@@ -298,13 +309,20 @@ export const buildOf = async () =>
 
 /**
  * The link the phone opens (`lifelog://pair?life=<origin>&code=<code>`), with voice's address and the phone's device
- * token (`url`, `token`) when given: one QR pairs both.
+ * token (`url`, `token`) when given: one QR pairs both. With the Mac link's address (`mac`, `relay`), the phone
+ * reaches the Mac through it from anywhere.
  */
-export const pairLinkOf = (origin: string, code: string, token?: string) =>
+export const pairLinkOf = (
+  origin: string,
+  code: string,
+  token?: string,
+  macLink?: MacLinkAddress
+) =>
   `lifelog://pair?${new URLSearchParams({
     code,
     life: origin,
     ...(token && { token, url: `${origin}/voice` }),
+    ...macLink,
   })}`;
 
 /** The phone's device token for Life's pairing link: only from his own Life's helper, never a checkout or a second Life. */

@@ -11,7 +11,6 @@ import { Engine, ROLE_ASKERS } from "../core/names";
 import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
-  connector,
   hasEngineSet,
   readSettings,
   type Settings,
@@ -48,8 +47,9 @@ import {
 } from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
-import { LOCAL_PORT } from "./http/http";
+import { connector, LOCAL_PORT } from "./http/http";
 import { localKey } from "./http/local-key";
+import { macLinkAddress } from "./http/mac-link";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
@@ -385,23 +385,25 @@ const commands: Record<string, () => number | Promise<number>> = {
    * as that agent (any name but a role's, `ROLE_ASKERS`); `pair` alone, a plain app. `--link` prints the link the phone
    * opens instead of the code (`pairLinkOf`).
    */
-  pair() {
+  async pair() {
     const args = process.argv.slice(3);
     const agent = args.find((a) => !a.startsWith("--"));
     if (agent && ROLE_ASKERS.includes(agent)) {
       console.error(
         `bun life pair [--link] [<agent>]: ${ROLE_ASKERS.join(", ")} are roles, not agents`
       );
-      return Promise.resolve(2);
+      return 2;
     }
     const code = pair(agent);
     if (!args.includes("--link")) {
       console.log(code);
-      return Promise.resolve(0);
+      return 0;
     }
     const { origin } = connector();
-    console.log(pairLinkOf(origin, code, pairTokenOf()));
-    return Promise.resolve(0);
+    console.log(
+      pairLinkOf(origin, code, pairTokenOf(), await macLinkAddress())
+    );
+    return 0;
   },
   /**
    * The settings as JSON (`settings`), or some parts of them replaced (`settings set '<json>'`, checked whole before
