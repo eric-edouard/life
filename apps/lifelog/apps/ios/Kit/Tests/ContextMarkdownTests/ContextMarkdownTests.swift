@@ -119,3 +119,27 @@ func aQuoteKeepsItsSourceLineWhereverItIsWritten(markdown: String) throws {
 func aLinkComesBackFromTheURLItsTextCarries(link: ContextLink) throws {
     #expect(ContextLink(url: link.url) == link)
 }
+
+@Test func aQuoteInsideAListItemOrAQuoteReadsFormattedNeverAsItsSource() throws {
+    let blocks = ContextMarkdown.blocks(
+        """
+        - **Pay Acme** by 2 Dec
+          > Please confirm your billing details.
+          *[Acme, 1 Dec](life:unit_0000aaaa1111)*
+        - **Invoice**
+          > \\<td\\>12,50 €\\</td\\>\\
+          > \\<td\\>3 Dec\\</td\\>
+
+        > Outer
+        > > inner *words*
+        """)
+    guard case .list(let list) = blocks[0] else { Issue.record("a list"); return }
+    let first = list[0].text
+    #expect(!words(first).contains(">") && !words(first).contains("*["), "no Markdown source")
+    #expect(words(first).contains("Please confirm your billing details."))
+    #expect(first.contains { $0.link == .life(ref: "unit_0000aaaa1111", words: "Acme, 1 Dec") })
+    #expect(words(list[1].text) == "Invoice\n<td>12,50 €</td>\n<td>3 Dec</td>", "HTML shows as its text")
+    guard case .quote(let outer, _) = blocks[1] else { Issue.record("a quote"); return }
+    #expect(words(outer) == "Outer\ninner words")
+    #expect(outer.contains { $0.isItalic && $0.text == "words" })
+}

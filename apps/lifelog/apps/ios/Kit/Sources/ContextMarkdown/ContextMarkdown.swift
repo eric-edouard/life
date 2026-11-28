@@ -164,11 +164,27 @@ public enum ContextMarkdown {
         return (lines(paragraphs), source)
     }
 
-    /// Blocks as one run of lines: a paragraph's runs, any other block as its Markdown text.
+    /// Blocks as one run of lines, each read for what it is: a quote or a list inside a list item or a quote is its
+    /// words formatted, never its Markdown source.
     private static func lines(_ blocks: [any Markup]) -> [Inline] {
         blocks.enumerated().flatMap { index, block in
-            (index > 0 ? [Inline("\n")] : [])
-                + ((block as? InlineContainer).map(inlines) ?? [Inline(block.format())])
+            (index > 0 ? [Inline("\n")] : []) + line(block)
+        }
+    }
+
+    private static func line(_ block: any Markup) -> [Inline] {
+        switch block {
+        case let container as InlineContainer: return inlines(container)
+        case let quote as BlockQuote:
+            let (text, source) = quoted(quote)
+            return text + (source.map { [Inline("\n")] + $0 } ?? [])
+        case let list as ListItemContainer:
+            return items(list, isNested: true).enumerated().flatMap { index, item in
+                (index > 0 ? [Inline("\n")] : []) + [Inline(item.marker + " ")] + item.text
+            }
+        case let code as CodeBlock: return [Inline(code.code.trimmingCharacters(in: .newlines), isCode: true)]
+        case let html as HTMLBlock: return [Inline(html.rawHTML.trimmingCharacters(in: .whitespacesAndNewlines))]
+        default: return [Inline(block.format())]
         }
     }
 
