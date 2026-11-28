@@ -98,7 +98,7 @@ test("the settings step names the voice source `voice` in `sources`, its `lifelo
   expect(settingsOf(done)).toBe(done);
 });
 
-const VOICE_FILES: Record<string, string[]> = {
+const VOICE_FILES = {
   "appointment-events.jsonl": [
     '{"at":"2026-11-01T09:00:00.000Z","kind":"added","messages":["lifelog|job1:2@2026-11-01T08:00:00.000Z","whatsapp|m1"],"title":"lifelog demo"}',
   ],
@@ -125,7 +125,7 @@ const VOICE_FILES: Record<string, string[]> = {
     '{"id":"unit_000000000002","key":"lifelog","refs":["git:lifelog/abc"],"source":"git","title":"lifelog: 16 commits"}',
     '{"id":"unit_000000000003","key":"conv-2","source":"voice"}',
   ],
-};
+} satisfies Record<string, string[]>;
 
 test("the voice source step renames typed fields only, line for line: text, projects and new lines byte for byte; a second run changes nothing", () => {
   const dir = mkdtempSync(join(tmpdir(), "life-migrate-voice-"));
