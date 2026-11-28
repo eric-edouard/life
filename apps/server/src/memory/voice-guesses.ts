@@ -24,7 +24,7 @@ import { localDate, time } from "./zones";
 // a guess for each turn nobody named. A guess is only ever shown: as "probably X" when the words of a conversation are
 // opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when the voice server's
 // suggestion does not contradict it (`withVoiceGuesses`, who.ts `voiceSuggestionOf`). Nothing here names a turn: it never sets a speaker, reaches
-// The voice server, makes or folds a person or touches a line any step reads, and these files never import `forward` or the
+// the voice server, makes or folds a person or touches a line any step reads, and these files never import `forward` or the
 // corrections (`scripts/imports.test.ts` checks).
 
 /** A guess for one voice of one part, as stored. `keys` are the `unnamedTurnKey`s of its turns in the part. */

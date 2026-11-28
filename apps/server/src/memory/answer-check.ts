@@ -226,7 +226,7 @@ async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
   const ref = personIn(a);
-  // Him: The voice server knows him by its owner's id only, never by his directory name (which would make a second him).
+  // Him: the voice server knows him by its owner's id only, never by his directory name (which would make a second him).
   if (ref === OWNER) {
     const own = await readOwnerVoiceId();
     if (!own) {

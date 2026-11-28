@@ -95,7 +95,7 @@ export async function readNameContexts(
           return null;
         }
         const to = unit.title === unit.key ? null : unit.title;
-        // A turn he deleted or cut words in keeps no clip: The voice server's clip would play its words as they were.
+        // A turn he deleted or cut words in keeps no clip: the voice server's clip would play its words as they were.
         const turn = parseTurnRef(found.ref);
         const d = deletionsNow();
         const clip =

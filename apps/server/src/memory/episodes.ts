@@ -538,7 +538,7 @@ export async function episodes(evidence: Evidence) {
         const spoken = dayPartOf(heard.filter(isNew), callCharsOf(step.llm));
         const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
         const shown = units.filter((b) => !isNew(b) || texts.has(b.unit.id));
-        // Where he was: The voice server's stays, none on an install without it; the voice server set up but unreadable fails the attempt.
+        // Where he was: the voice server's stays, none on an install without it; the voice server set up but unreadable fails the attempt.
         const stays = voiceServerMissing()
           ? []
           : ((await staysOf({ at: day })) ?? []);

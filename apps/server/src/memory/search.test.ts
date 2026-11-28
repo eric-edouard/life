@@ -114,7 +114,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
   expect(cover).toContain(
     "- lifelog: 1 units, 2026-10-14 to 2026-10-14 (Life holds it since 2026-10-14)"
   );
-  // The pendant's other days of the month, from its first day on: The voice server was never asked, so nobody can tell.
+  // The pendant's other days of the month, from its first day on: the voice server was never asked, so nobody can tell.
   expect(cover).toContain(
     "- 2026-10: 1 units (lifelog 1), 0 observations, 0 episodes; unknown: lifelog 17 days"
   );
@@ -272,7 +272,7 @@ test("a voice passage shows only while every turn of its span is his: a turn del
   ];
   const shown = (d: Deletions) => shownVoiceHitsOf(hits, d).map((h) => h.text);
   expect(shown(NO_DELETIONS)).toEqual(["one", "two", "three"]);
-  // The span's middle turn goes: The voice server's passage would show half of what was said, so the whole hit goes.
+  // The span's middle turn goes: the voice server's passage would show half of what was said, so the whole hit goes.
   expect(shown({ ...NO_DELETIONS, refs: new Set(["job-1:2"]) })).toEqual([
     "one",
     "three",

@@ -126,7 +126,7 @@ export const Unit = z
         removed: z.int().min(0).optional(),
       })
       .strict(),
-    // A voice server chapter's own summary, as stored (it makes the unit frozen, `isFrozen`); a repo-day's commit subjects.
+    // A voice chapter's own summary, as stored (it makes the unit frozen, `isFrozen`); a repo-day's commit subjects.
     summary: z.string().optional(),
     title: z.string(),
   })

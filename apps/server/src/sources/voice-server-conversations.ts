@@ -68,7 +68,7 @@ export const conversationsBetween = (
   );
 
 /**
- * Every turn of the live conversations, oldest first, each with its voice server conversation (the voice store's, so the
+ * Every turn of the live conversations, oldest first, each with its recorded conversation (the voice store's, so the
  * words of one fetch and the voices it heard are asked of it). The spoken conversations are cut from these
  * (`memory/spoken-conversations.ts`), whatever conversation the voice server put them in.
  */

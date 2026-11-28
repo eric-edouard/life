@@ -128,7 +128,7 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
     )
   );
   // One choice for showing and for asking: a line counts when every one of its keys is still its turn's key in
-  // The voice server's store; the newest such line wins over any older line sharing a turn. A line that does not count never
+  // the voice server's store; the newest such line wins over any older line sharing a turn. A line that does not count never
   // hides one that does (a voice renamed and renamed back shows the first line again).
   const sorted = lines.toSorted((a, b) => b.at.localeCompare(a.at));
   const valid = sorted.filter((l) => l.messages.every((k) => order.has(k)));

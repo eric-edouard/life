@@ -69,7 +69,7 @@ const said = (text: string) => ({ speakerId: "speaker_0", text });
 
 /** The voice server stand-in: one closed conversation of two turns, its transcript held apart as the voice server holds it. */
 const WORDS = "Meet me at the pier at noon.";
-/** Each word of `WORDS` with its milliseconds into the turn: The voice server's own timing of a turn's words. */
+/** Each word of `WORDS` with its milliseconds into the turn: the voice server's own timing of a turn's words. */
 const TIMED = [
   [0, 1000, 5],
   [1000, 2000, 3],

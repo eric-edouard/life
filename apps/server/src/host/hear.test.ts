@@ -79,7 +79,7 @@ test("his wake is high confidence, an unattributed one low, someone else's is no
   });
 });
 
-// audit-4-hej-agent: The voice server wrote his "hey Life" as "Hej Life" (no speaker) and "Hey, live": no ask was made.
+// audit-4-hej-agent: the voice server wrote his "hey Life" as "Hej Life" (no speaker) and "Hey, live": no ask was made.
 test("“Hej Life” from an unattributed voice is a low ask, from a named other none; “hey, live” is his low ask only", () => {
   const asks = spansIn(
     [

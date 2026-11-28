@@ -173,7 +173,7 @@ export const paymentsChannelOf = (
 
 /** How far back a read of stays looks. */
 const PLACES_BACK = 48 * HOUR;
-/** A read of stays that takes longer fails, so a hanging the voice server never holds the desk's tick (read at every poll). */
+/** A read of stays that takes longer fails, so a hanging voice server never holds the desk's tick (read at every poll). */
 const PLACES_READ_WITHIN_S = 10;
 
 /**
@@ -207,9 +207,9 @@ function arrivalOf(s: Stay): ChannelEvent {
 
 /**
  * The places channel over the voice server's stays (`read`): each stay that began within the last `PLACES_BACK` is one arrival. A
- * stay that began before it is none: The voice server reads points from its own window, so such a stay's `arrivedAt` is cut at
+ * stay that began before it is none: the voice server reads points from its own window, so such a stay's `arrivedAt` is cut at
  * the read's edge and moves at every poll.
- * ponytail: extra wakes for one real arrival are normal: The voice server lists a stay once an iOS visit arrives or two fixes in a
+ * ponytail: extra wakes for one real arrival are normal: the voice server lists a stay once an iOS visit arrives or two fixes in a
  * row lie there (5 to 10 minutes after he arrives while the pendant is connected, else when iOS delivers its visit); an
  * iOS visit that comes in after the fixes moves `arrivedAt` earlier, and a drift fix more than 150 m away splits one stay
  * in two: each gives one more arrival (an extra wake, never a miss; an agent is woken by events at most once per 10

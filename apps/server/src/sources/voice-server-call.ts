@@ -32,7 +32,7 @@ export const secretOf = (secrets: Record<string, unknown>, key: string) => {
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 };
 
-/** The voice server's server (REST API): its address from settings, else voice's; its token voice's device token (his own Life only) (the routes Life calls, apple-health, notifications and the naming queue included), else `LIFELOG_TOKEN`. */
+/** The voice server (REST API): its address from settings, else voice's; its token voice's device token (his own Life only) (the routes Life calls, apple-health, notifications and the naming queue included), else `LIFELOG_TOKEN`. */
 const voiceServerUrl = () => settings().lifelog?.url ?? VOICE_URL;
 const voiceServerToken = () =>
   (isOwnLife() ? secretOf(readVoiceSecrets(), "deviceToken") : undefined) ??

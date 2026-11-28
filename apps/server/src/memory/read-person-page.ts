@@ -283,7 +283,7 @@ export async function person(
       )
     : undefined;
   return withStore((store) => {
-    // A name on no page nor directory entry: The voice server speakers it is part of.
+    // A name on no page nor directory entry: the voice server's speakers it is part of.
     const voices = speakers(store);
     const heard = known
       ? []
@@ -683,7 +683,7 @@ export function heardEvidence(o: PartInputs) {
   };
 }
 
-/** `heard`: The voice server speakers a name on no page nor directory entry was found among. */
+/** `heard`: the voice server's speakers a name on no page nor directory entry was found among. */
 const recordedTitle = (heard: { name: string }[]) =>
   `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
 

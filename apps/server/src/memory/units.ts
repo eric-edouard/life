@@ -790,7 +790,7 @@ export function builtFor(
   }
 }
 
-/** The voice server person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
+/** The voice server's person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
 export const voiceNames = (truth: Truth) =>
   new Map(
     truth.people.flatMap((p) =>

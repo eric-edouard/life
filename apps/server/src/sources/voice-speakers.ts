@@ -42,7 +42,7 @@ export interface VoiceKind {
 /**
  * What the voice server's latest summary of a conversation heard of each voice it could not name, by `voiceKey`: how it was heard
  * (live in the room, over a phone, from a screen, an announcement) and whether it talked with him. None for a conversation
- * The voice server no longer has. Read-only.
+ * the voice server no longer has. Read-only.
  */
 export async function readVoiceKinds(conversationId: string) {
   const answer = await call(
@@ -319,7 +319,7 @@ export async function readNamingQueue() {
   return kept ?? (await next);
 }
 
-/** The voice server people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
+/** The voice server's people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
 export const namingQueueGuessesOf = (item: NamingQueueItem) => [
   ...new Set([item.personId, ...item.likely].filter((x): x is string => !!x)),
 ];

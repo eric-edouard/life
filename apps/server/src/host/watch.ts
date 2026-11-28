@@ -54,7 +54,7 @@ import { lockReport, sendReport } from "./report";
 import { sampleResources } from "./resource-sample";
 
 // `bun life watch` (kept running by the app): long-polls the voice server's change feed into the store and, when a page changed
-// anything, rewrites the voice server units from where it touched and their index rows; the whole index when a unit went
+// anything, rewrites the voice units from where it touched and their index rows; the whole index when a unit went
 // or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Every 5 minutes it
 // builds today's units from every other source the same way (`gather`); its model calls describe today's new files
 // (`describeFilesOnArrival`), read what arrived (`readArrivals`), name the voices of a conversation under way or just
@@ -62,7 +62,7 @@ import { sampleResources } from "./resource-sample";
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey Life": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
-// (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: The voice server
+// (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: the voice server
 // down never stops it (1 Nov: 20 h without one). Every 30 minutes his calendar follows the appointments. Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
 let ticking = false;
@@ -265,9 +265,9 @@ const earliest = (a: Date | null, b: Date | null) =>
   a && b && b < a ? b : (a ?? b);
 
 /**
- * Pays what is owed holding the lock: The voice server units from `from` on (null: none) and the index (`reindexFor`),
+ * Pays what is owed holding the lock: the voice units from `from` on (null: none) and the index (`reindexFor`),
  * with what the index's staleness adds (`readStaleness`: a correction is searchable within the minute; a `truth/` edit
- * builds every voice server unit again); returns the instant still owed (all of it when another run held the lock).
+ * builds every voice unit again); returns the instant still owed (all of it when another run held the lock).
  */
 async function settle(
   store: Store,

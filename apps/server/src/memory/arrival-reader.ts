@@ -131,7 +131,7 @@ export function arrivalReadsDue(
 
 /**
  * The voice units the reader may read, decided once for fresh reads and pending confirms alike: those of a conversation
- * The voice server has closed (its own signals, never a timing rule of Life's) that he spoke in on any of its days, never one a
+ * the voice server has closed (its own signals, never a timing rule of Life's) that he spoke in on any of its days, never one a
  * code rule dropped, and only yesterday's and today's: an earlier day's is the night's. His own words count: what he
  * says he will do is an arrival too.
  */

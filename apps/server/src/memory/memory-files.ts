@@ -355,7 +355,7 @@ export function isCurrent(
 /**
  * Whether an observation is new since `at` (none: all are): no observation of `all` made by then cites its source line
  * (the exact message or transcript turn). A re-read (a prompt bump, a re-summarized chapter) cites the same lines, so
- * nothing in it is new; a chat-day that grew, or a voice server job transcribed again, has new lines.
+ * nothing in it is new; a chat-day that grew, or a recording transcribed again, has new lines.
  */
 export function newSince(all: Observation[], at?: string) {
   const run = at ? runId(new Date(at)) : "";

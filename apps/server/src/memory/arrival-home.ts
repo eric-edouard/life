@@ -39,7 +39,7 @@ async function homeOf(now: Date) {
 
 /**
  * While a Later waits for home (`deferredHome`, in force), keeps his newest arrival home since it in Life's state
- * (`HOME_ARRIVAL`), never his data; nothing of his is written. Never throws: The voice server unreadable leaves them to their 24 hours.
+ * (`HOME_ARRIVAL`), never his data; nothing of his is written. Never throws: the voice server unreadable leaves them to their 24 hours.
  */
 export async function recordArrivalHome(now: Date) {
   const pins = readMatterPins();

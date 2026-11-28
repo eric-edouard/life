@@ -173,7 +173,7 @@ export async function turnLines(
 
 /**
  * The lines of each voice unit among `units`, by unit id: who spoke and when from the watcher's store, the words from
- * The voice server (`turnLines`). The one way the memory steps read a recording's words.
+ * the voice server (`turnLines`). The one way the memory steps read a recording's words.
  */
 export async function spokenLines(
   units: Unit[],
@@ -416,7 +416,7 @@ function wholeConversation(id: string, from: number, limit: number) {
 }
 
 /**
- * `bun life memory fetch <id> [--from-turn n] [--limit n] [--at t] [--until t]`: the lines of a voice server conversation or
+ * `bun life memory fetch <id> [--from-turn n] [--limit n] [--at t] [--until t]`: the lines of a recorded conversation or
  * voice unit (who spoke and when from Life's store, the words from the voice server), or of a chat or mail unit (from the
  * archive), `limit` at a time. A turn ref (`<job>:<turn>@<at>`, an ask's `ref`) opens its conversation as it is now, LEAD
  * turns before the turn. `within` cuts a recording to a span (inside a unit's own): its turns that overlap it, a turn

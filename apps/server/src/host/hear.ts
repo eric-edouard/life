@@ -111,7 +111,7 @@ export function spansIn(turns: Turn[], from: string) {
 /**
  * Where a conversation's speech from `from` on stands for hearing: `complete` once its last turn is someone else's,
  * ends a recording nobody spoke after (`endedOnSilence`), or the voice server has settled the conversation (`closed`), as `isSettledAfter` has it:
- * The voice server's own signals, never a timing rule of Life's. Else `open` (the next recording may go on with it).
+ * the voice server's own signals, never a timing rule of Life's. Else `open` (the next recording may go on with it).
  */
 export function speechIn(store: Store, conversation: string, from: string) {
   const last = turnsBetween(store, conversation, from).at(-1);

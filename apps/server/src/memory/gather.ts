@@ -68,7 +68,7 @@ export async function gather(
     files?: false;
     /** How each source read is logged: `safely` every read (a processing run's), `quietly` only a failure (the watcher's). */
     log?: typeof safely;
-    /** `false`: The voice server is not read (the watcher writes the voice units; a historical month has none). */
+    /** `false`: the voice server is not read (the watcher writes the voice units; a historical month has none). */
     voice?: false;
   } = {}
 ) {
@@ -80,7 +80,7 @@ export async function gather(
     truth,
     options.log
   );
-  // The voice server's units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
+  // The voice units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
   // other source's from its events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
   const sources = readySources().filter(
     (s) => options.voice !== false || s.kind !== "voice"
@@ -195,7 +195,7 @@ export async function readSourceEvents(
 
 /**
  * The voice units from `since` on, composed once for both writers (`gather`, `syncVoiceUnits`): the conversations
- * The voice server has that end at or after it, built into conversation-days; `have`, the stored voice units they replace (of a
+ * the voice server has that end at or after it, built into conversation-days; `have`, the stored voice units they replace (of a
  * conversation read, or ending at or after `since`), read from the earliest day either begins; the frozen chapters
  * among them (`frozenUnits`).
  */

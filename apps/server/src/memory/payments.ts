@@ -138,7 +138,7 @@ async function staysOn(from: string, to: string) {
   for (let d = from; d <= to; d = daysBefore(d, -1)) {
     days.push(d);
   }
-  // One voice server read per day: its `visits` stops at 200 stays (the voice server's `location.ts`), fewer than a month holds.
+  // One read of the voice server per day: its `visits` stops at 200 stays (the voice server's `location.ts`), fewer than a month holds.
   const each = await Promise.all(
     days.map((d) => staysOf({ at: d }).catch(() => null))
   );

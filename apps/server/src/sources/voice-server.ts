@@ -231,7 +231,7 @@ export const readStore = (dir = WATCH): Store => ({
   db: openReadOnly(storeFiles(dir).file),
 });
 
-/** The newest speech turn the watcher folded in (null with no store yet): The voice server sends turns once transcribed, minutes after they were spoken. */
+/** The newest speech turn the watcher folded in (null with no store yet): the voice server sends turns once transcribed, minutes after they were spoken. */
 export const newestTurn = (dir = WATCH) =>
   existsSync(storeFiles(dir).file)
     ? withStore(
@@ -457,7 +457,7 @@ export interface VoiceTurnRow {
 /**
  * The live conversations still going at `since` or after it that have words (silent ones and the owner's dictation
  * have none), with their turns, oldest first, whatever their state (late audio can reopen one: its units stay). A
- * retired conversation is gone: its successor comes through the feed. `byId`: The voice server person id -> the name in the directory.
+ * retired conversation is gone: its successor comes through the feed. `byId`: the voice server's person id -> the name in the directory.
  */
 export function readConversations(
   store: Store,

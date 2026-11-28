@@ -734,7 +734,7 @@ test("a conversation that moves to another day leaves its old day's file; other 
   }
 });
 
-/** A stored the voice server unit of conversation `key` on 20 Oct: a chapter when it has a summary. */
+/** A stored voice unit of conversation `key` on 20 Oct: a chapter when it has a summary. */
 const storedVoice = (id: string, key: string, summary?: string): Unit => ({
   date: "2026-10-20",
   end: "2026-10-20T10:20:00.000Z",

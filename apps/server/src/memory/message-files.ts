@@ -470,7 +470,7 @@ const triedOnArrival = new Set<string>();
  * tick): nothing when none is due. Offline or with the day's limit spent, it still reads what costs no model call (a
  * document, a PDF, a voice note) and describes no image.
  * ponytail: a failed file is not retried until a restart, the night takes it within its 7 days; a backoff if that
- * matters. A voice note is the exception: The voice server busy, the next tick asks again (local, nothing paid twice).
+ * matters. A voice note is the exception: the voice server busy, the next tick asks again (local, nothing paid twice).
  */
 export async function describeFilesOnArrival(events: SourceEvent[]) {
   const { atMost, due } = filesDueOnArrival(

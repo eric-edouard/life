@@ -42,7 +42,7 @@ interface Known {
 }
 
 /**
- * The pendant on a past day Life holds nothing of, from the recorded days (null: The voice server was never asked): a day
+ * The pendant on a past day Life holds nothing of, from the recorded days (null: the voice server was never asked): a day
  * recorded on is capture, with or without speech; before the voice server can tell, or from the day it was last asked on
  * (whose later hours it has not said), nobody can tell; any other day is the pendant off or out of reach.
  */

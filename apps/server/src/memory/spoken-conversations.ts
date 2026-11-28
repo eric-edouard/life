@@ -26,7 +26,7 @@ export const isSummarised = (parts: readonly SpokenPart[]) =>
 /** A part holds at most this many characters: a longer conversation is cut at its longest silence. */
 export const CONVERSATION_PART_CHARS = 150_000;
 
-/** A recorded turn and the voice server conversation it is in (`readSpokenTurns`). */
+/** A recorded turn and the recorded conversation it is in (`readSpokenTurns`). */
 export type SpokenTurn = VoiceTurn & { conversation: string };
 
 /** The spoken conversations among `turns` that are over as of `now` (`isFinished`), oldest first. */
@@ -37,7 +37,7 @@ export const spokenConversationsOf = (turns: SpokenTurn[], now: Date) =>
 
 /** One line of a part as the voice server has it: who spoke it, which voice of its recording, and the words. */
 export interface SpokenVoice {
-  /** The voice server person id (else the name) that named it, as `authorOf`; null for him or a voice nobody named. */
+  /** The voice server's person id (else the name) that named it, as `authorOf`; null for him or a voice nobody named. */
   from: string | null;
   /** The voice's label in its recording (`voiceKey`). */
   label: string;

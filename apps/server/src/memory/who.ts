@@ -334,7 +334,7 @@ export function aboutNow(
 }
 
 /**
- * Who a voice server person id is: the id, else the name the voice server gave it (`readVoiceNames`: the directory knows the id of few
+ * Who a voice server's person id is: the id, else the name the voice server gave it (`readVoiceNames`: the directory knows the id of few
  * people), which the caller passes as `name`. The one rule.
  */
 export const voicePersonOf = (
@@ -343,7 +343,7 @@ export const voicePersonOf = (
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
-/** A queue item as a voice card reads it: The voice server's, with the voice naming's guesses (`guessed`) and the names the voice server gives its person ids (`names`), both from `withVoiceGuesses`. */
+/** A queue item as a voice card reads it: the voice server's, with the voice naming's guesses (`guessed`) and the names the voice server gives its person ids (`names`), both from `withVoiceGuesses`. */
 interface VoiceCardItem {
   guessed?: readonly string[];
   likely: readonly string[];
@@ -381,7 +381,7 @@ export function voiceSuggestionOf(
 }
 
 /**
- * The voice server person id a voice answer naming `ref` assigns ("Yes", "Someone else…"), each id read as `voicePersonOf`
+ * The voice server's person id a voice answer naming `ref` assigns ("Yes", "Someone else…"), each id read as `voicePersonOf`
  * with the name the voice server gives it: the card's own (its person, its `likely`, named in `names`) first, else the one id of
  * `elsewhere` (id → the voice server's name), never one of two; none when the voice server knows them by no such id.
  */
@@ -403,7 +403,7 @@ export function voiceIdOf(
 }
 
 /**
- * A voice card's ref: its voice server group, the recordings his answer would change (a digest of its voices) and the person
+ * A voice card's ref: its voice group, the recordings his answer would change (a digest of its voices) and the person
  * it suggests, so an answer reaches only the card he saw (`voiceSuggestionOf`): a group that grew or changed its
  * suggestion is another card.
  */

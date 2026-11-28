@@ -100,7 +100,7 @@ export function cutAt(now: Date, was: string, tz: string) {
 /**
  * Where he is now, his decision (27 Oct): the phone's latest zone, whatever its age. The phone is the source of truth (the
  * recordings go through it, and every upload brings a new one), while the Life server may run anywhere. Undefined when
- * The voice server is set up but can't be read (logged): the last zone recorded, the phone's, stands. The Mac's zone only when no
+ * the voice server is set up but can't be read (logged): the last zone recorded, the phone's, stands. The Mac's zone only when no
  * phone ever said one (the voice server not set up, or no heartbeat named a zone).
  */
 export async function readZoneHere(

@@ -80,7 +80,7 @@ export const closedConversations = (conversations: VoiceConversation[]) =>
 const size = (s: Source) => s.lines.reduce((n, l) => n + l.text.length, 0);
 
 /**
- * Whether extraction may read a unit now: all but a voice server conversation of today that is still open (its own signal,
+ * Whether extraction may read a unit now: all but a recorded conversation of today that is still open (its own signal,
  * `closed`). A chat of today is read at once; its later lines are read as new ones (`continuedFrom`).
  */
 export const isReadable = (b: Built, today: string, closed: Set<string>) =>

@@ -8,11 +8,11 @@ import { setSettings, settings } from "../core/settings";
 import { toAppleNs, toAppleS } from "./imessage";
 import { openStore } from "./voice-server";
 
-// Small stores to test the readers against: The voice server's change feed, and the Mac apps' databases the archive copies.
+// Small stores to test the readers against: the voice server's change feed, and the Mac apps' databases the archive copies.
 
 const tmp = (prefix: string) => mkdtempSync(join(tmpdir(), prefix));
 
-/** An empty the voice server store in a fresh folder. */
+/** An empty voice store in a fresh folder. */
 export const voiceStore = () => openStore(tmp("life-lifelog-"));
 
 /** A page of the voice server's change feed. */
