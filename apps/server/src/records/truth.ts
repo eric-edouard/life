@@ -24,8 +24,8 @@ const Handles = z
   .strict();
 
 /** Their person id on the voice server, under either name of the handle. */
-export const voiceHandleOf = (h: { lifelog?: string; voice?: string }) =>
-  h.voice ?? h.lifelog;
+export const voiceHandleOf = (h?: { lifelog?: string; voice?: string }) =>
+  h?.voice ?? h?.lifelog;
 
 /** His picture pick: whose picture shows for a person or an organization, Contacts' or a source's; `none`: no picture. Absent: the first they show. */
 export const PictureFrom = z.enum(["contacts", ...SourceName.options, "none"]);

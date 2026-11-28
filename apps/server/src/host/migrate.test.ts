@@ -172,7 +172,7 @@ test("the voice source step renames typed fields only, line for line: text, proj
   ]);
   // A line already new, and one with no source of the voice, stay byte for byte.
   expect(read("units/2026-10-09.jsonl").slice(1, 3)).toEqual(
-    (VOICE_FILES["units/2026-10-09.jsonl"] ?? []).slice(1, 3)
+    VOICE_FILES["units/2026-10-09.jsonl"].slice(1, 3)
   );
   expect(rows("observations/2026-10.jsonl")[0]).toEqual({
     about: "project:lifelog",
