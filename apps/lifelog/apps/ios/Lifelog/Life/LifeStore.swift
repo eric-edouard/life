@@ -338,8 +338,11 @@ final class LifeStore {
     var waitingCount: Int? { waitingRefs.map(\.count) }
 
     /// The owner's temporary variant of 27 Nov 2026: every open ask waiting on him (the thread read's answerable asks), less those he answered meanwhile.
-    var openCount: Int? {
-        items.value.map { read in read.asks.filter { $0.isAnswerable && !queued.holds($0.ref) }.count }
+    var openCount: Int? { openRefs.map(\.count) }
+
+    /// Those asks' refs, in Life's order.
+    var openRefs: [String]? {
+        items.value.map { read in read.asks.filter { $0.isAnswerable && !queued.holds($0.ref) }.map(\.ref) }
     }
 
     /// Those asks' refs, in Life's order.
