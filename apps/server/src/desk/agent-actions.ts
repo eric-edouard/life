@@ -51,7 +51,7 @@ import type { EventFilter, OpenedBy } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
-import { firstTurnOf, goalOf } from "./first-turns";
+import { firstTurnOf, goalOf, withShownGoals } from "./first-turns";
 import { FIRST_TURN_WAIT } from "./hand-out";
 import { intentionLineOf, othersOnProjectsOf } from "./packet-records";
 
@@ -721,7 +721,7 @@ export async function readPacket(
   const steps = anchorsOf(db, s.id);
   // An agent's own assignment is its project; any other, the matter its anchors find, its agent's project as context.
   const isOnProject = steps.length === 0 && a.project !== null;
-  const truth = await loadTruth();
+  const truth = withShownGoals(db, await loadTruth());
   const { book, ids, matter, situations } = await readPacketMatter(
     steps,
     a.project,

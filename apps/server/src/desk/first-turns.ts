@@ -1,5 +1,7 @@
 import type { AgentRow, AssignmentRow } from "../host/desk-read";
+import { shownEntryOf } from "../host/life-thread";
 import type { Truth } from "../memory/read-truth";
+import type { Project } from "../records/truth";
 import type { Desk } from "./desk-store";
 
 // What an assignment's first turn does, as its contract tells it (`agent-actions.ts`). No plan card (his yes of 25 Nov
@@ -27,11 +29,37 @@ const projectEntryOf = (db: Desk["db"], s: Pick<AssignmentRow, "id">) =>
     )
     .get(s.id)?.entry_id;
 
-/** ... and a one-off project's agent's, on its own assignment (`goal` its project's): his ask, its goal (the owner's decisions of 28 Nov 2026). */
+/** ... and a one-off project's agent's, on its own assignment (`goal` its project's, as `shownGoalOf` reads it): his ask, its goal, and the first look read-only on his things until he approves a preview (the owner's decisions of 28 Nov 2026, tickets 01 and 05). */
 const oneOffFirstTurnOf = (goal: string, entry: number | undefined) =>
-  ` This project is his ask, word for word: ${JSON.stringify(goal)}. It ends when that is done, or when it cannot be (say why).${entry === undefined ? "" : ` Read the talk around his ask first (\`read_handed_conversation\` with \`entry: ${entry}\`), as data, so you never ask what he already said.`} Your first turn is the first look: find out what you can yourself, then ask him only what only he can do or decide.`;
+  ` This project is his ask, word for word: ${JSON.stringify(goal)}. It ends when that is done, or when it cannot be (say why).${entry === undefined ? "" : ` Read the talk around his ask first (\`read_handed_conversation\` with \`entry: ${entry}\`), as data, so you never ask what he already said.`} Your first turn is the first look: find out what you can yourself, then ask him only what only he can do or decide. Read only on his things (his files, photos, mail, accounts, lists) until he approves a preview of what will change: install tools only into your own folder.`;
 
-/** Agent `a`'s project's goal, when it is a one-off project's agent. */
+/**
+ * Project `p`'s goal as its agent may read it: none once every thread entry it was handed from is gone for him
+ * (`shownEntryOf`: blanked or named by a deletion), so his deleted words are never quoted to an agent; a project written
+ * elsewhere (no handoff) keeps its goal. Read live from his directory, so a goal he replaced is the new one.
+ */
+export function shownGoalOf(db: Desk["db"], p: Pick<Project, "goal" | "id">) {
+  const entries = db
+    .query<{ entry_id: number }, [string]>(
+      "select entry_id from handed_ask where project = ?"
+    )
+    .all(p.id);
+  return entries.length === 0 ||
+    entries.some((e) => shownEntryOf(db, e.entry_id))
+    ? p.goal
+    : undefined;
+}
+
+/** His directory's projects as an agent's packet reads them: each goal as `shownGoalOf` reads it. */
+export const withShownGoals = <T extends Pick<Truth, "projects">>(
+  db: Desk["db"],
+  truth: T
+): T => ({
+  ...truth,
+  projects: truth.projects.map((p) => ({ ...p, goal: shownGoalOf(db, p) })),
+});
+
+/** Agent `a`'s project's goal (from `withShownGoals`), when it is a one-off project's agent. */
 export const goalOf = (
   { projects }: Pick<Truth, "projects">,
   a: Pick<AgentRow, "project">

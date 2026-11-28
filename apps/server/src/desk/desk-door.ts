@@ -52,6 +52,7 @@ import { InstructionRequest, recordInstruction } from "../memory/instructions";
 import { isToldLife } from "../memory/sources";
 import { recordToldLife, TellLife } from "../memory/told-life";
 import { AppointmentId } from "../records/appointment";
+import { slug } from "../records/fields";
 import { entryLine } from "../records/ledger-entry";
 import {
   type MainSessionAct,
@@ -81,7 +82,6 @@ import {
   askMainSession,
   assignmentRecordOf,
   changedOn,
-  handOn,
   hisWordsIn,
   keepAct,
   keepMainSession,
@@ -90,10 +90,9 @@ import {
   tellAgent,
 } from "./main-session";
 import {
-  openOneOffProject,
-  pendingPlaceOf,
   promote,
   readHandedConversation,
+  writeOneOffProject,
 } from "./one-off-projects";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
@@ -464,45 +463,40 @@ function doorServer(desk: Desk, id: string) {
     DirectoryEntryChange,
     async ({ said, ...change }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      // A new one-off project: his entry waits for its agent (`pendingPlaceOf`), registered at once; a refusal, the tick's.
-      const project =
-        change.action === "add" && change.kind === "project" && change.goal
-          ? addedIdOf(change)
-          : undefined;
-      const done = await changeDirectoryEntry({
-        ...change,
-        id: project ?? change.id,
-        said: words,
-      });
-      if (project === undefined || !turn) {
-        acted(turn, { kind: "done" });
-        return done;
+      // A new one-off project: its handoff, then the project, then its agent (`writeOneOffProject`).
+      if (
+        turn &&
+        change.action === "add" &&
+        change.kind === "project" &&
+        change.goal
+      ) {
+        const made = await writeOneOffProject(desk, turn.id, {
+          ...change,
+          id: addedIdOf(change),
+          said: words,
+        });
+        acted(
+          turn,
+          "error" in made
+            ? { kind: "done" }
+            : { agent: agentNameOf(made.agent), kind: "agent", told: words }
+        );
+        return made;
       }
-      handOn(
-        desk,
-        turn.id,
-        pendingPlaceOf(project),
-        "project",
-        clock().toISOString()
-      );
-      const opened = await openOneOffProject(desk, project);
-      acted(
-        turn,
-        "error" in opened
-          ? { kind: "done" }
-          : { agent: agentNameOf(opened.agent), kind: "agent", told: words }
-      );
-      return { done, ...opened };
+      const done = await changeDirectoryEntry({ ...change, said: words });
+      acted(turn, { kind: "done" });
+      return done;
     }
   );
   door(
     "promote",
-    'Not the main session. The work of an ask you were told (`ask`, its `ask.spoken` event\'s id) is a project: a result to shape, that he should see before it is done, or a change to many of his things; never an errand (a reply, a lookup, a booking). Life writes the project from his own words of that ask (never yours), with `name` (short, plain: "Photo library cleanup") under `area` (the closest of his areas; none fits: leave it out), and gives it to a new agent of its own, with your `notes` on that ask. Never ask him first. Then drop that ask: its agent takes it from here.',
+    'Not the main session. The work of an ask you were told (`ask`, its `ask.spoken` event\'s id) is a project: a result to shape, that he should see before it is done, or a change to many of his things; never an errand (a reply, a lookup, a booking). Life writes the project from his own words of that ask (never yours), with `name` (short, plain: "Photo library cleanup") under `area` (the closest of his areas; none fits: leave it out), its id `project` when its name gives none (a plain slug), and gives it to a new agent of its own, with your `notes` on that ask. Never ask him first. Then drop that ask: its agent takes it from here.',
     z.object({
       area: z.string().min(1).max(100).optional(),
       ask: z.string().min(1),
       name: z.string().min(1).max(60),
       notes: z.string().min(1).max(8000).optional(),
+      project: slug.optional(),
     }),
     (o, s) => promote(desk, s, o)
   );

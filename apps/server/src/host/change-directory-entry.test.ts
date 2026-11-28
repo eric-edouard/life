@@ -174,10 +174,17 @@ test("a project's status edit rewrites its status line alone, and back again", a
 // A one-off project (28 Nov 2026): its goal is his ask, word for word, within `said`; it ends done or dropped.
 test("a one-off project keeps his ask as its goal, refuses words he did not say, and ends dropped", async () => {
   const ask = "Sort out my old travel photos into albums";
+  await changeDirectoryEntry({
+    action: "add",
+    id: "trips",
+    kind: "area",
+    name: "Trips",
+    said: "Add a Trips area",
+  });
   await expect(
     changeDirectoryEntry({
       action: "add",
-      area: "work",
+      area: "trips",
       goal: "Delete every photo",
       kind: "project",
       name: "Travel photos",
@@ -186,7 +193,7 @@ test("a one-off project keeps his ask as its goal, refuses words he did not say,
   ).rejects.toThrow("word for word");
   await changeDirectoryEntry({
     action: "add",
-    area: "work",
+    area: "trips",
     goal: ask,
     kind: "project",
     name: "Travel photos",

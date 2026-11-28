@@ -39,7 +39,7 @@ import type {
 } from "../records/main-session-wire";
 import { pendingCardOf } from "./agent-actions";
 import { askAssignment, QUESTION_WAIT } from "./agent-questions";
-import { type Desk, recordHandedWork } from "./desk-store";
+import { type Desk, recordHandedAsk, recordHandedWork } from "./desk-store";
 import { blockProblemOf, stepOf } from "./main-session-lines";
 import {
   ownAssignmentOf,
@@ -674,7 +674,7 @@ export const askLifeRefOf = (turn: number, act: string, args: unknown) =>
  * (`read_spoken_ask`). Refused for an agent not active, the main session itself, or an assignment it does not hold open.
  * Its ref is made from the place they go (`askLifeRefOf` on main session turn `turn`), so the same words to the same
  * place in one ask are told once, however `to` named it. Work handed on is kept with its `kind` on his thread entry
- * (`handed_work`, for `estimateOf` and the item under way), with Life's eyes on his words.
+ * (`handed_work`, for `estimateOf` and the item under way) and the ask with it (`handed_ask`, what `promote` reads), with Life's eyes on his words.
  */
 export function tellAgent(
   desk: Desk,
@@ -698,21 +698,25 @@ export function tellAgent(
     "connector",
     "his words through Tell Life to one agent"
   );
-  handOn(desk, turn, place, kind, line.at);
+  const entry = entryOfTurn(desk, turn);
+  if (entry !== undefined) {
+    desk.db.transaction(() => {
+      recordHandedWork(desk.db, entry, place, kind, line.at);
+      recordHandedAsk(desk.db, line.id, entry);
+    })();
+    eyesOn(desk, turn);
+  }
   return { agent, ask: line.id, assignment: place, kind, state: "handed" };
 }
 
-/** Work of main session turn `turn` handed on to assignment `place` (`recordHandedWork`, on his thread entry), with Life's eyes on his words; nothing outside a turn of his words. */
-export function handOn(
-  desk: Desk,
-  turn: number,
-  place: string,
-  kind: HandedKind,
-  at: string
-) {
+/** His thread entry of main session turn `turn`; none outside a turn of his words. */
+export const entryOfTurn = (desk: Desk, turn: number) =>
+  turnsIn(desk.db).get(turn)?.entry;
+
+/** Life's eyes on his words of main session turn `turn`: work handed on from them. */
+export function eyesOn(desk: Desk, turn: number) {
   const state = turnsIn(desk.db).get(turn);
   if (state) {
-    recordHandedWork(desk.db, state.entry, place, kind, at);
     lifeReacts(desk, state.entry, EYES, state.say);
   }
 }
