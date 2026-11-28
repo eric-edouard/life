@@ -29,6 +29,13 @@ afterEach(() => {
 });
 
 const NEEDS: Record<(typeof NEED_KINDS)[number], Need> = {
+  access: {
+    kind: "access",
+    steps: [
+      { check: "photos", text: "Allow Life to see your photos" },
+      { check: "disk_free", freeGb: 20, text: "Free 20 GB" },
+    ],
+  },
   account: {
     bank: "Kasikornbank",
     holder: "Blue Reef Diving Co., Ltd.",

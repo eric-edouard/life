@@ -287,7 +287,7 @@ outside the lock, schemaVersion 3, by `kind`:
   `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read),
   `plan` and `gathered` (on any card, optional: the steps after his yes, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; plan cards before 25 Nov 2026 have options `start` and `decline`). `ask`, `recommended`, `follow` (every agent's card since 25 Nov 2026: its imperative line, the recommended option's id, up to three next asks in his voice), `edits` (a draft's quick changes), `changed` (what changed on a subject asked again unanswered), `instructions` (the ids of his instructions in force when asked); cards before them have none, which is true of them. A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
-  `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
+  `amount`; an access card's one is `access`, `{steps: [{text, check, freeGb?}]}`), `doneSeenBy` (`payment`, `access` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
@@ -312,7 +312,7 @@ outside the lock, schemaVersion 3, by `kind`:
 - `answer-withdrawn` (`withdrawAnswer`, his Undo through `answer_check`): `id`, `at`, `unsent` (the sent message Life
   deleted for everyone first). It voids his answer as `not sent:` does: the card is open again.
 - `rated` (`rateDecision`): `id`, `at`, `mark` (`bad`, `okay`, `good`), his "How am I doing?"; the latest stands.
-- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, or `not_found`, with `error`
+- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, `access:<card id>` on an access card, or `not_found`, with `error`
   when the look failed), Life's outcome of looking for the card's step done, never his answer. A `not_found` voids the
   answer it follows: the card is open again. A `seen` settles the card even with no answer of his. A look with no outcome
   30 seconds past his answer (and a minute's grace) never finished: worked out when read as a `not_found`, and written
@@ -737,6 +737,13 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 `episode_people` (episode, person as of today, the day file holding that line), so a person's read opens only their
 episodes' day files (`readEpisodesWith`, `memory/person-episodes.ts`). Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|checks|chats|places` (read-only).
+
+## The Mac's access statuses (not in memory/)
+
+`LIFE_STATE_DIR/access-statuses.json`: `{statuses: {accessibility, calendars, contacts, full_disk_access, photos}, freeGb}`,
+each status `done`, `missing` or `refused`, as Life.app's helper last read them (`host/mac-access.ts`'s `readAccessNow`,
+on the watcher's minute while an access card is open, and on his "I'm at my Mac"). Rewritten whole when it changes, never
+migrated: machine state, from which an access card's steps are worked out when read (`memory/access.ts`).
 
 ## The desk's store (not in memory/)
 

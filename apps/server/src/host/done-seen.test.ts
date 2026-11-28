@@ -4,11 +4,10 @@ import { DAY, iso } from "../core/clock";
 import { setSettings } from "../core/settings";
 import { CARD, CARD_SELF_CHECK } from "../memory/card-request";
 import type { InboxCheck } from "../memory/checks";
-import { DECISIONS } from "../memory/decision-lines";
+import { DECISIONS, doneSeenByOf } from "../memory/decision-lines";
 import {
   answerDecision,
   decisionsNow,
-  doneSeenByOf,
   requestDecision,
 } from "../memory/decisions";
 import { needsShownOf } from "../memory/needs";
@@ -367,7 +366,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
     transfer({ needs: [{ currency: "baht", kind: "amount", value: 4500 }] })
   ).rejects.toThrow('Read fetch("ask/amount")');
   await expect(transfer({ needs: [{ kind: "iban" }] })).rejects.toThrow(
-    "Expected 'account' | 'amount' | 'apify' | 'app' | 'event' | 'link' | 'place' | 'text' | 'qr'"
+    "Expected 'access' | 'account' | 'amount' | 'apify' | 'app' | 'event' | 'link' | 'place' | 'text' | 'qr'"
   );
   await expect(
     transfer({ needs: [{ kind: "link", url: "shopapp://pay/1" }] })
@@ -397,7 +396,7 @@ test("a card's parts are checked when asked, each refusal pointing at its page; 
 });
 
 test("the card's rules are short and each part's are a fetch away", async () => {
-  expect(CARD.length - CARD_SELF_CHECK.length).toBeLessThan(1600);
+  expect(CARD.length - CARD_SELF_CHECK.length).toBeLessThan(1650);
   expect(CARD_SELF_CHECK.length).toBeLessThan(1000);
   const page = await openById("ask/payment", undefined, undefined, () =>
     Promise.resolve("")

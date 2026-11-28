@@ -1,10 +1,12 @@
 import { join } from "node:path";
 import { z } from "zod";
+import { payments } from "../payments/backend";
 import { isoDateTime } from "../records/fields";
+import { macHelperPath } from "./access";
 import { Ask } from "./card-request";
 import { StoredDraft } from "./draft";
 import { MEMORY } from "./memory-files";
-import { amountOf, type Need } from "./needs";
+import { accessOf, amountOf, type Need } from "./needs";
 
 // The decisions' stored lines (`decisions.jsonl`, `decisions.ts` reads and writes them) and a decision as read: one
 // `asked` line and the lines after it, each kind's shape here.
@@ -269,6 +271,16 @@ export function doneSeenShownOf(l?: DoneSeen, needs?: readonly Need[]) {
   if (!l) {
     return null;
   }
+  if (accessOf(needs)) {
+    const asked = l.error
+      ? `Life could not ask on your Mac: ${l.error}`
+      : "Asked on your Mac";
+    return {
+      line:
+        l.state === "seen" ? "Done: Life sees every step on your Mac" : asked,
+      state: l.state,
+    };
+  }
   const notFound = l.error
     ? `Life could not look in your accounts: ${l.error}`
     : "Not in your accounts yet";
@@ -281,3 +293,17 @@ export function doneSeenShownOf(l?: DoneSeen, needs?: readonly Need[]) {
     state: l.state,
   };
 }
+
+/** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), `access` while Life.app's helper is there to check the Mac, else `tap`. */
+export const doneSeenByOf = (
+  d: Pick<Decision, "doneSeenBy" | "needs">
+): "access" | "payment" | "tap" =>
+  (d.doneSeenBy === "payment" &&
+    payments() &&
+    amountOf(d.needs) &&
+    "payment") ||
+  (d.doneSeenBy === "access" &&
+    macHelperPath() &&
+    accessOf(d.needs) &&
+    "access") ||
+  "tap";
