@@ -100,34 +100,45 @@ test("room: caps add up within the month, oldest first; one that does not fit wa
   expect([...projectsWithoutRoomOf(cents, 0.3)]).toEqual([]);
 });
 
-test("a capped project's stop counts all its agents' work against its cap; a project with no cap keeps the per-assignment 2%", async () => {
-  const t = setup();
-  setSettings({ budget: { monthlyUsd: 100 } });
-  const agents = ["first", "second"].map((n) =>
-    register(t.desk, {
-      brief: `Test: the ${n} agent on the made-up bakery site`,
+/** Made-up project `project`'s agents, each with a turn: the ones in `ended` billed `usd` and ended, the others running. */
+const agentsOn = (
+  t: ReturnType<typeof setup>,
+  project: string,
+  names: string[],
+  ended: { usd: number; who: string[] } = { usd: 0, who: [] }
+) =>
+  names.map((n) => {
+    const id = register(t.desk, {
+      brief: `Test: the ${n} agent on ${project}`,
       folder: t.dir,
-      project: "test-bakery",
+      project,
       runtime: "fake",
-    })
-  );
-  // 1.5 dollars billed on each agent's own assignment; the second one's turn still runs.
-  for (const [i, id] of agents.entries()) {
+    });
+    const isEnded = ended.who.includes(n);
     t.desk.db.run(
-      `insert into turn (agent_id, assignment_id, cause, started_at, cost_usd${i === 0 ? ", ended_at" : ""}) values (?, ?, 'first turn', ?, 1.5${i === 0 ? ", ?" : ""})`,
+      "insert into turn (agent_id, assignment_id, cause, started_at, cost_usd, ended_at) values (?, ?, 'first turn', ?, ?, ?)",
       [
         id,
         on(t.desk, id).id,
         clock().toISOString(),
-        ...(i === 0 ? [clock().toISOString()] : []),
+        isEnded ? ended.usd : null,
+        isEnded ? clock().toISOString() : null,
       ]
     );
-  }
-  const second = agents[1] ?? "";
-  // No cap: 2% of 100 is 2, and this assignment alone is at 1.5 + 0.4.
-  expect(await spendingStopInTurn(t.desk, second, 0.4)).toBeNull();
+    return id;
+  });
+
+test("a capped project's stop counts all its agents' work against its cap, running turns' live cost too; a project with no cap keeps the per-assignment 2%", async () => {
+  const t = setup();
+  setSettings({ budget: { monthlyUsd: 100 } });
+  const [, second = ""] = agentsOn(t, "test-bakery", ["first", "second"], {
+    usd: 1.5,
+    who: ["first"],
+  });
+  // No cap: 2% of 100 is 2, and the second's running turn alone is at 1.9.
+  expect(await spendingStopInTurn(t.desk, second, 1.9)).toBeNull();
   cap("test-bakery", "3 dollars");
-  // A matter it was handed still answers to the project's cap, a budget of its own included.
+  // A matter it was handed with a budget above the cap still stops at the cap.
   recordInstruction({
     effect: "budget",
     said: "up to 50 dollars on the order",
@@ -138,9 +149,53 @@ test("a capped project's stop counts all its agents' work against its cap; a pro
     "update assignment set matter_id = 'matter_aaaaaaaaaaaa' where id = ?",
     [on(t.desk, second).id]
   );
-  expect(await spendingStopInTurn(t.desk, second, 0.4)).toContain(
+  expect(await spendingStopInTurn(t.desk, second, 1.6)).toContain(
     "past its spending stop of 3.00"
   );
+});
+
+test("a matter's own budget lower than its project's cap stops it at the lower", async () => {
+  const t = setup();
+  setSettings({ budget: { monthlyUsd: 100 } });
+  const [id = ""] = agentsOn(t, "test-kiosk", ["only"]);
+  cap("test-kiosk", "30 dollars");
+  recordInstruction({
+    effect: "budget",
+    said: "up to 1 dollar on the sign",
+    scope: "matter:matter_bbbbbbbbbbbb",
+    text: "up to 1 dollar",
+  });
+  t.desk.db.run(
+    "update assignment set matter_id = 'matter_bbbbbbbbbbbb' where id = ?",
+    [on(t.desk, id).id]
+  );
+  expect(await spendingStopInTurn(t.desk, id, 0.5)).toBeNull();
+  expect(await spendingStopInTurn(t.desk, id, 1.2)).toContain(
+    "past its spending stop of 1.00"
+  );
+});
+
+test("sibling turns on a capped project count each other's live cost: together they stop at the cap, and once one asked him the other ends asking nothing", async () => {
+  const t = setup();
+  setSettings({ budget: { monthlyUsd: 100 } });
+  const [a = "", b = ""] = agentsOn(t, "test-mural", ["a", "b"]);
+  cap("test-mural", "3 dollars");
+  expect(await spendingStopInTurn(t.desk, a, 1.6)).toBeNull();
+  expect(await spendingStopInTurn(t.desk, b, 1.6)).toContain(
+    "past its spending stop of 3.00"
+  );
+  // The project waits on his answer: the other running turn is told to end with no card of its own.
+  expect(await spendingStopInTurn(t.desk, a, 1.7)).toContain("ask no card");
+  // His answer, on either agent, is the project's: one more cap for both.
+  t.desk.db.run(
+    "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, 'answer', ?)",
+    [a, on(t.desk, a).id, clock().toISOString()]
+  );
+  t.desk.db.run(
+    "update turn set ended_at = ? where ended_at is null and cause = 'first turn'",
+    [clock().toISOString()]
+  );
+  expect(await spendingStopInTurn(t.desk, a, 1)).toBeNull();
 });
 
 test("a project whose cap does not fit in the month waits, its quiet line saying so; the one before it starts", async () => {
