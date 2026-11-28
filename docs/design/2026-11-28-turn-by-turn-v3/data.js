@@ -20,6 +20,10 @@ window.DATA=(function(){
     draft:'Yes please, four at 8. See you Saturday!',send:'Send to Jade',sent:'Sent to Jade · 9:42'},1100);
   var bill=item({who:'€',t:'Pay the electricity bill',sub:'€84',when:'Fri',why:'The bill came by mail this morning.',act:'I paid it',doing:'Recording…',ok:'Recorded'},900);
   var bank=item({who:'B',t:'Call the bank',sub:'Confirm your new card',when:'this week',why:'The card came yesterday; they confirm it by phone only.',act:'Done',doing:'Recording…',ok:'Recorded'},900);
+  /* "Tell Ben…"'s draft, to the Ben named as given */
+  function ben(name){return item({t:'Tell '+name,to:name,app:'wa',edits:['Warmer','Shorter'],
+    chat:[{who:name,t:'I’ll be downstairs at 17:30 for the viewing',at:'8:50'}],
+    draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to '+name+' · 9:42'},1100);}
   var lease=item({who:'N',t:'Sign the lease renewal',sub:'Nest Homes',when:'Mon',why:'They need it back signed by Monday.',act:'Signed',doing:'Recording…',ok:'Recorded'},900);
   return {
     now:{day:'Wednesday 27 Nov',time:'9:41'},
@@ -37,14 +41,17 @@ window.DATA=(function(){
       /* held to talk in the app: his words show in the field as he speaks (real, with dictation on instant) */
       jade:{ask:'Did Jade answer?',how:'voice',first:3000,
         steps:[{t:'Looking up Jade',ms:1200},{t:'Reading Jade’s chat',ms:1600},{t:'Reading what waits on you',ms:1200}],
-        answer:{lead:'Yes, Jade answered at 9:12. Here’s what she said.',card:jade}},
+        answer:{lead:'Yes, Jade answered at 9:12. Here’s what she said.',card:jade,
+          /* the judge's fix: the draft it replaces stays, faded, with why */
+          older:{draft:'Count me in! Book Mirabelle for 8.',why:'Jade wrote since'}}},
       /* he asks to send: one full turn of the main session ("Preparing an ask"), then its card, with no lead line;
          never sent on his words alone */
       tell:{ask:'Tell Ben I’ll be 10 minutes late',how:'typed',first:3000,
         steps:[{t:'Looking up Ben',ms:1300},{t:'Reading Ben’s chat',ms:1500},{t:'Preparing an ask',ms:2400}],
-        answer:{card:item({t:'Tell Ben',to:'Ben',app:'wa',edits:['Warmer','Shorter'],
-          chat:[{who:'Ben',t:'I’ll be downstairs at 17:30 for the viewing',at:'8:50'}],
-          draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to Ben · 9:42'},1100)}}},
+        answer:{card:ben('Ben'),
+          /* the judge's fixes (index.html, "Judge's fixes"): a headline naming which Ben, and first the choice of two Bens */
+          lead:'Here’s your message to Ben Carter.',which:'Which Ben?',
+          bens:[{t:'Ben Carter',f:'BC',s:'WhatsApp · the viewing'},{t:'Ben Okafor',f:'BO',s:'LINE · last week'}],named:ben('Ben Carter')}}},
     /* while he is in the app, idle: an agent's card, delivered by the gate, comes into the thread from the inbox,
        quietly (no sound, no sheet), led by one line of why; `arriveMs` is when it shows in the scene */
     arrives:{arriveMs:3000,why:'Sam just texted that Café Dalon is closed today. Here’s your draft.',
@@ -68,7 +75,10 @@ window.DATA=(function(){
     /* a read fails: the turn goes on, and the answer says so plainly (no retry promised: the session has no timer) */
     failure:{ask:'Did the landlord reply about the deposit?',how:'typed',first:3000,
       steps:[{t:'Searching for “deposit”',ms:1500},{t:'Reading your mail',ms:2200,fails:true},{t:'Reading your chats',ms:1300}],
-      error:{t:'I couldn’t read your mail just now, so I can’t say. Nothing from him in your chats since Monday.'}},
+      error:{t:'I couldn’t read your mail just now, so I can’t say. Nothing from him in your chats since Monday.'},
+      /* the judge's fix: the useful line first, then what Life can still do (a tap puts it in the field) */
+      fixed:{lead:'Nothing from the landlord in your chats since Monday.',line:'I couldn’t read your mail just now, so he may have written there.',
+        can:['Ask the landlord about the deposit','Look in my mail again']}},
     /* "hey Life" from the pendant, phone locked: nothing shows while he speaks; `heardMs` stands for the real minute
        (median 77 s) before the ask reaches Life; the push is replaced by `done` when the answer is ready */
     heyLife:{said:'Hey Life, what time is the viewing?',ask:'What time is the viewing?',heardMs:4000,heardAt:'9:43',answerMs:7500,
