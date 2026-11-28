@@ -1,7 +1,8 @@
 # Sources of truth
 
-What any person or agent reads before designing a screen or building a component, in this order. An earlier source wins
-over a later one; within one, the newest dated line wins. Every design or component brief names this page (`AGENTS.md`,
+What any person or agent reads before designing a screen or building a component, in this order. On what a screen should
+be, an earlier source wins over a later one, and within one the newest dated line wins; what the system really does
+(6, 7) bounds what can be built, so a design it can't carry proposes the change, marked "new block". Every design or component brief names this page (`AGENTS.md`,
 Workflow); nothing else is put in front of an agent on its own.
 
 ## What it must follow
