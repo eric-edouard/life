@@ -11,11 +11,18 @@ import {
 } from "@life/server/src/core/pinned";
 import { execOk } from "@life/server/src/core/proc";
 import { buildHost } from "../apps/lifelog/apps/server/scripts/build-host";
+import {
+  bundleBridges,
+  bundledNotice,
+  bundleGit,
+  bundleGog,
+} from "./bundled-tools";
 
 // Life.app, assembled: the menu-bar app (apps/mac/, Swift) as its executable, the helper (scripts/helper.ts) in
 // Contents/Helpers with its files in Contents/Resources/life, and what voice's launchd jobs run (`host/voice.ts`): its
 // server, the Mac helper, restic and uv in Contents/Helpers, speaker recognition's files and the embedder's model in
-// Contents/Resources, llama.cpp's server shared with the describer, the pinned codex the helper's own. Signed: with `LIFE_SIGN_IDENTITY` (an Apple-issued
+// Contents/Resources, llama.cpp's server shared with the describer, the pinned codex the helper's own, git and gog in
+// Helpers/tools/bin and the messaging bridges in Helpers/bridges (`scripts/bundled-tools.ts`). Signed: with `LIFE_SIGN_IDENTITY` (an Apple-issued
 // certificate, Apple Development or Developer ID, by hash or name, from `.env`) under the hardened runtime, which
 // loads Sparkle only from the same team (so no self-signed one), else ad hoc. An ad hoc app is a new app to macOS at each build, so
 // it loses its Keychain items and Full Disk Access; one certificate keeps them (a Developer ID for a release).
@@ -34,6 +41,8 @@ const hardened =
   identity === "-" ? [] : ["--options", "runtime", "--timestamp"];
 const run = (cmd: string[], cwd = ROOT) =>
   execOk(cmd, { cwd, timeout: 900_000 });
+const sign = (file: string) =>
+  run(["codesign", "--force", "--sign", identity, ...hardened, file]);
 
 /** Sparkle, pinned: its release for Swift packages, checked against this checksum before it is unpacked. */
 const SPARKLE = {
@@ -127,7 +136,7 @@ await bundleLlama(
   join(contents, "Helpers", "llama"),
   join(contents, "Resources", "llama.cpp-LICENSE"),
   out,
-  (file) => run(["codesign", "--force", "--sign", identity, ...hardened, file])
+  sign
 );
 
 // Voice: its server (one Bun binary, its licenses to Resources: Helpers holds only code), the Mac helper (Swift),
@@ -198,6 +207,18 @@ for (const f of ["app.py", "pyproject.toml", "uv.lock"]) {
     join(resources, "identity", f)
   );
 }
+
+// git and gog on one PATH folder, the bridges built for this chip, and where their sources are.
+const tools = join(helpers, "tools");
+const toolsCache = join(LIFELOG, ".build", "host-downloads");
+await bundleGit(tools, toolsCache, sign);
+await bundleGog(tools, toolsCache, sign);
+await bundleBridges(
+  join(helpers, "bridges"),
+  join(toolsCache, "bridges-src"),
+  sign
+);
+await writeFile(join(resources, "bundled-tools-NOTICE"), bundledNotice());
 
 const helper = join(out, "helper");
 await run(["bun", join(ROOT, "scripts", "helper.ts"), helper]);
@@ -299,14 +320,7 @@ await run([
 ]);
 for (const tool of ["life-foundation-model", "lifelog-quiet", "restic", "uv"]) {
   // biome-ignore lint/performance/noAwaitInLoops: signing order matters
-  await run([
-    "codesign",
-    "--force",
-    "--sign",
-    identity,
-    ...hardened,
-    join(helpers, tool),
-  ]);
+  await sign(join(helpers, tool));
 }
 // Sparkle's parts, inside out (no --deep): its Autoupdate tool and Updater.app, then the framework.
 for (const part of [
@@ -315,7 +329,7 @@ for (const part of [
   framework,
 ]) {
   // biome-ignore lint/performance/noAwaitInLoops: signing order matters
-  await run(["codesign", "--force", "--sign", identity, ...hardened, part]);
+  await sign(part);
 }
 await run([
   "codesign",
