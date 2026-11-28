@@ -66,7 +66,7 @@ His yes, 18 Nov 2026. The desk (`apps/server/src/desk/`, off until his `desk` se
   by the send guard (`desk/send-guard.ts`, `pi-extension.ts`, `readCodexGuardTrust`): no send outside a card's draft,
   none of his connector's writes (`CONNECTOR_WRITES`) but at the `desk` door. No agent starts without it.
 - A second Life's agent (`isOwnLife` false) gets its door alone: none of his settings, tools or environment
-  (`Row.onlyDoorPrefix`, `runtime-rows.ts`), never in his Claude or Codex app.
+  (`Row.onlyDoorPrefix`, `runtime-rows.ts`), never in his Claude or Codex app; a Codex one runs in Life's own Codex home.
 - The brief's one gate: nothing outward in his name without his yes on the exact thing, asked as a decision. No plan
   card (25 Nov 2026): an agent asks only what is his, and may `finish` or `set_wait` with none (`desk/first-turns.ts`).
 - A handed-out assignment that neither asked nor waits in two hours closes (`isCardOverdue`). A turn holding the main

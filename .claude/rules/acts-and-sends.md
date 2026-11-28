@@ -58,7 +58,7 @@ Models return JSON that zod validates; every quote is checked against its source
 
 His decision of 18 Nov 2026: exactly as shown, on his answer to its outgoing option, into the one chat named, once.
 
-- Through Life's own bridges (a new 1:1 WhatsApp chat by its number), Messages.app for iMessage, `gog gmail send` for
+- Through Life's own bridges (a new 1:1 WhatsApp chat by its number), Messages.app for iMessage (no reply, reaction or mention), `gog gmail send` for
   mail (`sources/gmail.ts`; never reply-all, a quote, a signature or tracking), or `gh` on a repo in `githubRepos`
   (text only; 19 Nov 2026).
 - A draft is text, one file or a reaction, with its reply target and mentions (`memory/draft.ts`). The chat is resolved

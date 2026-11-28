@@ -46,7 +46,7 @@ removed), `appointments.json` (whole), and a migration's backfill.
 - Its one door is `deleteFromMemory` (his token, the main session on his words, `bun life memory delete`): a preview,
   then the write only on its digest.
 - Copies outside `memory/` are hidden at read: his instructions (`instructionsFor`) and the Life thread's entries
-  (`readThread`, blanked by `desk/thread-deletions.ts`; an answer never writes back onto one).
+  (listed in the delete preview but outside its digest; `readThread`, blanked by `desk/thread-deletions.ts`; an answer never writes back onto one).
 - The words stay in their sources, backups and git history; no code purges them (`SECURITY.md`).
 
 ## lifelog's chapter units stay as stored
@@ -58,8 +58,8 @@ goes only with its conversation (`frozenUnits`, `units.ts`).
 
 - Renaming anything stored (field, enum value, id, file, a unit id's recipe) or adding a field ships one migration in
   `host/migrate.ts` (each step removed once run on his data), with his OK on the list. The app runs it at its next
-  start, under the lock, before anything appends; never by hand or from a worktree (a checkout only on a copy).
-- It keeps each file's line count and order, writes it whole (`writeWhole`), commits in the data repo; then the code
+  start, under the lock, before anything appends (the lock-free appenders never wait on it); never by hand or from a worktree (a checkout only on a copy).
+- It keeps each file's line count and order, writes it whole (`writeWhole`, never in place), commits in the data repo; then the code
   reads only the new name, no alias. `truth/` and the archive are never migrated.
 - A renamed value the models return keeps its prompt's version; cached outputs are backfilled.
 - Not a rename: a new recipe for new units only. A migration may drop lines of a day's episode file.
