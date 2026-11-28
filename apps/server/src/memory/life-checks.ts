@@ -245,6 +245,10 @@ export interface Check {
   head?: { name: string; network: string } | null;
   /** An agent's card the gate read as high stakes (its `delivered` line's readings): first among cards of the same deadline; absent on every other. */
   importance?: "high";
+  /** A your move card's: whether it blocks him (`askOfStep`); absent on every other kind. */
+  isBlocking?: boolean;
+  /** A your move card's: whether its step is on its matter's page only, not in his inbox (`askOfStep`); absent on every other kind. */
+  isHidden?: boolean;
   /** Whether a decision is a plan card: it gives `plan`, its steps; absent on every other kind. */
   isPlan?: boolean;
   kind: CheckKind;

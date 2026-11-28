@@ -11,6 +11,7 @@ import {
 import { instructionsFor } from "./instructions";
 import { matterEndOf } from "./matter-end";
 import { iconNow, readLifeIcons } from "./matter-icons";
+import { dismissedIdsOf } from "./matter-pins";
 import {
   directionDueOf,
   isRunning,
@@ -379,20 +380,12 @@ export const isParkedMatterOf = (truth: Pick<People["truth"], "projects">) => {
 
 const ids = (list: readonly { id: string }[]) => new Set(list.map((v) => v.id));
 
-/** The ids of the matters of `book` he dismissed as new matter checks, each found by the steps it was pinned to (`pins`). Over the whole book, so the hand-out, the new matter check and the report agree. */
-export const dismissedIdsOf = (
-  book: readonly { id: string; steps: readonly { ref: string }[] }[],
-  pins: readonly (readonly string[])[]
-) => {
-  const find = matterFinderOf(book);
-  return new Set(pins.flatMap((p) => find(p)?.id ?? []));
-};
-
 /** Why a running matter is not handed out, the first gate it fails, in this order (`handOutGateOf`). */
 export type HandOutGate =
   | "not_do"
   | "project_parked"
   | "hands_off"
+  | "handled_elsewhere"
   | "direction_due"
   | "dismissed"
   | "held"
@@ -410,6 +403,8 @@ export interface HandOutFacts {
   decisions: Parameters<typeof nextStepNow>[1];
   dismissed: ReadonlySet<string>;
   isDue: (id: string) => boolean;
+  /** Whether the matter's step is his own work done elsewhere or someone else's, or his words say not to ask it: its card is hidden (`askOfStep`; absent or no reading: no). */
+  isHandledElsewhere?: (id: string) => boolean;
   /** Whether his `hands-off` instruction holds on the matter's project: Life helps there only when asked (absent: none). */
   isHandsOff?: (id: string) => boolean;
   isHeld: (v: HandOutMatter) => AgentHold | undefined;
@@ -419,7 +414,8 @@ export interface HandOutFacts {
 
 /**
  * The first gate a running matter fails for the hand-out, or null when it passes every one: its next step is not `do`
- * as it reads now (`nextStepNow`), its project is parked or hands off (his `hands-off` instruction), its direction is due (news may have overtaken it), he
+ * as it reads now (`nextStepNow`), its project is parked or hands off (his `hands-off` instruction), its step is handled
+ * elsewhere (its card hidden, `askOfStep`), its direction is due (news may have overtaken it), he
  * dismissed it, an agent holds it, it is not one of his (`isOneOfHis`, so a stranger's matter reads "not his"), no
  * agent takes it (`agentFor`: no agent of its project and no Personal agent). The one rule of the hand-out, the new
  * matter check and the report's agent coverage. Pure.
@@ -436,6 +432,9 @@ export function handOutGateOf(
   }
   if (f.isHandsOff?.(v.id)) {
     return "hands_off";
+  }
+  if (f.isHandledElsewhere?.(v.id)) {
+    return "handled_elsewhere";
   }
   if (f.isDue(v.id)) {
     return "direction_due";
@@ -501,7 +500,10 @@ export async function readHandOutMatters(
   return {
     facts: {
       decisions,
-      dismissed: dismissedIdsOf(book, readDismissedMatterPins()),
+      dismissed: dismissedIdsOf(
+        matterFinderOf(book),
+        readDismissedMatterPins()
+      ),
       isDue: directionDueOf(book, records, dayNow()),
       isHandsOff: (id: string) => offIds.has(id),
       isHis: (id: string) => his.has(id),
@@ -625,7 +627,7 @@ export function newMatterOffersOf(c: {
 }) {
   const facts = {
     decisions: c.decisions,
-    dismissed: dismissedIdsOf(c.matters, c.dismissed),
+    dismissed: dismissedIdsOf(matterFinderOf(c.matters), c.dismissed),
     isDue: c.isDirectionDue,
     isHeld: isHeldOf(c.heldByAgents ?? []),
     isHis: () => true,

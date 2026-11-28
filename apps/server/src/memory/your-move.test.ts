@@ -5,9 +5,10 @@ import {
   blockingCountOf,
   inboxOf,
   inboxOrderOf,
+  isInboxCheck,
   urgencyOf,
 } from "./check-urgency";
-import { checksOf, type InboxCheck } from "./checks";
+import { checksOf, checksOnMatterOf, type InboxCheck } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import type { Check } from "./life-checks";
 import { Need, needsShownOf } from "./needs";
@@ -215,6 +216,59 @@ test("a to-do item open in his list is his move, like his own task", () => {
   ).toMatchObject([{ question: item.text, subject: item.ref }]);
 });
 
+// Card sort (his words of 28 Nov 2026), regression cases with made-up matters: his own code work is on its matter's
+// page only, with no Start; a promise beside it is what the card asks; with no reading a due day alone blocks.
+const REFACTOR = {
+  ...OWN,
+  at: "2026-10-22T09:00:00.000Z",
+  ref: "obs_000000000086",
+  text: "Refactor the invoice exporter",
+};
+const PROMISE = {
+  ...OWN,
+  kind: "promise" as const,
+  ref: "obs_000000000087",
+  text: "Send Dana the fence measurements",
+  with: "person:dana",
+};
+const elsewhere = {
+  stepReadingsOf: (_: string, step: { ref: string }) =>
+    step.ref === REFACTOR.ref
+      ? {
+          by: null,
+          handledBy: "owner_elsewhere" as const,
+          money: "none" as const,
+          urgency: "normal" as const,
+        }
+      : undefined,
+};
+
+test("card sort: his own refactor is on its matter's page only, with no Start; a promise on the same matter is what its card asks", () => {
+  const solo = { matters: [{ ...MATTER, openSteps: [REFACTOR, WAIT] }] };
+  const [card] = moves({ ...solo, ...elsewhere });
+  expect(card).toMatchObject({ isHidden: true, subject: REFACTOR.ref });
+  expect(isInboxCheck(card as Check)).toBe(false);
+  expect(checksOnMatterOf([card as Check], MATTER.id)).toHaveLength(1);
+  expect(idsOf(card)).toEqual(["done", "not-now", "drop"]);
+  const [both] = moves({
+    ...elsewhere,
+    matters: [{ ...MATTER, openSteps: [REFACTOR, PROMISE, WAIT] }],
+  });
+  expect(both).toMatchObject({ isHidden: false, subject: PROMISE.ref });
+  // No reading yet: as before, asked.
+  expect(moves(solo)[0]).toMatchObject({ isHidden: false });
+});
+
+test("card sort: with no reading, a step due within 3 days blocks; one due later does not", () => {
+  const due = (when: string) =>
+    moves({
+      matters: [{ ...MATTER, openSteps: [{ ...OWN, when }] }],
+      today: "2026-11-28",
+    }).map((c) => urgencyOf(c));
+  expect(due("2026-12-01")).toEqual(["blocks"]);
+  expect(due("2026-12-02")).toEqual(["improves"]);
+});
+
 test("a card due today counts in deadlinesToday on its day", () => {
   setSystemTime(new Date("2026-11-18T05:00:00.000Z"));
   try {
@@ -254,7 +308,7 @@ test("an app need takes an https link only, and its line names the app", () => {
   ).toBe("In Grab");
 });
 
-test("your move takes its place among every ask by deadline, then importance, then the longest waiting (no ranks by kind); the badge counts it when due within 3 days", () => {
+test("your move takes its place among every ask by deadline, then importance, then the longest waiting (no ranks by kind); the badge counts it when it blocks", () => {
   setSystemTime(new Date("2026-11-28T05:00:00.000Z"));
   const card = (
     ref: string,
@@ -281,10 +335,13 @@ test("your move takes its place among every ask by deadline, then importance, th
       deadline: "2026-12-30T16:59:59.999Z",
       important: true,
     }),
-    card("move-due", "your move", {
-      deadline: "2026-11-30T16:59:59.999Z",
-      matter: "matter_shared",
-    }),
+    {
+      ...card("move-due", "your move", {
+        deadline: "2026-11-30T16:59:59.999Z",
+        matter: "matter_shared",
+      }),
+      isBlocking: true,
+    },
     card("guess", "guessed person"),
     card("decision", "decision"),
     // A name on the same important matter as a dated move: the move never rides ahead of the decision with it.

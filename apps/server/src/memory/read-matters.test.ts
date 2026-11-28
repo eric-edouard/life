@@ -2,8 +2,9 @@ import { expect, spyOn, test } from "bun:test";
 import { INFERRED_PREFIX } from "../records/observation";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as icons from "./matter-icons";
+import { dismissedIdsOf } from "./matter-pins";
+import { matterFinderOf } from "./matter-read";
 import {
-  dismissedIdsOf,
   type HandOutFacts,
   type HandOutMatter,
   handOutGateOf,
@@ -325,6 +326,18 @@ test("a matter that passes every gate has none", () => {
   expect(gate({})).toBeNull();
 });
 
+// Card sort (28 Nov 2026): his own work done elsewhere, or someone else's, is never handed to an agent; no reading, no gate.
+test("a matter whose step is handled elsewhere is not handed out, after a hands-off project and before a due direction", () => {
+  expect(gate({ isHandledElsewhere: () => true })).toBe("handled_elsewhere");
+  expect(gate({ isHandledElsewhere: () => true, isHandsOff: () => true })).toBe(
+    "hands_off"
+  );
+  expect(gate({ isDue: () => true, isHandledElsewhere: () => true })).toBe(
+    "handled_elsewhere"
+  );
+  expect(gate({ isHandledElsewhere: () => false })).toBeNull();
+});
+
 test("each gate names itself, in order: not_do, project_parked, direction_due, dismissed, held, not_his, no_agent", () => {
   const all = {
     dismissed: new Set(["m1"]),
@@ -360,7 +373,9 @@ test("each gate names itself, in order: not_do, project_parked, direction_due, d
 
 test("the dismissed ones are found over the whole book, by the steps they were pinned to", () => {
   const book = [matterOf("m1"), matterOf("m2")];
-  expect([...dismissedIdsOf(book, [["obs_m2"], ["obs_gone"]])]).toEqual(["m2"]);
+  expect([
+    ...dismissedIdsOf(matterFinderOf(book), [["obs_m2"], ["obs_gone"]]),
+  ]).toEqual(["m2"]);
 });
 
 test("a matter is parked when it has projects and none is underway; one with no project, or one underway, is not", () => {

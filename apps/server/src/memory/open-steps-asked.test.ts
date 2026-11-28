@@ -104,9 +104,20 @@ test("every open step of his is asked, or has a recorded ending", () => {
     inputs([], {
       heldByAgents: [holdOn(byStopped.id, { status: "stopped" })],
       matters: book,
+      // The quiet step read as someone else's (card sort, 28 Nov 2026): hidden from his inbox, still on its matter's page.
+      stepReadingsOf: (_, s) =>
+        s.ref === quiet.id
+          ? {
+              by: null,
+              handledBy: "someone_else",
+              money: "none",
+              urgency: "normal",
+            }
+          : undefined,
       today: TODAY,
     })
   );
+  expect(checks.find((c) => c.subject === quiet.id)?.isHidden).toBe(true);
   const asked = new Set(checks.flatMap((c) => c.ridesOn.matterIds));
   const his = book.flatMap((v) =>
     v.steps

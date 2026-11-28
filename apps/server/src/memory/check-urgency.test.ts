@@ -1,8 +1,11 @@
-import { expect, setSystemTime, test } from "bun:test";
+import { expect, test } from "bun:test";
 import {
+  askOfStep,
   blockingCountOf,
   inboxOrderOf,
   isInboxCheck,
+  type StepAskFacts,
+  type StepAskReadings,
   urgencyOf,
 } from "./check-urgency";
 import { checksOnMatterOf } from "./checks";
@@ -38,33 +41,128 @@ test("what blocks: a decision, a name and a card (these block); a your move card
   expect(blockingCountOf(list)).toBe(3);
 });
 
-// The cognitive-load rule of 22 Nov 2026: the badge counts a your move card only when it is due within 3 days. The cut
-// changes the count, never which cards exist or where they stand.
-test("can't be forgotten: a your move card blocks when due within 3 days; later or undated it stays, in its place, without the badge", () => {
-  setSystemTime(new Date("2026-11-20T05:00:00.000Z"));
-  try {
-    const list = [
-      ask("guess", "guessed person"),
-      ask("move-undated", "your move"),
+// The badge counts a your move card only when `askOfStep` says it blocks; the cut changes the count, never which cards
+// exist or where they stand.
+test("a your move card blocks only when it says so (`isBlocking`); a blocking one in its place, the rest without the badge", () => {
+  const list = [
+    ask("guess", "guessed person"),
+    ask("move-undated", "your move"),
+    Object.assign(
       ask("move-later", "your move", { deadline: "2026-11-30T16:59:59.999Z" }),
+      { isBlocking: false }
+    ),
+    Object.assign(
       ask("move-soon", "your move", { deadline: "2026-11-23T16:59:59.999Z" }),
-    ];
-    expect(list.map((c) => urgencyOf(c))).toEqual([
-      "improves",
-      "improves",
-      "improves",
-      "blocks",
-    ]);
-    expect(blockingCountOf(list)).toBe(1);
-    expect(inboxOrderOf(list).map((c: { ref: string }) => c.ref)).toEqual([
-      "move-soon",
-      "move-later",
-      "guess",
-      "move-undated",
-    ]);
-  } finally {
-    setSystemTime();
+      { isBlocking: true }
+    ),
+  ];
+  expect(list.map((c) => urgencyOf(c))).toEqual([
+    "improves",
+    "improves",
+    "improves",
+    "blocks",
+  ]);
+  expect(blockingCountOf(list)).toBe(1);
+  expect(inboxOrderOf(list).map((c: { ref: string }) => c.ref)).toEqual([
+    "move-soon",
+    "move-later",
+    "guess",
+    "move-undated",
+  ]);
+});
+
+// Card sort (his words of 28 Nov 2026): Life asks only what needs him, and when. Regression cases of the one rule,
+// made-up steps: the readings are the model's, the dates and the floor code's.
+const TODAY = "2026-11-28";
+const reading = (over: Partial<StepAskReadings> = {}): StepAskReadings => ({
+  by: null,
+  handledBy: "owner",
+  money: "none",
+  urgency: "normal",
+  ...over,
+});
+const todo = (over: Partial<StepAskFacts> = {}): StepAskFacts => ({
+  first: "2026-11-20",
+  isPromiseToPerson: false,
+  ...over,
+});
+const NO_WORDS = new Set<string>();
+const STOCK = "ins_0000000000a1";
+
+test("card sort: his own code work elsewhere and an ask to his assistant are hidden; a code promise to a person stays asked", () => {
+  const elsewhere = reading({ handledBy: "owner_elsewhere" });
+  expect(askOfStep(elsewhere, todo(), NO_WORDS, TODAY)).toEqual({
+    isBlocking: false,
+    isHidden: true,
+  });
+  expect(
+    askOfStep(reading({ handledBy: "someone_else" }), todo(), NO_WORDS, TODAY)
+      .isHidden
+  ).toBe(true);
+  // "I'll fix the login bug for Dana": the work is code, the person waits.
+  expect(
+    askOfStep(elsewhere, todo({ isPromiseToPerson: true }), NO_WORDS, TODAY)
+  ).toEqual({ isBlocking: false, isHidden: false });
+});
+
+test("card sort: a bill for goods delivered with no due day is asked at day 6, blocks from day 7 on, day 40 too, until done", () => {
+  const bill = reading({ money: "due_on_receipt" });
+  const at = (first: string) =>
+    askOfStep(bill, todo({ first }), NO_WORDS, TODAY);
+  expect(at("2026-11-22")).toEqual({ isBlocking: false, isHidden: false });
+  expect(at("2026-11-21").isBlocking).toBe(true);
+  expect(at("2026-11-20").isBlocking).toBe(true);
+  expect(at("2026-10-19").isBlocking).toBe(true);
+  // Someone else's move with money and no words of his: never hidden.
+  expect(
+    askOfStep(
+      reading({ handledBy: "someone_else", money: "some" }),
+      todo(),
+      NO_WORDS,
+      TODAY
+    ).isHidden
+  ).toBe(false);
+});
+
+test("card sort: any due day protects; urgent blocks, a good-moment errand does not; no reading blocks only by its due day", () => {
+  // An overdue to-do the model reads as someone else's: asked, and blocking.
+  expect(
+    askOfStep(
+      reading({ handledBy: "someone_else" }),
+      todo({ due: "2026-11-01" }),
+      NO_WORDS,
+      TODAY
+    )
+  ).toEqual({ isBlocking: true, isHidden: false });
+  expect(
+    askOfStep(reading({ urgency: "high" }), todo(), NO_WORDS, TODAY).isBlocking
+  ).toBe(true);
+  // Buy oranges at the market: a good moment, nobody waits.
+  expect(
+    askOfStep(reading({ urgency: "low" }), todo(), NO_WORDS, TODAY)
+  ).toEqual({ isBlocking: false, isHidden: false });
+  expect(
+    askOfStep(undefined, todo({ due: "2026-11-30" }), NO_WORDS, TODAY)
+  ).toEqual({ isBlocking: true, isHidden: false });
+  expect(
+    askOfStep(undefined, todo({ due: "2026-12-02" }), NO_WORDS, TODAY)
+  ).toEqual({ isBlocking: false, isHidden: false });
+});
+
+test("card sort: his stock-orders words hide a supplier invoice they cite, never rent, tax or a DIY bill; replacing them un-hides at once", () => {
+  const words = new Set([STOCK]);
+  const invoice = reading({ by: STOCK, money: "some" });
+  expect(askOfStep(invoice, todo(), words, TODAY).isHidden).toBe(true);
+  // Rent, the property tax, a DIY shop's bill: no `by`, money protects them, even read as someone else's.
+  for (const r of [
+    reading({ money: "some" }),
+    reading({ handledBy: "someone_else", money: "some" }),
+    reading({ money: "due_on_receipt" }),
+  ]) {
+    expect(askOfStep(r, todo(), words, TODAY).isHidden).toBe(false);
   }
+  // His words replaced: their id is no longer in force, the invoice is asked again before any night.
+  expect(askOfStep(invoice, todo(), NO_WORDS, TODAY).isHidden).toBe(false);
 });
 
 const ask = (
@@ -139,10 +237,13 @@ test("a card the caretaker is fixing comes after every actionable card of its ti
 
 // The cognitive-load rule of 22 Nov 2026: "is this done?" leaves his inbox, never Life. The link stays Life's evidence (the
 // step reads probably done until his word), and the check stays on its matter's page.
-test("can't be forgotten: an ending check is not in his inbox, and still on its matter's page", () => {
+test("can't be forgotten: an ending check and a hidden your move card are not in his inbox, and still on their matter's page", () => {
   const list = [
     ask("ending", "ending", { matter: "m1" }),
     ask("move", "your move", { matter: "m1" }),
+    Object.assign(ask("hidden", "your move", { matter: "m1" }), {
+      isHidden: true,
+    }),
   ];
   expect(list.filter(isInboxCheck).map((c: { ref: string }) => c.ref)).toEqual([
     "move",
@@ -152,5 +253,5 @@ test("can't be forgotten: an ending check is not in his inbox, and still on its 
       list,
       "m1"
     ).map((c) => c.ref)
-  ).toEqual(["ending", "move"]);
+  ).toEqual(["ending", "move", "hidden"]);
 });

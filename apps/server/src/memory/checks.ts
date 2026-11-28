@@ -610,7 +610,7 @@ async function readChecks(
     lines,
     names: nameGroups,
     people,
-    steps: new Set([...steps, ...yourMoveStepsOf(matters)]),
+    steps: new Set([...steps, ...yourMoveStepsOf(matters, { today })]),
   });
   const key = secretIn("pushIdKey");
   const checks = checksOf({
