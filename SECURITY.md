@@ -140,10 +140,6 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   read only, Life's own left out) that overlap it: each guest it offers as a possible speaker (a name, or an address no
   one is known by), with the event's title and time in their brief (his yes of 22 Nov 2026: that provider already gets his
   messages).
-- To Google's APIs, from this computer with the owner's own sign-in, under Life's OAuth client or one of their own
-  (`connectGoogle`, `host/connect-google.ts`): the sign-in itself, between this computer and Google; the mail Life reads
-  with Gmail read access; their calendars' events; and their Google Contacts' names and handles. gog's tokens stay in
-  its file keyring on this computer; nothing goes to Life's developer.
 - A new user's default model route, once packaging bundle M ships (not built yet): OpenRouter, model
   `~deepseek/deepseek-flash-latest`, every request with `provider: {"zdr": true}`, so only providers that keep nothing
   serve it (any such provider, wider than the two hosts of 22 Nov, on his words below); the key is made by OpenRouter's OAuth (PKCE) with a spending `limit` ($20 by default), about $5–20 a month.
@@ -203,6 +199,12 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   its bridge where the room's own features allow it then, or his GitHub comment deleted through `gh`; never iMessage or mail.
 - To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
   and the to-do items with Google Tasks as the backend.
+  Every gog call runs under Life's own OAuth client (a desktop client; a user may store their own) with the owner's
+  sign-in (`connectGoogle`, `host/connect-google.ts`), to Google's APIs (`www.googleapis.com`, `gmail.googleapis.com`,
+  `people.googleapis.com`); the sign-in is between this computer and Google, and gog's tokens stay in its file keyring
+  on this computer. With the `gmail` source on, requests for each signed-in mailbox's messages (copied into
+  `archive/gmail.sqlite`, `sources/gmail-archive.ts`) and for his Google Contacts' names and handles
+  (`sources/google-contacts.ts`). Nothing goes to Life's developer.
 - To his own voice server: his corrections about recordings, for each voice ask a "Life heard you" notice, then its outcome
   under the same id ("Life answered" or "Life couldn't do it"), never his words or Life's, and, for each new card in his
   inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new
