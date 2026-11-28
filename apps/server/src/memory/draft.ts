@@ -111,6 +111,10 @@ export type StoredDraft = z.infer<typeof StoredDraft>;
 export const draftsOf = <D>(c: { draft?: D | null; drafts?: D[] }): D[] =>
   c.drafts ?? (c.draft ? [c.draft] : []);
 
+/** Whether a card is a batch: it holds several drafts. */
+export const isBatchOf = (c: { drafts: readonly unknown[] }) =>
+  c.drafts.length > 1;
+
 /** A card's draft when it holds exactly one, else none: what the phone's wire shows until it shows a batch (`Check.draft`). */
 export const onlyDraftOf = <D>(c: { drafts: readonly D[] }): D | undefined =>
   c.drafts.length === 1 ? c.drafts[0] : undefined;

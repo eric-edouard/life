@@ -591,7 +591,7 @@ export function readCard({ db }: Desk, s: AssignmentRow, id: string) {
     asker: agent ?? asker,
     contests: contests ?? null,
     context,
-    draft: d.drafts[0] ?? null, // A card that waits has one draft: a batch never waits.
+    draft: d.drafts[0] ?? null, // Read in a contest: the card that waits has one draft (a batch never waits).
     id,
     kept: kept?.why ?? null,
     options: options.map((o) => o.label),

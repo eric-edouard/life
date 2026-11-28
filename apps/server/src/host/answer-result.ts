@@ -29,7 +29,7 @@ import {
   type EndByHisWord,
   LOOK_LIMIT_MS,
 } from "../memory/decisions";
-import { onlyDraftOf, type StoredDraft } from "../memory/draft";
+import { isBatchOf, onlyDraftOf, type StoredDraft } from "../memory/draft";
 import {
   sendLimitMs,
   sendStepsOf,
@@ -162,7 +162,7 @@ function sendResultOf(d: Decision, tap: ReturnType<typeof tapOf>) {
   const sends = d.drafts.map((draft, i) =>
     draftSentOf(draft, sendOf(tap.sends, i))
   );
-  return d.drafts.length > 1 ? { send: null, sends } : { send: sends[0] };
+  return isBatchOf(d) ? { send: null, sends } : { send: sends[0] };
 }
 
 /** One draft's send as the app shows it: sent, may have gone, not sent (a batch's), or pending while it runs. */

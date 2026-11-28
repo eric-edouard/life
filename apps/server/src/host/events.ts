@@ -17,6 +17,7 @@ import { directChats } from "../memory/closeness";
 import { sendOf } from "../memory/decision-fold";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
+import { isBatchOf } from "../memory/draft";
 import { cardsHearingOf } from "../memory/draft-contest";
 import { hearVoiceNotes, readFiles, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
@@ -246,10 +247,10 @@ const outcomesOf = (
     ? { doneSeen: { eventId: d.doneSeen.eventId, state: "seen" } }
     : {}),
   ...(d.end ? { end: d.end.error ? { error: d.end.error } : {} } : {}),
-  ...(d.sends.length > 0 && d.drafts.length === 1
+  ...(d.sends.length > 0 && !isBatchOf(d)
     ? { send: sentShownOf(d.sends[0]) }
     : {}),
-  ...(d.sends.length > 0 && d.drafts.length > 1
+  ...(d.sends.length > 0 && isBatchOf(d)
     ? { sends: d.drafts.map((_, i) => sentShownOf(sendOf(d.sends, i))) }
     : {}),
 });

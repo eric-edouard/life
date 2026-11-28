@@ -20,6 +20,9 @@ import type { sendDraft } from "./draft-send";
 type Send = Decision["sends"][number];
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;
 
+/** Where draft `i`'s line says it belongs: the first draft's says nothing, as every line before batches. */
+const draftIndexOf = (i: number) => (i > 0 ? { draftIndex: i } : {});
+
 /** "Someone wrote since" counts from his last attempt that went nowhere, else from the card. */
 export const sinceOf = (d: Pick<Decision, "at" | "notSent">) =>
   new Date(d.notSent?.at ?? d.at);
@@ -36,7 +39,7 @@ export const sendsNeverEndedOf = (
       : [
           {
             at,
-            ...(i > 0 ? { draftIndex: i } : {}),
+            ...draftIndexOf(i),
             error:
               "may have gone: a send started and never ended: read the chat before asking again",
             id: d.id,
@@ -70,7 +73,7 @@ async function sendOne(
   d: Omit<Decision, "state">,
   { deliver, onStep }: { deliver: typeof sendDraft; onStep?: OnStep }
 ) {
-  const more = i > 0 ? { draftIndex: i } : {};
+  const more = draftIndexOf(i);
   const outcome = await deliver(draft, i > 0 ? `${d.id}.${i}` : d.id, {
     onStep:
       i > 0 ? (step, detail) => onStep?.(step, { ...detail, ...more }) : onStep,

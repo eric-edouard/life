@@ -146,7 +146,9 @@ test("when nothing of the batch went, his answer is voided and the card open aga
   });
   await sendAll(first.deliver);
   expect(read()?.state).toBe("open");
-  expect(read()?.notSent?.error).toBe("not sent: WhatsApp is off");
+  // The first draft's line: "someone wrote since" counts from the earliest attempt.
+  expect(read()?.notSent).toMatchObject({ error: "not sent: WhatsApp is off" });
+  expect(read()?.notSent).not.toHaveProperty("draftIndex");
   const second = deliverer({});
   await sendAll(second.deliver, later(2 * HOUR));
   expect(second.sent.map(([chat]) => chat)).toEqual(DRAFTS.map((d) => d.chat));

@@ -185,7 +185,6 @@ export const withMatterIcons = <
   };
 };
 
-/** A card he no longer needs to answer, as the thread shows it: what was asked, his answer and what came of it, and his Undo while there is one. */
 /** When his answer's send ended with every draft sent (the last one's line); null when it sent nothing, or not all. */
 const sentAtOf = (d: Decision) => {
   const last = actOutcomeOf(d, "send");
@@ -194,6 +193,7 @@ const sentAtOf = (d: Decision) => {
     : null;
 };
 
+/** A card he no longer needs to answer, as the thread shows it: what was asked, his answer and what came of it, and his Undo while there is one. */
 const closedCardOf = (
   d: Decision,
   offers: ReturnType<typeof rateOffersOf>

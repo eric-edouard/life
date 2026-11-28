@@ -109,7 +109,9 @@ function withLine(
     case "send-failed":
     case "sent": {
       const sent = { ...d, sends: [...d.sends, l] };
-      return isNothingSentOf(sent) ? voidedBy(sent, l as SendFailed) : sent;
+      return isNothingSentOf(sent)
+        ? voidedBy(sent, sent.sends[0] as SendFailed)
+        : sent;
     }
     case "answer-withdrawn":
       return d.answer ? voidedBy(d, l) : d;

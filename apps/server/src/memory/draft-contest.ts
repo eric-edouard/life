@@ -63,7 +63,7 @@ export const isChatTwiceOf = (
 };
 
 /** The chats `drafts` go into, by name, for an asker's words. */
-const namesOf = (drafts: readonly StoredDraft[]) =>
+const chatNamesOf = (drafts: readonly StoredDraft[]) =>
   drafts.map((x) => x.to).join(", ");
 
 /**
@@ -122,7 +122,7 @@ export function heldChatOf(
     (drafts.length > 1 ? same[0] : undefined);
   if (blocking) {
     throw new Error(
-      `Not done: ${blocking.id} already ${blocking.state === "waiting" ? "waits to ask" : "asks"} a draft into ${namesOf(drafts)}; wait until it is answered or withdrawn, then read the chat again.`
+      `Not done: ${blocking.id} already ${blocking.state === "waiting" ? "waits to ask" : "asks"} a draft into ${chatNamesOf(drafts)}; wait until it is answered or withdrawn, then read the chat again.`
     );
   }
   return same.at(-1)?.id;
@@ -202,7 +202,7 @@ export const waitsOf = (
         waits: {
           on,
           until: new Date(now.getTime() + CONTEST_WAIT).toISOString(),
-          why: `${on}, another asker's card, holds a draft into ${namesOf(drafts)}: yours waits until its agent yields, merges or keeps, at most until \`until\`; then it is asked, replacing that card, and his Send withdraws it.`,
+          why: `${on}, another asker's card, holds a draft into ${chatNamesOf(drafts)}: yours waits until its agent yields, merges or keeps, at most until \`until\`; then it is asked, replacing that card, and his Send withdraws it.`,
         },
       }
     : {};

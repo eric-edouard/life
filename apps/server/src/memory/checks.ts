@@ -46,7 +46,7 @@ import { notSentOf } from "./decision-after-answer";
 import { DECISIONS, type Decision, doneSeenShownOf } from "./decision-lines";
 import { decisionsNow, doneSeenByOf, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
-import { onlyDraftOf } from "./draft";
+import { isBatchOf, onlyDraftOf } from "./draft";
 import { withDraftConfirms } from "./draft-send";
 import { type Fix, fixesNow, type MonthBudget } from "./fix-checks";
 import {
@@ -149,7 +149,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           context: d.context || null,
           deadline: d.deadline,
           draft: onlyDraftOf(d) ?? null,
-          ...(d.drafts.length > 1 ? { drafts: d.drafts } : {}),
+          ...(isBatchOf(d) ? { drafts: d.drafts } : {}),
           goal: null,
           group: "decision",
           // The gate's reading of what is at stake orders it (`inboxOrderOf`): only high moves it.
