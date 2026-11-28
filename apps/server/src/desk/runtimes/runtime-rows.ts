@@ -15,8 +15,11 @@ import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
 import { SEND_FACTS_ENV, SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
+import {
+  connectorReadsOf,
+  isSecondLifeReading,
+} from "./connector-reads-server";
 import { type Agent, DOOR_KEY_ENV, READS_SERVER } from "./contract";
-import { connectorReadsOf, isSecondLifeReading } from "./session-runtime";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
 // pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, its no-ask mode, the

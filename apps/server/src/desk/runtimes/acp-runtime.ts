@@ -11,6 +11,10 @@ import {
 import { log } from "../../core/log";
 import { errorOf, fromModel } from "../../core/log-line";
 import {
+  connectorReadsOf,
+  isSecondLifeReading,
+} from "./connector-reads-server";
+import {
   READS_SERVER,
   type Run,
   type RunEnd,
@@ -21,8 +25,6 @@ import {
 import { providerPause } from "./provider-pause";
 import type { Row } from "./runtime-rows";
 import {
-  connectorReadsOf,
-  isSecondLifeReading,
   LAUNCH_WITHIN_MS,
   type Open,
   sessionRuntime,

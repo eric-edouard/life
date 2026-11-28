@@ -20,6 +20,10 @@ import { ASK_EFFORT, piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
 import { WEB_SEARCH_CHAIN } from "../../web-search/backend";
 import type { ClaudeHookGroup } from "./claude-hooks";
+import {
+  connectorReadsOf,
+  isSecondLifeReading,
+} from "./connector-reads-server";
 import { type Agent, READS_SERVER, type Runtime } from "./contract";
 import { type PiRow, piOpenOf } from "./pi-connection";
 import { PI_EXTENSION_ENV, PI_PROVIDER, type PiProvider } from "./pi-extension";
@@ -32,12 +36,7 @@ import {
   readSendFacts,
   type SessionState,
 } from "./runtime-rows";
-import {
-  connectorReadsOf,
-  isSecondLifeReading,
-  LAUNCH_WITHIN_MS,
-  sessionRuntime,
-} from "./session-runtime";
+import { LAUNCH_WITHIN_MS, sessionRuntime } from "./session-runtime";
 
 /** The session file of `ref` under `sessions`, if pi wrote one (`<time>_<ref>.jsonl`). */
 const piSessionFileOf = (sessions: string, ref: string) => {

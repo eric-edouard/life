@@ -55,7 +55,7 @@ import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 import { firstTurnOf } from "./first-turns";
 import { FIRST_TURN_WAIT } from "./hand-out";
 import { intentionLineOf, othersOnProjectsOf } from "./packet-records";
-import { isSecondLifeReading } from "./runtimes/session-runtime";
+import { isSecondLifeReading } from "./runtimes/connector-reads-server";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
 // registered. Each writes its row
