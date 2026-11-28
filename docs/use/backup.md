@@ -5,7 +5,7 @@ and off until you set one up. They need [restic](https://restic.net) (`brew inst
 snapshots in, for example in iCloud Drive.
 
 A snapshot holds your memory, Life's state and the archive of deleted messages and old note versions. It holds no
-secrets: API keys, the lifelog token and paired apps are listed by name, and you give them again after a restore.
+secrets: API keys, the voice server token and paired apps are listed by name, and you give them again after a restore.
 
 ## Set it up
 

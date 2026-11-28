@@ -43,7 +43,7 @@ export function voiceServerMissing() {
   try {
     return voiceServerUrl() && voiceServerToken()
       ? undefined
-      : "lifelog not set up (settings: lifelog; voice's deviceToken or env LIFELOG_TOKEN)";
+      : "voice server not set up (settings: lifelog; voice's deviceToken or env LIFELOG_TOKEN)";
   } catch (e) {
     return (e as Error).message;
   }
@@ -83,7 +83,7 @@ export async function call(
   });
   if (!res.ok) {
     throw Object.assign(
-      new Error(`lifelog ${method} ${path.split("?")[0]}: ${res.status}`),
+      new Error(`voice server ${method} ${path.split("?")[0]}: ${res.status}`),
       { status: res.status }
     );
   }

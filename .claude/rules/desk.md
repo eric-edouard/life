@@ -31,7 +31,7 @@ paths:
     for none once he wrote in its chat after another person's lines.
 - His spoken ask (`wakeOf` high, `host/hear.ts`) wakes no agent: it is an ask of the main session, like Ask Life
   (`desk/spoken-ask-intake.ts`; 27 Nov 2026), which hands work on with `tell_agent` (`ask.spoken`: facts only).
-- An ended call (`call.ended`, 19 Nov 2026) is queued once lifelog says its words are in, with refs, never a word.
+- An ended call (`call.ended`, 19 Nov 2026) is queued once the voice server says its words are in, with refs, never a word.
 - A mark only keeps a unit read. Apple Notes and imported assistant chats are never his words for actions.
 - One fact of a message acts: his writing in an open draft card's chat withdraws the card
   (`withdrawDraftsAnsweredInChat`, life#731).
@@ -102,5 +102,5 @@ not. One over an hour old (`SPOKEN_ASK_FRESH`) or already received never runs (`
 
 ## Hearing a conversation
 
-The watcher and the desk take a conversation's or call's words only once lifelog's own signals say they are complete
+The watcher and the desk take a conversation's or call's words only once the voice server's own signals say they are complete
 (`endedOnSilence`, `closed`; `recordingsOf`), never by a timing rule of Life's (`docs/operations.md`).

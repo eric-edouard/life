@@ -29,10 +29,10 @@ bun scripts/release.ts
 
 `LIFE_RELEASE_DRY=1` builds, signs and notarizes everything and publishes nothing.
 
-Set `LIFELOG_HOST_APP` to also put lifelog's host app in the DMG.
+Set `LIFELOG_HOST_APP` to also put Lifelog Host in the DMG.
 
-A release whose lifelog contract changed (`apps/lifelog/apps/server/openapi.json`) updates Lifelog Host first, then
-Life: Life reads lifelog only through that contract, and an older Host refuses the new calls.
+A release whose voice server contract changed (`apps/lifelog/apps/server/openapi.json`) updates Lifelog Host first, then
+Life: Life reads the voice server only through that contract, and an older Host refuses the new calls.
 
 ## A release that migrates stored data
 

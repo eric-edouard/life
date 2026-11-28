@@ -119,9 +119,9 @@ export function clippedOf(t: VoiceTurn, timed: Timed | null, span: Within) {
 }
 
 export const NOT_TIMED =
-  "(a turn crossing the span's edge, left out: lifelog gives no times for its words)";
+  "(a turn crossing the span's edge, left out: the voice server gives no times for its words)";
 export const GOES_ON =
-  "(…this turn goes on inside the span unread: lifelog times only its first seconds)";
+  "(…this turn goes on inside the span unread: the voice server times only its first seconds)";
 
 /** A clip's words that lie wholly inside `span`, as its text spells them; "" with no timings. */
 export function wordsWithin(

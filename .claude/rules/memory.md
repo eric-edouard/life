@@ -49,7 +49,7 @@ removed), `appointments.json` (whole), and a migration's backfill.
   (listed in the delete preview but outside its digest; `readThread`, blanked by `desk/thread-deletions.ts`; an answer never writes back onto one).
 - The words stay in their sources, backups and git history; no code purges them (`SECURITY.md`).
 
-## lifelog's chapter units stay as stored
+## The voice server's chapter units stay as stored
 
 Facts, his fact-check answers and corrections cite them (his decision of 9 Nov 2026). Never wipe or rebuild them; one
 goes only with its conversation (`frozenUnits`, `units.ts`).
@@ -110,7 +110,7 @@ processes: `inTurn`, `oneAtATimeAcross`). One Life per Mac: the archive, the wat
 - `callCharsOf` bounds one call; it is not a budget. A summary growing with the years is built from closed periods'
   summaries or its last version plus what is new.
 - Readers (a connector call, the status snapshot, the watcher's tick, the desk's poll, the withdrawal step) read an
-  index, a cursor or a window, never a whole `memory/` folder or every lifelog turn.
+  index, a cursor or a window, never a whole `memory/` folder or every recorded turn.
 - Model output is cached by unit hash and prompt version (`docs/architecture.md`). Bump a version only when its meaning
   changes; ask before re-running the archive. An add-on's prompt variant shares the base's cache (`isPromptVersion`,
   `models/prompt-parts.ts`).

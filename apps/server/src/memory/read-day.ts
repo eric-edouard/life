@@ -140,7 +140,9 @@ export function dayLines({
             ]
           ),
           ...(whereUnknown
-            ? [`Where ${owner} was is unknown: lifelog could not be read.`]
+            ? [
+                `Where ${owner} was is unknown: the voice server could not be read.`,
+              ]
             : []),
           "",
         ]

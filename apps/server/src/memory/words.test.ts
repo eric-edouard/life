@@ -229,7 +229,7 @@ test("a chapter unit's words while lifelog holds its turns, the ones in its span
   ]);
 });
 
-test("transcripts: a recording lifelog no longer has is silent, a failed fetch throws", async () => {
+test("transcripts: a recording the voice server no longer has is silent, a failed fetch throws", async () => {
   serverOf();
   const of = (jobId: string) =>
     transcripts([{ jobId }] as Parameters<typeof transcripts>[0]);
