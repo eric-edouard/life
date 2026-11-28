@@ -92,7 +92,7 @@ What we change or check before launch:
 - Certificates: it issues a certificate per tunnel over DNS-01 from the Mac's CSR, so it never holds the key but does
   hold our DNS. Prefer the Mac's own TLS-ALPN-01 (the server replays the ClientHello untouched, so it should pass;
   untested). Either way, steps 3 and 4 hold.
-- Open creation: until the domain is on the Public Suffix List, tunnel creation is slowed in `apps/relay/fly.toml` (3 an hour per address); those four limits go once it is listed.
+- Open creation: until creation is gated (#1545), tunnel creation is slowed in `apps/relay/fly.toml` (3 an hour per address).
 - Its MySQL dependency (PlanetScale in its production): pick the smallest database Fly can run beside it.
 - Size and age: about 18,000 lines of Rust, eight months old, one main maintainer. We pin a commit we reviewed and
   read each upgrade's diff before taking it.
@@ -104,8 +104,10 @@ mesh and limits OpenTunnel has).
 ## Open questions
 
 - Each user's address needs no DNS change at onboarding: one wildcard record points `*.hostedbyme.app` at the relay.
-- Let's Encrypt issues at most 50 certificates a week per registered domain. Put the domain on the Public Suffix List
-  before launch: each user's address then counts on its own, and browsers keep one user's address from setting
+- Let's Encrypt issues at most 50 new certificates a week per registered domain; renewals don't count. When new
+  installs near 40 a week, ask Let's Encrypt to raise it for hostedbyme.app (its rate limit adjustment form, by
+  domain). The Public Suffix List comes after launch, at thousands of users: it declines smaller projects and entries
+  made to get around rate limits. At that scale its reason is that browsers keep one user's address from setting
   cookies on another's.
 - Whether the Claude.ai and ChatGPT connectors are worth a warning in the app that they rely on point 4 only.
 
