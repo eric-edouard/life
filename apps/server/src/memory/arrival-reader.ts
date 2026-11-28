@@ -26,7 +26,7 @@ import {
 } from "../records/read-reply";
 import { eventKey } from "../records/source";
 import { firstNameOf, ownerIn } from "../records/truth";
-import { type LifelogTurn, readStore, withStore } from "../sources/lifelog";
+import { readStore, type VoiceTurn, withStore } from "../sources/voice-server";
 import { checkedAppointmentReply } from "./arrival-appointments";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { EXCHANGE_ENDS_AFTER, exchangesOf, isFinished } from "./exchanges";
@@ -131,7 +131,7 @@ export function arrivalReadsDue(
 
 /**
  * The voice units the reader may read, decided once for fresh reads and pending confirms alike: those of a conversation
- * lifelog has closed (its own signals, never a timing rule of Life's) that he spoke in on any of its days, never one a
+ * the voice server has closed (its own signals, never a timing rule of Life's) that he spoke in on any of its days, never one a
  * code rule dropped, and only yesterday's and today's: an earlier day's is the night's. His own words count: what he
  * says he will do is an arrival too.
  */
@@ -406,7 +406,7 @@ export async function readArrivals(
     online?: typeof isOnline;
     /** The words of voice units' turns, by unit id (default: `turnLines`). */
     spoken?: (
-      turns: Map<string, LifelogTurn[]>
+      turns: Map<string, VoiceTurn[]>
     ) => Promise<ReadonlyMap<string, SourceLine[]>>;
     step?: () => ReturnType<typeof begin>;
     where?: string;
@@ -484,7 +484,7 @@ export async function readArrivals(
       ])
     )
   ).catch((e: Error) => {
-    // lifelog unreadable: chats and mail are still read, voice on a later pass.
+    // The voice server unreadable: chats and mail are still read, voice on a later pass.
     log("run.error", { ...errorOf(e), step: "arrivals.voice" });
     return new Map<string, SourceLine[]>();
   });
@@ -691,15 +691,15 @@ function pendingConfirms(
 /** What the reader reads of voice, from one read of the watcher's store (`readRecentVoice`). */
 export interface RecentVoice {
   built: Built[];
-  /** The conversations lifelog has closed (`closedConversations`). */
+  /** The conversations the voice server has closed (`closedConversations`). */
   closed: ReadonlySet<string>;
   /** Each unit's turns, by unit id: who spoke and when, as the same read saw them. */
-  turns: ReadonlyMap<string, LifelogTurn[]>;
+  turns: ReadonlyMap<string, VoiceTurn[]>;
 }
 
 /**
  * The voice units of yesterday and today as the gather builds them (the code rules applied, chapter units left out),
- * the conversations lifelog has closed and each unit's turns, all from one read-only read of the watcher's store, so
+ * the conversations the voice server has closed and each unit's turns, all from one read-only read of the watcher's store, so
  * closure, speakers and turns agree. Yesterday's too, so a conversation that ran past midnight is read whole.
  */
 export const readRecentVoice = (

@@ -48,7 +48,7 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   const events = [
     run("run.start", "memory.nightly", "2026-11-17T00:31:00.000Z", N),
     run("run.start", "memory.extract", "2026-11-17T00:40:00.000Z", X),
-    // Three whatsapp chat-days and one lifelog conversation-day: a quarter of it is the pendant's.
+    // Three whatsapp chat-days and one recorded conversation-day: a quarter of it is the pendant's.
     call("2026-11-17T00:41:00.000Z", X, {
       costUsd: 0.4,
       reads: { lifelog: 1, whatsapp: 3 },

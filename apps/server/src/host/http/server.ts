@@ -5,7 +5,7 @@ import { off } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { isOwnLife } from "../../core/platform";
 import { connector, settings } from "../../core/settings";
-import { VOICE_URL } from "../../sources/lifelog-call";
+import { VOICE_URL } from "../../sources/voice-server-call";
 import { ownerTokens } from "./auth";
 import { HEADERS, LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { keyRefusal } from "./local-key";

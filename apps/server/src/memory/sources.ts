@@ -46,7 +46,6 @@ import {
   readImessageAt,
   readSharedPictures,
 } from "../sources/imessage";
-import { lifelogMissing } from "../sources/lifelog-call";
 import {
   incomingMail,
   mailRoot,
@@ -72,6 +71,7 @@ import {
   readPhotos,
 } from "../sources/photos";
 import { copyScreen, newestScreen, readScreen } from "../sources/screen";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import {
   copyWhatsapp,
   isWhatsappGroup,
@@ -100,7 +100,7 @@ import {
 // (`tablesOf`, below).
 
 /**
- * Every source, in the order units are cut (`gather` cuts lifelog's from the watcher's store first, then each other
+ * Every source, in the order units are cut (`gather` cuts the voice units from the watcher's store first, then each other
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
 const LISTED: Descriptor[] = [
@@ -109,7 +109,7 @@ const LISTED: Descriptor[] = [
     capturesOnItsOwn: true,
     kind: "voice",
     label: "Pendant",
-    missing: lifelogMissing,
+    missing: voiceServerMissing,
     name: "lifelog",
     silentAfter: 6 * HOUR,
   },
@@ -303,7 +303,7 @@ const LISTED: Descriptor[] = [
     earliest: earliestAppleHealth,
     kind: "physical",
     label: "Apple Health",
-    missing: lifelogMissing,
+    missing: voiceServerMissing,
     name: "apple-health",
     newest: newestAppleHealth,
     read: readAppleHealth,

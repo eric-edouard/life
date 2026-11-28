@@ -71,7 +71,7 @@ test("not seen: before a source's first day, a day never published, a source the
 });
 
 test("the pendant with nothing held: what lifelog said it recorded, never the record of what Life read", () => {
-  // lifelog can tell since 8 Oct and was last asked on the night of 12 Nov.
+  // The voice server can tell since 8 Oct and was last asked on the night of 12 Nov.
   const kept = {
     built: "2026-11-12T03:00:00.000Z",
     days: ["2026-11-09", "2026-11-10"],

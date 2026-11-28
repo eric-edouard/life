@@ -7,8 +7,8 @@ import { ask, asksFor } from "../host/asks";
 import { ASK_SPOKEN } from "../host/events";
 import { LEDGER } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as push from "../sources/lifelog-push";
-import { PUSH_ID } from "../sources/lifelog-push";
+import * as push from "../sources/voice-server-push";
+import { PUSH_ID } from "../sources/voice-server-push";
 import {
   closeAssignmentRow,
   readSpokenAsksCursor,

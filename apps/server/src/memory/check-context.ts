@@ -130,7 +130,7 @@ export interface CheckInputs {
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
   today: string;
-  /** The voices lifelog asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
+  /** The voices the voice server asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
   voices: readonly GuessedQueueItem[];
   /** Where a record that is not a line was said: units and episodes, by id. */
   where: ReadonlyMap<string, Where>;

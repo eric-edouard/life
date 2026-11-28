@@ -30,7 +30,7 @@ test("the pre-ticked answer: an ending is done; a likely guess in use is them; a
   expect(preTickedOf(asked, heard("new_person", 2, null))).toBeNull();
   // A known person's own name or alias is never in `name`: heard once, it is still no voice to drop.
   expect(preTickedOf(asked, heard("known_person", 1, null))).toBeNull();
-  // "Yes" only on a guess in use that lifelog calls likely.
+  // "Yes" only on a guess in use that the voice server calls likely.
   expect(preTickedOf(asked, heard("known_person", 4, "Dana"))).toBeNull();
   const guess = { kind: "voice" as const, subject: "person:dana" };
   expect(preTickedOf(guess, heard("known_person", 4, null))).toBeNull();

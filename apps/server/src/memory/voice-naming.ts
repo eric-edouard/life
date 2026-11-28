@@ -3,7 +3,7 @@ import { newestWithin } from "../core/lists";
 import { redact } from "../core/redact";
 import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
-import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
+import { openStore, parseTurnRef, withStore } from "../sources/voice-server";
 import {
   type NamingQueueItem,
   ownAnswerOf,
@@ -12,7 +12,7 @@ import {
   type VoiceRow,
   voiceKey,
   voiceNamesOf,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import {
   directChats,
   type HeardTurn,
@@ -73,7 +73,7 @@ import { localDate, time } from "./zones";
 // short one near a call or a plan: `isWorthNaming`), saying for each voice group no one named the person it probably is,
 // from the lines and the day around them, how sure counted by code (`namingConfidenceOf`). A guess stays a guess: it is
 // stored by `memory/read-replies.ts` after `checkedVoices` (never as the model gave it) and acts on nothing: no person is
-// created or folded, nothing goes to lifelog, no line any step reads changes. What is pending is derived from the
+// created or folded, nothing goes to the voice server, no line any step reads changes. What is pending is derived from the
 // stored lines (`replyOf`) and the keys of the part now (`unnamedTurnKey`); the night asks, behind his `voiceNaming`
 // setting, which gates the calls and never the reading of what is stored.
 
@@ -211,7 +211,7 @@ interface Context {
   /** Persons in an active fact whose evidence is not a recording, by day. */
   facts: Map<string, Set<string>>;
   heard: { at: string; ref: string }[];
-  /** The newest name lifelog gave each person id (`voiceNamesOf`), for the id the directory does not know. */
+  /** The newest name the voice server gave each person id (`voiceNamesOf`), for the id the directory does not know. */
   names: Map<string, string>;
   /** The people who spoke in person, by local day. */
   onDay: Map<string, Set<string>>;
@@ -235,9 +235,9 @@ function heardOnDayOf(heard: { at: string; ref: string }[]) {
 
 /**
  * The turns of people he heard in person, of the recordings since `since`: those of a voice his own answer named
- * (lifelog's `owner` basis, from `/speakers/voices` for each day with such a turn) that did not fall inside a phone
- * call he picked up with that same person (`direct`: his one-to-one chats). A match by lifelog's sound never makes
- * anyone possible. Lifelog's own kinds (phone, screen) are not read: they cover only the voices it could not name.
+ * (the voice server's `owner` basis, from `/speakers/voices` for each day with such a turn) that did not fall inside a phone
+ * call he picked up with that same person (`direct`: his one-to-one chats). A match by the voice server's sound never makes
+ * anyone possible. The voice server's own kinds (phone, screen) are not read: they cover only the voices it could not name.
  */
 async function readHeardInPerson(
   turns: HeardTurn[],
@@ -533,13 +533,13 @@ function evidenceOf(
 
 /**
  * A part as the naming read asks it, or null when no voice is left unnamed. `began` and `ended` bound its conversation,
- * `voices` what lifelog says of the voices of its recordings. Who could be there (`possibleSpeakersOf`, with his expected
- * company over the conversation, `expectedCompanyOf`) decides which names to trust: a voice lifelog named by sound as
+ * `voices` what the voice server says of the voices of its recordings. Who could be there (`possibleSpeakersOf`, with his expected
+ * company over the conversation, `expectedCompanyOf`) decides which names to trust: a voice the voice server named by sound as
  * someone who could not be there (`basis: recognized`) is shown as a `V` like an unnamed one, and may be guessed again.
  * A `V` is a voice group (`voiceGroupsOf`, Voice's naming queue items); its guess is stored under the keys of its
  * recording voices (`unnamedTurnKey` for those, the turn's own key for the rest). `hidden` (the score's hidden run,
- * never the night) is voices (`voiceKey`) shown as unnamed whatever lifelog says of them (their likeness stays:
- * lifelog's route already judges it without the span's own exemplars), and whose answers name no one as possible; a part
+ * never the night) is voices (`voiceKey`) shown as unnamed whatever the voice server says of them (their likeness stays:
+ * the voice server's route already judges it without the span's own exemplars), and whose answers name no one as possible; a part
  * with none of them is null.
  */
 export function namingOf(
@@ -694,7 +694,7 @@ const hiddenOf = (rows: VoiceRow[]) =>
 /** What a run would do: the parts with a voice to name, and the calls due (those with no stored reply under their keys now). */
 export type VoiceNamingWork = Awaited<ReturnType<typeof readVoiceNamingWork>>;
 
-/** One read of lifelog's voices for the whole of a conversation (not for each part), those of its own recordings. */
+/** One read of the voice server's voices for the whole of a conversation (not for each part), those of its own recordings. */
 async function readConversationVoices(parts: SpokenPart[]) {
   const jobs = new Set(parts.flatMap((p) => p.keys.map((k) => jobOf(k))));
   const rows = await readVoices(
@@ -706,7 +706,7 @@ async function readConversationVoices(parts: SpokenPart[]) {
 
 /**
  * Whether a part's naming is already stored under its turns' keys as they stand (a voice nobody named kept as
- * `unnamedTurnKey`, any other as its own key), decided with no read of lifelog. A part with a voice lifelog named by
+ * `unnamedTurnKey`, any other as its own key), decided with no read of the voice server. A part with a voice the voice server named by
  * sound is not recognised here (rule 3 may have hidden it): it is read again until the night stops examining it.
  */
 function isStored(part: SpokenPart, index: ReturnType<typeof readReplyIndex>) {
@@ -758,7 +758,7 @@ function namingsOf(
 /**
  * The calls due for the parts of the conversations the summaries examine (`readConversationSummaryWork`) that are worth a
  * naming read (`isWorthNaming`): one read of
- * lifelog's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
+ * the voice server's voices per conversation, so a Lifelog Host without the route (404) stops it with a clear message. `counts` is what is
  * pending before the night's cap. With `again` a part is due even when a reply is stored (the newest line is the current one). With `hiding` (the score's hidden run) the voices he answered, a person, not relevant or "A stranger",
  * as a whole voice and not mixed, are shown as unnamed (`namingOf`'s `hidden`), and only the parts holding one are asked.
  */
@@ -780,7 +780,7 @@ export async function readVoiceNamingWork(
   const asked: Asked[] = [];
   let named = 0;
   const index = readReplyIndex(where);
-  // Due only if a voice could be named and nothing is stored for the part: decided before any read of lifelog.
+  // Due only if a voice could be named and nothing is stored for the part: decided before any read of the voice server.
   const talks = found.parts
     .map((parts) => ({
       due: parts.filter(

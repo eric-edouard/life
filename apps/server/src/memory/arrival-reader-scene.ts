@@ -7,7 +7,7 @@ import type { FoundationAnswer } from "../models/foundation-model";
 import { stamp } from "../models/llm";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { turnRef } from "../sources/lifelog";
+import { turnRef } from "../sources/voice-server";
 import { type RecentVoice, readArrivals } from "./arrival-reader";
 import type { SourceLine } from "./quote-check";
 import { readReplies } from "./read-replies";
@@ -158,7 +158,7 @@ export const sceneOf = (
 };
 /** Today's voice as the reader is given it, and the words its turns' fetch gives back. */
 export interface Voice extends RecentVoice {
-  /** Fetching the turns' words fails (lifelog unreachable). */
+  /** Fetching the turns' words fails (the voice server unreachable). */
   fails?: boolean;
   spoken?: Map<string, SourceLine[]>;
 }

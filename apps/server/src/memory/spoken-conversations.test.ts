@@ -1,14 +1,14 @@
 import { afterAll, expect, test } from "bun:test";
 import { MIN } from "../core/clock";
-import { apply } from "../sources/lifelog";
-import { readSpokenTurns } from "../sources/lifelog-conversations";
 import {
   conversation,
-  lifelogServer,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceServer,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply } from "../sources/voice-server";
+import { readSpokenTurns } from "../sources/voice-server-conversations";
 import {
   CONVERSATION_PART_CHARS,
   isSummarised,
@@ -39,10 +39,10 @@ interface Kind {
   withOwner: boolean;
 }
 
-let server: ReturnType<typeof lifelogServer> | undefined;
+let server: ReturnType<typeof voiceServer> | undefined;
 afterAll(() => server?.close());
 
-/** A store holding `specs` as conversation c1 (turns numbered per job), lifelog answering its words and `kinds`. */
+/** A store holding `specs` as conversation c1 (turns numbered per job), the voice server answering its words and `kinds`. */
 const sceneOf = (specs: Spec[], kinds: Kind[] = []) => {
   const jobs = new Map<string, Spec[]>();
   const turns = specs.map((s, n) => {
@@ -64,7 +64,7 @@ const sceneOf = (specs: Spec[], kinds: Kind[] = []) => {
     };
   });
   server?.close();
-  server = lifelogServer({
+  server = voiceServer({
     "/conversations/c1": () => ({
       latestRun: {
         result: {
@@ -81,7 +81,7 @@ const sceneOf = (specs: Spec[], kinds: Kind[] = []) => {
       ])
     ),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(store, pageFixture({ conversations: [conversation("c1")], turns }));
   return readSpokenTurns(store, new Map());
 };
@@ -142,7 +142,7 @@ test("screen, nearby and announcement voices are left out; a phone voice and an 
   // 20 turns, plus the phone voice: the three dropped voices add nothing.
   expect(part?.lines).toHaveLength(21);
   expect(part?.lines.at(-1)).toContain("(over the phone)");
-  // speaker_1 has no kind at all in lifelog's answer: it is kept.
+  // speaker_1 has no kind at all in the voice server's answer: it is kept.
   expect(part?.lines[1]).toContain(" V1: ");
 });
 

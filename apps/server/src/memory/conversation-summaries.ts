@@ -11,8 +11,8 @@ import {
   parseTurnRef,
   turnRef,
   withStore,
-} from "../sources/lifelog";
-import { readSpokenTurns } from "../sources/lifelog-conversations";
+} from "../sources/voice-server";
+import { readSpokenTurns } from "../sources/voice-server-conversations";
 import { exchangesOf } from "./exchanges";
 import { READ_REPLIES } from "./memory-files";
 import { locate } from "./quote-check";
@@ -25,18 +25,18 @@ import {
   spokenConversationsOf,
   spokenPartsOf,
 } from "./spoken-conversations";
-import { clip, lifelogNames, turnKey, turnRefOf } from "./units";
+import { clip, turnKey, turnRefOf, voiceNames } from "./units";
 import type { People } from "./who";
 import { transcripts } from "./words";
 import { dayStart, localDate, time } from "./zones";
 
 // The conversation summaries (docs/glossary.md): one per long conversation recorded in person, written by a model
 // from every line, stored by `memory/read-replies.ts` as one more read. What is pending and what shows is derived from
-// the stored lines and lifelog's turns (their keys, `turnKey`); the night asks.
+// the stored lines and the voice server's turns (their keys, `turnKey`); the night asks.
 
 /** The most calls a night makes, all its passes together: a first build takes several nights, the newest first. */
 export const NIGHT_CALLS = 40;
-/** The night examines the conversations with a turn lifelog first brought in this long ago. */
+/** The night examines the conversations with a turn the voice server first brought in this long ago. */
 const SEEN_WITHIN = 7 * DAY;
 
 /** The size asked for a part of `chars` characters: 200 words per 15,000 characters, at least 300. */
@@ -66,7 +66,7 @@ export interface HeldSummary {
   next?: string;
   quotes: { line: number; quote: string }[];
   ref: string;
-  /** Who else spoke in it, as lifelog named them (`personId`, `name`), each once: who they are is `heardPersonOf`'s. */
+  /** Who else spoke in it, as the voice server named them (`personId`, `name`), each once: who they are is `heardPersonOf`'s. */
   speakers: { id: string | null; name: string | null }[];
   /** Only the subjects whose line is one of its lines. */
   subjects: { label: string; line: number }[];
@@ -103,7 +103,7 @@ function heldOf(
 
 /**
  * The stored summaries of the current prompt, sorted by when they start: `current` the ones that show (the newest line
- * for each of its turns, every key still equal to its turn's key in lifelog's store, which is all this reads), and the
+ * for each of its turns, every key still equal to its turn's key in the voice server's store, which is all this reads), and the
  * `refs` of the turns of a line that lost a key (a voice given to someone else, a turn gone), so the night reads those
  * conversations again.
  */
@@ -128,7 +128,7 @@ async function heldSummaries(open = openStore, where = READ_REPLIES) {
     )
   );
   // One choice for showing and for asking: a line counts when every one of its keys is still its turn's key in
-  // lifelog's store; the newest such line wins over any older line sharing a turn. A line that does not count never
+  // the voice server's store; the newest such line wins over any older line sharing a turn. A line that does not count never
   // hides one that does (a voice renamed and renamed back shows the first line again).
   const sorted = lines.toSorted((a, b) => b.at.localeCompare(a.at));
   const valid = sorted.filter((l) => l.messages.every((k) => order.has(k)));
@@ -205,7 +205,7 @@ export type ConversationSummaryWork = Awaited<
 
 /**
  * The parts of every finished spoken conversation the night examines, whatever its length (the voice naming reads short
- * ones too): those with a turn lifelog first brought in the last 7 days (`from`, a day: every one from then), and those
+ * ones too): those with a turn the voice server first brought in the last 7 days (`from`, a day: every one from then), and those
  * of a line that lost a key. Only these fetch words. `counts`: the summaries pending in the long ones (`isSummarised`),
  * before the night's cap (what a run costs).
  */
@@ -217,7 +217,7 @@ export async function readConversationSummaryWork(
   open = openStore
 ) {
   const turns = await withStore(
-    (store) => readSpokenTurns(store, lifelogNames(people.truth)),
+    (store) => readSpokenTurns(store, voiceNames(people.truth)),
     open
   );
   const { current, stale } = await heldSummaries(open, where);
@@ -331,7 +331,7 @@ export async function conversationSummaries(
 
 /**
  * The lines of the read part `person:me/conversation/<ref>`: the summary that starts at the turn `ref`, each subject
- * with what opens it, the quotes found on their line in lifelog's words (the others are dropped), the doubts and the
+ * with what opens it, the quotes found on their line in the voice server's words (the others are dropped), the doubts and the
  * next part. Null when no summary shows for it.
  */
 export async function conversationSummaryPart(

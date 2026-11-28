@@ -25,7 +25,7 @@ import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
 import { isBookkeeping, TODO_CHANGE_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
-import { lifelogStatus, newestTurn } from "../../sources/lifelog";
+import { newestTurn, readVoiceServerStatus } from "../../sources/voice-server";
 import { checks } from "../../todo-list/backend";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
@@ -259,7 +259,7 @@ async function reads(now: Date) {
     cached("log", 5000, () => recentEvents<LogLine>(8, "")),
     cached("failing", 15_000, () => archiveFailing()),
     cached("turn", 3000, () => safe(newestTurn)),
-    cached("lifelog", 30_000, () => safe(lifelogStatus)),
+    cached("lifelog", 30_000, () => safe(readVoiceServerStatus)),
     cached("mac", 15_000, () => macState()),
     cached("mem", MIN, () => memoryCounts()),
     cached("unreflected", 5 * MIN, () => safe(unreflected)),
@@ -335,7 +335,7 @@ const pendantFacts = (
 ): Fact[] => [
   {
     at: p?.recordingKnownAt,
-    // lifelog's phone reports each change as it happens: the state stands since then.
+    // The voice server's phone reports each change as it happens: the state stands since then.
     label: "Recording state, since",
     value: p?.recording ?? "unknown",
   },
@@ -348,10 +348,10 @@ const pendantFacts = (
   { at: spokeAt, label: "Newest speech heard" },
 ];
 
-/** The phone reports at least every 6 h while its app runs: silent twice as long, the app or its way to lifelog is down. */
+/** The phone reports at least every 6 h while its app runs: silent twice as long, the app or its way to the voice server is down. */
 const PHONE_SILENT_MS = 12 * HOUR;
 
-/** The Pendant, as lifelog last heard from the phone, and the newest speech the watcher folded in. */
+/** The Pendant, as the voice server last heard from the phone, and the newest speech the watcher folded in. */
 function pendantCard(r: Reads, d: Descriptor): Card {
   const pendant = r.life.ok ? r.life.value.pendant : undefined;
   const recording = pendant?.recording === "recording";
@@ -384,7 +384,7 @@ function pendantCard(r: Reads, d: Descriptor): Card {
   };
 }
 
-/** What the lifelog card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
+/** What the voice server card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
 const polledHeadline = (r: Reads) => {
   if (!polling(r)) {
     return r.health?.lastError ?? "no poll for 15 minutes";
@@ -392,7 +392,7 @@ const polledHeadline = (r: Reads) => {
   return r.health?.lastOkAt ? "polling" : "never polled";
 };
 
-function lifelogCard(r: Reads): Card {
+function voiceServerCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
   const backlog = r.life.ok
     ? r.life.value.phoneHeartbeat?.backlog?.pages
@@ -543,7 +543,7 @@ function sourceCards(r: Reads): Card[] {
         return [unreadableCard(d, why)];
       }
       return d.kind === "voice"
-        ? [pendantCard(r, d), lifelogCard(r)]
+        ? [pendantCard(r, d), voiceServerCard(r)]
         : [sourceCard(r, d)];
     }),
     {
@@ -1080,7 +1080,7 @@ function todayOf(r: Reads): Tick[] {
         label: `${x.step.replace("memory.", "")} ${x.outcome}`,
         tone: toneOfRun(x.outcome),
       })),
-    // The watcher retries lifelog on its own: a timeout is a retry, not a failure.
+    // The watcher retries the voice server on its own: a timeout is a retry, not a failure.
     ...r.errorsToday.map((e) => ({
       at: e.at,
       label: `${e.step} ${e.step === "watch" ? "retried" : "failed"}`,

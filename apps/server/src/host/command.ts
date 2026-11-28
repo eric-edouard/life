@@ -336,7 +336,7 @@ const HANDLERS: Record<string, Handler> = {
         : null
     ),
   /**
-   * `hear-voice-notes --from d --to d`: the chat voice notes of those days heard (lifelog, no model). No lock: a line
+   * `hear-voice-notes --from d --to d`: the chat voice notes of those days heard (the voice server, no model). No lock: a line
    * of memory/files.jsonl is a synchronous append. `historical-units` for those months then shows the words in older units.
    */
   "hear-voice-notes": async (v) => {
@@ -496,7 +496,7 @@ const HANDLERS: Record<string, Handler> = {
       })
     ),
   "project-situations": step(async () => projectSituations(await readPeople())),
-  /** `recorded-days`: asks lifelog again which days the pendant recorded (the night does; this is its first build and a replay). */
+  /** `recorded-days`: asks the voice server again which days the pendant recorded (the night does; this is its first build and a replay). */
   "recorded-days": step(writeRecordedDays),
   repos: (values, rest) =>
     values.scan

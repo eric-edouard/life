@@ -40,8 +40,8 @@ import { isoDateTime } from "../../records/fields";
 import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
-import { Fix, FORWARD_KINDS, forward } from "../../sources/lifelog";
-import { PUSH_ID } from "../../sources/lifelog-push";
+import { Fix, FORWARD_KINDS, forward } from "../../sources/voice-server";
+import { PUSH_ID } from "../../sources/voice-server-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { AFTER_ANSWER, afterAnswer, answerWithResult } from "../answer-result";
@@ -206,7 +206,7 @@ const Correct = Fix.extend({
   kind: z.enum(["memory", ...FORWARD_KINDS]),
 });
 
-/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark, icon or project: his token only), or one of lifelog's four. */
+/** Applies one correction the owner asked for: a Life memory correction (one on a whole matter by its id, and any important mark, icon or project: his token only), or one of the voice server's four. */
 export async function correct(
   a: z.infer<typeof Correct>,
   agent?: string,
