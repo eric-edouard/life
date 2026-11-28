@@ -102,7 +102,7 @@ function stageProjects(dir: string) {
     recursive: true,
   });
   for (const p of filesUnder(to)) {
-    if (isDb(join(to, p))) {
+    if (existsSync(join(to, p)) && isDb(join(to, p))) {
       rmSync(join(to, p));
       copyDb(join(PROJECT_WORK_FOLDERS, p), join(to, p));
       rmSync(join(to, `${p}-wal`), { force: true });
