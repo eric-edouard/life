@@ -76,7 +76,8 @@ export const readOneOffProject = async (goal: string) =>
 
 /** The tick's look: each one-off project under way that never had an agent gets one (`openOneOffProject`); one refused is tried again on the next poll. */
 export async function openOneOffProjects(desk: Desk) {
-  for (const p of (await loadTruth()).projects) {
+  const { projects } = await loadTruth();
+  for (const p of projects) {
     if (p.goal && isUnderway(p) && !hasEverHadAgent(desk.db, p.id)) {
       // biome-ignore lint/performance/noAwaitInLoops: one registration at a time
       const opened = await openOneOffProject(desk, {

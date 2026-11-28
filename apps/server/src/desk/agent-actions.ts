@@ -51,7 +51,7 @@ import type { EventFilter, OpenedBy } from "../records/registered-agent";
 import { eventLineOf, waitOf } from "./agent-wait";
 import { cardHomeOf } from "./card-home";
 import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
-import { firstTurnOf } from "./first-turns";
+import { firstTurnOf, goalOf } from "./first-turns";
 import { FIRST_TURN_WAIT } from "./hand-out";
 import { intentionLineOf, othersOnProjectsOf } from "./packet-records";
 
@@ -748,14 +748,7 @@ export async function readPacket(
         ]
       : []),
     ...(desk.runtimes[a.runtime]?.pinsRules ? [] : [rulesOf(a, isOwn)]),
-    firstTurnOf(
-      db,
-      a,
-      s,
-      isOnProject
-        ? truth.projects.find((p) => p.id === a.project)?.goal
-        : undefined
-    ).trim(),
+    firstTurnOf(db, a, s, goalOf(truth, a)).trim(),
     `Your notes:\n${readNotes(s) || "(none yet)"}`,
     ...(held
       ? [

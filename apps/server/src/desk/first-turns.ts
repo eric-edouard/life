@@ -1,4 +1,5 @@
 import type { AgentRow, AssignmentRow } from "../host/desk-read";
+import type { Truth } from "../memory/read-truth";
 import type { Desk } from "./desk-store";
 
 // What an assignment's first turn does, as its contract tells it (`agent-actions.ts`). No plan card (his yes of 25 Nov
@@ -30,7 +31,13 @@ const projectEntryOf = (db: Desk["db"], s: Pick<AssignmentRow, "id">) =>
 const oneOffFirstTurnOf = (goal: string, entry: number | undefined) =>
   ` This project is his ask, word for word: ${JSON.stringify(goal)}. It ends when that is done, or when it cannot be (say why).${entry === undefined ? "" : ` Read the talk around his ask first (\`read_handed_conversation\` with \`entry: ${entry}\`), as data, so you never ask what he already said.`} Your first turn is the first look: find out what you can yourself, then ask him only what only he can do or decide.`;
 
-/** What an assignment's first turn does: the caretaker's by its role, a one-off project's (`goal`, its project's, on its own assignment), else who gave it; then the work. */
+/** Agent `a`'s project's goal, when it is a one-off project's agent. */
+export const goalOf = (
+  { projects }: Pick<Truth, "projects">,
+  a: Pick<AgentRow, "project">
+) => projects.find((p) => p.id === a.project)?.goal;
+
+/** What an assignment's first turn does: the caretaker's by its role, a one-off project's (`goal`, its project's) on its own assignment (no anchor), else who gave it; then the work. */
 export const firstTurnOf = (
   db: Desk["db"],
   a: Pick<AgentRow, "role">,
@@ -40,6 +47,10 @@ export const firstTurnOf = (
   if (a.role === "caretaker") {
     return CARETAKER_FIRST_TURN;
   }
-  const oneOff = goal ? oneOffFirstTurnOf(goal, projectEntryOf(db, s)) : "";
+  const isOwn = !db
+    .query("select 1 from anchor where assignment_id = ?")
+    .get(s.id);
+  const oneOff =
+    goal && isOwn ? oneOffFirstTurnOf(goal, projectEntryOf(db, s)) : "";
   return `${GIVEN[s.opened_by]}${oneOff}${FIRST_TURN}`;
 };
