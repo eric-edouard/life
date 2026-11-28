@@ -465,6 +465,12 @@ function doorServer(desk: Desk, id: string) {
     DirectoryEntryChange,
     async ({ said, ...change }, _, turn) => {
       const words = hisWordsOf(turn, said);
+      if (change.action === "edit" && change.goal) {
+        // A goal is his ask as he made it (`handedProjectOf` checks it against his entry): a new goal is a new project.
+        throw new Error(
+          "Not done: a project's goal is never edited: write a new project."
+        );
+      }
       // A new one-off project of his ask: claimed, written, then its agent (`writeOneOffProject`).
       const entry = turn ? entryOfTurn(desk, turn.id) : undefined;
       if (

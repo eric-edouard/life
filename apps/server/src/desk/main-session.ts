@@ -758,7 +758,7 @@ export async function askAgent(
   if (typeof place !== "string") {
     return place;
   }
-  const entry = turnsIn(desk.db).get(turn)?.entry ?? null;
+  const entry = entryOfTurn(desk, turn) ?? null;
   const asked = askAssignment(desk, place, said, entry);
   if ("error" in asked) {
     return asked;

@@ -1,7 +1,7 @@
 import type { AgentRow, AssignmentRow } from "../host/desk-read";
 import { shownEntryOf } from "../host/life-thread";
 import type { Project } from "../records/truth";
-import type { Desk, ProjectHandoff } from "./desk-store";
+import { type Desk, handoffOf } from "./desk-store";
 
 // What an assignment's first turn does, as its contract tells it (`agent-actions.ts`). No plan card (his yes of 25 Nov
 // 2026, question 19): an agent starts work without asking and asks only what is his, each on the exact thing.
@@ -44,11 +44,7 @@ export function handedProjectOf(
   if (!p?.goal) {
     return;
   }
-  const h = db
-    .query<Pick<ProjectHandoff, "entry_id" | "notes">, [string]>(
-      "select entry_id, notes from project_handoff where project = ?"
-    )
-    .get(p.id);
+  const h = handoffOf(db, p.id);
   if (!h) {
     return { goal: p.goal };
   }

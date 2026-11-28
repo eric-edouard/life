@@ -383,6 +383,14 @@ export interface ProjectHandoff {
   project: string;
 }
 
+/** Project `project`'s handoff, if it was made of an ask. */
+export const handoffOf = (db: Database, project: string) =>
+  db
+    .query<ProjectHandoff, [string]>(
+      "select * from project_handoff where project = ?"
+    )
+    .get(project) ?? undefined;
+
 /**
  * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), gives back the
  * complaints and spoken asks it never handed (`giveBack`), and ends its agent when it holds no open assignment after: the one

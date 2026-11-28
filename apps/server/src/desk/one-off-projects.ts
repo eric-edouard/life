@@ -12,7 +12,12 @@ import { loadTruth } from "../memory/read-truth";
 import type { AgentChange } from "../records/registered-agent";
 import { isUnderway, type Project } from "../records/truth";
 import { start } from "./agent-changes";
-import { type Desk, type ProjectHandoff, recordHandedWork } from "./desk-store";
+import {
+  type Desk,
+  handoffOf,
+  type ProjectHandoff,
+  recordHandedWork,
+} from "./desk-store";
 import { handedProjectOf } from "./first-turns";
 import { ownAssignmentOf } from "./role-agents";
 import { startBlockOf } from "./runtime-fallback";
@@ -34,30 +39,40 @@ const PLAIN_AREA = { id: "personal", name: "Personal" };
 const briefOf = (project: string) =>
   `The agent of one-off project ${project}: its goal and your first turn are in your packet.`;
 
-/** Project `project`'s handoff, if it was made of an ask. */
-const handoffOf = (db: Desk["db"], project: string) =>
-  db
-    .query<ProjectHandoff, [string]>(
-      "select * from project_handoff where project = ?"
-    )
-    .get(project) ?? undefined;
-
 /**
  * Whether an agent was ever registered on project `project`, whatever its status: a one-off project gets one agent, and
  * one stopped or ended is never replaced by the desk. ponytail: an agent re-pointed away from such a project (his word)
  * leaves none; a new one then registers.
  */
 const hasEverHadAgent = (db: Desk["db"], project: string) =>
-  db
-    .query(
-      "select 1 from agent where project = ?1 union all select 1 from project_handoff where project = ?1 and agent_id is not null limit 1"
-    )
-    .get(project) !== null;
+  db.query("select 1 from agent where project = ? limit 1").get(project) !==
+  null;
 
-/** Whether one-off project `p` still waits for its agent: its handoff not taken, or, written elsewhere, no agent ever. */
+/** Project `id`'s active agent, if any. */
+const activeOf = (db: Desk["db"], id: string) =>
+  db
+    .query<{ id: string }, [string]>(
+      "select id from agent where project = ? and status = 'active' order by created_at limit 1"
+    )
+    .get(id)?.id;
+
+/** Why one-off project `p` gets no agent now (none: it can), `active` its active agent: the one rule for the door and the poll. */
+const refusalOf = (db: Desk["db"], p: Project, active?: string) =>
+  active
+    ? undefined
+    : (!isUnderway(p) && `it is ${p.status}`) ||
+      (hasEverHadAgent(db, p.id) &&
+        "its agent is stopped or ended: his word resumes it") ||
+      undefined;
+
+/** Whether one-off project `p` waits for its agent now: its handoff not taken (or, written elsewhere, no agent yet), and nothing refuses one. */
 const isWaitingFor = (db: Desk["db"], p: Project) => {
   const h = handoffOf(db, p.id);
-  return h ? h.agent_id === null : !hasEverHadAgent(db, p.id);
+  const active = activeOf(db, p.id);
+  return (
+    (h ? h.agent_id === null : !active) &&
+    refusalOf(db, p, active) === undefined
+  );
 };
 
 /**
@@ -81,16 +96,8 @@ export async function openOneOffProject(
       error: `Not done: ${id} is not a one-off project, or his words of its goal were deleted.`,
     };
   }
-  const active = db
-    .query<{ id: string }, [string]>(
-      "select id from agent where project = ? and status = 'active' order by created_at limit 1"
-    )
-    .get(id)?.id;
-  const refused =
-    !active &&
-    ((!isUnderway(p) && `it is ${p.status}`) ||
-      (hasEverHadAgent(db, id) &&
-        "its agent is stopped or ended: his word resumes it"));
+  const active = activeOf(db, id);
+  const refused = refusalOf(db, p, active);
   if (refused) {
     return { error: `Not done: project ${id}: ${refused}.` };
   }
@@ -142,11 +149,8 @@ export async function openOneOffProjects(desk: Desk) {
         (e: unknown) => ({ error: errorOf(e).error })
       );
       if ("error" in opened) {
-        log("desk.one_off_project", {
-          ok: false,
-          project: p.id,
-          why: opened.error,
-        });
+        // Its class only (a blocked runtime, a full desk): the sentence may quote the runtime.
+        log("desk.one_off_project", { ok: false, project: p.id });
       }
     }
   }
@@ -207,7 +211,7 @@ export async function writeOneOffProject(
     ).changes === 0
   ) {
     throw new Error(
-      `Not done: project ${project} is another: give a \`project\` id of its own.`
+      `Not done: project ${project} is another: give it an id of its own.`
     );
   }
   const area = change.area ?? PLAIN_AREA.id;
@@ -224,6 +228,10 @@ export async function writeOneOffProject(
         }
         return changeDirectoryEntry({ ...change, area, id: project });
       })().catch((e: unknown) => {
+        // Only the claim this call made: a retry never gives back another call's.
+        if (claimed) {
+          throw e;
+        }
         db.run(
           "delete from project_handoff where ask = ? and agent_id is null",
           [ask]
