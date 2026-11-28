@@ -2,8 +2,8 @@
 // new is sent: uploads wait unsent (jobs.ts), voices aren't embedded (speech-service.ts), no summary is
 // due (rolling.ts). Turned back on, what waited goes on by itself. Summaries
 // (`ai`) are off by default: Life reads the words, not them. Search's embeddings run on the Mac and
-// follow no switch (search.ts). `transcriber` picks who transcribes the next blocks: Scribe whole, or the
-// speech service with Scribe for the turns it routes (jobs.ts). `dictationHeard` picks where a field's
+// follow no switch (search.ts). `transcriber` is the language mode: Scribe whole, the speech service with
+// Scribe for the turns it routes (jobs.ts), or the speech service alone (`local`). `dictationHeard` picks where a field's
 // dictation on the phone is heard: on the Mac (the default), or instantly by ElevenLabs' realtime
 // Scribe, whose token only then is minted (routes/live-words.ts).
 
@@ -13,7 +13,7 @@ import {
   type DictationHeard,
   type MacEngine,
   processingSwitches,
-  type Transcriber,
+  type TranscriberChoice,
 } from "@lifelog/db/schema";
 import { logChange } from "./change-log";
 import { record } from "./events";
@@ -23,7 +23,7 @@ export interface Switches {
   dictationHeard: DictationHeard;
   engine: MacEngine;
   openAppAfterMinutes: number;
-  transcriber: Transcriber;
+  transcriber: TranscriberChoice;
   transcription: boolean;
 }
 
@@ -65,7 +65,7 @@ export function setSwitches(
     transcription?: boolean | undefined;
     engine?: MacEngine | undefined;
     openAppAfterMinutes?: number | undefined;
-    transcriber?: Transcriber | undefined;
+    transcriber?: TranscriberChoice | undefined;
   }
 ) {
   const before = loadSwitches(db);

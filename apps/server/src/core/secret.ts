@@ -19,6 +19,8 @@ import { APP_DATA, MACHINE_DIR } from "./platform";
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
+  /** A new install's backup password, minted by `init` (`host/backup.ts`). */
+  backupKey: join(LIFE_STATE_DIR, "backup.key"),
   /** The desk's key: each registered agent's door key is derived from it (`desk/desk-door.ts`). */
   deskKey: join(LIFE_STATE_DIR, "desk", "desk.key"),
   /** gog's keyring password for the helper, which has no shell profile (`core/gog.ts`); kept by `bun life gog-keyring`. */
@@ -36,7 +38,7 @@ export const SECRETS = {
   /** The key a card's push id is made with (`pushIdOf`, `sources/voice-server-push.ts`); it never leaves the Mac. */
   pushIdKey: join(LIFE_STATE_DIR, "push-id.key"),
   /**
-   * Voice's secrets (its tokens, the ElevenLabs key, the backup's password, the Mac helper's Claude sign-in): Life
+   * Voice's secrets (its tokens, the ElevenLabs key, the Mac helper's Claude sign-in): Life
    * writes it in `host/voice.ts` alone (`mintVoiceSecrets`, `setVoiceKey`); voice's Mac helper
    * (`--setup-claude-token`) and Lifelog Host write it too, until Host goes.
    */

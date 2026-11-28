@@ -6,7 +6,7 @@ import { git } from "../core/proc";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { ownerIn } from "../records/truth";
 import { voiceServer } from "../sources/store-fixtures";
-import { init } from "./init";
+import { engineSettingsOf, init } from "./init";
 
 test("init makes a new owner's data that validates, commits it, and never runs twice", async () => {
   const data = join(mkdtempSync(join(tmpdir(), "life-init-")), "data");
@@ -38,3 +38,28 @@ test("init seeds where he is by the phone's zone first", async () => {
     .split("\n");
   expect(JSON.parse(line ?? "{}").tz).toBe("Asia/Jakarta");
 }, 20_000);
+
+test("each engine choice is its own settings: memory on Claude, on OpenRouter, or OpenRouter with the desk on Claude", () => {
+  expect(engineSettingsOf("claude")).toEqual({
+    desk: { defaultRuntime: "claude", runtimes: {} },
+    engine: "claude",
+  });
+  expect(engineSettingsOf("openrouter")).toEqual({
+    desk: { defaultRuntime: "pi", runtimes: {} },
+    engine: "openrouter",
+  });
+  // Spec section 2 step 3: memory on OpenRouter, agents on Claude.
+  expect(engineSettingsOf("both")).toEqual({
+    desk: { defaultRuntime: "claude", runtimes: {} },
+    engine: "openrouter",
+  });
+  // A desk already set keeps its model overrides.
+  expect(
+    engineSettingsOf("openrouter", {
+      runtimes: { claude: { model: "sonnet" } },
+    })
+  ).toEqual({
+    desk: { defaultRuntime: "pi", runtimes: { claude: { model: "sonnet" } } },
+    engine: "openrouter",
+  });
+});

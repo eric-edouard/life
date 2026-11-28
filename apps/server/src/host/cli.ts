@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -12,7 +13,6 @@ import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
   connector,
-  hasEngineSet,
   readSettings,
   type Settings,
   setSettings,
@@ -35,7 +35,7 @@ import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { archiveCommand } from "./archive";
 import { timings } from "./asks";
-import { backup } from "./backup";
+import { backup, backupSettingsOf, cloudFolderOf } from "./backup";
 import { bridgeCommand } from "./bridges";
 import {
   changeDirectoryEntry,
@@ -53,7 +53,7 @@ import { localKey } from "./http/local-key";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
-import { init, started } from "./init";
+import { ENGINE_CHOICES, engineSettingsOf, init, started } from "./init";
 import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
@@ -352,27 +352,38 @@ const commands: Record<string, () => number | Promise<number>> = {
       return result;
     })({}, []);
   },
-  /** A new install's data, once: `init --name <his name> [--language <his memory's>] [--email a]… [--phone +33…]…`. */
+  /** A new install's data, once: `init --name <his name> --engine claude|openrouter|both [--language <his memory's>] [--email a]… [--phone +33…]…`. */
   async init() {
     const { values: v } = parseArgs({
       args: process.argv.slice(3),
       options: {
         email: { multiple: true, type: "string" },
+        engine: { type: "string" },
         language: { type: "string" },
         name: { type: "string" },
         phone: { multiple: true, type: "string" },
       },
     });
-    if (!v.name) {
+    const choice = ENGINE_CHOICES.find((c) => c === v.engine);
+    if (!(v.name && choice)) {
       console.error(
-        "usage: bun life init --name <name> [--language English] [--email a]… [--phone +33…]…"
+        `usage: bun life init --name <name> --engine ${ENGINE_CHOICES.join("|")} [--language English] [--email a]… [--phone +33…]…`
       );
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
-    // A new install thinks on OpenRouter (no Claude needed; the app asks for its key once). A file naming an engine keeps it.
+    // The engine is the choice, never a default; the backup goes to the cloud folder this Mac has, with a password of
+    // its own. A repository already there (another install's) is never taken: its password is not this one.
+    const before = readSettings();
+    const folder = before.backup ? undefined : cloudFolderOf();
+    const fresh = folder ? backupSettingsOf(folder) : undefined;
+    const isNew = fresh !== undefined && !existsSync(fresh.repository);
+    if (isNew) {
+      writeSecret("backupKey", randomBytes(32).toString("base64url"));
+    }
     setSettings({
-      ...(hasEngineSet() ? {} : { engine: "openrouter" as const }),
+      ...engineSettingsOf(choice, before.desk),
+      ...(isNew ? { backup: fresh } : {}),
       ...(v.language ? { memoryLanguage: v.language } : {}),
     });
     console.log("Life: data ready");

@@ -8,7 +8,7 @@
 // exactly like one of Scribe's (jobs.ts `complete`). The transcription bench routes by the same
 // rule (apps/stt-bench/src/context.ts imports it).
 
-import type { Word } from "@lifelog/db/schema";
+import type { TranscriberChoice, Word } from "@lifelog/db/schema";
 import type { CutSpan } from "./audio";
 import type { Heard } from "./speech-service";
 
@@ -126,6 +126,19 @@ export function routeTurns(
   }
   return { kind: "turns", routed: thai };
 }
+
+/**
+ * The route in the language mode (`mode`, the `transcriber` switch): `local` routes nothing, every
+ * language heard being the speech service's own; otherwise the router at the bar of `zone`.
+ */
+export const routeIn = (
+  mode: TranscriberChoice,
+  heard: Pick<Heard, "turns" | "words">,
+  zone: string
+): Route =>
+  mode === "local"
+    ? { kind: "turns", routed: [] }
+    : routeTurns(heard, barOf(zone));
 
 // The stretches of audio Scribe hears for the routed turns: each padded, overlaps joined.
 export function scribeRanges(routed: HeardTurn[]): [number, number][] {

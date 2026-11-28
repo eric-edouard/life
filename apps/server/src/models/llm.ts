@@ -79,8 +79,16 @@ export const CODEX_OFF =
     " "
   );
 
-/** The engine he chose (a test run reads its own settings: claude, so no test reaches Codex). */
-export const readEngine = (): Engine => settings().engine;
+/** The engine he chose at `init` (a test run reads its own settings, which name claude, so no test reaches Codex). */
+export function readEngine(): Engine {
+  const { engine } = settings();
+  if (!engine) {
+    throw new Error(
+      "no engine chosen: bun life init --engine claude|openrouter|both"
+    );
+  }
+  return engine;
+}
 
 /**
  * `LIFE_LLM=engine/model[/effort]`: one process's model for every tier, set by the bench for a candidate and for its
