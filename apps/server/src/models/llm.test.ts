@@ -20,6 +20,7 @@ import {
   quota,
   quotaOf,
   readEngine,
+  readEngineCheck,
 } from "./llm";
 import { type CallReads, extractJson, TIERS, type Tools } from "./model-call";
 import { routesOf } from "./routers";
@@ -577,6 +578,46 @@ test("each provider's model and effort by tier", () => {
     "OPENROUTER_API_KEY",
     "ALLMODELS_API_KEY",
   ]);
+});
+
+test("the AI integration's check lists every key its engine takes, each with the page where it is made", async () => {
+  // Offline and no keys set: no call leaves the test.
+  const offline = spyOn(globalThis, "fetch").mockRejectedValue(
+    new Error("offline")
+  );
+  const was = {
+    a: process.env.ALLMODELS_API_KEY,
+    o: process.env.OPENROUTER_API_KEY,
+  };
+  delete process.env.ALLMODELS_API_KEY;
+  process.env.OPENROUTER_API_KEY = "made-up";
+  try {
+    expect((await readEngineCheck("openrouter")).keys).toEqual([
+      {
+        name: "OPENROUTER_API_KEY",
+        opens: "https://openrouter.ai/settings/keys",
+        set: true,
+      },
+      {
+        name: "ALLMODELS_API_KEY",
+        opens: "https://allmodels.io",
+        optional: true,
+        set: false,
+      },
+    ]);
+  } finally {
+    offline.mockRestore();
+    for (const [k, v] of [
+      ["ALLMODELS_API_KEY", was.a],
+      ["OPENROUTER_API_KEY", was.o],
+    ] as const) {
+      if (v === undefined) {
+        delete process.env[k];
+      } else {
+        process.env[k] = v;
+      }
+    }
+  }
 });
 
 test("a route: its router (the engine's when left out), model, hosts and effort", () => {
