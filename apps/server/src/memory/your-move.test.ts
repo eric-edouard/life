@@ -202,8 +202,9 @@ test("its step due first is shown, due to the last instant of its own day, a mis
   expect(hidden?.needs).toEqual([]);
 });
 
-// A step of his stays asked until it ended or his word (his rule of 27 Nov 2026): its age, a missed day or its sender
-// never hides it; the walk over every path is `open-steps-asked.test.ts`. Made-up matters.
+// A step of his stays asked until it ended or his word (his rules of 27 and 28 Nov 2026): its age, a missed day or its
+// sender never hides it, only his words or its being handled elsewhere (`askOfStep`); the walk over every path is
+// `open-steps-asked.test.ts`. Made-up matters.
 test("a to-do item open in his list is his move, like his own task", () => {
   const item = {
     ...OWN,

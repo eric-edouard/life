@@ -7,9 +7,11 @@ import { inheritEndings, succeedsOf } from "./re-read-succession";
 import { OWNER } from "./read-truth";
 import { OWED_BY_HIM } from "./your-move";
 
-// The rule (his word of 27 Nov 2026): an open step of his stays asked until there is evidence it ended, or his word.
-// One walk from the records to his inbox over every path that once hid one: a re-read, a to-do item in his list, a
-// reading of "over" citing nothing, a missed day, a quiet matter, a mailer's notice, a stopped agent. Made-up matters.
+// The rule (his words of 27 and 28 Nov 2026): an open step of his stays asked until there is evidence it ended, or his
+// word; only his words, or its being someone else's or his own work elsewhere, move it to its matter's page alone.
+// One walk from the records to his matters' pages over every path that once hid one: a re-read, a to-do item in his
+// list, a reading of "over" citing nothing, a missed day, a quiet matter, a mailer's notice, a stopped agent, a step
+// read as someone else's. Made-up matters.
 
 const TODAY = "2026-11-20";
 const pad = (n: number) => String(n).padStart(12, "0");
