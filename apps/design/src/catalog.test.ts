@@ -9,6 +9,7 @@ import {
   pathsOf,
   ROOT,
   tabsOf,
+  unseenOf,
 } from "./catalog";
 
 const README = `# Designs
@@ -134,6 +135,22 @@ test("the latest changed entries: a folder's page by any file of its folder, new
     ["lab/index.html", 500],
     ["b.md", 400],
     ["a.html", 300],
+  ]);
+});
+
+test("unseen: changed since last opened, a page never opened counts once it has a stamp", () => {
+  const entries = ["a.html", "lab/index.html", "b.md", "never.md"].map(
+    (path) => ({ about: "", path, title: path })
+  );
+  const stamps: [string, number][] = [
+    ["a.html", 300],
+    ["lab/x.css", 500],
+    ["b.md", 400],
+  ];
+  const seen = { "a.html": 300, "lab/index.html": 200 };
+  expect([...unseenOf(entries, stamps, seen)]).toEqual([
+    "lab/index.html",
+    "b.md",
   ]);
 });
 
