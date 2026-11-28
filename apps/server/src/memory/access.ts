@@ -2,22 +2,12 @@ import { join } from "node:path";
 import { z } from "zod";
 import { readJson } from "../core/files";
 import { LIFE_STATE_DIR } from "../core/paths";
+import { ACCESS_CHECKS, type AccessCheck } from "../records/integration";
 
 // An access card's steps (`access`, the asks contract; his decision of 28 Nov 2026): what only he can grant on the Mac,
-// each step with what Life checks silently. A step's status is worked out when read, from the Mac's statuses as last
-// read (`ACCESS_STATUSES`, written whole by host's `readAccessNow` through the permissions helper: every grant is Life.app's),
-// never stored on the card.
-
-/** What Life checks silently for a step: a permission of Life's, Full Disk Access, or free disk space. */
-export const ACCESS_CHECKS = [
-  "accessibility",
-  "calendars",
-  "contacts",
-  "disk_free",
-  "full_disk_access",
-  "photos",
-] as const;
-export type AccessCheck = (typeof ACCESS_CHECKS)[number];
+// each step with what Life checks silently (`ACCESS_CHECKS`, `records/integration.ts`). A step's status is worked out when
+// read, from the Mac's statuses as last read (`ACCESS_STATUSES`, written whole by host's `readAccessNow` through the
+// permissions helper: every grant is Life.app's), never stored on the card.
 
 /** A step as Life sees it: `done`, `missing` (not asked yet, or not on yet), or `refused` (he said no to its prompt). */
 export const AccessStatus = z.enum(["done", "missing", "refused"]);
