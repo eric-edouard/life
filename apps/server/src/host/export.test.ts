@@ -89,13 +89,9 @@ test("an export holds everything with its checksum and counts, and never a secre
     const paths = m.files.map((f) => f.path);
     // A project's files, odd names kept, links left out, never its .git or a file starting .env; its secret files and packages left out.
     expect(paths.filter((p) => p.startsWith("state/projects/")).sort()).toEqual(
-      [
-        "PLAN.md",
-        "history.bundle",
-        "live.sqlite",
-        "notes.sqlite",
-        "result.tmp",
-      ].map((f) => `state/projects/bakery-page/${f}`)
+      ["PLAN.md", "live.sqlite", "notes.sqlite", "result.tmp"].map(
+        (f) => `state/projects/bakery-page/${f}`
+      )
     );
     expect(paths).toContain("archive/whatsapp.sqlite");
     expect(paths).toContain("archive/phone.sqlite");
