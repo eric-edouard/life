@@ -14,7 +14,7 @@ import { ASK_SPOKEN, COMPLAINT_RECEIVED } from "../host/events";
 import type { Decision } from "../memory/decision-lines";
 import { askPlaceOf } from "../memory/memory-files";
 import type { LedgerEntry } from "../records/ledger-entry";
-import type { AgentWait } from "../records/registered-agent";
+import type { AgentWait, QuietLine } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
 
 // The desk's store (`LIFE_STATE_DIR/desk/desk.sqlite`, WAL): the one state of the desk. Every rule reads its rows and
@@ -221,6 +221,24 @@ create table if not exists handed_work (
   primary key (entry_id, assignment_id)
 );
 create index if not exists handed_work_by_kind on handed_work (kind, handed_at);
+create table if not exists quiet_line (
+  assignment_id text primary key,
+  doing text not null,
+  eta text,
+  at text not null,
+  rev text not null
+);
+create table if not exists spending_stop (
+  id integer primary key,
+  scope text not null,
+  assignment_id text not null,
+  turn_id integer,
+  stopped_at text not null,
+  decision_id text unique,
+  answered_at text,
+  raised integer not null default 0
+);
+create unique index if not exists spending_stop_open on spending_stop (scope) where answered_at is null;
 create table if not exists project_handoff (
   project text primary key,
   ask text not null unique,
@@ -326,6 +344,27 @@ export const writeWait = (
   db.run(
     "update assignment set wait_events = ?, wait_until = ?, wait_reason = ?, wait_is_default = ? where id = ?",
     [JSON.stringify(w.events), w.until, w.reason, isDefault ? 1 : 0, id]
+  );
+
+/** Deletes turn `turn` that never began (its session was live elsewhere: the wake waits), letting go of a spending stop it held, so a later turn given its id never holds it. */
+export const deleteUnbegunTurn = (db: Database, turn: number) =>
+  db.transaction(() => {
+    if (
+      db.run("delete from turn where id = ? and begun_at is null", [turn])
+        .changes > 0
+    ) {
+      db.run("update spending_stop set turn_id = null where turn_id = ?", [
+        turn,
+      ]);
+    }
+  })();
+
+/** Writes assignment `id`'s quiet line when its agent gave `doing` (its `eta` with it, none: no eta), under a fresh `rev` (what a deletion names); nothing given keeps the last. */
+export const writeQuietLine = (db: Database, id: string, q: QuietLine) =>
+  q.doing &&
+  db.run(
+    "insert or replace into quiet_line (assignment_id, doing, eta, at, rev) values (?, ?, ?, ?, ?)",
+    [id, q.doing, q.eta ?? null, clock().toISOString(), crypto.randomUUID()]
   );
 
 /**

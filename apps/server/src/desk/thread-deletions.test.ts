@@ -5,6 +5,8 @@ import { appendJsonl } from "../core/files";
 import { DESK_STORE } from "../core/paths";
 import { setSettings } from "../core/settings";
 import { deleteFromMemoryAndTodoItems } from "../host/deletion-door";
+import { quietLineOf } from "../host/desk-read";
+import { threadEntriesHolding } from "../host/life-thread";
 import {
   INSTRUCTIONS,
   instructionsFor,
@@ -23,7 +25,7 @@ import { openDesk } from "./desk-store";
 import { askedOf, setup } from "./test-desk";
 import { blankDeletedThreadEntries } from "./thread-deletions";
 
-// His deletion reaches the Life thread's entries and his instructions (v4.1, bundle J): the preview lists them, the
+// His deletion reaches the Life thread's entries, agents' quiet lines and his instructions (v4.1, bundle J): the preview lists them, the
 // record names them, the desk blanks the entries on its tick and an answer never writes back onto one. Made-up words.
 
 const AT = "2026-10-14T09:00:00.000Z";
@@ -88,6 +90,14 @@ test("the door: the preview lists the entries and instructions holding the words
     entry("What should I bring?", "The blue drawings, tomorrow.");
     entry("What did we say?", "You agreed on a time.", [TURN]);
     entry("Any news?", "Nothing new today.");
+    // An agent's quiet line quoting the words (its `doing`), and one that does not.
+    const quiet = (id: string, doing: string, rev = "r1") =>
+      desk.run(
+        "insert or replace into quiet_line (assignment_id, doing, eta, at, rev) values (?, ?, null, ?, ?)",
+        [id, doing, AT, rev]
+      );
+    quiet("asg_quoting", "Fetching the blue drawings");
+    quiet("asg_other", "Sorting the photos");
     const quoting = recordInstruction({
       said: "Never ask me about the blue drawings again",
       scope: "all",
@@ -104,10 +114,13 @@ test("the door: the preview lists the entries and instructions holding the words
       refs: [],
       said: "that goes",
     };
+    // The desk off: its copies are found all the same.
+    setSettings({ desk: null });
     const preview = await deleteFromMemoryAndTodoItems(ask);
     expect("askAgain" in preview && preview.copies).toEqual([
       { id: "thread:1", kind: "thread entry" },
       { id: "thread:2", kind: "thread entry" },
+      { id: "quiet:asg_quoting@r1", kind: "quiet line" },
       { id: quoting.id, kind: "instruction" },
     ]);
     // Ask Life's answer to the preview quotes the words: a new match, which never changes what he confirms.
@@ -120,14 +133,30 @@ test("the door: the preview lists the entries and instructions holding the words
       "thread:1",
       "thread:2",
       "thread:4",
+      "quiet:asg_quoting@r1",
       quoting.id,
     ]);
+    // The quiet line is hidden at read at once, then deleted by the tick.
+    expect(quietLineOf(desk, "asg_quoting")).toBeUndefined();
+    expect(quietLineOf(desk, "asg_other")?.doing).toBe("Sorting the photos");
     // The instruction quoting them is gone at read, its file never rewritten.
     expect(instructionsFor({}).map((i) => i.id)).toEqual([other.id]);
 
     // The tick blanks them in place, once; the unrelated one stands.
     expect(blankDeletedThreadEntries(desk)).toBe(3);
     expect(blankDeletedThreadEntries(desk)).toBe(0);
+    expect(desk.query("select assignment_id from quiet_line").all()).toEqual([
+      { assignment_id: "asg_other" },
+    ]);
+    // A later line on the same work is another line: it shows, and the tick leaves it.
+    quiet("asg_quoting", "Sorting the drawings", "r2");
+    expect(quietLineOf(desk, "asg_quoting")?.doing).toBe(
+      "Sorting the drawings"
+    );
+    blankDeletedThreadEntries(desk);
+    expect(quietLineOf(desk, "asg_quoting")?.doing).toBe(
+      "Sorting the drawings"
+    );
     expect(
       desk
         .query(
@@ -176,4 +205,19 @@ test("an answer arriving after its entry was deleted writes nothing onto it", as
       )
       .all()
   ).toEqual([{ answer: "", gone: 1, words: "" }]);
+});
+
+test("a store the desk has not opened since quiet lines came still gives its entries to the preview", () => {
+  const desk = openDesk(DESK_STORE);
+  desk.run(
+    "insert into thread_entry (asked_at, words, answer, refs) values (?, 'Where are the blue drawings?', 'In the hall.', '[]')",
+    [AT]
+  );
+  desk.run("drop table quiet_line");
+  desk.close();
+  expect(
+    threadEntriesHolding((texts) =>
+      texts.some((x) => x?.includes("blue drawings"))
+    )
+  ).toEqual([{ id: "thread:1", kind: "thread entry" }]);
 });

@@ -16,6 +16,7 @@ import {
   filtersOf,
   MAX_ACTIVE,
   modelOf,
+  quietLineOf,
   readNotes,
   runtimeOf,
   type TurnRow,
@@ -29,6 +30,7 @@ import {
   type SessionOpenIn,
   sessionOpenInOf,
 } from "./open-session-records";
+import { readProjectsWithoutRoom, WAITS_FOR_ROOM } from "./spending";
 
 // A registered agent as read now (`AgentNow`), from the desk's store: what it works on, where it stands, what it waits
 // for, its last turn and what shows amber; for every reader of agents (the connector, the report, the status). Bounded
@@ -76,7 +78,11 @@ const waitOf = (a: AgentRow, s: AssignmentRow) => {
 export interface AgentNow {
   /** What shows amber: its session open outside the desk, a default wait, a late deadline, a silent turn, a failed last turn, events dropped in the last day. */
   amber: string[];
+  /** Its quiet line's words (docs/glossary.md): what it said it does now; null before it gave one. */
+  doing: string | null;
   effort: string | null;
+  /** When it said it expects the work done (ISO), with `doing`; null: not said. */
+  eta: string | null;
   /** Whether it does its job, in plain words (`agentHealthOf`). */
   health: Health;
   id: string;
@@ -219,6 +225,8 @@ function subjectPartOf(
       amber: [],
       assignment: null,
       chatsSeen: {},
+      doing: null,
+      eta: null,
       filters: [],
       matterId: null,
       notes: "",
@@ -234,10 +242,13 @@ function subjectPartOf(
       )
       .get(s.id, new Date(now - DAY).toISOString())?.n ?? 0;
   const open = last && !last.ended_at ? last : null;
+  const line = quietLineOf(db, s.id);
   return {
     amber: amberOf(a, s, last, open, dropped, now, openIn),
     assignment: s.id,
     chatsSeen: isForWakes && status === "waiting" ? seenChatsOf(db, s) : {},
+    doing: line?.doing ?? null,
+    eta: line?.eta ?? null,
     filters: filtersOf(s),
     matterId: s.matter_id,
     // The caretaker's notes are about his complaints: they stay with it, never in a read or the nightly.
@@ -252,12 +263,15 @@ function subjectPartOf(
 interface Around {
   app: ReturnType<typeof readClaudeAppListing>;
   blocks: ReturnType<typeof runtimeBlocksOf>;
+  /** The projects that wait for room in the month (`readProjectsWithoutRoom`): their quiet line says so. */
+  noRoom: ReadonlySet<string>;
   records: Map<string, OpenSessionRecord>;
 }
 /** `isForWakes` (his apps' reads) also reads his Claude app's listing; the other reads (the snapshot, a project's) leave it unjudged. */
 const readAround = (db: Database, isForWakes: boolean): Around => ({
   app: isForWakes ? readClaudeAppListing() : null,
   blocks: runtimeBlocksOf(db),
+  noRoom: readProjectsWithoutRoom(db),
   records: readOpenSessionRecords(),
 });
 
@@ -338,8 +352,11 @@ function nowOf(
     on ?? currentAssignmentOf(db, a.id) ?? undefined,
     { isForWakes, last, now, openIn, status }
   );
+  const isWaitingForRoom =
+    a.status === "active" && a.project !== null && around.noRoom.has(a.project);
   return {
     ...subject,
+    ...(isWaitingForRoom && { doing: WAITS_FOR_ROOM, eta: null }),
     health: healthOf(db, a, around, now, {
       amber: subject.amber,
       notStarted: subject.notStarted,

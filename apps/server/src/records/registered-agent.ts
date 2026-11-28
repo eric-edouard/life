@@ -103,6 +103,23 @@ export const AgentWait = z
   .strict();
 export type AgentWait = z.infer<typeof AgentWait>;
 
+/** An assignment's quiet line (docs/glossary.md): what its agent does now and when it expects the work done, given on `set_wait` or `write_notes`; `doing` given replaces both. */
+export const QuietLine = z.object({
+  doing: z
+    .string()
+    .min(1)
+    .max(120)
+    .optional()
+    .describe(
+      "What you are doing now, in a few plain words he reads on his phone (`Sorting 2023`); replaces your last line with `eta`"
+    ),
+  eta: z.iso
+    .datetime()
+    .optional()
+    .describe("When you expect the whole work done (ISO), with `doing`"),
+});
+export type QuietLine = z.infer<typeof QuietLine>;
+
 /** A registered agent's status: `active` (a turn running or waiting), `stopped` (restarts on his word only), or done with. */
 export type AgentStatus = "active" | "stopped" | "handed_over" | "ended";
 

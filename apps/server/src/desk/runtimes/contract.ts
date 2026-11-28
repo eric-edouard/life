@@ -9,7 +9,7 @@ export const DOOR_KEY_ENV = "LIFE_DESK_KEY";
 /** `send`'s refusal of a session live elsewhere (his app, a terminal): the wake waits for it, never a failed turn. */
 export class SessionLive extends Error {}
 
-/** How a run ended: `ok` false when it failed (`why`: its stop reason or error), and what it used (none when it failed or the runtime can't say). */
+/** How a run ended: `ok` false when it failed (`why`: its stop reason or error), and what it used (none when the runtime can't say). */
 export interface RunEnd {
   ok: boolean;
   usage?: Usage;
@@ -20,6 +20,8 @@ export interface RunEnd {
 export interface Run {
   begun: Promise<void>;
   ended: Promise<RunEnd>;
+  /** What the run used so far, while it runs (pi: its models, subagents and searches, as `ended` will report them); none once it ended, or when the runtime can't say. */
+  usage?: () => Usage | undefined;
 }
 
 /** One model call's usage, as pi's assistant messages carry it. */

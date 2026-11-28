@@ -59,7 +59,7 @@ import {
   MainSessionAsk,
   type MainSessionLine,
 } from "../records/main-session-wire";
-import { AgentWait } from "../records/registered-agent";
+import { AgentWait, QuietLine } from "../records/registered-agent";
 import { Change } from "../todo-list/contract";
 import {
   askDecision,
@@ -73,8 +73,7 @@ import {
 import { answerQuestion, readQuestion } from "./agent-questions";
 import { readApifyRun } from "./apify-reads";
 import { complaintWordsIn, readComplaint } from "./complaint-intake";
-import { spendingStopInTurn } from "./desk-clock";
-import type { Desk } from "./desk-store";
+import { type Desk, writeQuietLine } from "./desk-store";
 import { doorOf, keyOf } from "./door-keys";
 import {
   askAgent,
@@ -98,6 +97,7 @@ import {
 } from "./one-off-projects";
 import { readSendFacts } from "./runtimes/runtime-rows";
 import { SEND_GUARD_HOOK, type SendFacts, sendRefusalOf } from "./send-guard";
+import { spendingStopInTurn } from "./spending-stop";
 import { readSpokenAsk } from "./spoken-ask-intake";
 import { isCaretakerFix, turnRefusalOf } from "./turn-refusal";
 
@@ -116,6 +116,10 @@ const LOOPBACK = new Set(["127.0.0.1", "localhost"]);
 
 const NO_TURN =
   "No desk turn of yours is running: he wrote in your session himself (the Life plugin serves your door there, its tools named `mcp__life__<tool>`). Your tools act on the assignment you name with `assignment`, or on your one open assignment.";
+
+/** The quiet line, as `set_wait` and `write_notes` offer it (docs/glossary.md). */
+const QUIET_LINE =
+  "On long work, also give your quiet line, the one thing he sees while you work: `doing` (what you do now, a few plain words) and `eta` (when you expect the whole work done); a new `doing` replaces both.";
 
 /** One open assignment as a line: its id, its matter, its wait and its open card. */
 const assignmentLineOf = (desk: Desk, s: AssignmentRow) =>
@@ -217,11 +221,21 @@ function doorServer(desk: Desk, id: string) {
       },
       name.startsWith("read_") ? READ_ONLY : WRITES
     );
+  // The caretaker's work is his complaints: like its notes, it shows no quiet line.
+  const writeQuietLineOf = (s: AssignmentRow, line: QuietLine) =>
+    agentOf(desk.db, s.agent_id)?.role !== "caretaker" &&
+    writeQuietLine(desk.db, s.id, line);
   door(
     "set_wait",
-    `Set what you wait for before you stop: \`events\` (filters on new messages, any one matching wakes you: \`person\`, \`channels\`, \`chat\`, \`from_me\`, \`text_matches\`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as \`zort|invitation\`; a filter with only \`text_matches\` matches a message from anyone but him), \`until\` (5 minutes to 7 days ahead, ISO), \`reason\`. The desk wakes you at \`until\`, on a matching message, on a call that ended in a chat or with a person a filter names, on his answer to your decision, or on its withdrawal when he answered in its draft's chat himself (read the chat again). A wake names the message, never its text: read it yourself. Other channels wake you only when a filter names them: ${EVENT_CHANNELS.map((c) => `\`${c.name}\` (${c.quantities.length ? `quantities ${c.quantities.map((q) => `\`${q}\``).join(", ")}; ` : ""}${c.about})`).join(", ")}. \`quantity\` with \`above\` and/or \`below\` compares. A channel that is off or unknown is refused. A wake hands facts and quantities, never text.`,
-    AgentWait,
-    (w, s) => setWait(desk, s, w)
+    `Set what you wait for before you stop: \`events\` (filters on new messages, any one matching wakes you: \`person\`, \`channels\`, \`chat\`, \`from_me\`, \`text_matches\`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as \`zort|invitation\`; a filter with only \`text_matches\` matches a message from anyone but him), \`until\` (5 minutes to 7 days ahead, ISO), \`reason\`. The desk wakes you at \`until\`, on a matching message, on a call that ended in a chat or with a person a filter names, on his answer to your decision, or on its withdrawal when he answered in its draft's chat himself (read the chat again). A wake names the message, never its text: read it yourself. Other channels wake you only when a filter names them: ${EVENT_CHANNELS.map((c) => `\`${c.name}\` (${c.quantities.length ? `quantities ${c.quantities.map((q) => `\`${q}\``).join(", ")}; ` : ""}${c.about})`).join(", ")}. \`quantity\` with \`above\` and/or \`below\` compares. A channel that is off or unknown is refused. A wake hands facts and quantities, never text. ${QUIET_LINE}`,
+    AgentWait.extend(QuietLine.shape),
+    async ({ doing, eta, ...w }, s) => {
+      const r = await setWait(desk, s, w);
+      if (!("error" in r)) {
+        writeQuietLineOf(s, { doing, eta });
+      }
+      return r;
+    }
   );
   door(
     "finish",
@@ -231,9 +245,12 @@ function doorServer(desk: Desk, id: string) {
   );
   door(
     "write_notes",
-    "Replace your notes on this turn's matter: what you did, what you wait on, why. They open your next packet and every wake on it.",
-    z.object({ text: z.string().min(1) }),
-    ({ text: notes }, s) => writeNotes(desk, s, notes)
+    `Replace your notes on this turn's matter: what you did, what you wait on, why. They open your next packet and every wake on it. ${QUIET_LINE}`,
+    z.object({ text: z.string().min(1) }).extend(QuietLine.shape),
+    ({ doing, eta, text: notes }, s) => {
+      writeNotes(desk, s, notes);
+      writeQuietLineOf(s, { doing, eta });
+    }
   );
   door(
     "request_decision",
@@ -661,18 +678,14 @@ async function mainSessionFetch(
   });
 }
 
-/** `POST /spending/<agt_…>`: the spending stop's answer for agent `id`'s running turn, `{ usd }` billed so far. */
-async function spendingFetch(desk: Desk, id: string, req: Request) {
-  const { usd } = (await req.json()) as { usd?: unknown };
-  return typeof usd === "number" && usd >= 0
-    ? Response.json({ stop: await spendingStopInTurn(desk, id, usd) })
-    : text("not a spend", 400);
-}
+/** `POST /spending/<agt_…>`: the spending stop's answer for agent `id`'s running turn (what it used so far is the desk's own read of its run). */
+const spendingFetch = async (desk: Desk, id: string) =>
+  Response.json({ stop: await spendingStopInTurn(desk, id) });
 
 /**
  * The door's requests, each with that agent's key as a bearer (else 401, the same for an unknown agent and a wrong key):
  * `/mcp/<agt_…>`, its tools; `POST /guard/<agt_…>`, the send guard's answer for one tool call (`{ refusal }`, null when
- * it may run); `POST /spending/<agt_…>`, `{ usd }` its running turn was billed so far, the spending stop's answer
+ * it may run); `POST /spending/<agt_…>`, the spending stop's answer for its running turn
  * (`{ stop }`, the line that ends the turn, null while under it: `spendingStopInTurn`). And one without a key, for the Life plugin: `/session/<ref>`, the door of the agent whose session that
  * is (`{ agent, key, url, matcher }`, the guard's tool matcher), else 404; by a loopback `Host` only, so no web page
  * reaches it. `MAIN_SESSION_PATH`, by the local key (`mainSessionFetch`). 404 for any other path.
@@ -703,7 +716,7 @@ export function doorFetch(desk: Desk, readFacts = guardFacts) {
       return text("unauthorized", 401);
     }
     if (path === "spending") {
-      return await spendingFetch(desk, id, req);
+      return await spendingFetch(desk, id);
     }
     if (path === "guard") {
       return Response.json({

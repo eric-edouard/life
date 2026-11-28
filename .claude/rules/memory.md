@@ -46,7 +46,8 @@ removed), `appointments.json` (whole), and a migration's backfill.
 - Its one door is `deleteFromMemory` (his token, the main session on his words, `bun life memory delete`): a preview,
   then the write only on its digest.
 - Copies outside `memory/` are hidden at read: his instructions (`instructionsFor`) and the Life thread's entries
-  (listed in the delete preview but outside its digest; `readThread`, blanked by `desk/thread-deletions.ts`; an answer never writes back onto one).
+  (listed in the delete preview but outside its digest; `readThread`, blanked by `desk/thread-deletions.ts`; an answer never writes back onto one), and an agent's quiet line quoting them (`quiet:<assignment>@<rev>`: that line only, found with the desk off too;
+  hidden by `quietLineOf` and the thread, deleted by the desk's tick; 28 Nov 2026).
 - The words stay in their sources, backups and git history; no code purges them (`SECURITY.md`).
 
 ## lifelog's chapter units stay as stored

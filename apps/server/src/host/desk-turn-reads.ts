@@ -32,6 +32,27 @@ export const tokensSince = (db: Database, since: string) =>
     )
     .all(since);
 
+/** A scope's kind and id: `project:<id>`, `assignment:<id>`. */
+const SCOPE = /:(.*)/s;
+
+/**
+ * The turns of a spending stop's scope (`project:<id>`: every assignment of its agents; `assignment:<id>`), ended or
+ * running (`ended_at` null), as spends read them, with their ids for a running turn's live usage.
+ */
+export function turnsSpentOn(db: Database, scope: string) {
+  const [kind, id = ""] = scope.split(SCOPE);
+  const of =
+    kind === "project"
+      ? "assignment_id in (select s.id from assignment s join agent a on a.id = s.agent_id where a.project = ?)"
+      : "assignment_id = ?";
+  return db
+    .query<
+      Omit<TurnSpent, "ended_at"> & { ended_at: string | null; id: number },
+      [string]
+    >(`select turn.id as id, ${SPENT} where ${of} and ${RAN}`)
+    .all(id);
+}
+
 /** The turns that ended from `from` to `to` (instants, `to` excluded), by `turn_by_ended`, as spends read them. */
 export const turnsEndedIn = (db: Database, from: string, to: string) =>
   db

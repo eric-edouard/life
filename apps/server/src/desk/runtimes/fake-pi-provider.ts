@@ -86,7 +86,8 @@ export function fakePiProvider(reply: (n: number, a: Asked) => Reply) {
     async fetch(req) {
       const path = new URL(req.url).pathname;
       if (path === "/door" && req.method === "POST") {
-        return doorAnswerOf(await req.json());
+        // The spending stop's ask carries no body.
+        return doorAnswerOf(await req.json().catch(() => ({})));
       }
       if (!path.startsWith(BASE_PATH)) {
         return new Response("not found", { status: 404 });

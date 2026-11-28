@@ -53,7 +53,9 @@
   "agents": [
     {
       "amber": [],
+      "doing": null,
       "effort": "medium",
+      "eta": null,
       "health": {
         "verdict": "fine",
         "why": []
@@ -84,7 +86,9 @@
     },
     {
       "amber": [],
+      "doing": null,
       "effort": "medium",
+      "eta": null,
       "health": {
         "verdict": "attention",
         "why": [

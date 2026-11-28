@@ -201,11 +201,12 @@ export function runHeard(c: Current, l: PiLine): RunEnd | undefined {
   if (l.type !== "agent_settled") {
     return;
   }
+  // What it spent counts however it ended.
   if (l.aborted) {
-    return { ok: false, why: c.stopWhy ?? "cancelled" };
+    return { ok: false, usage: c.usage, why: c.stopWhy ?? "cancelled" };
   }
   return c.stop === "error" || c.stop === "aborted"
-    ? { ok: false, why: c.why ?? c.stop }
+    ? { ok: false, usage: c.usage, why: c.why ?? c.stop }
     : { ok: true, usage: c.usage };
 }
 
@@ -365,7 +366,8 @@ export const piOpenOf =
           what: "turn",
         });
       }
-      c?.end(e);
+      // What it spent counts however it ended, pi exiting included.
+      c?.end({ usage: c.usage, ...e });
     };
     /** One line pi printed: a response to what the runtime asked, else an event of the run. */
     const hear = (text: string) => {
@@ -444,13 +446,18 @@ export const piOpenOf =
           },
         };
       });
+      const run = current;
       ask({ message, type: "prompt" }).then((r) => {
         const why = promptRefusalOf(r);
         if (why) {
           settle({ ok: false, why });
         }
       });
-      return { begun: began, ended };
+      return {
+        begun: began,
+        ended,
+        usage: () => (current === run ? run?.usage : undefined),
+      };
     };
     const stop = async () => {
       if (!isPrompted) {

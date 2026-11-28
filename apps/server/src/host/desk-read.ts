@@ -11,6 +11,7 @@ import { openReadOnly } from "../core/sqlite";
 import type { Decision } from "../memory/decision-lines";
 import type { AgentHold, StandingAgent } from "../memory/held-matters";
 import type { BeingFixed } from "../memory/life-checks";
+import { deletionsNow } from "../memory/memory-files";
 import {
   type AgentChange,
   type AgentStatus,
@@ -658,4 +659,27 @@ export function eventHeard(
     )
     .get(id, e.received_at);
   return t ? { by: t.agent_id, told: "woken" } : { told: "queued" };
+}
+
+/** A quiet line's ref, as a deletion names it (`threadEntriesHolding`): its assignment and its revision, so a deletion hides that line only; the desk deletes it on its tick. */
+export const quietLineRefOf = (line: { assignment_id: string; rev: string }) =>
+  `quiet:${line.assignment_id}@${line.rev}`;
+
+/** Whether a deletion named this quiet line (hidden until the desk deletes it). */
+export const isQuietLineDeleted = (line: {
+  assignment_id: string;
+  rev: string;
+}) => deletionsNow().refs.has(quietLineRefOf(line));
+
+/** Assignment `id`'s quiet line (docs/glossary.md): what its agent last said it does now and when it expects the work done; none before it gave one, or once a deletion named it. */
+export function quietLineOf(db: Database, id: string) {
+  const line = db
+    .query<
+      { assignment_id: string; doing: string; eta: string | null; rev: string },
+      [string]
+    >(
+      "select assignment_id, doing, eta, rev from quiet_line where assignment_id = ?"
+    )
+    .get(id);
+  return line && !isQuietLineDeleted(line) ? line : undefined;
 }

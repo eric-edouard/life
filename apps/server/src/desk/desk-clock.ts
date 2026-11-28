@@ -41,15 +41,12 @@ import {
   moveOn,
   notesTurnsOf,
 } from "../host/move-read";
-import { monthBudgetOf, spendingStopOf } from "../host/spending";
+import { monthBudgetOf, readProjectsWithoutRoom } from "../host/spending";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
 import { onlyDraftOf } from "../memory/draft";
 import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
-import { instructionsFor } from "../memory/instructions";
-import { readMatterBook } from "../memory/matters";
 import { type People, readPeople } from "../memory/who";
-import { dayNow } from "../memory/zones";
 import { isWokenOnlyByHisWords } from "../records/registered-agent";
 import {
   readStore,
@@ -70,7 +67,7 @@ import { eventLineOf, nextWakeOf, STARTS_PER_TICK } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
 import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
 import { takeBackIfLeft, takeBackMainIfLeft } from "./continue-on-mac";
-import { type Desk, saveCursor } from "./desk-store";
+import { type Desk, deleteUnbegunTurn, saveCursor } from "./desk-store";
 import {
   agentWakesOf,
   holdersOf,
@@ -101,6 +98,13 @@ import { openOneOffProjects } from "./one-off-projects";
 import { standUp } from "./role-agents";
 import { blockOf, runnableAgentOf } from "./runtime-fallback";
 import { SessionLive } from "./runtimes/contract";
+import {
+  claimSpendingStop,
+  readStopScopes,
+  SPENDING_STOP,
+  type StopScope,
+  settleSpendingStops,
+} from "./spending-stop";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
 import { blankDeletedThreadEntries } from "./thread-deletions";
 import {
@@ -300,6 +304,13 @@ export function pollAnswers({ db }: Desk) {
     });
   for (const { name, read } of reads) {
     db.transaction(() => {
+      // A card a spending stop asked settles its stop, whoever holds its assignment now.
+      for (const e of read.events) {
+        const card = cards.get(e.data.id);
+        if (card) {
+          settleSpendingStops(db, name, card);
+        }
+      }
       queue(
         db,
         name,
@@ -431,7 +442,7 @@ async function wake(
   desk: Desk,
   a: AgentRow,
   s: AssignmentRow,
-  stop?: SpendingStop
+  scopes?: readonly StopScope[]
 ) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
@@ -455,39 +466,53 @@ async function wake(
   // woken (a runtime's start can take 30 s); its session takes one turn at a time.
   const woken = db.transaction(() => {
     const found = dueOf(db, a.id, s.id);
-    if (!found || found.at > clock().getTime()) {
+    if (
+      !found ||
+      found.at > clock().getTime() ||
+      // Room read again too: a cap or the month's amount may have changed since the tick's read.
+      (found.a.project !== null &&
+        readProjectsWithoutRoom(db).has(found.a.project))
+    ) {
       return null;
     }
-    // His answer since the tick's read goes first: the stop is asked on a wake of its own only.
-    const due =
-      stop && found.rank > 0 ? { ...found, cause: SPENDING_STOP } : found;
-    const id = db.run(
-      "insert into turn (agent_id, assignment_id, session, cause, started_at, model, move) values (?, ?, ?, ?, ?, ?, ?)",
-      [
-        a.id,
-        s.id,
-        due.a.session,
-        due.cause,
-        now(),
-        turnModelOf(due.a),
-        due.move,
-      ]
-    ).lastInsertRowid;
-    return { ...due, turn: Number(id) };
+    const id = Number(
+      db.run(
+        "insert into turn (agent_id, assignment_id, session, cause, started_at, model, move) values (?, ?, ?, ?, ?, ?, ?)",
+        [
+          a.id,
+          s.id,
+          found.a.session,
+          found.cause,
+          now(),
+          turnModelOf(found.a),
+          found.move,
+        ]
+      ).lastInsertRowid
+    );
+    // His answer since the tick's read goes first: the stop is claimed on a wake that is not his answer, after the
+    // runtime's wait, in the turn's own write, so two turns of one scope never both ask.
+    const stop =
+      scopes && found.rank > 0 ? claimSpendingStop(desk, s, id, scopes) : null;
+    if (stop === "waits") {
+      db.run("delete from turn where id = ?", [id]);
+      return null;
+    }
+    if (stop) {
+      db.run("update turn set cause = ? where id = ?", [SPENDING_STOP, id]);
+    }
+    return {
+      ...found,
+      cause: stop ? SPENDING_STOP : found.cause,
+      said: stop?.line,
+      turn: id,
+    };
   })();
   if (!woken) {
     return false;
   }
   return woken.cause === MOVE_NOTES
     ? await launchNotes(desk, woken, state === "gone" ? null : a.session)
-    : await launch(
-        desk,
-        {
-          ...woken,
-          said: woken.cause === SPENDING_STOP ? stop?.line : undefined,
-        },
-        state
-      );
+    : await launch(desk, woken, state);
 }
 
 /** Launches move `move`'s notes turn `turn` of `a` on `s`: it resumes the old session only; with none to resume (`session` null), or a send that fails, the turn ends at once and its notes stay as they are. False: the session was live elsewhere, so the turn went and the wake waits. */
@@ -518,7 +543,7 @@ async function launchNotes(
     );
   } catch (error) {
     if (error instanceof SessionLive) {
-      desk.db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      deleteUnbegunTurn(desk.db, turn);
       return false;
     }
     log("desk.runtime", {
@@ -618,7 +643,7 @@ async function launch(
     // His app took the session between `wake`'s read and the send: the turn never ran, so it goes and the wake waits.
     // ponytail: one taken after the send's own read, in the milliseconds before ACP resumes it, still runs beside it.
     if (error instanceof SessionLive) {
-      db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      deleteUnbegunTurn(db, turn);
       return false;
     }
     log("desk.runtime", {
@@ -632,104 +657,8 @@ async function launch(
   return true;
 }
 
-/** A wake that asks him about a piece of work at its spending stop. */
-const SPENDING_STOP = "spending_stop";
 /** How much later a wake that is not his answer comes once the month's amount is passed. */
 const SLOW_BY = HOUR;
-
-/** A wake at the spending stop, with what the desk tells the agent. */
-interface SpendingStop {
-  line: string;
-}
-
-/**
- * What assignment `id`'s turns were billed, how many asked at its stop (a wake at it, or a turn it ended inside,
- * `stopped_spending`), and the last of those and of his answers (one the stop ended inside answers nothing).
- */
-const spentOf = (db: Desk["db"], id: string) =>
-  db
-    .query<
-      {
-        answered: number | null;
-        asked: number | null;
-        stops: number;
-        usd: number;
-      },
-      [string, string]
-    >(
-      "select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd, coalesce(sum(cause = ?1 or stopped_spending is not null), 0) as stops, max(case when cause = ?1 or stopped_spending is not null then id end) as asked, max(case when cause = 'answer' and stopped_spending is null then id end) as answered from turn where assignment_id = ?2"
-    )
-    .get(SPENDING_STOP, id);
-
-/**
- * Where assignment `s` stands against its spending stop (`spendingStopOf`), for a wake that is not his answer: `waits`
- * once it asked him at its stop and he has not answered; a stop to ask at when what its turns were billed, and
- * `turnUsd` (a running turn's so far, `spendingStopInTurn`), reached the stop again (each answer to a stop gives it one
- * more); null otherwise.
- */
-async function spendingStopNow(
-  db: Desk["db"],
-  s: AssignmentRow,
-  monthly: number | undefined,
-  turnUsd = 0
-): Promise<SpendingStop | "waits" | null> {
-  const spent = spentOf(db, s.id);
-  if (!spent) {
-    return null;
-  }
-  const r = { ...spent, usd: spent.usd + turnUsd };
-  if (r.asked !== null && r.asked > (r.answered ?? 0)) {
-    return "waits";
-  }
-  const budget = s.matter_id
-    ? instructionsFor({ matter: s.matter_id }).find(
-        (i) => i.effect === "budget"
-      )?.text
-    : undefined;
-  const base = spendingStopOf(monthly, false, budget);
-  if (base === undefined || r.usd < base * (r.stops + 1)) {
-    return null;
-  }
-  // Read only at the stop: whether he marked its matter important, which triples it.
-  const isImportant =
-    !budget &&
-    s.matter_id !== null &&
-    (await readMatterBook(await readPeople(), dayNow())).some(
-      (v) => v.id === s.matter_id && v.important
-    );
-  const stop =
-    (spendingStopOf(monthly, isImportant, budget) ?? base) * (r.stops + 1);
-  return r.usd < stop
-    ? null
-    : {
-        line: `This work has been billed ${r.usd.toFixed(2)} dollars, past its spending stop of ${stop.toFixed(2)}. End this turn with what you have and ask one card about the work, not the money ("Finding a clinic is taking longer than usual. Keep going?"), with what was spent as its context's last line. Until it is answered, nothing wakes you but the answer.`,
-      };
-}
-
-/**
- * The spending stop inside agent `agent`'s running turn (pi's extension asks after each tool call: `/spending`), `usd`
- * what the turn was billed so far: the stop's line, which ends the turn (the extension then runs only the door's tools,
- * for its notes and its card), when its assignment reached its stop; null otherwise, and for the main session or no
- * turn. The turn keeps its cause and counts as asked at its stop (`stopped_spending`), so only his answer wakes the work.
- */
-export async function spendingStopInTurn(
-  { db }: Desk,
-  agent: string,
-  usd: number
-) {
-  const t = openTurn(db, agent);
-  const s = t && assignmentOf(db, t.assignment_id);
-  if (!(t && s) || agentOf(db, agent)?.role === "main") {
-    return null;
-  }
-  const stop = await spendingStopNow(db, s, monthBudgetOf()?.monthly, usd);
-  if (!stop || stop === "waits") {
-    return null;
-  }
-  db.run("update turn set stopped_spending = 1 where id = ?", [t.id]);
-  log("desk.turn", { agent, turn: t.id, what: "spending_stop.in_turn" });
-  return stop.line;
-}
 
 /**
  * Starts the turns due now: his answers and new assignments' first turns first, then the oldest deadline, until 3 have
@@ -741,10 +670,16 @@ export async function wakeDue(desk: Desk) {
   const month = monthBudgetOf();
   // Past the month's amount, background work slows: his answers still wake at once (recording and answering never stop).
   const slowBy = month?.isPassed ? SLOW_BY : 0;
+  // A project with no room in the month waits, his answers too ("Build it" included), until room frees.
+  const noRoom = readProjectsWithoutRoom(desk.db);
   const due = openAssignments(desk.db)
     .flatMap((s) => {
       const d = dueOf(desk.db, s.agent_id, s.id);
-      return d && d.at + (d.rank > 0 ? slowBy : 0) <= t ? [d] : [];
+      return d &&
+        d.at + (d.rank > 0 ? slowBy : 0) <= t &&
+        !(d.a.project && noRoom.has(d.a.project))
+        ? [d]
+        : [];
     })
     .toSorted((x, y) => x.rank - y.rank || x.at - y.at);
   // Each runtime asked once a tick, and only when a turn of it is due: a blocked one starts nothing, so no try is spent.
@@ -762,13 +697,14 @@ export async function wakeDue(desk: Desk) {
     // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
     const a = await runnableAgentOf(desk, d.a, blockOnce);
     // A runtime paused on its failing provider waits too (`Runtime.paused`): only here, never for his own asks.
-    const stop =
-      d.rank > 0 ? await spendingStopNow(desk.db, d.s, month?.monthly) : null;
     if (
-      stop !== "waits" &&
       !((await blockOnce(a.runtime)) || desk.runtimes[a.runtime]?.paused?.())
     ) {
-      started += (await wake(desk, a, d.s, stop ?? undefined)) ? 1 : 0;
+      const scopes =
+        d.rank > 0
+          ? await readStopScopes(desk, d.s, month?.monthly)
+          : undefined;
+      started += (await wake(desk, a, d.s, scopes)) ? 1 : 0;
     }
   }
 }

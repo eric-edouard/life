@@ -38,7 +38,9 @@ test("the phone's reads: read_inbox, read_matters, read_matter, read_registered_
   setSettings({ payments: { backend: "money" } });
   const agent = {
     amber: [],
+    doing: null,
     effort: "medium",
+    eta: null,
     health: { verdict: "fine" as const, why: [] as string[] },
     id: "agt_000000000001",
     lastTurn: {

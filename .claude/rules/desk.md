@@ -42,7 +42,8 @@ His yes, 18 Nov 2026. The desk (`apps/server/src/desk/`, off until his `desk` se
 
 - It creates an agent only on his word: a project's (a one-off project's once: `openOneOffProject`, 28 Nov 2026), or
   the Personal agent (one at most, home `<agentsRepo>/personal/`). It wakes a session on its events, his answer or its
-  deadline.
+  deadline; a project whose cap finds no room in the month waits, his answers too (`readProjectsWithoutRoom`, 28 Nov
+  2026), and work past its spending stop waits on his answer to that stop's own card (`desk/spending-stop.ts`).
 - The main session and the caretaker stand from the desk's start (`standUp`, 22 Nov 2026), running no turn until his
   words or complaint.
 - With none standing, the desk registers the Personal agent for a confirmed arrival no agent takes, or his words to an

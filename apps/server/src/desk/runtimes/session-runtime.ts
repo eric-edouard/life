@@ -217,7 +217,7 @@ export function sessionRuntime(
       live.delete(opened.ref);
       return end;
     });
-    return { begun: run.begun, ended, ref: c.ref };
+    return { begun: run.begun, ended, ref: c.ref, usage: run.usage };
   }
 
   /** Forgets kept session `k`, if it is still the one kept: its timer, its place in `kept` and in `live`. */
@@ -342,7 +342,7 @@ export function sessionRuntime(
       return await launch(a, message, ref);
     },
     async start(a, brief) {
-      const { begun, ended, ref } = await launch(a, brief);
+      const { begun, ended, ref, usage } = await launch(a, brief);
       return {
         begun,
         // Listed in his app once Life's process closed it, before the turn ends, so no next turn opens beside the import.
@@ -352,6 +352,7 @@ export function sessionRuntime(
         }),
         link: row.link(ref),
         ref,
+        usage,
       };
     },
     state: (ref) =>
@@ -378,7 +379,13 @@ export function sessionRuntime(
         }
         return end;
       });
-      return { begun: run.begun, ended, link: row.link(c.ref), ref: c.ref };
+      return {
+        begun: run.begun,
+        ended,
+        link: row.link(c.ref),
+        ref: c.ref,
+        usage: run.usage,
+      };
     },
   };
   return runtime;

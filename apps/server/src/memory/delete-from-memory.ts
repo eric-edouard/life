@@ -65,7 +65,7 @@ export interface DeletionNamed {
 /** A copy of his words a deletion blanks (a thread entry, an instruction line): its id and kind, never its words. */
 export interface DeletionCopy {
   id: string;
-  kind: "instruction" | "thread entry";
+  kind: "instruction" | "quiet line" | "thread entry";
 }
 
 /** The thread's finder, which memory cannot read (the desk's store): the entries `holds` names. Given by the host's door. */

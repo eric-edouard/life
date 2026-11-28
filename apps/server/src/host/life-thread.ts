@@ -27,9 +27,11 @@ import { dayNow } from "../memory/zones";
 import { readOwnerName } from "../models/prompt-parts";
 import { firstNameOf } from "../records/truth";
 import { undoOf } from "./answer-result";
-import { readDesk } from "./desk-read";
+import { isQuietLineDeleted, quietLineRefOf, readDesk } from "./desk-read";
+import { hasColumn } from "./desk-shape";
 import { estimateOf, type HandedKind } from "./desk-turn-reads";
 import { openChecksNow, unchangedOf, versionOf } from "./inbox";
+import { readProjectsWithoutRoom, WAITS_FOR_ROOM } from "./spending";
 
 // The Life thread (`read_thread`): his asks to Life and its answers (the desk's `thread_entry` rows), the agents' cards
 // as they were delivered and answered (`decisions.jsonl`) and Life's own checks, merged by time, a few days a page. Never
@@ -89,7 +91,7 @@ interface EntryRow {
   words: string | null;
 }
 
-/** The entries asked in [`from`, `to`) with their handed work (its kind, since when, whether it runs and its estimate), and whether any is older. */
+/** The entries asked in [`from`, `to`) with their handed work (its kind, since when, whether it runs, its quiet line and its estimate), and whether any is older. */
 function entriesOf(db: Database, from: string, to: string) {
   const rows = db
     .query<EntryRow, [string, string]>(
@@ -97,24 +99,48 @@ function entriesOf(db: Database, from: string, to: string) {
     )
     .all(from, to);
   const handed = db.query<
-    { handed_at: string; kind: HandedKind; running: number },
+    {
+      assignment_id: string;
+      doing: string | null;
+      eta: string | null;
+      handed_at: string;
+      kind: HandedKind;
+      project: string | null;
+      rev: string | null;
+      running: number;
+    },
     [number]
   >(
-    `select h.kind, h.handed_at, not exists (select 1 from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null) as running
-      from handed_work h where h.entry_id = ? order by h.handed_at`
+    // A project runs until its assignment closes; other work, until the first turn after its hand-over ends.
+    `select h.kind, h.handed_at, h.assignment_id, q.doing, q.eta, q.rev, a.project, case when h.kind = 'project' then s.closed_at is null else not exists (select 1 from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null) end as running
+      from handed_work h join assignment s on s.id = h.assignment_id join agent a on a.id = s.agent_id left join quiet_line q on q.assignment_id = h.assignment_id and q.at >= h.handed_at where h.entry_id = ? order by h.handed_at`
   );
+  const noRoom = readProjectsWithoutRoom(db);
   const isOlder = Boolean(
     db.query("select 1 from thread_entry where asked_at < ? limit 1").get(from)
   );
   return {
     entries: rows.map((e) => ({
       ...e,
-      handed: handed.all(e.id).map((h) => ({
-        estimateMs: estimateOf(db, h.kind),
-        kind: h.kind,
-        since: h.handed_at,
-        state: itemStateOf({ isOpen: false, running: Boolean(h.running) }),
-      })),
+      handed: handed.all(e.id).map((h) => {
+        // Its agent's quiet line (what it does now, its eta as the time from the hand-over, else the kind's estimate),
+        // or, for a project waiting for room in the month, that it waits.
+        // A quiet line a deletion named is hidden until the desk deletes it.
+        const isWaitingForRoom =
+          Boolean(h.running) && h.project !== null && noRoom.has(h.project);
+        const line =
+          h.rev && !isQuietLineDeleted({ ...h, rev: h.rev }) ? h : null;
+        const eta = isWaitingForRoom ? null : (line?.eta ?? null);
+        return {
+          doing: isWaitingForRoom ? WAITS_FOR_ROOM : (line?.doing ?? null),
+          estimateMs: eta
+            ? Date.parse(eta) - Date.parse(h.handed_at)
+            : estimateOf(db, h.kind),
+          kind: h.kind,
+          since: h.handed_at,
+          state: itemStateOf({ isOpen: false, running: Boolean(h.running) }),
+        };
+      }),
     })),
     isOlder,
   };
@@ -408,13 +434,14 @@ export function conversationAroundOf(db: Database, entry: number) {
 }
 
 /**
- * The thread entries not yet blanked whose words, answer or refs hold what a deletion removes (`holds`): its preview's.
+ * The thread entries not yet blanked whose words, answer or refs hold what a deletion removes (`holds`), and the quiet
+ * lines whose words hold it (an agent's `doing` may quote it): its preview's.
  * Every entry is read: a deletion is rare and the thread small (ponytail: a scan; by day if it ever grows large).
  */
 export const threadEntriesHolding: ThreadEntriesHolding = (holds) => {
   const read = readDesk(
-    (db) =>
-      db
+    (db) => ({
+      entries: db
         .query<
           {
             answer: string | null;
@@ -427,11 +454,31 @@ export const threadEntriesHolding: ThreadEntriesHolding = (holds) => {
           "select id, words, answer, refs from thread_entry where deleted_at is null order by id"
         )
         .all(),
-    []
+      // A store the desk has not opened since quiet lines came has none.
+      quiet: hasColumn(db, "quiet_line", "rev")
+        ? db
+            .query<{ assignment_id: string; doing: string; rev: string }, []>(
+              "select assignment_id, doing, rev from quiet_line order by assignment_id"
+            )
+            .all()
+        : [],
+    }),
+    { entries: [], quiet: [] },
+    // A deletion finds its copies while the desk is off too.
+    true
   );
-  return (read.state === "ok" ? read.value : []).flatMap((e): DeletionCopy[] =>
-    holds([e.words, e.answer], JSON.parse(e.refs) as string[])
-      ? [{ id: threadEntryRefOf(e.id), kind: "thread entry" }]
-      : []
-  );
+  const { entries, quiet } =
+    read.state === "ok" ? read.value : { entries: [], quiet: [] };
+  return [
+    ...entries.flatMap((e): DeletionCopy[] =>
+      holds([e.words, e.answer], JSON.parse(e.refs) as string[])
+        ? [{ id: threadEntryRefOf(e.id), kind: "thread entry" }]
+        : []
+    ),
+    ...quiet.flatMap((q): DeletionCopy[] =>
+      holds([q.doing], [])
+        ? [{ id: quietLineRefOf(q), kind: "quiet line" }]
+        : []
+    ),
+  ];
 };

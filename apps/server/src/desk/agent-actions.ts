@@ -55,6 +55,7 @@ import { closeAssignmentRow, type Desk, writeWait } from "./desk-store";
 import { firstTurnOf } from "./first-turns";
 import { FIRST_TURN_WAIT } from "./hand-out";
 import { intentionLineOf, othersOnProjectsOf } from "./packet-records";
+import { bindSpendingStopCard } from "./spending-stop";
 
 // What a registered agent does at the desk (the door's tools, `desk-door.ts`, which checks it is active) and how one is
 // registered. Each writes its row
@@ -529,8 +530,7 @@ export async function askDecision(
     if (merging && !isMine(merging, home)) {
       throw new Error(`Not done: ${merging} is no card of ${home.id}.`);
     }
-    // One card at a time per assignment (an inbox rule, not a limit on its work), checked after every await; a merge's own card goes with it.
-    // Its assignment may have closed or moved to another agent while the ask was read.
+    // One card at a time per assignment (an inbox rule), checked after every await (it may have closed or moved); a merge's own card goes with it.
     const now = assignmentOf(db, home.id);
     if (!now || now.closed_at || now.agent_id !== home.agent_id) {
       throw new Error(`Not done: ${home.id} closed or moved; ask again.`);
@@ -552,6 +552,7 @@ export async function askDecision(
         decision,
         home.id,
       ]);
+      bindSpendingStopCard(db, decision, ask.options, home);
       if (steps.length > 0 && on) {
         db.run(
           "insert or ignore into anchor (assignment_id, step, added_at) values (?, ?, ?)",
