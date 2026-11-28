@@ -4,17 +4,14 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
   renameSync,
   rmdirSync,
   rmSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { MIN } from "../core/clock";
 import { sha256Of } from "../core/hash";
 import { DESK_STORE, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { exec } from "../core/proc";
 import { SETTINGS } from "../core/settings";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -148,6 +145,20 @@ export async function putNotes(
   }
 }
 
+/** A project's file is never written over: one there that is not the export's own refuses the import. */
+async function refuseProjectsOver(listed: Map<string, string>, to: Install) {
+  for (const [p, sha] of listed) {
+    const at = join(to.state, p.slice("state/".length));
+    if (!(p.startsWith("state/projects/") && existsSync(at))) {
+      continue;
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: one file at a time
+    if ((await sha256Of(at)) !== sha) {
+      throw new Error(`${at} holds another file: nothing was changed`);
+    }
+  }
+}
+
 /**
  * Refuses at once when the import would write over something; whether the archive is there already (then kept, never
  * written to). A state file left by an earlier try that failed while moving in passes when it is the export's own.
@@ -174,6 +185,7 @@ async function refusal(m: Manifest, to: Install) {
       );
     }
   }
+  await refuseProjectsOver(listed, to);
   const there = ARCHIVED.some((s) => existsSync(archiveDb(s.name, to.archive)));
   if (!(there || isEmpty(to.archive))) {
     throw new Error(
@@ -216,20 +228,6 @@ async function recount(m: Manifest, at: Install, kept: boolean) {
       throw new Error(
         `${p} is not as exported (${off.join(", ")}): nothing was changed`
       );
-    }
-  }
-}
-
-/** A restored project work folder holds no installed packages (the export leaves them out): each one with a `package.json` gets `bun install`, best effort. */
-async function reinstallPackages(projects: string) {
-  if (!existsSync(projects)) {
-    return;
-  }
-  for (const id of readdirSync(projects)) {
-    const cwd = join(projects, id);
-    if (existsSync(join(cwd, "package.json"))) {
-      // biome-ignore lint/performance/noAwaitInLoops: one install at a time
-      await exec(["bun", "install"], { cwd, timeout: 5 * MIN });
     }
   }
 }
@@ -293,7 +291,6 @@ export async function restore(dir: string, to: Install = HERE) {
       rmSync(side[p], { force: true, recursive: true });
     }
   }
-  await reinstallPackages(join(to.state, "projects"));
   return {
     files: m.files.length,
     /** A kept archive is never written to: what the export held beyond it (its media too) stayed out. */

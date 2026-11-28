@@ -18,7 +18,7 @@ import { PASSAGES } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
 import { writePassages } from "../memory/passages";
 import { DESCRIPTIONS } from "../sources/photo-descriptions";
-import { stage, stateInDataOf } from "./export";
+import { rowsIn, stage, stateInDataOf } from "./export";
 
 const SECRET = /oauth|local\.key|\.bak$/;
 
@@ -69,15 +69,24 @@ test("an export holds everything with its checksum and counts, and never a secre
     writeFileSync(join(project, "notes.sqlite"), "not a database");
     writeFileSync(join(project, ".env.local"), "KEY=made-up");
     writeFileSync(join(project, "node_modules", "pkg.js"), "z");
+    const live = new Database(join(project, "live.sqlite"));
+    live.run("pragma journal_mode = wal");
+    live.run("create table t (a)");
+    live.run("insert into t values (1)");
     symlinkSync(join(project, "PLAN.md"), join(project, "link.md"));
 
     const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
     const m = await stage(dir, archive);
+    // The live store, its WAL not checkpointed, comes whole.
+    expect(rowsIn(join(dir, "state/projects/bakery-page/live.sqlite"))).toEqual(
+      { t: 1 }
+    );
+    live.close();
     rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
     // A project's files, links followed, odd names kept; its secret files and packages left out.
     expect(paths.filter((p) => p.startsWith("state/projects/")).sort()).toEqual(
-      ["PLAN.md", "link.md", "notes.sqlite", "result.tmp"].map(
+      ["PLAN.md", "link.md", "live.sqlite", "notes.sqlite", "result.tmp"].map(
         (f) => `state/projects/bakery-page/${f}`
       )
     );

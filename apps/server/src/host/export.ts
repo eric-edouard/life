@@ -83,6 +83,20 @@ function stageProjects(dir: string) {
       existsSync(from),
     recursive: true,
   });
+  // A live store of a project (bun:sqlite, WAL) is copied whole by SQLite; a file that is not a store stays as copied.
+  for (const p of filesUnder(PROJECT_WORK_FOLDERS)) {
+    const staged = join(dir, "state", "projects", p);
+    if (p.endsWith(".sqlite") && existsSync(staged)) {
+      try {
+        rmSync(staged);
+        copyDb(join(PROJECT_WORK_FOLDERS, p), staged);
+        rmSync(`${staged}-wal`, { force: true });
+        rmSync(`${staged}-shm`, { force: true });
+      } catch {
+        cpSync(join(PROJECT_WORK_FOLDERS, p), staged);
+      }
+    }
+  }
 }
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
