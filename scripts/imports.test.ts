@@ -63,7 +63,7 @@ const withScripts = new Map([
 ]);
 
 // No module imports one that imports it back, type-only imports included (fallow's cycle check skips those): a
-// capability's implementations import its contract.ts, and only its registry imports them (AGENTS.md).
+// capability's implementations import its contract.ts, and only its registry imports them (.claude/rules/one-way.md).
 test("no import cycles in the server's code", () => {
   const known = new Set(files);
   const edges = new Map<string, string[]>();
@@ -136,7 +136,7 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   expect(running(GH)).toEqual(["apps/server/src/sources/github.ts"]);
 });
 
-// Life sends only a card's draft, on his answer to its outgoing option (AGENTS.md): one path, from his answer to the bridge.
+// Life sends only a card's draft, on his answer to its outgoing option (.claude/rules/acts-and-sends.md): one path, from his answer to the bridge.
 test("only his answer to a decision sends: answerDecision alone calls sendDraft, which sends through a source's send path, and only matrixSend, the one Matrix send, is built by the sources", () => {
   expect(importers(["sendDraft"], "draft-send")).toEqual([
     "apps/server/src/memory/decisions.ts",
@@ -205,7 +205,7 @@ test("no importance is compared with or capped at a bare number: KEEP_AT, SEARCH
   expect(linesMatching(BARE_IMPORTANCE, [])).toEqual([]);
 });
 
-// AGENTS.md, "One way": now is `clock()`, in lifelog too (78 direct reads until 8 Nov 2026).
+// .claude/rules/one-way.md: now is `clock()`, in lifelog too (78 direct reads until 8 Nov 2026).
 test("now is read only through clock()", () => {
   expect(
     linesMatching(DIRECT_CLOCK, ["apps/server/src/core/clock.ts"], true)
@@ -243,7 +243,7 @@ test("a file over 800 lines never grows: its cap in CAPS is its length, lowered 
   expect(off?.includes).toEqual(Object.keys(CAPS).toSorted());
 });
 
-// The desk is the top layer (AGENTS.md): nothing of Life imports it, so the night, the watcher and the connector run the
+// The desk is the top layer (.claude/rules/one-way.md): nothing of Life imports it, so the night, the watcher and the connector run the
 // same with it stopped (the desk spec's W19). Fallow's zones cover the server; this covers the scripts too.
 test("nothing outside the desk imports it", () => {
   expect(

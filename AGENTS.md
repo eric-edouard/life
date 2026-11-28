@@ -109,7 +109,7 @@ doc named.
 - **Sends: Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat
   named**, once, never retried, through its own bridges, Messages.app, Gmail via gog, or `gh`. `acts-and-sends.md`.
 - **Nothing leaves the Mac but what `SECURITY.md` lists** ("What leaves the Mac"). Add nothing without him.
-- **The audit test: a fresh agent asked "will any of my data leak?" must answer "safe".** Every third party Life talks
+- **The audit test: a fresh agent asked "will any of my data leak?" must answer "safe"** (packaging spec, `docs/plans/2026-11-28-packaging/spec.md` §5). Every third party Life talks
   to is named in `SECURITY.md` "What leaves the Mac" and at its code (a privacy line: what leaves, to whom, how to turn
   it off), updated in the same PR that adds it. Nothing leaves that the user can't own or turn off; anything hosted for
   users (the relay, push) can't read their data: end-to-end encrypted, ids only.
