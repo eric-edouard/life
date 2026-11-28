@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { apply, type Stay } from "../sources/lifelog";
+import { apply, type Stay } from "../sources/voice-server";
 import {
   conversation,
   lifelogStore,

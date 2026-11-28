@@ -12,7 +12,7 @@ import { isOnline } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
-import { lifelogMissing } from "../sources/lifelog-call";
+import { lifelogMissing } from "../sources/voice-server-call";
 import { emlxPart } from "../sources/mail";
 import { readVoiceNoteWords, toOggOpus } from "../sources/voice-notes";
 import { fileRefOf, isGone } from "./deletions";

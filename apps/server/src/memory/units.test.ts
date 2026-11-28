@@ -17,7 +17,7 @@ import {
   openStore,
   readConversations,
   WATCH,
-} from "../sources/lifelog";
+} from "../sources/voice-server";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   claudeExport,

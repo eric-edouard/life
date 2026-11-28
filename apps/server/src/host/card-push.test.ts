@@ -9,7 +9,7 @@ import { requestDecision } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelog from "../sources/lifelog-push";
+import * as lifelog from "../sources/voice-server-push";
 import {
   pushLevelOf,
   pushNewCards,

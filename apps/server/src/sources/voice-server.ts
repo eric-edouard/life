@@ -9,7 +9,7 @@ import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { openReadOnly, openWritable } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
-import { call, lifelogMissing } from "./lifelog-call";
+import { call, lifelogMissing } from "./voice-server-call";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
 // (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeLifelog`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `lifelog-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each

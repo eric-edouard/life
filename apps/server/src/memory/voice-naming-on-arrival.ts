@@ -1,12 +1,12 @@
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
 import { isOnline } from "../models/llm";
 import { VOICE_NAMING_READ } from "../records/read-reply";
-import { turnRef } from "../sources/lifelog";
+import { turnRef } from "../sources/voice-server";
 import {
   type NamingQueueItem,
   readNamingQueue,
   voiceKey,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import type { RecentVoice } from "./arrival-reader";
 import { directChats, readWithPeople } from "./closeness";
 import { exchangesOf } from "./exchanges";

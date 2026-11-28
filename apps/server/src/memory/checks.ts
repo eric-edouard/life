@@ -8,8 +8,8 @@ import { answerIconOf } from "../records/answer-icon";
 import { isEndingCheck } from "../records/fact-check";
 import { KEEP_AT } from "../records/unit";
 import { readContactStores } from "../sources/contacts";
-import { pushIdOf } from "../sources/lifelog-push";
-import { readNamingQueue } from "../sources/lifelog-voices";
+import { pushIdOf } from "../sources/voice-server-push";
+import { readNamingQueue } from "../sources/voice-speakers";
 import {
   atOrganizationAsksOf,
   atOrganizationPairOf,

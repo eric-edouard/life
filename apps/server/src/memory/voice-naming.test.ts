@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { stamp } from "../models/llm";
 import type { SourceEvent } from "../records/source";
-import { apply, openStore } from "../sources/lifelog";
+import { apply, openStore } from "../sources/voice-server";
 import {
   conversation,
   lifelogServer,

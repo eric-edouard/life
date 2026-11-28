@@ -3,8 +3,8 @@ import { CANDIDATES } from "../core/embedder";
 import { fuse } from "../core/fusion";
 import { redact } from "../core/redact";
 import { readOwnerName } from "../models/prompt-parts";
-import { turnPlace, withStore } from "../sources/lifelog";
-import { searchVoice } from "../sources/lifelog-search";
+import { turnPlace, withStore } from "../sources/voice-server";
+import { searchVoice } from "../sources/voice-server-search";
 import {
   currentSummaries,
   summaryLine,

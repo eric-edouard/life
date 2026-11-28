@@ -35,7 +35,7 @@ import {
 } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
-import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
+import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import {
   conversation,
   lifelogServer,

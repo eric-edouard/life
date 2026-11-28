@@ -33,7 +33,7 @@ import {
   openStore,
   parseTurnRef,
   withStore,
-} from "@life/server/src/sources/lifelog";
+} from "@life/server/src/sources/voice-server";
 import {
   isTurnNamed,
   ownAnswerOf,
@@ -42,7 +42,7 @@ import {
   type VoiceRow,
   voiceKey,
   voiceNamesOf,
-} from "@life/server/src/sources/lifelog-voices";
+} from "@life/server/src/sources/voice-speakers";
 
 /** One guess on one voice, with what is known of the voice now. `answer`: his person ref, `not_relevant`, `unknown` ("A stranger"), or null when he did not answer the whole voice. */
 export interface Guessed {

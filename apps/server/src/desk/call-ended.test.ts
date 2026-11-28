@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { clock, DAY, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
 import type { SourceEvent } from "../records/source";
-import { apply, openStore, Page } from "../sources/lifelog";
+import { apply, openStore, Page } from "../sources/voice-server";
 import {
   conversation,
   pageFixture,

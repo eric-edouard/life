@@ -5,7 +5,7 @@
 import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
 import type { AnswerIcon } from "../records/answer-icon";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import type { PlanStep } from "./card-request";
 import type { Decision, doneSeenShownOf } from "./decision-lines";
 import type { StoredDraft } from "./draft";

@@ -2,8 +2,8 @@ import { clock, iso, MIN } from "../core/clock";
 import { settings } from "../core/settings";
 import { localTime, time } from "../memory/zones";
 import { readCalendarEvents } from "../sources/google-calendar-events";
-import { lifelogStatus, newestTurn, whereAt } from "../sources/lifelog";
-import { lifelogMissing } from "../sources/lifelog-call";
+import { lifelogStatus, newestTurn, whereAt } from "../sources/voice-server";
+import { lifelogMissing } from "../sources/voice-server-call";
 import { readDesk } from "./desk-read";
 
 // What he is doing now, in place of fixed quiet hours (the v4 plan, verdict 12): one line from the signals Life has,

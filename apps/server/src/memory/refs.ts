@@ -4,7 +4,7 @@ import { EpisodeId, SUBJECT_PREFIX, UnitId } from "../records/fields";
 import { LedgerEntry } from "../records/ledger-entry";
 import { MatterId } from "../records/matter";
 import { ObservationId } from "../records/observation";
-import { parseTurnRef } from "../sources/lifelog";
+import { parseTurnRef } from "../sources/voice-server";
 import { isAskPage } from "./card-request";
 import { DecisionId } from "./decision-lines";
 import { parseReadPartRef, type ReadPartRef } from "./read-part";

@@ -6,8 +6,8 @@ import {
   visits,
   whereAt,
   withStore,
-} from "../sources/lifelog";
-import { conversationsBetween } from "../sources/lifelog-conversations";
+} from "../sources/voice-server";
+import { conversationsBetween } from "../sources/voice-server-conversations";
 import { loadTruth } from "./read-truth";
 import { conversationLabel, lifelogNames } from "./units";
 import { asData } from "./words";

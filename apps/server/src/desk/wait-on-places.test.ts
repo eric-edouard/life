@@ -3,7 +3,7 @@ import { clock, HOUR, iso, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
 import { paymentsChannelOf, placesChannelOf } from "../host/event-channels";
 import type { EventFilter } from "../records/registered-agent";
-import type { Stay } from "../sources/lifelog";
+import type { Stay } from "../sources/voice-server";
 import { register, setWait } from "./agent-actions";
 import { readPeopleOnce, wakeDue } from "./desk-clock";
 import { pollChannels } from "./event-queue";

@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import type { ReadReply } from "../records/read-reply";
-import { apply, readConversations } from "../sources/lifelog";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
+import { apply, readConversations } from "../sources/voice-server";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import {
   conversation,
   lifelogServer,

@@ -4,8 +4,8 @@ import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { isoDateTime } from "../records/fields";
-import { lifelogMissing } from "../sources/lifelog-call";
-import { type Recorded, readRecorded } from "../sources/lifelog-recorded";
+import { lifelogMissing } from "../sources/voice-server-call";
+import { type Recorded, readRecorded } from "../sources/voice-server-recorded";
 import { RECORDED_DAYS } from "./memory-files";
 import { localDate } from "./zones";
 

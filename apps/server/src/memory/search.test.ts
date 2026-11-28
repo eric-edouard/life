@@ -10,8 +10,8 @@ import type { Observation } from "../records/observation";
 import type { ReadReply } from "../records/read-reply";
 import { SUMMARY_READ } from "../records/read-reply";
 import type { Unit } from "../records/unit";
-import { apply, openStore } from "../sources/lifelog";
-import { readSpokenTurns } from "../sources/lifelog-conversations";
+import { apply, openStore } from "../sources/voice-server";
+import { readSpokenTurns } from "../sources/voice-server-conversations";
 import {
   conversation,
   pageFixture,

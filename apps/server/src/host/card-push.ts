@@ -14,13 +14,13 @@ import { instructionsFor } from "../memory/instructions";
 import { isLocked } from "../memory/memory-lock";
 import { cardSubjectOf } from "../memory/who";
 import { dayNow } from "../memory/zones";
-import { WATCH } from "../sources/lifelog";
+import { WATCH } from "../sources/voice-server";
 import {
   notifyPhone,
   type Push,
   type PushLevel,
   pushIdOf,
-} from "../sources/lifelog-push";
+} from "../sources/voice-server-push";
 import { inboxChecksNow } from "./inbox";
 
 // A push for each agent's card the gate delivers, once, the only push of cards (the v4 plan, bundle E; Life's own checks

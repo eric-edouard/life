@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { clock } from "../../core/clock";
 import { logEvents, logFileOf } from "../../core/log";
-import { forward } from "../../sources/lifelog";
+import { forward } from "../../sources/voice-server";
 import { lifelogServer } from "../../sources/store-fixtures";
 import { correct } from "./mcp";
 

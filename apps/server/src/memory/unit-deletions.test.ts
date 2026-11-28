@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
-import type { LifelogConversation } from "../sources/lifelog";
+import type { LifelogConversation } from "../sources/voice-server";
 import {
   cutOf,
   type Deletions,

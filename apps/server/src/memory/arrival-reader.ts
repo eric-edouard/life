@@ -26,7 +26,7 @@ import {
 } from "../records/read-reply";
 import { eventKey } from "../records/source";
 import { firstNameOf, ownerIn } from "../records/truth";
-import { type LifelogTurn, readStore, withStore } from "../sources/lifelog";
+import { type LifelogTurn, readStore, withStore } from "../sources/voice-server";
 import { checkedAppointmentReply } from "./arrival-appointments";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { EXCHANGE_ENDS_AFTER, exchangesOf, isFinished } from "./exchanges";

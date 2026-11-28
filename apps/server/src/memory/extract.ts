@@ -12,7 +12,7 @@ import {
 } from "../records/observation";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { isActivity } from "../sources/contract";
-import type { LifelogConversation } from "../sources/lifelog";
+import type { LifelogConversation } from "../sources/voice-server";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
 import type { Evidence } from "./gather";
 import {

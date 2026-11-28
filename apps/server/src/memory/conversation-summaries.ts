@@ -11,8 +11,8 @@ import {
   parseTurnRef,
   turnRef,
   withStore,
-} from "../sources/lifelog";
-import { readSpokenTurns } from "../sources/lifelog-conversations";
+} from "../sources/voice-server";
+import { readSpokenTurns } from "../sources/voice-server-conversations";
 import { exchangesOf } from "./exchanges";
 import { READ_REPLIES } from "./memory-files";
 import { locate } from "./quote-check";

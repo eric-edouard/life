@@ -3,7 +3,7 @@ import { newestWithin } from "../core/lists";
 import { redact } from "../core/redact";
 import { NamedVoice, VOICE_NAMING_READ } from "../records/read-reply";
 import type { SourceEvent } from "../records/source";
-import { openStore, parseTurnRef, withStore } from "../sources/lifelog";
+import { openStore, parseTurnRef, withStore } from "../sources/voice-server";
 import {
   type NamingQueueItem,
   ownAnswerOf,
@@ -12,7 +12,7 @@ import {
   type VoiceRow,
   voiceKey,
   voiceNamesOf,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import {
   directChats,
   type HeardTurn,

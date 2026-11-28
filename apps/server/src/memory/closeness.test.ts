@@ -3,7 +3,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type Closeness, Correction } from "../records/observation";
 import type { SourceEvent } from "../records/source";
-import { apply } from "../sources/lifelog";
+import { apply } from "../sources/voice-server";
 import {
   conversation,
   lifelogStore,

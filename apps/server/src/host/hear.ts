@@ -1,9 +1,9 @@
 import { clock } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
 import { transcripts } from "../memory/words";
-import type { Store } from "../sources/lifelog";
-import { turnRef, turnsBetween, whose, writeMarks } from "../sources/lifelog";
-import { isSettledAfter } from "../sources/lifelog-speech";
+import type { Store } from "../sources/voice-server";
+import { turnRef, turnsBetween, whose, writeMarks } from "../sources/voice-server";
+import { isSettledAfter } from "../sources/voice-server-speech";
 import { ask } from "./asks";
 
 // Hears "hey Life" in his recorded speech: his turns that follow are a span. Every span is recorded in the store as a

@@ -12,7 +12,7 @@ import {
 } from "../memory/instructions";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { Correction } from "../records/observation";
-import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
+import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import {
   conversation,
   lifelogServer,

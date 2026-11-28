@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import type { SpokenPart } from "./spoken-conversations";
 import { unnamedTurnKey } from "./units";
 import {

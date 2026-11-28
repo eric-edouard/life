@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DAY, iso } from "../core/clock";
-import { call } from "./lifelog-call";
+import { call } from "./voice-server-call";
 
 // What lifelog says of the pendant's recording (its `GET /recorded`), read by the night into the recorded days
 // (memory/recorded-days.ts).

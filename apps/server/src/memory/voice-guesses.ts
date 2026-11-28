@@ -7,7 +7,7 @@ import {
   readJobMonths,
   readVoiceNames,
   voiceKey,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import {
   episodesNow,
   READ_REPLIES,

@@ -4,7 +4,7 @@ import type { SourceEvent } from "../records/source";
 import type { FileEntry, Unit } from "../records/unit";
 import { readImportedConversation } from "../sources/assistants";
 import type { Descriptor } from "../sources/contract";
-import { openStore, turnPlace, withStore } from "../sources/lifelog";
+import { openStore, turnPlace, withStore } from "../sources/voice-server";
 import { askPageOf, noAskPageOf } from "./card-request";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";

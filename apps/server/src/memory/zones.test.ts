@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { writeWhole } from "../core/files";
-import { readPhoneZone } from "../sources/lifelog";
+import { readPhoneZone } from "../sources/voice-server";
 import { lifelogServer } from "../sources/store-fixtures";
 import { ZONES } from "./memory-files";
 import {

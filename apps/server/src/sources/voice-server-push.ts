@@ -2,8 +2,8 @@ import { createHmac } from "node:crypto";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { secretIn } from "../core/secret";
-import { writeLifelog } from "./lifelog";
-import { lifelogMissing } from "./lifelog-call";
+import { writeLifelog } from "./voice-server";
+import { lifelogMissing } from "./voice-server-call";
 
 /** How a push interrupts him: Apple's `interruption-level` (passive: Notification Center only, no sound). */
 export type PushLevel = "passive" | "active" | "time-sensitive";

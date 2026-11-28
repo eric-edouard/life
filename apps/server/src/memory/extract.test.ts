@@ -3,7 +3,7 @@ import type { Episode } from "../records/episode";
 import type { Extracted, Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import type { LifelogConversation } from "../sources/lifelog";
+import type { LifelogConversation } from "../sources/voice-server";
 import {
   byDays,
   closedConversations,

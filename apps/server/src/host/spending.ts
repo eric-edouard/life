@@ -18,8 +18,8 @@ import {
   spendsOfVoice,
 } from "../memory/spends";
 import { dayNow, dayRange, dayStart } from "../memory/zones";
-import { lifelogMissing } from "../sources/lifelog-call";
-import { readVoiceSpending } from "../sources/lifelog-spending";
+import { lifelogMissing } from "../sources/voice-server-call";
+import { readVoiceSpending } from "../sources/voice-server-spending";
 import { readDesk } from "./desk-read";
 import { turnsEndedIn } from "./desk-turn-reads";
 

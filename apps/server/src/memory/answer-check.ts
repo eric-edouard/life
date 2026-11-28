@@ -8,7 +8,7 @@ import {
   readNamingQueueNow,
   readOwnerVoiceId,
   readVoiceNames,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import { HOME_LATER_FOR, isHomeLaterOf } from "./arrival-home";
 import {
   atOrganizationRefOf,

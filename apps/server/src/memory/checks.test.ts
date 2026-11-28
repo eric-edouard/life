@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
-import { pushIdOf } from "../sources/lifelog-push";
+import { pushIdOf } from "../sources/voice-server-push";
 import type { CheckInputs } from "./check-context";
 import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";

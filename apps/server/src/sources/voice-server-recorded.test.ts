@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { DAY, iso } from "../core/clock";
-import { readRecorded } from "./lifelog-recorded";
+import { readRecorded } from "./voice-server-recorded";
 
 const to = Date.parse("2026-11-12T00:00:00.000Z");
 const stretch = (startAt: number) => ({

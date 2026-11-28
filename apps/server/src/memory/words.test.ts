@@ -5,7 +5,7 @@ import { EMBEDDER_MODEL } from "../core/embedder";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { readImessage } from "../sources/imessage";
-import { apply, readConversations } from "../sources/lifelog";
+import { apply, readConversations } from "../sources/voice-server";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   conversation,

@@ -23,20 +23,20 @@ import {
   turnsBetween,
   visits,
   writeMarks,
-} from "./lifelog";
-import { conversationsWith } from "./lifelog-conversations";
-import type { Push } from "./lifelog-push";
-import { Recorded } from "./lifelog-recorded";
-import { Hits, searchVoice } from "./lifelog-search";
-import { endedOnSilence, isConversationClosed } from "./lifelog-speech";
-import { VoiceSpending } from "./lifelog-spending";
+} from "./voice-server";
+import { conversationsWith } from "./voice-server-conversations";
+import type { Push } from "./voice-server-push";
+import { Recorded } from "./voice-server-recorded";
+import { Hits, searchVoice } from "./voice-server-search";
+import { endedOnSilence, isConversationClosed } from "./voice-server-speech";
+import { VoiceSpending } from "./voice-server-spending";
 import {
   Clip,
   ConversationAnswer,
   NamingQueueItem,
   Voices,
   voiceNamesOf,
-} from "./lifelog-voices";
+} from "./voice-speakers";
 import {
   conversation,
   lifelogServer,

@@ -50,8 +50,8 @@ import { readMatterBook } from "../memory/matters";
 import { type People, readPeople } from "../memory/who";
 import { dayNow } from "../memory/zones";
 import { isWokenOnlyByHisWords } from "../records/registered-agent";
-import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
-import { recordingsOf } from "../sources/lifelog-speech";
+import { readStore, storeFiles, WATCH, withStore } from "../sources/voice-server";
+import { recordingsOf } from "../sources/voice-server-speech";
 import { matterRecordOf, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {

@@ -2,7 +2,7 @@ import {
   CONVERSATION_ENDS_AFTER,
   RECORDING_ENDS_ON_SILENCE_AFTER,
 } from "../core/quiet";
-import { LIVE, OVERLAPS, overlapArgs, type Store, turnRef } from "./lifelog";
+import { LIVE, OVERLAPS, overlapArgs, type Store, turnRef } from "./voice-server";
 
 // Whether the words of a stretch of speech are in, by lifelog's own signals and spans (the contract's `endedOnSilence`
 // and `closed`, the states and pages of its recordings), never a timing rule of Life's: the hearing (`host/hear.ts`)

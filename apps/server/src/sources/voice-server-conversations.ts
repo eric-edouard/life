@@ -5,7 +5,7 @@ import {
   lifelogTurn,
   nameOf,
   type Store,
-} from "./lifelog";
+} from "./voice-server";
 
 // The live conversations Life lists by who spoke or when, each with what its label needs (`conversationLabel`).
 

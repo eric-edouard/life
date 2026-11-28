@@ -2,7 +2,7 @@ import { LIFE_ASKER } from "../core/names";
 import {
   type NamingQueueItem,
   namingQueueGuessesOf,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import type { Quote } from "./check-quotes";
 import type { Deletions } from "./deletions";
 import { plain } from "./doubts";

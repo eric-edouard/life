@@ -3,8 +3,8 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { apply, openStore, Page, storeFiles } from "./lifelog";
-import { recordingsOf } from "./lifelog-speech";
+import { apply, openStore, Page, storeFiles } from "./voice-server";
+import { recordingsOf } from "./voice-server-speech";
 import {
   conversation,
   pageFixture,

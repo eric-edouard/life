@@ -1,6 +1,6 @@
 import { afterAll, expect, test } from "bun:test";
 import { rmSync, writeFileSync } from "node:fs";
-import { apply, openStore } from "../sources/lifelog";
+import { apply, openStore } from "../sources/voice-server";
 import {
   conversation,
   lifelogServer,

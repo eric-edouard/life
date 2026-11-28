@@ -1,8 +1,8 @@
 import type { SourceName } from "../core/names";
 import type { Unresolved } from "../records/observation";
 import type { Unit } from "../records/unit";
-import { parseTurnRef } from "../sources/lifelog";
-import { readTurnClip } from "../sources/lifelog-voices";
+import { parseTurnRef } from "../sources/voice-server";
+import { readTurnClip } from "../sources/voice-speakers";
 import { isCut, isGone } from "./deletions";
 import { plain } from "./doubts";
 import type { Check, Said } from "./life-checks";

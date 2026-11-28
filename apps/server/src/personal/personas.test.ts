@@ -8,7 +8,7 @@ import { unit as unitFixture } from "../memory/record-fixtures";
 import { inputsOf, isDue } from "../memory/run";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { apply } from "../sources/lifelog";
+import { apply } from "../sources/voice-server";
 import {
   conversation,
   lifelogServer,

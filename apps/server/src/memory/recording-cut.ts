@@ -1,7 +1,7 @@
 import { iso } from "../core/clock";
 import type { Unit } from "../records/unit";
-import { type LifelogTurn, turnRef } from "../sources/lifelog";
-import { readTurnClip } from "../sources/lifelog-voices";
+import { type LifelogTurn, turnRef } from "../sources/voice-server";
+import { readTurnClip } from "../sources/voice-speakers";
 import { type Deletions, isCut, isGone } from "./deletions";
 
 // A recording read cut to a span of instants, such as a call's exact one (`fetch`'s `at` and `until`, life#875): the

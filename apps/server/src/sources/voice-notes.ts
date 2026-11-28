@@ -2,7 +2,7 @@ import { z } from "zod";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { exec } from "../core/proc";
-import { call } from "./lifelog-call";
+import { call } from "./voice-server-call";
 
 // A message's voice note, heard by lifelog's speech pipeline (`POST /voice-notes/transcript`): Ogg Opus in, words out.
 

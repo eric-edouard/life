@@ -10,7 +10,7 @@ import {
 import { ASK_SPOKEN } from "../host/events";
 import { askOf, LEDGER, parseLedgerEntry } from "../memory/memory-files";
 import { isSpokenAsk, type LedgerEntry } from "../records/ledger-entry";
-import { notifyPhone, pushIdOf } from "../sources/lifelog-push";
+import { notifyPhone, pushIdOf } from "../sources/voice-server-push";
 import {
   type Desk,
   readSpokenAsksCursor,

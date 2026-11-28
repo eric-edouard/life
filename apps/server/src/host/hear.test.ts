@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { DESK_AGENT } from "../core/names";
 import { LEDGER, tasksOf } from "../memory/memory-files";
-import { apply, readConversations, whose } from "../sources/lifelog";
+import { apply, readConversations, whose } from "../sources/voice-server";
 import {
   conversation,
   turnFixture as fed,

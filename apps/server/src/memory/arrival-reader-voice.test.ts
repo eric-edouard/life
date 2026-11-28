@@ -1,7 +1,7 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, daysBefore, HOUR, MIN } from "../core/clock";
-import { apply, openStore, WATCH } from "../sources/lifelog";
+import { apply, openStore, WATCH } from "../sources/voice-server";
 import {
   conversation as feedConversation,
   lifelogServer,

@@ -5,7 +5,7 @@ import { appendJsonl } from "../core/files";
 import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
 import { Unit } from "../records/unit";
-import type { Store } from "../sources/lifelog";
+import type { Store } from "../sources/voice-server";
 import { type Evidence, voiceUnits } from "./gather";
 import { PUBLICATIONS, readUnitsOf, UNITS } from "./memory-files";
 import { preparePassages } from "./passages";

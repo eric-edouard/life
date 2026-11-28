@@ -2,9 +2,9 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { clock, HOUR, iso } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelog from "../sources/lifelog";
+import * as lifelog from "../sources/voice-server";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelogCall from "../sources/lifelog-call";
+import * as lifelogCall from "../sources/voice-server-call";
 import { isHomeLaterOf, recordArrivalHome } from "./arrival-home";
 import { HOME_ARRIVAL } from "./home-arrival";
 import { laterUntilOf } from "./matters";

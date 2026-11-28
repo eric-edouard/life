@@ -8,8 +8,8 @@ import {
   type Store,
   withStore,
   writeLifelog,
-} from "./lifelog";
-import { call, lifelogMissing } from "./lifelog-call";
+} from "./voice-server";
+import { call, lifelogMissing } from "./voice-server-call";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
 // answered or recognised each (`readVoices`). Read-only.

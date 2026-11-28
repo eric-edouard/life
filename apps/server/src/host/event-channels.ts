@@ -6,7 +6,7 @@ import { payments } from "../payments/backend";
 import type { Payment, PaymentsBackend } from "../payments/contract";
 import type { EventFilter } from "../records/registered-agent";
 import { type GithubActivity, githubActivityReader } from "../sources/github";
-import { type Stay, visits } from "../sources/lifelog";
+import { type Stay, visits } from "../sources/voice-server";
 
 // Event channels: what a wait's `channels` may name besides a message app, each read by the desk only for the waits
 // that name it (`pollChannels`), and what a filter matches: one shape for every event (`Matchable`), so one matcher

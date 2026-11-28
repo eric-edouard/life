@@ -6,7 +6,7 @@ import { gzipSync } from "node:zlib";
 import { clock, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { toAppleNs, toAppleS } from "./imessage";
-import { openStore } from "./lifelog";
+import { openStore } from "./voice-server";
 
 // Small stores to test the readers against: lifelog's change feed, and the Mac apps' databases the archive copies.
 

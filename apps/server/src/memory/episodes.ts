@@ -18,7 +18,7 @@ import {
   SEARCHABLE_AT,
 } from "../records/unit";
 import { isActivity } from "../sources/contract";
-import { lifelogMissing } from "../sources/lifelog-call";
+import { lifelogMissing } from "../sources/voice-server-call";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
 import type { Evidence } from "./gather";
 import {

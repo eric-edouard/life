@@ -17,12 +17,12 @@ import {
   turnsBetween,
   turnsOverlapping,
   withStore,
-} from "../sources/lifelog";
+} from "../sources/voice-server";
 import {
   readVoiceKinds,
   type VoiceKind,
   voiceKey,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import { PAGE, readChats, readWhoChats } from "./chat-events";
 import { communicationStylesOf } from "./communication-styles";
 import { deletedWordsOf } from "./deletions";

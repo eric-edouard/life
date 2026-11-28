@@ -25,7 +25,7 @@ import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
 import { isBookkeeping, TODO_CHANGE_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
-import { lifelogStatus, newestTurn } from "../../sources/lifelog";
+import { lifelogStatus, newestTurn } from "../../sources/voice-server";
 import { checks } from "../../todo-list/backend";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";

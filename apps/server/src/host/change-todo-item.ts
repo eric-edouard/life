@@ -10,7 +10,7 @@ import { localDate } from "../memory/zones";
 import { type Instruction, LedgerEntry, stands } from "../records/ledger-entry";
 import type { Observation } from "../records/observation";
 import { TOP_AT } from "../records/unit";
-import { ownerSpoke, withStore } from "../sources/lifelog";
+import { ownerSpoke, withStore } from "../sources/voice-server";
 import {
   backend,
   type Done,

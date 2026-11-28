@@ -12,7 +12,7 @@ import { lifelogNames } from "@life/server/src/memory/units";
 import { readPeople } from "@life/server/src/memory/who";
 import { transcripts, voiceLines } from "@life/server/src/memory/words";
 import type { SourceEvent } from "@life/server/src/records/source";
-import { turnsBetween, withStore } from "@life/server/src/sources/lifelog";
+import { turnsBetween, withStore } from "@life/server/src/sources/voice-server";
 import { setFile, type TestSet } from "./memory-pilot";
 
 const [LEAST, MOST, PER_PERSON] = [20, 480, 8];

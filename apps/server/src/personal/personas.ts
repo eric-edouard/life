@@ -44,7 +44,7 @@ import type { FoundQuote } from "../records/fields";
 import { GIST_MAX, Persona, PersonaLine } from "../records/persona";
 import { chatGroups, type SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { openStore } from "../sources/lifelog";
+import { openStore } from "../sources/voice-server";
 
 // `bun life memory personas`: what each person with a page is like, wants and can give, what keeps happening between them
 // and the owner,

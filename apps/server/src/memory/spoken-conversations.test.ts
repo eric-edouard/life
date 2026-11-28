@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { MIN } from "../core/clock";
-import { apply } from "../sources/lifelog";
-import { readSpokenTurns } from "../sources/lifelog-conversations";
+import { apply } from "../sources/voice-server";
+import { readSpokenTurns } from "../sources/voice-server-conversations";
 import {
   conversation,
   lifelogServer,

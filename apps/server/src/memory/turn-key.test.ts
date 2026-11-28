@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
-import type { LifelogConversation } from "../sources/lifelog";
+import type { LifelogConversation } from "../sources/voice-server";
 import { lifelogUnits, turnKey } from "./units";
 
 const said = (

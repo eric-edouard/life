@@ -4,7 +4,7 @@ import type { Engine } from "../core/names";
 import { ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
-import { readConversations, type Store, withStore } from "../sources/lifelog";
+import { readConversations, type Store, withStore } from "../sources/voice-server";
 import {
   deletionsNow,
   keptConversations,

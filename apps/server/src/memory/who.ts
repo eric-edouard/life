@@ -17,7 +17,7 @@ import { namesOne, relationWordOf } from "../records/relation-words";
 import { type DirectoryParty, firstNameOf, ME } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
-import { voiceKey } from "../sources/lifelog-voices";
+import { voiceKey } from "../sources/voice-speakers";
 import { readLidPhones } from "../sources/whatsapp";
 import { readAgentReports } from "./agent-source";
 import { type ContactNow, contactsNow } from "./contact-people";

@@ -7,7 +7,7 @@ import type { FoundationAnswer } from "../models/foundation-model";
 import { stamp } from "../models/llm";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import { turnRef } from "../sources/lifelog";
+import { turnRef } from "../sources/voice-server";
 import { type RecentVoice, readArrivals } from "./arrival-reader";
 import type { SourceLine } from "./quote-check";
 import { readReplies } from "./read-replies";

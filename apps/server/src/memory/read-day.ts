@@ -7,7 +7,7 @@ import {
   type ReadReply,
 } from "../records/read-reply";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
-import { lifelogMissing } from "../sources/lifelog-call";
+import { lifelogMissing } from "../sources/voice-server-call";
 import {
   currentSummaries,
   summaryLine,

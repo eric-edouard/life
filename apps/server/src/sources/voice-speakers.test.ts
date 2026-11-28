@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { withStore } from "./lifelog";
+import { withStore } from "./voice-server";
 import {
   answerNamingQueue,
   namingQueueGuessesOf,
@@ -7,7 +7,7 @@ import {
   readNamingQueue,
   readNamingQueueNow,
   readVoiceNames,
-} from "./lifelog-voices";
+} from "./voice-speakers";
 import { lifelogServer } from "./store-fixtures";
 
 const DANA = "00000000-0000-4000-8000-000000000001";

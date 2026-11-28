@@ -6,7 +6,7 @@ import type { SourceEvent } from "../records/source";
 import { readArchivedMessageAt } from "../sources/archived";
 import type { Descriptor } from "../sources/contract";
 import { githubCopier, readGithub } from "../sources/github";
-import { apply } from "../sources/lifelog";
+import { apply } from "../sources/voice-server";
 import {
   conversation,
   lifelogStore,

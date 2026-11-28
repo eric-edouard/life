@@ -16,8 +16,8 @@ import {
   parseTurnRef,
   type Store,
   turnRef,
-} from "../sources/lifelog";
-import { voiceKey } from "../sources/lifelog-voices";
+} from "../sources/voice-server";
+import { voiceKey } from "../sources/voice-speakers";
 import {
   deviceDayText,
   measurementDayText,

@@ -3,7 +3,7 @@ import { rmSync, writeFileSync } from "node:fs";
 import type { Correction } from "../records/observation";
 import type { Unit } from "../records/unit";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelogVoices from "../sources/lifelog-voices";
+import * as lifelogVoices from "../sources/voice-speakers";
 import {
   type NameRow,
   nameGroupsOf,

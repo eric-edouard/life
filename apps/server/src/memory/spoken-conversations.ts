@@ -1,6 +1,6 @@
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
-import { authorOf, type LifelogTurn, turnRef } from "../sources/lifelog";
-import { voiceKey } from "../sources/lifelog-voices";
+import { authorOf, type LifelogTurn, turnRef } from "../sources/voice-server";
+import { voiceKey } from "../sources/voice-speakers";
 import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";

@@ -3,8 +3,8 @@ import { digest } from "../core/hash";
 import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
-import { type Stay, visits, withStore } from "../sources/lifelog";
-import { conversationsBetween } from "../sources/lifelog-conversations";
+import { type Stay, visits, withStore } from "../sources/voice-server";
+import { conversationsBetween } from "../sources/voice-server-conversations";
 import {
   DESCRIPTION_MAX,
   type Draft,

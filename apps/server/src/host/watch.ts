@@ -40,7 +40,7 @@ import { LedgerEntry } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
-import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
+import { lastSeen, openStore, poll, type Store } from "../sources/voice-server";
 import { checks, pull } from "../todo-list/backend";
 import { syncAppointments } from "./appointments-calendar";
 import { pushNewCardsIfChanged, pushNewDecisionsAtOnce } from "./card-push";
