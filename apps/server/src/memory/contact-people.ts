@@ -182,8 +182,7 @@ function seenHandles() {
  * birthday and the rest still come from his Mac's Contacts (`memory/details.ts`).
  */
 async function googleCards(): Promise<Contact[]> {
-  // A `gmail` source lands in `SourceName` with its reader; until then its name is the settings' own switch.
-  const gmailOn = enabledSources().some((d) => (d.name as string) === "gmail");
+  const gmailOn = enabledSources().some((d) => d.name === "gmail");
   return gmailOn ? readGoogleContacts(await readGoogleAccounts()) : [];
 }
 

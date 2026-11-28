@@ -11,8 +11,8 @@ import type { ChatTakes, Outgoing, SendPath } from "./contract";
 import { messageIdOfMail, readMailAddresses } from "./mail";
 
 // The one mail send: gog's Gmail does it, from an account gog holds (the only place Life names `gogCall("gmail"`,
-// `scripts/imports.test.ts`). A new mail, or a reply in the thread of one message of his; never reply-all, a quote, a
-// signature or tracking: the mail is exactly what his card showed.
+// `scripts/imports.test.ts`; the archive's copy reads, `--readonly`, in `gmail-archive.ts`). A new mail, or a reply in
+// the thread of one message of his; never reply-all, a quote, a signature or tracking: the mail is exactly what his card showed.
 
 interface Run {
   code: number;

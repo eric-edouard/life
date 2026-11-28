@@ -120,6 +120,7 @@ export const SourceName = z.enum([
   "imessage",
   "phone",
   "mail",
+  "gmail",
   "github",
   "git",
   "screen",

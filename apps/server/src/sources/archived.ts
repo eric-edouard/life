@@ -94,7 +94,8 @@ export interface Row {
 
 /**
  * The messages `sql` reads from `<archive>/<source>.sqlite` since `since`, as events, oldest first. `sender` turns the
- * sender the archive holds into a handle (a phone when known); `more` gives a row's files (and a text of its own).
+ * sender the archive holds into a handle (a phone when known); `more` gives a row's files, and what only its source
+ * knows of it (a text or a call of its own, a list's mail, his words to himself).
  */
 export function readArchived<R extends Row>(
   source: SourceEvent["source"],
@@ -102,7 +103,9 @@ export function readArchived<R extends Row>(
   since: Date,
   archive: string,
   sender: (raw: string) => string,
-  more: (r: R) => Partial<Pick<SourceEvent, "phoneCall" | "text">> & {
+  more: (r: R) => Partial<
+    Pick<SourceEvent, "bulk" | "marked" | "phoneCall" | "text">
+  > & {
     files: SourceFile[];
   },
   before?: Date

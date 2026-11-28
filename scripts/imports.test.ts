@@ -130,12 +130,15 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   ]);
   expect(running(REMCTL)).toEqual(["apps/server/src/todo-list/remctl.ts"]);
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
-  // His mail is sent only by Gmail through gog, in one file.
-  expect(running(GOG_GMAIL)).toEqual(["apps/server/src/sources/gmail.ts"]);
+  // His mail is sent only by Gmail through gog, in one file; the archive's copy reads it (`--readonly`) in another.
+  expect(running(GOG_GMAIL).sort()).toEqual([
+    "apps/server/src/sources/gmail-archive.ts",
+    "apps/server/src/sources/gmail.ts",
+  ]);
   // His sign-in and who is signed in: the one read in `core/gog.ts`, and the sign-in itself.
-  expect(running(GOG_AUTH)).toEqual([
-    "apps/server/src/host/connect-google.ts",
+  expect(running(GOG_AUTH).sort()).toEqual([
     "apps/server/src/core/gog.ts",
+    "apps/server/src/host/connect-google.ts",
   ]);
   // Google Contacts: read in one file.
   expect(running(GOG_CONTACTS)).toEqual([
