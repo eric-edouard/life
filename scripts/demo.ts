@@ -12,6 +12,7 @@ import {
 import { execOk } from "@life/server/src/core/proc";
 import { PUBLIC_PORT } from "@life/server/src/host/http/http";
 import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
+import { DIRECTIONS_PROMPT } from "@life/server/src/memory/matter-direction-due";
 import { MATTERS_PROMPT } from "@life/server/src/memory/matters";
 import {
   layoutOf,
@@ -477,7 +478,7 @@ write(join(data, "memory/matter-directions.jsonl"), [
         steps: tapSteps.map((s) => s.ref),
       },
     ],
-    madeBy,
+    madeBy: { ...madeBy, prompt: DIRECTIONS_PROMPT },
     schemaVersion: 1,
   },
 ]);
