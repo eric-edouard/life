@@ -43,7 +43,7 @@ const pusher = (status = 200, body = "") =>
     sent.push({ origin, request });
     return Promise.resolve({ apnsId: "apns-1", body, status });
   });
-const appWith = (apns: Pusher | null) =>
+const appWith = (apns: Pusher) =>
   createApp(
     services(config, env.db, {
       apns,
@@ -183,13 +183,13 @@ test("an install without the app's own key posts its pushes to the push relay", 
 });
 
 test("only the device token stores a push token, and only hex", async () => {
-  const app = appWith(null);
+  const app = appWith(pusher());
   expect((await putToken(app, "not hex")).status).toBe(400);
   expect((await putToken(app, PUSH_TOKEN, MAC_TOKEN)).status).toBe(401);
 });
 
 test("an event with content-sized fields is refused", async () => {
-  const res = await appWith(null).request("/events", {
+  const res = await appWith(pusher()).request("/events", {
     body: JSON.stringify({
       at: new Date().toISOString(),
       fields: { text: "x".repeat(201) },

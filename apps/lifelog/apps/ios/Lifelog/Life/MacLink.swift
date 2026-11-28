@@ -56,23 +56,38 @@ final class MacLink {
     /// The bridge on this phone's loopback, its listener and the identity a late failure is checked against.
     private var listener: NWListener?
     private var listenerID = UUID()
+    /// The point under way, which the next one awaits: a cold launch calls `point(at:)` twice at once, and the second
+    /// would pass the guard while the first awaits its endpoint.
+    private var pointing: Task<Void, Never>?
 
     // MARK: Where the Mac is
 
-    /// Points the phone at its Mac, and starts the bridge: on launch, from the stored pairing at `LifeEndpoint.mac`, and
-    /// by a pairing (`PairSheet`, which restores the old one if it fails). Nil tears the bridge down, and every request
-    /// goes to its origin again.
+    /// Points the phone at its Mac, and starts the bridge: on launch, from the stored pairing at `LifeEndpoint.mac`,
+    /// and by a pairing (`PairSheet`, which restores the old one if it fails). Nil tears the bridge down, and every
+    /// request goes to its origin again. One point runs at a time: a second waits for the one under way, so two calls
+    /// from a cold launch make one endpoint and one listener, not two.
     func point(at target: MacTarget?) async {
-        // The same Mac is pointed at again when the app comes forward, to rebuild a bridge whose dial gave up.
-        guard target != self.target || (target != nil && MacRoute.current == nil) else { return }
-        await stop()
-        self.target = target
-        guard let target else { return }
-        do { try await start(target) } catch {
-            appEvent("maclink.start.failed", ["origin": target.origin.scheme ?? ""])
+        let previous = pointing
+        let task = Task {
+            await previous?.value
+            // The same Mac is pointed at again when the app comes forward, to rebuild a bridge whose dial gave up.
+            guard target != self.target || (target != nil && MacRoute.current == nil) else { return }
             await stop()
+            self.target = target
+            guard let target else { return }
+            do { try await start(target) } catch {
+                appEvent("maclink.start.failed", ["origin": target.origin.scheme ?? ""])
+                await stop()
+            }
         }
+        pointing = task
+        await task.value
     }
+
+    /// The bridge again when the app comes forward: a dial that failed left the requests on the Mac's origin, and iroh
+    /// gets its next try with the same Mac (`MacLink` dials when a request reaches the bridge). The Mac is the one the
+    /// pairing pointed at now, never a stale one.
+    func relink() async { await point(at: target) }
 
     /// The bridge: a loopback listener whose every connection becomes one stream of the Mac's `life/http/1` connection,
     /// and the hook that sends this origin's requests there (`MacRoute`).
@@ -91,14 +106,17 @@ final class MacLink {
             // A `.setup` or `.waiting` before `.ready` is waited through: only a terminal state answers, and only once.
             let isWaiting = Mutex(true)
             listener.stateUpdateHandler = { state in
-                let isTerminal = switch state {
-                case .ready, .failed, .cancelled: true
-                default: false
-                }
-                let first = isTerminal && isWaiting.withLock { waiting in
-                    defer { waiting = false }
-                    return waiting
-                }
+                let isTerminal =
+                    switch state {
+                    case .ready, .failed, .cancelled: true
+                    default: false
+                    }
+                let first =
+                    isTerminal
+                    && isWaiting.withLock { waiting in
+                        defer { waiting = false }
+                        return waiting
+                    }
                 switch state {
                 case .ready where first: ready.resume()
                 case .failed(let error):

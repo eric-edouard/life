@@ -88,12 +88,12 @@ export function pusherFor(config: Config, transport?: Transport): Pusher {
 
 // Sends one push to the phone's latest token and records it: `apns.sent` with what it was for,
 // APNs' status, id and reason, and the token's first characters; `apns.failed` when no answer
-// came; `apns.skipped` without a pusher or a token. A token APNs calls dead (410: the app was
+// came; `apns.skipped` without a token. A token APNs calls dead (410: the app was
 // removed; or BadDeviceToken) is dropped, unless a fresh one already replaced it: pushes wait for
 // the phone's next token instead of failing on the old one. Never throws.
 export async function sendPush(
   db: Db,
-  pusher: Pusher | null,
+  pusher: Pusher,
   kind: string,
   push: Push,
   fields: Fields = {}
@@ -101,11 +101,11 @@ export async function sendPush(
   let about: Fields = { kind, ...fields };
   const started = performance.now();
   try {
-    const pushToken = pusher && latestPushToken(db);
-    if (!(pusher && pushToken)) {
+    const pushToken = latestPushToken(db);
+    if (!pushToken) {
       record(db, "apns.skipped", {
         ...about,
-        reason: pusher ? "no_token" : "no_key",
+        reason: "no_token",
       });
       return;
     }
@@ -141,7 +141,7 @@ function reasonOf(body: string) {
 
 // A notice another app of the owner's asks for (Life: each card, an appointment it added, each voice ask it heard, the
 // cards that left its inbox), recorded as kind `notice`. Never throws.
-export const phoneNotice = (db: Db, pusher: Pusher | null) => (notice: Push) =>
+export const phoneNotice = (db: Db, pusher: Pusher) => (notice: Push) =>
   sendPush(db, pusher, "notice", notice);
 
 export type Notice = ReturnType<typeof phoneNotice>;
@@ -162,7 +162,7 @@ type NudgeReason =
 // Background pushes go at priority 5: iOS may hold or drop them, and the phone still polls while it
 // waits on the server. `open` is the visible one: it asks the owner to open the app, as the Pendant
 // holds audio to sync. Never throws.
-export function phoneNudger(db: Db, pusher: Pusher | null) {
+export function phoneNudger(db: Db, pusher: Pusher) {
   return (ready: NudgeReason, fields: Fields = {}) =>
     sendPush(
       db,

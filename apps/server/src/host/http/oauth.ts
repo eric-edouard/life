@@ -110,18 +110,27 @@ export function pair(agent?: string, now = clock().getTime()) {
   return code;
 }
 
-/** The pairing `code` is the live one of, or none; a right one is spent, a wrong one spends a try. Its phone goes with it. */
-function paired(code: string, now: number) {
+/** The live pairing `code` is the one of, or none: an expired pairing or one out of tries is none, and a wrong code spends a try. */
+function livePairing(code: string, now: number) {
   const p = read().pairing;
   if (!p || p.expires < now || p.tries >= PAIRING_TRIES) {
     return;
   }
-  const ok = same(hash(code.trim().toUpperCase()), p.hash);
-  update((s) => ({
-    ...s,
-    pairing: ok ? undefined : { ...p, tries: p.tries + 1 },
-  }));
-  return ok ? { agent: p.agent, phone: p.phone } : undefined;
+  if (!same(hash(code.trim().toUpperCase()), p.hash)) {
+    update((s) => ({ ...s, pairing: { ...p, tries: p.tries + 1 } }));
+    return;
+  }
+  return p;
+}
+
+/** The pairing `code` is the live one of, or none; a right one is spent. Its phone goes with it. */
+function paired(code: string, now: number) {
+  const p = livePairing(code, now);
+  if (!p) {
+    return;
+  }
+  update((s) => ({ ...s, pairing: undefined }));
+  return { agent: p.agent, phone: p.phone };
 }
 
 /**
@@ -135,12 +144,8 @@ export function provePairing(
   id: string,
   now = clock().getTime()
 ) {
-  const p = read().pairing;
-  if (!p || p.agent || p.expires < now || p.tries >= PAIRING_TRIES) {
-    return false;
-  }
-  if (!same(hash(code.trim().toUpperCase()), p.hash)) {
-    update((s) => ({ ...s, pairing: { ...p, tries: p.tries + 1 } }));
+  const p = livePairing(code, now);
+  if (!p || p.agent) {
     return false;
   }
   if (p.phone === id) {

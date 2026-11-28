@@ -1,6 +1,6 @@
 // What leaves the Mac here: iroh's end-to-end encrypted packets, carried through n0's public relay (`IROH_RELAY`), which
 // sees the two endpoint ids, IP addresses, timing and volume, never content. To whom: n0, `aps1-1.relay.n0.iroh.link`.
-// Turn it off: quit Life — nothing reaches a relay while it does not run (Tailscale alone still serves it, no iroh).
+// Turn it off: the connector off, or quit Life: no endpoint runs then.
 import net from "node:net";
 import type { Duplex } from "node:stream";
 import { Endpoint, RelayMode, SecretKey } from "@number0/iroh";
@@ -22,7 +22,7 @@ const ALPN = (name: string) => [...new TextEncoder().encode(name)];
 /** The pairing proof: one stream, the code from the QR. */
 export const PAIR_ALPN = ALPN("life/pair/1");
 /** The phone's HTTP, every stream piped to the public port. */
-export const HTTP_ALPN = ALPN("life/http/1");
+const HTTP_ALPN = ALPN("life/http/1");
 /** How much of a proof stream may be the code; anything longer is not one. */
 const PROOF_BYTES = 64;
 /** How much of a stream is read and written at a time. */
@@ -34,7 +34,7 @@ const PHONE_HANGUP_MS = 10_000;
  * The Mac's iroh secret key: 32 bytes, made once and kept with the rest of Life's secrets (`secretIn`), never sent.
  * The endpoint is the public half, so the key is only ever a file here and a seed to `secretKey`.
  */
-export const macKeyOf = () => [...Buffer.from(secretIn("macKey"), "hex")];
+const macKeyOf = () => [...Buffer.from(secretIn("macKey"), "hex")];
 
 /** This Mac's address: its endpoint id and the one relay — the one place the endpoint and the pairing link read it. */
 export const macAddressOf = () => ({
@@ -44,7 +44,10 @@ export const macAddressOf = () => ({
 
 /** A bi stream's two halves, as the pipe needs them (the binding's `BiStream` is one). */
 export interface BiLike {
-  recv: { read: (sizeLimit: number) => Promise<number[]> };
+  recv: {
+    read: (sizeLimit: number) => Promise<number[]>;
+    readToEnd: (sizeLimit: number) => Promise<number[]>;
+  };
   send: {
     finish: () => Promise<void>;
     writeAll: (buf: number[]) => Promise<void>;
@@ -113,6 +116,8 @@ export function pipeStream(bi: BiLike, socket: Duplex) {
       if (!socket.write(new Uint8Array(chunk))) {
         await or(
           new Promise((drained) => {
+            // A socket that closes or fails first never drains, so its close ends the wait too.
+            socket.once("close", () => drained(undefined));
             socket.once("drain", () => drained(undefined));
           }),
           undefined
@@ -135,7 +140,7 @@ async function proveOverStream(conn: ConnLike, id: string) {
   let bound = false;
   if (bi) {
     const code = new TextDecoder()
-      .decode(new Uint8Array(await or(bi.recv.read(PROOF_BYTES), [])))
+      .decode(new Uint8Array(await or(bi.recv.readToEnd(PROOF_BYTES), [])))
       .trim();
     try {
       bound = Boolean(code) && provePairing(code, id);

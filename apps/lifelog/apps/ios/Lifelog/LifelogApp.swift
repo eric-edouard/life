@@ -32,7 +32,7 @@ struct LifelogApp: App {
             switch phase {
             case .active:
                 Task { await appDelegate.capture.becameActive() }
-                Task { await appDelegate.life.relinkMac() }
+                Task { await MacLink.shared.relink() }
                 appDelegate.claimLocation()
             case .background: appDelegate.sync.wentToBackground()
             default: break

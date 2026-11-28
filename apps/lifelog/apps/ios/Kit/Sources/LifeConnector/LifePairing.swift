@@ -12,6 +12,11 @@ public struct LifePairing: Equatable, Sendable {
     /// first and its origin only if that fails (`MacLink`). Nil: Life over Tailscale as before.
     public let mac: MacKey?
 
+    /// Where `MacLink` dials for this pairing: nil when it names no Mac (Tailscale carries the requests).
+    public var macTarget: MacTarget? {
+        mac.map { MacTarget(origin: origin, key: $0) }
+    }
+
     public init(origin: URL, code: String, mac: MacKey? = nil) {
         self.origin = origin
         self.code = code

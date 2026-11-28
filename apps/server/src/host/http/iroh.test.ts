@@ -33,6 +33,10 @@ function standIn(chunks: string[] = []) {
           queue.length > 0 ? bytes(queue.shift() as string) : []
         );
       },
+      readToEnd: (size: number) => {
+        state.read = Math.max(state.read, size);
+        return Promise.resolve(bytes(queue.splice(0).join("")));
+      },
     },
     send: {
       finish: () => {
@@ -163,6 +167,20 @@ test("the pairing stream reads the code and answers ok for it, refused for anyth
   await handleConnection(wrong.conn);
   expect(wrong.answer()).toBe("refused");
   expect(wrong.closed()).toBe(true);
+});
+
+test("a code split across frames still proves: the stream is read to its end", async () => {
+  const code = pair();
+  const split = standIn([code.slice(0, 3), code.slice(3)]);
+  const conn: ConnLike = {
+    acceptBi: async () => split.bi,
+    alpn: () => PAIR_ALPN,
+    close: () => undefined,
+    closed: () => Promise.resolve("the phone hung up"),
+    remoteId: () => ({ toString: () => "a-phone-proving" }),
+  };
+  await handleConnection(conn);
+  expect(split.sent()).toBe("ok");
 });
 
 test("a pairing answer is written before the Mac closes the connection, once the phone hangs up", async () => {

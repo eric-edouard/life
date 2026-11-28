@@ -67,7 +67,7 @@ export function services(
       vouched: () => mac.vouchedThrough().getTime(),
     }),
   }: {
-    apns?: Pusher | null;
+    apns?: Pusher;
     audio?: AudioStore;
     excerpts?: ExcerptSampler;
     health?: HealthWatch;
