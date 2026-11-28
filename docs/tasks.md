@@ -302,3 +302,10 @@ reads the rest of its settings. How the report and the alerts go out:
   (or since his last not-sent attempt), his own messages included (the archive's copy can trail the network by its
   copier's interval); mail has no chat and skips that check. Nothing goes on silence or with his words added. Networks without a bridge of Life's (LINE, read from
   Beeper; mail) don't send.
+- A batch card (the owner's decision of 28 Nov 2026): several drafts, each into its own chat, sent in order by his one
+  **Send all**, every check per draft. Its chats are held, contested and withdrawn per chat: his message in any one
+  withdraws the card, which never waits on another card. Only a batch whose every draft ended `not sent:` is open
+  again; else it stays answered with each draft's outcome. It is never undone.
+- His Undo of a sent draft (`undoAnswer`, `answer_check` with `undo`, his token only): a Matrix redaction or his GitHub
+  comment deleted, only where the chat's own features allow a delete for everyone at that moment (`deleteLineOf`),
+  reported deleted once the bridge confirms. iMessage and mail have none.
