@@ -4,8 +4,6 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
-  mkdtempSync,
-  readdirSync,
   readFileSync,
   renameSync,
   rmdirSync,
@@ -14,7 +12,6 @@ import {
 import { basename, dirname, join } from "node:path";
 import { sha256Of } from "../core/hash";
 import { DESK_STORE, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
-import { gitOut } from "../core/proc";
 import { SETTINGS } from "../core/settings";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
@@ -25,7 +22,6 @@ import {
   headOf,
   linesIn,
   type Manifest,
-  PROJECT_BUNDLE,
   pathIn,
   rowsIn,
 } from "./export";
@@ -146,31 +142,6 @@ export async function putNotes(
       }
     }
     throw e;
-  }
-}
-
-/**
- * Each restored project gets its history back from its bundle (`PROJECT_BUNDLE`): all its branches, its files as
- * restored kept (the index is rebuilt from `HEAD`, so uncommitted work shows as changed). The bundle is then removed.
- */
-function cloneProjectHistories(projects: string) {
-  for (const id of existsSync(projects) ? readdirSync(projects) : []) {
-    const folder = join(projects, id);
-    const bundle = join(folder, PROJECT_BUNDLE);
-    if (!existsSync(bundle) || existsSync(join(folder, ".git"))) {
-      continue;
-    }
-    const aside = mkdtempSync(join(folder, ".restoring-"));
-    try {
-      gitOut(aside, ["clone", "-q", "--mirror", bundle, "repo"]);
-      renameSync(join(aside, "repo"), join(folder, ".git"));
-    } finally {
-      rmSync(aside, { force: true, recursive: true });
-    }
-    gitOut(folder, ["config", "core.bare", "false"]);
-    gitOut(folder, ["remote", "remove", "origin"]);
-    gitOut(folder, ["reset", "-q"]);
-    rmSync(bundle);
   }
 }
 
@@ -320,7 +291,6 @@ export async function restore(dir: string, to: Install = HERE) {
       rmSync(side[p], { force: true, recursive: true });
     }
   }
-  cloneProjectHistories(join(to.state, "projects"));
   return {
     files: m.files.length,
     /** A kept archive is never written to: what the export held beyond it (its media too) stayed out. */
