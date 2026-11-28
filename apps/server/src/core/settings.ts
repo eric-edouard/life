@@ -85,6 +85,37 @@ export const Aura = z
   })
   .strict();
 
+/** A currency's ISO code: THB, EUR. */
+export const Currency = z.string().regex(/^[A-Z]{3}$/, "an ISO code: THB, EUR");
+
+/** Who pays when not him: a project or an organization (or person) of his directory, by its ref. */
+export const PayerRef = z.string().regex(/^(?:person|project):[\w.-]+$/);
+
+/**
+ * The apps he pays with (his yes of 28 Nov 2026): a payment card whose `amount` need is in an entry's currency, for its
+ * payer (absent: him), shows that app (`needsShownOf`); an entry with no payer serves any payer with none of its own.
+ * Never defaulted.
+ */
+export const PayWith = z
+  .array(
+    z
+      .object({
+        // The `app` need's own two fields (`memory/needs.ts`), which core cannot import.
+        app: z
+          .object({
+            name: z.string().min(1).max(60),
+            /** An https link into the app (a universal link), as the `app` need takes it. */
+            url: z.url({ protocol: /^https$/ }),
+          })
+          .strict(),
+        currency: Currency,
+        payer: PayerRef.optional(),
+      })
+      .strict()
+  )
+  .max(20);
+export type PayWith = z.infer<typeof PayWith>;
+
 export const Settings = z
   .object({
     /** Who mails him his agents' reports: the night judges them; the arrival reader skips them, message by message. */
@@ -205,11 +236,15 @@ export const Settings = z
       .strict()
       .optional(),
     /**
-     * Where his payments come from (`apps/server/src/payments/`): his `money` CLI. On, `read_day` and `read_payments`
-     * place each payment in his day; off (the default), Life shows none.
+     * His payments. `backend`, where they come from (`apps/server/src/payments/`): his `money` CLI; on, `read_day` and
+     * `read_payments` place each payment in his day; absent (the default), Life shows none. `payWith`, the apps he pays
+     * with (`PayWith`, set by his word through `change_setting`).
      */
     payments: z
-      .object({ backend: z.literal("money") })
+      .object({
+        backend: z.literal("money").optional(),
+        payWith: PayWith.optional(),
+      })
       .strict()
       .optional(),
     /**
@@ -325,11 +360,12 @@ export function setSettings(
 /** His monthly amount as the file holds it now, read afresh: his `change_setting` reaches the desk without a restart. */
 export const readMonthlyUsd = () => readSettings().budget?.monthlyUsd;
 
-/** What his word may change through `change_setting`: the monthly amount (question 22), in billed dollars, and the edge's look (`Aura`). */
+/** What his word may change through `change_setting`: the monthly amount (question 22), in billed dollars, the edge's look (`Aura`), and the apps he pays with (`PayWith`, the whole list). */
 export const SettingChange = z
   .object({
     aura: Aura.optional(),
     monthlyUsd: z.number().positive().max(100_000).optional(),
+    payWith: PayWith.optional(),
   })
   .strict();
 
@@ -337,15 +373,23 @@ export const SettingChange = z
 export function changeSetting({
   aura,
   monthlyUsd,
+  payWith,
 }: z.infer<typeof SettingChange>) {
-  if (aura === undefined && monthlyUsd === undefined) {
-    throw new Error("Not done: name `monthlyUsd` or `aura`.");
+  if (aura === undefined && monthlyUsd === undefined && payWith === undefined) {
+    throw new Error("Not done: name `monthlyUsd`, `aura` or `payWith`.");
   }
   setSettings({
     ...(aura !== undefined && { aura }),
     ...(monthlyUsd !== undefined && { budget: { monthlyUsd } }),
+    ...(payWith !== undefined && {
+      payments: { ...readSettings().payments, payWith },
+    }),
   });
-  return { aura: settings().aura, budget: settings().budget };
+  return {
+    aura: settings().aura,
+    budget: settings().budget,
+    payWith: settings().payments?.payWith,
+  };
 }
 
 /** The connector's settings; only code that runs behind it (server.ts checks it is there) asks. */

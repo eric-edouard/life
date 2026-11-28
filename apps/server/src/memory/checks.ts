@@ -3,7 +3,7 @@ import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { LIFE_ASKER } from "../core/names";
 import { secretIn } from "../core/secret";
-import { settings } from "../core/settings";
+import { type PayWith, settings } from "../core/settings";
 import { answerIconOf } from "../records/answer-icon";
 import { isEndingCheck } from "../records/fact-check";
 import { KEEP_AT } from "../records/unit";
@@ -93,7 +93,7 @@ import { isLocked } from "./memory-lock";
 import { needsShownOf } from "./needs";
 import { withNetworkIdentities } from "./network-identity";
 import { PERSON_PICTURES_INDEX } from "./party";
-import { isOneOfHis, isParkedMatterOf } from "./read-matters";
+import { isOneOfHis, isParkedMatterOf, projectOf } from "./read-matters";
 import { rankContextOf, rankedMattersOf } from "./read-open-items";
 import { lifeLinksOf } from "./refs";
 import {
@@ -117,7 +117,8 @@ import { dayNow } from "./zones";
 /** What a decision's card holds beyond every check's shape (`checks.ts`): its `ask` line, its `recommended` option, his suggested next asks (`follow`), a draft's quick `edits`, what a replacing card `changed`, its needs with their lines (an access need's steps with their status, from `access`, the Mac's statuses read once per inbox), how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
 export const decisionCardOf = (
   d: Decision,
-  access: AccessStatuses = { statuses: {} }
+  access: AccessStatuses = { statuses: {} },
+  payWith: PayWith = []
 ) => ({
   ask: d.ask ?? null,
   changed: d.changed ?? null,
@@ -126,7 +127,7 @@ export const decisionCardOf = (
   edits: d.edits ?? null,
   follow: d.follow ?? null,
   gathered: d.gathered ?? null,
-  needs: needsShownOf(d.needs, access),
+  needs: needsShownOf(d.needs, access, payWith),
   notSent: notSentOf(d),
   options: d.options.map((o) => {
     const role = d.plan && planRoleOf(o.id);
@@ -175,7 +176,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           ...sessionOf(d),
           onMatters: [],
           onSilence: d.onSilence,
-          ...decisionCardOf(d, access),
+          ...decisionCardOf(d, access, c.payWith),
           question: d.question,
           ref: d.id,
           ridesOn: {
@@ -643,6 +644,12 @@ async function readChecks(
     nameContexts,
     nameGroups,
     paged,
+    payerOf: (id) => {
+      const matter = matters.find((v) => v.id === id);
+      const project = matter && projectOf(people.truth)(matter);
+      return project && `project:${project.id}`;
+    },
+    payWith: settings().payments?.payWith,
     people,
     places: readPlaces(),
     samePersons: samePersonPairsOf(people),

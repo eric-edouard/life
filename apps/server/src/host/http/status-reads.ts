@@ -1,10 +1,12 @@
 import { Hono } from "hono";
+import { integrationsNow } from "../integrations";
 import { snapshot } from "../status/snapshot";
 import { detail, runDetail } from "../status/snapshot-detail";
 import { HEADERS, text } from "./http";
 
-// The app's status reads (`/status/` on the local port, behind its key): the status snapshot (`snapshot.ts`), a card's detail and a
-// run (`snapshot-detail.ts`), as JSON for Life.app's native window and menu. Read-only: it changes nothing, sends nothing.
+// The app's status reads (`/status/` on the local port, behind its key): the status snapshot (`snapshot.ts`), the
+// integrations (`host/integrations.ts`), a card's detail and a run (`snapshot-detail.ts`), as JSON for Life.app's native
+// window, its setup window and menu. Read-only: it changes nothing, sends nothing.
 
 const json = (body: unknown) => Response.json(body, { headers: HEADERS });
 
@@ -24,6 +26,8 @@ export function createStatusReads(
         await next();
       })
       .get("/status/snapshot", async () => json(await snapshot()))
+      // Every integration now, for the setup window and the menu's dots.
+      .get("/status/integrations", async () => json(await integrationsNow()))
       // A card's detail, or its next page: `before` must be an instant.
       .get(`${CARD}*`, async (c) => {
         const before = c.req.query("before");
