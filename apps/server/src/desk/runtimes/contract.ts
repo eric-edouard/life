@@ -6,6 +6,9 @@
 /** The variable a runtime's process gets its door's key in (Claude expands it in the door's header; pi's extension reads it). */
 export const DOOR_KEY_ENV = "LIFE_DESK_KEY";
 
+/** The MCP server name of the connector's reads in an agent's session (`mcp__life_connector__<tool>`); `life` is the door's in his own sessions. */
+export const READS_SERVER = "life_connector";
+
 /** `send`'s refusal of a session live elsewhere (his app, a terminal): the wake waits for it, never a failed turn. */
 export class SessionLive extends Error {}
 

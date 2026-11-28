@@ -89,6 +89,7 @@ const app = agent({ name: "fake-acp-agent" })
         ["t1", "mcp__desk__set_wait"],
         ["t2", "mcp__desk__set_wait; curl x"],
         ["t3", "Edit a file"],
+        ["t4", "mcp__life_connector__search"],
       ] as const;
       for (const [toolCallId, title] of calls) {
         // biome-ignore lint/performance/noAwaitInLoops: one call at a time

@@ -16,29 +16,45 @@ test("a reply is recorded once, replayed without the provider, and a changed ask
   const upstream = Bun.serve({
     fetch: () => {
       upstreamCalls += 1;
-      return new Response(SSE, { headers: { "content-type": "text/event-stream" } });
+      return new Response(SSE, {
+        headers: { "content-type": "text/event-stream" },
+      });
     },
     port: 0,
   });
   const file = join(mkdtempSync(join(tmpdir(), "replay-")), "recordings.jsonl");
   const words = [
-    { content: [{ text: "Where do things stand?", type: "text" }], role: "user" },
+    {
+      content: [{ text: "Where do things stand?", type: "text" }],
+      role: "user",
+    },
   ];
 
-  const record = replayProxy(file, "record", `http://127.0.0.1:${upstream.port}`);
+  const record = replayProxy(
+    file,
+    "record",
+    `http://127.0.0.1:${upstream.port}`
+  );
   expect(await (await ask(record.url, words)).text()).toBe(SSE);
   expect(await (await ask(record.url, words)).text()).toBe(SSE);
   record.stop();
   expect(upstreamCalls).toBe(1);
 
-  const replay = replayProxy(file, "replay", `http://127.0.0.1:${upstream.port}`);
+  const replay = replayProxy(
+    file,
+    "replay",
+    `http://127.0.0.1:${upstream.port}`
+  );
   // Claude Code's own parts (system prompt, metadata, reminders) change nothing.
   const same = await ask(
     replay.url,
     [
       {
         content: [
-          { text: "<system-reminder>Today is 1 March</system-reminder>\n", type: "text" },
+          {
+            text: "<system-reminder>Today is 1 March</system-reminder>\n",
+            type: "text",
+          },
           { text: "Where do things stand?", type: "text" },
         ],
         role: "user",
@@ -47,7 +63,9 @@ test("a reply is recorded once, replayed without the provider, and a changed ask
     { metadata: { user_id: "another" }, system: "another prompt" }
   );
   expect(await same.text()).toBe(SSE);
-  const changed = await ask(replay.url, [{ content: "Who is Ana?", role: "user" }]);
+  const changed = await ask(replay.url, [
+    { content: "Who is Ana?", role: "user" },
+  ]);
   expect(changed.status).toBe(599);
   replay.stop();
   upstream.stop(true);
@@ -86,7 +104,11 @@ test("a REST read is replayed by its method, path and query, its content type ke
     port: 0,
   });
   const file = join(mkdtempSync(join(tmpdir(), "replay-")), "recordings.jsonl");
-  const record = replayProxy(file, "record", `http://127.0.0.1:${upstream.port}`);
+  const record = replayProxy(
+    file,
+    "record",
+    `http://127.0.0.1:${upstream.port}`
+  );
   await fetch(`${record.url}/search?q=ana`);
   record.stop();
   upstream.stop(true);

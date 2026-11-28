@@ -1,6 +1,12 @@
 import { spawn } from "node:child_process";
+import { join } from "node:path";
 import { MIN } from "../../core/clock";
 import { log } from "../../core/log";
+import {
+  IS_COMPILED_HELPER,
+  LIFE_CODE_DIR,
+  LIFE_STATE_DIR,
+} from "../../core/paths";
 import { cliEnv } from "../../core/platform";
 import {
   type Agent,
@@ -383,3 +389,42 @@ export function sessionRuntime(
   };
   return runtime;
 }
+
+/** What Life's reader of the connector needs from the desk's own environment beside Life's paths: the secrets its reads use and the test switch. */
+const READER_ENV = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN", "NODE_ENV"];
+
+/**
+ * The connector's reads as a stdio MCP server (`life connector-reads`): the compiled helper itself in the app, the CLI's
+ * entry in a checkout, with Life's paths (`LIFE_*`) and the secrets its reads use, values as they are. A runtime runs it
+ * with its own environment beside this one, so the helper is told it is not bun (`BUN_BE_BUN`).
+ */
+export const connectorReadsOf = () => {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (e): e is [string, string] =>
+        e[1] !== undefined &&
+        (e[0].startsWith("LIFE_") || READER_ENV.includes(e[0]))
+    )
+  );
+  return {
+    args: [
+      ...(IS_COMPILED_HELPER
+        ? []
+        : [
+            join(
+              LIFE_CODE_DIR,
+              "apps",
+              "server",
+              "src",
+              "desk",
+              "life-entry.ts"
+            ),
+          ]),
+      "connector-reads",
+    ],
+    command: process.execPath,
+    // Life's state, never the agent's folder: bun reads a folder's `.env` and `bunfig.toml` at start.
+    cwd: LIFE_STATE_DIR,
+    env: { ...env, BUN_BE_BUN: "" },
+  };
+};

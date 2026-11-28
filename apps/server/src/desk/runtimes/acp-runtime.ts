@@ -10,10 +10,18 @@ import {
 } from "@agentclientprotocol/sdk";
 import { log } from "../../core/log";
 import { errorOf, fromModel } from "../../core/log-line";
-import type { Run, RunEnd, Runtime, Update, Usage } from "./contract";
+import {
+  READS_SERVER,
+  type Run,
+  type RunEnd,
+  type Runtime,
+  type Update,
+  type Usage,
+} from "./contract";
 import { providerPause } from "./provider-pause";
 import type { Row } from "./runtime-rows";
 import {
+  connectorReadsOf,
   LAUNCH_WITHIN_MS,
   type Open,
   sessionRuntime,
@@ -24,12 +32,23 @@ import {
 // Protocol (the ACP runtime spec, 19 Nov 2026): one adapter process on one session. This file names no runtime: what
 // differs is in the row.
 
+/** The connector's reads (`connectorReadsOf`) as an ACP stdio server. */
+const readsServerOf = () => {
+  const r = connectorReadsOf();
+  return {
+    args: r.args,
+    command: r.command,
+    env: Object.entries(r.env).map(([name, value]) => ({ name, value })),
+    name: READS_SERVER,
+  };
+};
+
 /** The stop reasons of a turn that ran its course; anything else (`cancelled`, `refusal`) is a failed turn. */
 const OK_STOPS = ["end_turn", "max_tokens", "max_turn_requests"];
 /** The updates that show the model answered the prompt. */
 const ANSWERS = ["agent_message_chunk", "agent_thought_chunk", "tool_call"];
 
-/** A tool's bare name: what follows the door's prefix in the title of one of its calls. */
+/** A tool's bare name: what follows an allowed prefix in the title of one of its calls. */
 const BARE_TOOL = /^\w+$/;
 
 /** A prompt reply's `usage` (ACP's unstable schema: an adapter that gives none leaves it out). */
@@ -167,15 +186,17 @@ const openOf =
         }
       })
       // An agent of his own Life: every ask is approved (the runtime's no-ask mode leaves few). A second Life's (a row
-      // with `onlyDoorPrefix`): the door's tools alone are approved, every other ask refused, as `claude -p` and `codex exec` deny what would ask.
+      // with `onlyToolPrefixes`): its door's and its reads' tools alone are approved, every other ask refused, as
+      // `claude -p` and `codex exec` deny what would ask.
       .onRequest(methods.client.session.requestPermission, ({ params }) => {
-        // Both adapters title a shell call with its command text: only the prefix and a bare tool name is the door's.
+        // Both adapters title a shell call with its command text: only a prefix and a bare tool name is an allowed tool.
         const title = titles.get(params.toolCall.toolCallId) ?? "";
-        const prefix = row.onlyDoorPrefix;
+        const prefixes = row.onlyToolPrefixes;
         const isAllowed =
-          prefix === undefined ||
-          (title.startsWith(prefix) &&
-            BARE_TOOL.test(title.slice(prefix.length)));
+          prefixes === undefined ||
+          prefixes.some(
+            (p) => title.startsWith(p) && BARE_TOOL.test(title.slice(p.length))
+          );
         // `allow_once`; `allow_always` only when it is the one offered, since an adapter may keep it as a rule in his settings.
         const pick = isAllowed
           ? (params.options.find((o) => o.kind === "allow_once") ??
@@ -248,6 +269,8 @@ const openOf =
             type: "http" as const,
             url: a.door.url,
           },
+          // A second Life's agent reads its own Life through the connector's reads; his own reads through his connectors.
+          ...(row.onlyToolPrefixes ? [readsServerOf()] : []),
         ],
         ...(row.meta ? { _meta: row.meta(a) } : {}),
       };

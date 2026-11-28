@@ -15,7 +15,7 @@ import { type PiRow, runHeard } from "./pi-connection";
 import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
   compactAtOf,
-  connectorReadsOf,
+  piReadsOf,
   piRowOf,
   piRuntime,
   readClaudeHooks,
@@ -301,7 +301,7 @@ test("his own agent reads his Claude instructions, imports followed from the fil
   expect(readClaudeHooks(dir)).toEqual([]);
 });
 
-test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a second Life's none of them, its door's tools alone", async () => {
+test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a second Life's the reads over its own data alone, with its door's tools", async () => {
   const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
   writeFileSync(join(claude, "CLAUDE.md"), "His rules");
   const place = {
@@ -318,10 +318,12 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   const second = await piRowOf(false, place).spawn(agent, "ref-second", true);
   expect(second.env[PI_EXTENSION_ENV.own]).toBeUndefined();
   expect(second.env[PI_EXTENSION_ENV.hooks]).toBeUndefined();
-  expect(second.env[PI_EXTENSION_ENV.reads]).toBeUndefined();
+  expect(second.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
   expect(second.env[PI_EXTENSION_ENV.search]).toBeUndefined();
-  // Its door's tools alone: no built-in tool, no `web_fetch` or `subagent`.
-  expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
+  // Its door's and reads' tools alone: no built-in tool, no `web_fetch` or `subagent`.
+  expect(second.command.join(" ")).toContain(
+    "--tools mcp__desk__*,mcp__life_connector__*"
+  );
   expect(own.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
 });
@@ -362,7 +364,7 @@ test("every role's agent on pi gets the same powers: its door, the connector's r
 test("the connector's reader gets Life's values as they are: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
   process.env.LIFE_MADE_UP = "!a$b";
   try {
-    const entry = connectorReadsOf();
+    const entry = piReadsOf();
     expect((entry.env as Record<string, string>).LIFE_MADE_UP).toBe("$!a$$b");
     expect(entry.env.BUN_BE_BUN).toBe("");
     expect(entry.args.at(-1)).toBe("connector-reads");

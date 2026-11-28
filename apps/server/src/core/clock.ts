@@ -1,16 +1,11 @@
-import { isOwnLife } from "./platform";
-
 /**
  * A second Life's frozen instant (`LIFE_NOW`, an ISO instant): a question case's copy reads the same "now" on every
- * run, so the same ask reads the same lines. Never with his own data.
+ * run, so the same ask reads the same lines. Never with his own data (`platform.ts` refuses it there).
  */
 const FROZEN = (() => {
   const set = process.env.LIFE_NOW;
   if (!set) {
     return null;
-  }
-  if (isOwnLife()) {
-    throw new Error("LIFE_NOW is for a second Life, never his own data");
   }
   const at = Date.parse(set);
   if (Number.isNaN(at)) {

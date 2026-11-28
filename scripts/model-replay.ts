@@ -103,7 +103,11 @@ export function replayProxy(
     async fetch(req) {
       const url = new URL(req.url);
       const body = await req.text();
-      const fp = fingerprintOf(req.method, `${url.pathname}${url.search}`, body);
+      const fp = fingerprintOf(
+        req.method,
+        `${url.pathname}${url.search}`,
+        body
+      );
       const hit = mode === "fresh" ? undefined : kept.get(fp);
       if (hit) {
         asked.replayed += 1;
@@ -116,7 +120,10 @@ export function replayProxy(
         misses.push(fp);
         const seen = join(dirname(file), "misses");
         mkdirSync(seen, { recursive: true });
-        writeFileSync(join(seen, `${fp}.txt`), `${req.method} ${url.pathname}${url.search}\n${body}`);
+        writeFileSync(
+          join(seen, `${fp}.txt`),
+          `${req.method} ${url.pathname}${url.search}\n${body}`
+        );
         return Response.json(
           { error: { message: `no recording for ${fp}`, type: "replay_miss" } },
           { status: 599 }

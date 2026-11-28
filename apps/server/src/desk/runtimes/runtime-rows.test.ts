@@ -101,7 +101,7 @@ test("the rows put the door's key in the environment, never in a command; each n
       inherit: "all",
     },
   });
-  expect([claude.onlyDoorPrefix, codex.onlyDoorPrefix]).toEqual([
+  expect([claude.onlyToolPrefixes, codex.onlyToolPrefixes]).toEqual([
     undefined,
     undefined,
   ]);
@@ -110,9 +110,12 @@ test("the rows put the door's key in the environment, never in a command; each n
     "agent-full-access"
   );
   const second = runtimeRowsOf(false);
-  expect([second.claude.onlyDoorPrefix, second.codex.onlyDoorPrefix]).toEqual([
-    "mcp__desk__",
-    "mcp.desk.",
+  expect([
+    second.claude.onlyToolPrefixes,
+    second.codex.onlyToolPrefixes,
+  ]).toEqual([
+    ["mcp__desk__", "mcp__life_connector__"],
+    ["mcp.desk.", "mcp.life_connector."],
   ]);
   expect([second.claude.mode, second.codex.mode]).toEqual([
     undefined,
@@ -123,12 +126,12 @@ test("the rows put the door's key in the environment, never in a command; each n
   );
 });
 
-test("a second Life's agent takes none of his settings, tools or instruction files: its door alone; his own runs as he set the programs up", async () => {
+test("a second Life's agent takes none of his settings, tools or instruction files: its door and its reads alone, its turns sent where `ANTHROPIC_BASE_URL` says; his own runs as he set the programs up", async () => {
   const rows = runtimeRowsOf(false);
   expect(rows.claude.meta?.(a)).toMatchObject({
     claudeCode: {
       options: {
-        allowedTools: ["mcp__desk"],
+        allowedTools: ["mcp__desk", "mcp__life_connector"],
         settingSources: [],
         strictMcpConfig: true,
         tools: [],
@@ -141,6 +144,18 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
   const { env } = await rows.claude.spawn(a);
   expect(env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe("1");
   expect(env.CLAUDE_CODE_DISABLE_CLAUDE_MDS).toBe("1");
+  expect(env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC).toBe("1");
+  process.env.ANTHROPIC_BASE_URL = "http://127.0.0.1:9";
+  try {
+    expect((await rows.claude.spawn(a)).env.ANTHROPIC_BASE_URL).toBe(
+      "http://127.0.0.1:9"
+    );
+    expect(
+      (await runtimeRowsOf(true).claude.spawn(a)).env.ANTHROPIC_BASE_URL
+    ).toBeUndefined();
+  } finally {
+    delete process.env.ANTHROPIC_BASE_URL;
+  }
   const second = JSON.parse((await rows.codex.spawn(a)).env.CODEX_CONFIG ?? "");
   expect(second.project_doc_max_bytes).toBe(0);
   for (const f of [...CODEX_OFF, ...CODEX_AGENT_OFF]) {

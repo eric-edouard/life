@@ -6,12 +6,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import {
-  IS_COMPILED_HELPER,
-  LIFE_CODE_DIR,
-  LIFE_STATE_DIR,
-  PI_DIR,
-} from "../../core/paths";
+import { LIFE_CODE_DIR, PI_DIR } from "../../core/paths";
 import { HOME, isOwnLife } from "../../core/platform";
 import { exec } from "../../core/proc";
 import { SECRETS, writeSecret } from "../../core/secret";
@@ -25,7 +20,7 @@ import { ASK_EFFORT, piRouteOf } from "../../models/llm";
 import { MAX_TOKENS, routingOf } from "../../models/routers";
 import { WEB_SEARCH_CHAIN } from "../../web-search/backend";
 import type { ClaudeHookGroup } from "./claude-hooks";
-import type { Agent, Runtime } from "./contract";
+import { type Agent, READS_SERVER, type Runtime } from "./contract";
 import { type PiRow, piOpenOf } from "./pi-connection";
 import { PI_EXTENSION_ENV, PI_PROVIDER, type PiProvider } from "./pi-extension";
 import { closeDanglingCalls } from "./pi-session-repair";
@@ -37,7 +32,11 @@ import {
   readSendFacts,
   type SessionState,
 } from "./runtime-rows";
-import { LAUNCH_WITHIN_MS, sessionRuntime } from "./session-runtime";
+import {
+  connectorReadsOf,
+  LAUNCH_WITHIN_MS,
+  sessionRuntime,
+} from "./session-runtime";
 
 /** The session file of `ref` under `sessions`, if pi wrote one (`<time>_<ref>.jsonl`). */
 const piSessionFileOf = (sessions: string, ref: string) => {
@@ -222,9 +221,6 @@ const readTextIfThere = (path: string) => {
   }
 };
 
-/** What Life's reader of the connector needs from the desk's own environment beside Life's paths: the secrets its reads use and the test switch. */
-const READER_ENV = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN", "NODE_ENV"];
-
 const LEADING_BANG = /^!/;
 
 /** Values as pi passes them on untouched (`$` doubled, a leading `!` escaped): pi resolves `$NAME` and runs `!command`. */
@@ -236,41 +232,10 @@ const escapedOf = (env: Record<string, string>): Record<string, string> =>
     ])
   );
 
-/**
- * The connector's reads as a stdio MCP server (`life connector-reads`): the compiled helper itself in the app, the CLI's
- * entry in a checkout, with Life's paths (`LIFE_*`) and the secrets its reads use. pi runs it with its own environment
- * beside this one, so the helper is told it is not bun (`BUN_BE_BUN`).
- */
-export const connectorReadsOf = () => {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(
-      (e): e is [string, string] =>
-        e[1] !== undefined &&
-        (e[0].startsWith("LIFE_") || READER_ENV.includes(e[0]))
-    )
-  );
-  return {
-    args: [
-      ...(IS_COMPILED_HELPER
-        ? []
-        : [
-            join(
-              LIFE_CODE_DIR,
-              "apps",
-              "server",
-              "src",
-              "desk",
-              "life-entry.ts"
-            ),
-          ]),
-      "connector-reads",
-    ],
-    command: process.execPath,
-    // Life's state, never the agent's folder: bun reads a folder's `.env` and `bunfig.toml` at start.
-    cwd: LIFE_STATE_DIR,
-    // pi reads `$NAME` and a leading `!` in an MCP entry's values: each value escaped, so it reaches the reader as is.
-    env: { ...escapedOf(env), BUN_BE_BUN: "" },
-  };
+/** The connector's reads as pi's MCP entry: pi reads `$NAME` and a leading `!` in its values, so each is escaped. */
+export const piReadsOf = () => {
+  const r = connectorReadsOf();
+  return { ...r, env: escapedOf(r.env) };
 };
 
 /** How deep `@` imports are followed, as Claude Code follows them. */
@@ -449,8 +414,13 @@ export function piRowOf(
         extension,
         ...(isOwn
           ? []
-          : // Its door's tools alone: no built-in tool, no extension tool (`web_fetch`, `subagent`).
-            ["--no-context-files", "--no-skills", "--tools", "mcp__desk__*"]),
+          : // Its door's and its reads' tools alone: no built-in tool, no extension tool (`web_fetch`, `subagent`).
+            [
+              "--no-context-files",
+              "--no-skills",
+              "--tools",
+              `mcp__desk__*,mcp__${READS_SERVER}__*`,
+            ]),
       ],
       env: {
         BUN_BE_BUN: "1",
@@ -465,13 +435,14 @@ export function piRowOf(
         [PI_EXTENSION_ENV.doorUrl]: a.door.url,
         [PI_EXTENSION_ENV.facts]: JSON.stringify(readSendFacts()),
         [PI_EXTENSION_ENV.inForce]: inForceFile,
+        // Every agent reads its own Life: his own, or a second Life's over its own data.
+        [PI_EXTENSION_ENV.reads]: JSON.stringify(piReadsOf()),
         ...(isOwn
           ? {
               [PI_EXTENSION_ENV.hooks]: JSON.stringify(
                 readClaudeHooks(place.claude)
               ),
               [PI_EXTENSION_ENV.own]: "1",
-              [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
               [PI_EXTENSION_ENV.search]: JSON.stringify(
                 settings().desk?.webSearch ?? WEB_SEARCH_CHAIN
               ),

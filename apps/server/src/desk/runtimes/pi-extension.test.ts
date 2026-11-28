@@ -2,15 +2,15 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { READS_SERVER } from "./contract";
 import { fakePiProvider, RECORD } from "./fake-pi-provider";
 import {
   contextOf,
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
   PI_PROVIDER,
-  READS_SERVER,
 } from "./pi-extension";
-import { connectorReadsOf, PI_CLI } from "./pi-runtime";
+import { PI_CLI, piReadsOf } from "./pi-runtime";
 
 // Life's pi extension in a real pi (the pinned one, `--mode rpc`, under Bun as the helper runs it) against a made-up
 // OpenAI-shaped provider: the model asks for two shell calls, a send and a read of the provider key; the guard refuses
@@ -133,7 +133,7 @@ async function runTurn() {
         [PI_EXTENSION_ENV.key]: "life-key",
         [PI_EXTENSION_ENV.own]: "1",
         [PI_EXTENSION_ENV.provider]: JSON.stringify(made),
-        [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
+        [PI_EXTENSION_ENV.reads]: JSON.stringify(piReadsOf()),
         [PI_EXTENSION_ENV.rules]: "Made-up brief and contract.",
       },
       stderr: "ignore",

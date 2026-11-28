@@ -35,14 +35,21 @@ test("minutes rounds durations and omits an empty hour remainder", () => {
 test("LIFE_NOW freezes a second Life's clock and is refused on his own data", () => {
   const run = (env: Record<string, string>) =>
     Bun.spawnSync(
-      ["bun", "-e", 'console.log(require("./clock").clock().toISOString())'],
+      [
+        "bun",
+        "-e",
+        'require("./platform"); console.log(require("./clock").clock().toISOString())',
+      ],
       // Out of test mode, where the data folder is always a test copy.
       { cwd: import.meta.dir, env: { ...process.env, NODE_ENV: "", ...env } }
     );
   const at = "2026-03-01T09:30:00.000Z";
   const copy = run({ LIFE_NOW: at, LIFE_OWNER_DATA_DIR: "/tmp/a-copy" });
   expect(copy.stdout.toString().trim()).toBe(at);
-  const own = run({ LIFE_NOW: at, LIFE_OWNER_DATA_DIR: join(homedir(), "Life") });
+  const own = run({
+    LIFE_NOW: at,
+    LIFE_OWNER_DATA_DIR: join(homedir(), "Life"),
+  });
   expect(own.exitCode).not.toBe(0);
   expect(own.stderr.toString()).toContain("never his own data");
 });

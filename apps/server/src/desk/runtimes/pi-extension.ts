@@ -12,7 +12,7 @@ import type { WebSearchProviderName } from "../../core/names";
 import { searchableOf } from "../../web-search/backend";
 import { SEND_FACTS_ENV, type SendFacts, sendRefusalOf } from "../send-guard";
 import { type ClaudeHookGroup, runClaudeHooks } from "./claude-hooks";
-import { DOOR_KEY_ENV } from "./contract";
+import { DOOR_KEY_ENV, READS_SERVER } from "./contract";
 import { DOOR_TOOL, pruneResults, resultOf } from "./pi-results";
 import { registerSubagent } from "./pi-subagent";
 import { registerWebFetch, registerWebSearch } from "./web-tools";
@@ -91,9 +91,6 @@ export interface LifeDeskConfig {
   /** The providers `web_search` asks, in order; none, no `web_search`. */
   search: WebSearchProviderName[];
 }
-
-/** pi's MCP server name for the connector's reads (`mcp__life_connector__<tool>`); `life` is the door's in his own sessions. */
-export const READS_SERVER = "life_connector";
 
 const required = (name: string) => {
   const value = process.env[name];

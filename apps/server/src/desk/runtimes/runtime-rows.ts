@@ -15,7 +15,7 @@ import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { readMailAddresses } from "../../sources/mail";
 import { SEND_FACTS_ENV, SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
-import { type Agent, DOOR_KEY_ENV } from "./contract";
+import { type Agent, DOOR_KEY_ENV, READS_SERVER } from "./contract";
 
 // The runtime rows: each runtime's own facts, the one place they live (`acp-runtime.ts` names no runtime). A row is its
 // pinned ACP adapter's command, env and session `_meta`, the config ids of its model and effort, its no-ask mode, the
@@ -54,8 +54,12 @@ export interface Row {
   meta?: (a: Agent) => Record<string, unknown>;
   /** The runtime's no-ask mode, set after every `session/new` and `session/resume` (`session/set_config_option`, id `mode`); none: the session's own. */
   mode?: string;
-  /** A second Life's row only: what the title of a door tool's call starts with, the only tools the desk's client approves. None: every ask is approved. */
-  onlyDoorPrefix?: string;
+  /**
+   * A second Life's row only: what the title of an allowed tool's call starts with (its door's, the connector reads'),
+   * the only tools the desk's client approves; such a row's session gets the connector reads beside its door. None: every
+   * ask is approved.
+   */
+  onlyToolPrefixes?: string[];
   /** Whether the session runs a turn of his now, from its CLI's own record, when the desk runs none. */
   readSessionState: (ref: string) => Promise<SessionState>;
   /** The adapter's command and env (besides `cliEnv`) for `a`'s turn. */
@@ -292,8 +296,10 @@ export const loginEnvLess = async (engine: string[]) =>
 
 /**
  * His own Life's agent: his settings, rules, skills and connectors as any session of his, in the no-ask mode. A second
- * Life's agent: none of his settings (hooks, plugins, permissions), no MCP server but the door, no built-in tool
- * (no shell, no file), the door's tools allowed and the mode explicit; none of his CLAUDE.md or memory.
+ * Life's agent: none of his settings (hooks, plugins, permissions), no MCP server but the door and the connector reads
+ * over its own Life, no built-in tool (no shell, no file), those tools allowed and the mode explicit; none of his
+ * CLAUDE.md or memory, no traffic but its turns', sent to `ANTHROPIC_BASE_URL` when one is set (a question case's
+ * replay, `scripts/model-replay.ts`).
  */
 const claudeRow = (isOwn: boolean): Row => ({
   block: () => readCliBlock("claude"),
@@ -311,7 +317,7 @@ const claudeRow = (isOwn: boolean): Row => ({
         ...(isOwn
           ? { settings: { hooks: GUARD_HOOKS } }
           : {
-              allowedTools: ["mcp__desk"],
+              allowedTools: ["mcp__desk", `mcp__${READS_SERVER}`],
               permissionMode: "default",
               settingSources: [],
               strictMcpConfig: true,
@@ -321,7 +327,9 @@ const claudeRow = (isOwn: boolean): Row => ({
     },
   }),
   mode: isOwn ? "bypassPermissions" : undefined,
-  onlyDoorPrefix: isOwn ? undefined : "mcp__desk__",
+  onlyToolPrefixes: isOwn
+    ? undefined
+    : ["mcp__desk__", `mcp__${READS_SERVER}__`],
   async readSessionState(ref) {
     // A process running it is his live session (or an orphaned run): never a second one beside it, between turns too.
     if (await isSessionOpen(ref)) {
@@ -350,6 +358,10 @@ const claudeRow = (isOwn: boolean): Row => ({
           : {
               CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
               CLAUDE_CODE_DISABLE_CLAUDE_MDS: "1",
+              CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+              ...(process.env.ANTHROPIC_BASE_URL
+                ? { ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL }
+                : {}),
             }),
       },
     };
@@ -440,7 +452,7 @@ const codexRow = (isOwn: boolean): Row => {
     config: { effort: "reasoning_effort", model: "model" },
     header: (key) => `Bearer ${key}`,
     link: (ref) => `codex://threads/${ref}`,
-    onlyDoorPrefix: isOwn ? undefined : "mcp.desk.",
+    onlyToolPrefixes: isOwn ? undefined : ["mcp.desk.", `mcp.${READS_SERVER}.`],
     // biome-ignore lint/suspicious/useAwait: async, so a read that throws is a rejected state
     async readSessionState(ref) {
       const path = rolloutOf(ref);
