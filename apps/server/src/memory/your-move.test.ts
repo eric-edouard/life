@@ -11,7 +11,7 @@ import { checksOf, type InboxCheck } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import type { Check } from "./life-checks";
 import { Need, needsShownOf } from "./needs";
-import { placesOf } from "./your-move";
+import { placesOf, withPayeeAccountsOf } from "./your-move";
 import { localDate } from "./zones";
 
 // Your move cards: a matter's step that is his stays in his inbox, dormant or not, until he does it, hands it to an
@@ -389,4 +389,80 @@ test("among your move cards, his ranking beats a deadline: a low-ranked dated st
       move("undated-high", 1, null),
     ]).map((c) => c.ref)
   ).toEqual(["undated-high", "dated-low"]);
+});
+
+// The owner's complaint of 28 Nov 2026: his card to pay a glazier's invoice showed no amount, no account and no bank app.
+const PAY = {
+  ...OWN,
+  quote: "invoice 12 attached, 88 EUR please",
+  ref: "obs_000000000091",
+  text: "Owes Acme Glass 88 EUR, invoice 12",
+};
+const INVOICE_LINE =
+  "Invoice attached\n[pdf invoice-12.pdf, described by Life: an invoice from Acme Glass | text: Total 88,00 EUR. Pay to IBAN FR76 3000 6000 0112 3456 7890 189 by 1 Dec]";
+const payMoves = (over: Partial<CheckInputs> = {}) =>
+  moves({
+    matters: [{ ...MATTER, openSteps: [PAY], steps: [PAY] }],
+    payWith: [
+      {
+        app: { name: "Test Bank", url: "https://bank.example.com/open" },
+        currency: "EUR",
+      },
+    ],
+    ...over,
+  });
+
+test("a your move card to pay shows the amount, his bank app and, on his app's read, the payee's IBAN as written", () => {
+  const cards = payMoves();
+  const [card] = withPayeeAccountsOf(cards, (step) =>
+    step === PAY.ref ? INVOICE_LINE : undefined
+  );
+  expect(card?.needs).toEqual([
+    {
+      kind: "account",
+      line: "FR76 3000 6000 0112 3456 7890 189",
+      number: "FR76 3000 6000 0112 3456 7890 189",
+      scheme: "iban",
+    },
+    { currency: "EUR", kind: "amount", line: "88 EUR", value: 88 },
+    {
+      kind: "app",
+      line: "In Test Bank",
+      name: "Test Bank",
+      url: "https://bank.example.com/open",
+    },
+  ]);
+  // Every other read shares the checks without it.
+  expect(cards[0]?.needs?.some((n) => n.kind === "account")).toBe(false);
+  // Mark as done stays its first answer: Life does not see this bank's payments.
+  expect(card?.options[0]?.id).toBe("done");
+});
+
+test("a project's payment gets the project's pay-with app; a step with two amounts or none is no payment", () => {
+  const lynx = {
+    app: { name: "Company Bank", url: "https://company.example.com/open" },
+    currency: "EUR",
+    payer: "project:shop",
+  };
+  const [card] = payMoves({
+    payerOf: () => "project:shop",
+    payWith: [
+      {
+        app: { name: "Test Bank", url: "https://bank.example.com/open" },
+        currency: "EUR",
+      },
+      lynx,
+    ],
+  });
+  expect(card?.needs?.map((n) => n.line)).toEqual([
+    "88 EUR",
+    "In Company Bank",
+  ]);
+  for (const text of ["Pay 40 EUR or 50 EUR", "Call the glazier"]) {
+    const step = { ...PAY, quote: text, text };
+    const [none] = payMoves({
+      matters: [{ ...MATTER, openSteps: [step], steps: [step] }],
+    });
+    expect(none?.needs).toEqual([]);
+  }
 });

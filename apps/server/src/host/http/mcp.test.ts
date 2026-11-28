@@ -156,7 +156,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "change_appointment(action,appointment)",
     "change_directory_entry(action,aliases,area,domains,goal,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
-    "change_setting(aura,monthlyUsd)",
+    "change_setting(aura,monthlyUsd,payWith)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "delete_from_memory(about,confirm,cuts,refs,said,withSources)",

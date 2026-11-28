@@ -1,5 +1,7 @@
 import { daysBefore } from "../core/clock";
 import { LIFE_ASKER } from "../core/names";
+import { parseIban } from "../core/redact";
+import type { PayWith } from "../core/settings";
 import { isoDate } from "../records/fields";
 import { readAppointments } from "./appointments";
 import { locationOf, mapUrlsOf } from "./calendar-events";
@@ -14,7 +16,7 @@ import {
   type MatterView,
   nextStepNow,
 } from "./matter-read";
-import { needsShownOf } from "./needs";
+import { amountOf, type Need, needsShownOf, parseAmount } from "./needs";
 import { dismissedIdsOf } from "./read-matters";
 import type { People } from "./who";
 import { dayStart } from "./zones";
@@ -108,6 +110,10 @@ export interface YourMoveInputs {
     openSteps?: Step[];
     steps: Pick<MatterStepNow, "at" | "day" | "ref">[];
   })[];
+  /** Who pays a matter's steps when not him: the project it shows under (`project:<id>`, `projectOf`), else none. */
+  payerOf?: (matter: string) => string | undefined;
+  /** The apps he pays with (`payments.payWith`): a step naming an amount shows his app for it (`needsShownOf`). */
+  payWith?: PayWith;
   /** The places of appointments by the observation they were read from (`readPlaces`). */
   places?: ReadonlyMap<string, string>;
   today: string;
@@ -166,6 +172,15 @@ function contextOf(
 
 type SaidLine = Parameters<typeof saidOfLine>[0];
 
+/** A step naming one amount (`parseAmount`, its text, else its quote) is a payment: its `amount` need, with its matter's payer. */
+const amountNeedOf = (
+  step: Pick<Step, "quote" | "text">,
+  payer: string | undefined
+): Need[] => {
+  const amount = parseAmount(step.text) ?? parseAmount(step.quote);
+  return amount ? [{ ...amount, ...(payer && { payer }) }] : [];
+};
+
 /**
  * The your move cards: one per matter whose step is his (`yourMovesOf`), unless it is offered as a new matter
  * (`offered`: that card asks first, until its offer ends) or his Not now hides it; its step
@@ -213,18 +228,25 @@ export function yourMoveChecksOf(
       kind: "your move",
       likelyPeople: [],
       links: [],
-      needs: place
-        ? needsShownOf([
-            {
-              kind: "place",
-              name: place.slice(0, 120),
-              ...(urls && {
-                appleMapsUrl: urls.apple,
-                googleMapsUrl: urls.google,
-              }),
-            },
-          ])
-        : [],
+      needs: needsShownOf(
+        [
+          ...amountNeedOf(step, c.payerOf?.(v.id)),
+          ...(place
+            ? [
+                {
+                  kind: "place" as const,
+                  name: place.slice(0, 120),
+                  ...(urls && {
+                    appleMapsUrl: urls.apple,
+                    googleMapsUrl: urls.google,
+                  }),
+                },
+              ]
+            : []),
+        ],
+        undefined,
+        c.payWith
+      ),
       notSent: null,
       onMatters: [],
       onSilence: null,
@@ -255,5 +277,42 @@ export function yourMoveChecksOf(
         quote,
       },
     ];
+  });
+}
+
+/**
+ * Life's own payment cards as his app reads them (his yes of 28 Nov 2026, SECURITY.md): a your move card with an
+ * `amount` and no `account` gets the payee's IBAN, exactly as written in its step's source (`sourceTextOf`, the message
+ * and its files' lines, unredacted), when that holds exactly one (`parseIban`). Only on his app's reads (`read_inbox`,
+ * `read_matter`): never in the checks every other reader shares. Pure.
+ */
+export function withPayeeAccountsOf<
+  C extends {
+    kind: string;
+    needs?: ReturnType<typeof needsShownOf>;
+    subject: string | null;
+  },
+>(checks: readonly C[], sourceTextOf: (step: string) => string | undefined) {
+  return checks.map((c) => {
+    const needs = c.needs ?? [];
+    const text =
+      c.kind === "your move" &&
+      c.subject &&
+      amountOf(needs) &&
+      !needs.some((n) => n.kind === "account")
+        ? sourceTextOf(c.subject)
+        : undefined;
+    const iban = text && parseIban(text);
+    return iban
+      ? {
+          ...c,
+          needs: [
+            ...needsShownOf([
+              { kind: "account", number: iban, scheme: "iban" },
+            ]),
+            ...needs,
+          ],
+        }
+      : c;
   });
 }

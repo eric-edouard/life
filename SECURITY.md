@@ -44,6 +44,14 @@ a local model (llama.cpp, `describePhotos` setting): none of those images goes t
 message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
 when its message arrives or at night (his word of 19 Nov 2026).
 
+Every read of message, mail, note and file text that a model or a reader sees goes through `redact` (`core/redact.ts`):
+card numbers, IBANs, key blocks, lines that look like a password or code, long tokens. One exception (his yes of 28 Nov
+2026): on Life's own payment card (a your move card whose step names an amount), the payee's IBAN, exactly as the
+payee wrote it in that step's message or its file, sits in the card's `account` need, and only when his own app reads
+it (`read_inbox` and `read_matter` on his token: `withPayeeAccountsOf`). The checks every other reader shares (agents,
+the reads-only connector, complaints, the nightly, pushes, the CLI) never hold it. An app on his token that is a chat
+with a model (his Claude or ChatGPT) passes it to that model's provider. Life never pays: he does, in his bank's app.
+
 ## Agents
 
 The desk (off until his `desk` setting) starts and wakes his registered agents, created only on his word (a project's, or the Personal agent; the desk registers the Personal agent itself, one at most, for a confirmed arrival no matter's agent takes, Direction's ruling of 21 Nov 2026, and the caretaker on his complaint): with `desk.handOut` set it also gives one a matter itself, from the top of his ranking, within the pace he set (his word of 20 Nov 2026): Life picks the matter by its ranking and the agent that takes it by code (`agentForOf`), the agent reads the matter as data, and nothing outward goes without his yes on a card. A registered agent is started by

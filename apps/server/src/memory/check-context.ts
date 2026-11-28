@@ -100,6 +100,8 @@ export interface CheckInputs {
   /** The names Life cannot place, one group per name (`nameGroupsOf`), worked out once by the reader. */
   nameGroups: ReturnType<typeof nameGroupsOf<Line>>;
   paged: ReadonlySet<string>;
+  payerOf?: YourMoveInputs["payerOf"];
+  payWith?: YourMoveInputs["payWith"];
   people: Pick<
     People,
     | "ambiguousCards"

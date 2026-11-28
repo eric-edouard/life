@@ -20,3 +20,14 @@ export function redact(text: string): string {
     )
     .replace(LONG_TOKEN, "[token removed]");
 }
+
+/**
+ * The one IBAN a text holds, exactly as written (spaces kept), else none: two different ones, or none, give none. Only
+ * for the payee's account on his own payment card (`withPayeeAccountsOf`); every other read goes through `redact`.
+ */
+export function parseIban(text: string) {
+  const found = new Map(
+    (text.match(IBAN) ?? []).map((m) => [m.replaceAll(" ", ""), m] as const)
+  );
+  return found.size === 1 ? [...found.values()][0] : undefined;
+}
