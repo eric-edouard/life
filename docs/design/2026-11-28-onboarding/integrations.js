@@ -4,7 +4,7 @@
    can go wrong, in his words, and the one fix offered). value is only where Life can show an ask. A screen whose answer is already known (a state not "off") is
    skipped. Groups: sources (read every day), imports (a file, read once), ai, voice, phone, messaging (the phone's).
    Icons here are a colour and a glyph: the build fetches each app's real icon and normalizes it to one size and corner. */
-var FDA={kind:'permission',check:'full_disk_access'};
+var FDA={kind:'permission',check:'full_disk_access',fail:{why:'Not allowed yet.',fix:'Open System Settings'}};
 window.INTEGRATIONS=[
   {id:'source:imessage',group:'sources',mac:true,name:'iMessage',icon:{bg:'#30d158',fg:'#000',g:'✉'},covers:'and SMS',
    value:{ask:'When does Nora land?',answer:'Friday 18:40, gate B. She asked you to bring a jacket.'},

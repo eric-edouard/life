@@ -247,7 +247,7 @@ function drawLangs(){var off=Object.keys(S.langs).filter(function(l){return S.la
 /* --- what Life reads. On a Mac, one grant (Full Disk Access) opens most of it, so it is asked once, drawn as macOS
    draws it; sign-ins and a folder follow. Messaging apps are the phone's (bridges sign in there). --- */
 /* a broken integration's line: its fail, or the one grant it is still waiting on */
-function whyOf(x){if(x.state!=='broken')return '';var f=fdaSrc(x)&&S.fda==='denied'?{why:'Not allowed yet.',fix:'Open System Settings'}:x.fail;
+function whyOf(x){if(x.state!=='broken')return '';var f=fdaSrc(x)&&S.fda==='denied'?FDA.fail:x.fail;
   return '<span class="why">'+f.why+'<button type="button" class="chip sm" data-fix="'+x.id+'">'+f.fix+'</button></span>';}
 function row(x){return '<div class="irow" role="checkbox" data-src="'+x.id+'" aria-checked="'+!!on(x.id)+'"><span class="tk"></span>'+appIcon(x,32)+
   '<span class="tx"><b>'+x.name+(x.covers?' <small>'+x.covers+'</small>':'')+'</b>'+(x.value?'<span class="vl"><q>'+x.value.ask+'</q> <span>'+x.value.answer+'</span></span>':'')+
