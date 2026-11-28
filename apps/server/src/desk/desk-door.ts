@@ -82,6 +82,8 @@ import {
   askMainSession,
   assignmentRecordOf,
   changedOn,
+  entryOfTurn,
+  eyesOn,
   hisWordsIn,
   keepAct,
   keepMainSession,
@@ -463,23 +465,29 @@ function doorServer(desk: Desk, id: string) {
     DirectoryEntryChange,
     async ({ said, ...change }, _, turn) => {
       const words = hisWordsOf(turn, said);
-      // A new one-off project: its handoff, then the project, then its agent (`writeOneOffProject`).
+      // A new one-off project of his ask: claimed, written, then its agent (`writeOneOffProject`).
+      const entry = turn ? entryOfTurn(desk, turn.id) : undefined;
       if (
         turn &&
+        typeof entry === "number" &&
         change.action === "add" &&
         change.kind === "project" &&
         change.goal
       ) {
-        const made = await writeOneOffProject(desk, turn.id, {
-          ...change,
-          id: addedIdOf(change),
-          said: words,
-        });
+        const made = await writeOneOffProject(
+          desk,
+          askLifeRefOf(turn.id, "change_directory_entry", {
+            project: addedIdOf(change),
+          }),
+          entry,
+          { ...change, goal: change.goal, said: words }
+        );
+        eyesOn(desk, turn.id);
         acted(
           turn,
-          "error" in made
-            ? { kind: "done" }
-            : { agent: agentNameOf(made.agent), kind: "agent", told: words }
+          "agent" in made
+            ? { agent: agentNameOf(made.agent), kind: "agent", told: words }
+            : { kind: "done" }
         );
         return made;
       }

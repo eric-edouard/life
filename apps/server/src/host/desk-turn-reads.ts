@@ -98,8 +98,8 @@ const ESTIMATE_FROM = 5;
 
 /**
  * How long handed work of `kind` takes now, in ms: the median of its last 20 hand-overs, each from the hand-over to the
- * end of the first turn of its assignment that began after it (the agent's next card or `finish`); its fixed guess
- * until five have ended.
+ * end of the first turn of its assignment that began after it (the agent's next card or `finish`), whole ms (the phone
+ * reads an integer); its fixed guess until five have ended.
  */
 export function estimateOf(db: Database, kind: HandedKind) {
   const took = db
@@ -112,5 +112,5 @@ export function estimateOf(db: Database, kind: HandedKind) {
     .sort((a, b) => a - b);
   return took.length < ESTIMATE_FROM
     ? HANDED_GUESS_MS[kind]
-    : (took[Math.floor(took.length / 2)] as number);
+    : Math.round(took[Math.floor(took.length / 2)] as number);
 }

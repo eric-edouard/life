@@ -6,23 +6,27 @@ import { BUILT_IN_RUNTIME, DESK_AGENT } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { ask } from "../host/asks";
 import { changeDirectoryEntry } from "../host/change-directory-entry";
-import { assignmentOf, readNotes } from "../host/desk-read";
+import { assignmentOf } from "../host/desk-read";
+import { estimateOf } from "../host/desk-turn-reads";
+import { areaHold } from "../memory/pages";
 import { loadTruth } from "../memory/read-truth";
 import { openAssignment, register } from "./agent-actions";
-import { handedAskOf, recordHandedAsk, recordHandedWork } from "./desk-store";
-import { firstTurnOf, shownGoalOf } from "./first-turns";
+import { recordHandedWork } from "./desk-store";
+import { firstTurnOf, handedProjectOf } from "./first-turns";
 import {
+  catchUpHandoffs,
   openOneOffProject,
   openOneOffProjects,
   promote,
   readHandedConversation,
+  writeOneOffProject,
 } from "./one-off-projects";
 import { ownAssignmentOf } from "./role-agents";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
-import { setup } from "./test-desk";
+import { advance, setup } from "./test-desk";
 
-// One-off projects (28 Nov 2026): written with a goal, the desk registers the project's agent once; handed work an
-// agent promotes becomes a project from his own words, never the agent's. Made-up data only.
+// One-off projects (28 Nov 2026): written with a goal, the desk registers the project's agent once and hands it his
+// entry in one step; an ask an agent promotes becomes a project from his own told words, never the agent's. Made-up data.
 
 const TRUTH = join(OWNER_DATA_DIR, "truth");
 const BACKUP = `${TRUTH}.one-off-backup`;
@@ -65,33 +69,73 @@ const oneOff = (name: string, goal: string, status?: "dropped") =>
     said: goal,
     status,
   });
-
-const handedRows = (t: T) =>
+const entryAt = (t: T, id: number, words: string, turn?: number) =>
+  t.desk.db.run(
+    "insert or ignore into thread_entry (id, asked_at, words, turn_id) values (?, ?, ?, ?)",
+    [id, clock().toISOString(), words, turn ?? null]
+  );
+const claim = (t: T, project: string, entry: number) =>
+  t.desk.db.run(
+    "insert into project_handoff (project, ask, entry_id) values (?, ?, ?)",
+    [project, `tell-life:0:change_directory_entry:${project}`, entry]
+  );
+const handedRows = (t: T, kind = "project") =>
   t.desk.db
-    .query<{ assignment_id: string; entry_id: number }, []>(
-      "select entry_id, assignment_id from handed_work where kind = 'project'"
+    .query<{ assignment_id: string; entry_id: number }, [string]>(
+      "select entry_id, assignment_id from handed_work where kind = ?"
     )
-    .all();
+    .all(kind);
+const takenBy = (t: T, project: string) =>
+  t.desk.db
+    .query<{ agent_id: string | null }, [string]>(
+      "select agent_id from project_handoff where project = ?"
+    )
+    .get(project)?.agent_id;
+const ownOf = (t: T, project: string) => {
+  const s = assignmentOf(
+    t.desk.db,
+    ownAssignmentOf(t.desk.db, agentsOn(t, project)[0]?.id ?? "") ?? ""
+  );
+  if (!s) {
+    throw new Error(`no assignment on ${project}`);
+  }
+  return s;
+};
 
-test("a one-off project gets one agent, never on his words, taking his entry; nothing under way while blocked or dropped; never again once stopped; none when ongoing", async () => {
+test("with no area named, his ask made a project goes under a plain Personal area, made when missing; blocked, it is written and kept for the poll's agent", async () => {
+  const t = desk();
+  entryAt(t, 1, "Build a reading list page for my book club");
+  t.fake.blocked = "no key";
+  const made = await writeOneOffProject(t.desk, "tell-life:1:x:a", 1, {
+    action: "add",
+    goal: "Build a reading list page",
+    kind: "project",
+    name: "Reading list",
+    said: "Build a reading list page",
+  });
+  expect(made).toMatchObject({
+    done: expect.any(String),
+    pending: expect.stringContaining("no key"),
+    project: "reading-list",
+    state: "written",
+  });
+  const truth = await loadTruth();
+  expect(truth.areas.map((a) => a.id)).toContain("personal");
+  expect(truth.projects.find((p) => p.id === "reading-list")?.area).toBe(
+    "personal"
+  );
+  t.fake.blocked = undefined;
+  await openOneOffProjects(t.desk);
+  expect(takenBy(t, "reading-list")).toBe(agentsOn(t, "reading-list")[0]?.id);
+});
+
+test("a one-off project gets one agent, never on his words, holding his entry; nothing under way while blocked or dropped; never again once stopped; none when ongoing", async () => {
   const t = desk();
   const goal = "Make a page for the bakery's opening day";
-  t.desk.db.run(
-    "insert into thread_entry (id, asked_at, words) values (3, ?, ?), (4, ?, 'Sell the old shelf')",
-    [clock().toISOString(), goal, clock().toISOString()]
-  );
-  recordHandedAsk(
-    t.desk.db,
-    "tell-life:1:change_directory_entry:a",
-    3,
-    "bakery-page"
-  );
-  recordHandedAsk(
-    t.desk.db,
-    "tell-life:2:change_directory_entry:b",
-    4,
-    "old-shelf"
-  );
+  entryAt(t, 3, goal);
+  entryAt(t, 4, "Sell the old shelf");
+  claim(t, "bakery-page", 3);
+  claim(t, "old-shelf", 4);
   await oneOff("Bakery page", goal);
   await changeDirectoryEntry({
     action: "add",
@@ -119,10 +163,7 @@ test("a one-off project gets one agent, never on his words, taking his entry; no
   expect(agent?.brief).not.toContain(goal);
   expect([agentsOn(t, "old-shelf"), agentsOn(t, "garden")]).toEqual([[], []]);
   expect(handedRows(t)).toEqual([
-    {
-      assignment_id: ownAssignmentOf(t.desk.db, agent?.id ?? "") ?? "",
-      entry_id: 3,
-    },
+    { assignment_id: ownOf(t, "bakery-page").id, entry_id: 3 },
   ]);
   t.desk.db.run("update agent set status = 'stopped' where id = ?", [
     agent?.id ?? "",
@@ -136,36 +177,102 @@ test("a one-off project gets one agent, never on his words, taking his entry; no
   expect(agentsOn(t, "bakery-page")).toHaveLength(1);
 });
 
-test("a goal whose every entry he deleted is never quoted, and starts no agent; one written elsewhere keeps its goal", async () => {
+test("an agent already on the project takes its handoff on the poll; a delivery that fails registers no agent", async () => {
+  const t = desk();
+  entryAt(t, 12, "Plan the garden party");
+  await oneOff("Garden party", "Plan the garden party");
+  const agent = register(t.desk, {
+    brief: "Test: garden party",
+    folder: t.dir,
+    project: "garden-party",
+    runtime: BUILT_IN_RUNTIME,
+  });
+  openAssignment(t.desk, agent, { openedBy: "owner" });
+  claim(t, "garden-party", 12);
+  await openOneOffProjects(t.desk);
+  expect(takenBy(t, "garden-party")).toBe(agent);
+  expect(handedRows(t)).toEqual([
+    { assignment_id: ownOf(t, "garden-party").id, entry_id: 12 },
+  ]);
+  // The agent and its delivery are one step: a failed delivery leaves no agent behind.
+  const u = desk();
+  entryAt(u, 13, "Sort the spice drawer");
+  await oneOff("Spice drawer", "Sort the spice drawer");
+  claim(u, "spice-drawer", 13);
+  u.desk.db.run("drop table handed_work");
+  await openOneOffProjects(u.desk);
+  expect([agentsOn(u, "spice-drawer"), takenBy(u, "spice-drawer")]).toEqual([
+    [],
+    null,
+  ]);
+});
+
+test("at the desk's start a claim never written is given back, a written one is delivered, and a goal outside his entry is never shown", async () => {
+  const t = desk();
+  entryAt(t, 20, "Make a map of the hiking trails");
+  entryAt(t, 21, "Write a guide to the old town");
+  entryAt(t, 22, "Make a quiz night");
+  claim(t, "never-written", 20);
+  claim(t, "trail-map", 20);
+  claim(t, "old-town", 21);
+  await oneOff("Trail map", "Make a map of the hiking trails");
+  await oneOff("Old town", "Write a guide to the old town");
+  await changeDirectoryEntry({
+    action: "edit",
+    goal: "Write a guide to the whole city",
+    id: "old-town",
+    kind: "project",
+    said: "Write a guide to the whole city",
+  });
+  await catchUpHandoffs(t.desk);
+  expect(
+    t.desk.db
+      .query("select 1 from project_handoff where project = ?")
+      .get("never-written")
+  ).toBeNull();
+  expect(agentsOn(t, "trail-map")).toHaveLength(1);
+  expect(takenBy(t, "trail-map")).toBe(agentsOn(t, "trail-map")[0]?.id);
+  const p = (await loadTruth()).projects.find((x) => x.id === "old-town");
+  expect([handedProjectOf(t.desk.db, p), agentsOn(t, "old-town")]).toEqual([
+    undefined,
+    [],
+  ]);
+});
+
+test("a goal whose entry he deleted is never shown or quoted, and starts no agent; one written elsewhere keeps its goal; an area page never prints a goal", async () => {
   const t = desk();
   const goal = "Plan a surprise for the team's offsite";
   t.desk.db.run(
     "insert into thread_entry (id, asked_at, words, deleted_at) values (7, ?, null, ?)",
     [clock().toISOString(), clock().toISOString()]
   );
-  recordHandedAsk(
-    t.desk.db,
-    "tell-life:3:change_directory_entry:c",
-    7,
-    "offsite"
-  );
+  claim(t, "offsite", 7);
   await oneOff("Offsite", goal);
-  expect(shownGoalOf(t.desk.db, { goal, id: "offsite" })).toBeUndefined();
-  expect(shownGoalOf(t.desk.db, { goal, id: "elsewhere" })).toBe(goal);
+  expect(handedProjectOf(t.desk.db, { goal, id: "offsite" })).toBeUndefined();
+  expect(handedProjectOf(t.desk.db, { goal, id: "elsewhere" })).toEqual({
+    goal,
+  });
   expect(await openOneOffProject(t.desk, "offsite")).toMatchObject({
     error: expect.stringContaining("deleted"),
   });
   expect(agentsOn(t, "offsite")).toEqual([]);
+  const truth = await loadTruth();
+  expect(
+    areaHold(
+      { id: "work", name: "Work" } as never,
+      truth.projects.filter((p) => p.area === "work")
+    )
+  ).not.toContain(goal);
 });
 
-/** The Personal agent told `quote` from his entry `entry` (words `words`), on main session turn `turn`; its assignment and the ask. */
+/** The Personal agent told `quote` from his entry `entry` (words `words`) on main session turn `turn`, as `tell_agent` keeps it (`legacy`: from before the entry was kept on the ask). */
 async function told(
   t: T,
   entry: number,
   turn: number,
   words: string,
   quote: string,
-  tag = ""
+  { legacy = false, tag = "" } = {}
 ) {
   const personal =
     t.desk.db
@@ -180,22 +287,22 @@ async function told(
   const own =
     ownAssignmentOf(t.desk.db, personal) ??
     openAssignment(t.desk, personal, { openedBy: "owner" });
-  t.desk.db.run(
-    "insert or ignore into thread_entry (id, asked_at, words, turn_id) values (?, ?, ?, ?)",
-    [entry, clock().toISOString(), words, turn]
-  );
+  entryAt(t, entry, words, turn);
   const line = ask(
     {
       at: clock().toISOString(),
       quote,
       ref: `tell-life:${turn}:tell_agent:t${entry}${tag}`,
     },
-    { agent: DESK_AGENT, to: own },
+    legacy
+      ? { agent: DESK_AGENT, to: own }
+      : { agent: DESK_AGENT, entry, kind: "other", to: own },
     "connector",
     "test"
   );
-  recordHandedWork(t.desk.db, entry, own, "other", line.at);
-  recordHandedAsk(t.desk.db, line.id, entry);
+  if (legacy) {
+    recordHandedWork(t.desk.db, entry, own, "other", line.at);
+  }
   await receiveSpokenAsks(t.desk);
   const s = assignmentOf(t.desk.db, own);
   if (!s) {
@@ -204,20 +311,20 @@ async function told(
   return { ask: line.id, s };
 }
 
-test("promote writes the project from his entry's words, never the agent's, whatever entry shares its turn id; a retry finishes the same one; two asks of one entry; its agent reads the talk around his ask", async () => {
+test("promote writes the project from his told words, never the agent's; a retry finishes the same one; the notes reach its agent; two asks never share an id; a refused write claims nothing", async () => {
   const t = desk();
   t.desk.db.run(
     "insert into thread_entry (id, asked_at, words, answer, turn_id) values (4, ?, 'What is in my Downloads?', 'Mostly installers.', 9)",
     [new Date(clock().getTime() - 60_000).toISOString()]
   );
   const words = "Clean up my Downloads folder, it is a mess";
-  const { ask: id, s } = await told(
-    t,
-    5,
-    9,
-    words,
-    "Clean up my Downloads folder"
-  );
+  const quote = "Clean up my Downloads folder";
+  const { ask: id, s } = await told(t, 5, 9, words, quote);
+  // The intake kept the work it handed, once: a crash between the ledger and the store loses nothing.
+  await receiveSpokenAsks(t.desk);
+  expect(handedRows(t, "other")).toEqual([
+    { assignment_id: s.id, entry_id: 5 },
+  ]);
   const o = {
     ask: id,
     name: "Downloads cleanup",
@@ -226,29 +333,32 @@ test("promote writes the project from his entry's words, never the agent's, what
   expect(await promote(t.desk, s, { ...o, ask: "ask_none" })).toMatchObject({
     error: expect.stringContaining("no spoken ask"),
   });
-  const done = await promote(t.desk, s, o);
-  expect(done).toMatchObject({
+  expect(
+    await promote(t.desk, s, { ...o, area: "no-such-area" })
+  ).toMatchObject({ error: expect.any(String) });
+  expect(takenBy(t, "downloads-cleanup")).toBeUndefined();
+  expect(await promote(t.desk, s, o)).toMatchObject({
     project: "downloads-cleanup",
     state: "promoted",
   });
-  expect(await promote(t.desk, s, o)).toEqual(done);
+  expect(await promote(t.desk, s, o)).toMatchObject({
+    project: "downloads-cleanup",
+    state: "promoted",
+  });
   const project = (await loadTruth()).projects.find(
     (p) => p.id === "downloads-cleanup"
   );
-  expect([project?.goal, project?.area]).toEqual([words, "personal"]);
-  const [agent] = agentsOn(t, "downloads-cleanup");
+  expect([project?.goal, project?.area]).toEqual([quote, "personal"]);
   expect(agentsOn(t, "downloads-cleanup")).toHaveLength(1);
-  const taken = assignmentOf(
+  const taken = ownOf(t, "downloads-cleanup");
+  const first = firstTurnOf(
     t.desk.db,
-    ownAssignmentOf(t.desk.db, agent?.id ?? "") ?? ""
+    { project: "downloads-cleanup", role: null },
+    taken,
+    project ? [project] : []
   );
-  if (!taken) {
-    throw new Error("no project assignment");
-  }
-  expect(readNotes(taken)).toBe("Mostly old installers.");
-  expect(firstTurnOf(t.desk.db, { role: null }, taken, words)).toContain(
-    "`read_handed_conversation` with `entry: 5`"
-  );
+  expect(first).toContain("`read_handed_conversation` with `entry: 5`");
+  expect(first).toContain("Mostly old installers.");
   expect(readHandedConversation(t.desk, taken, 5)).toEqual({
     entries: [
       {
@@ -267,29 +377,9 @@ test("promote writes the project from his entry's words, never the agent's, what
   });
   expect(
     readHandedConversation(t.desk, { agent_id: stranger }, 5)
-  ).toMatchObject({
-    error: expect.stringContaining("not handed to you"),
-  });
-  // A deleted entry leaves the thread for no one: never promoted, never read.
-  const gone = await told(
-    t,
-    6,
-    10,
-    "Plan the move to the new flat",
-    "Plan the move"
-  );
-  t.desk.db.run(
-    "update thread_entry set deleted_at = ?, words = null where id = 6",
-    [clock().toISOString()]
-  );
-  expect(
-    await promote(t.desk, gone.s, { ask: gone.ask, name: "Move" })
-  ).toMatchObject({
-    error: expect.stringContaining("not kept"),
-  });
-  expect(readHandedConversation(t.desk, gone.s, 6)).toEqual({ entries: [] });
+  ).toMatchObject({ error: expect.stringContaining("not handed to you") });
   // A second ask of the same entry: never the first's project; its own id makes its own.
-  const again = await told(t, 5, 9, words, "Clean up my Downloads folder", "b");
+  const again = await told(t, 5, 9, words, quote, { tag: "b" });
   expect(
     await promote(t.desk, again.s, {
       ask: again.ask,
@@ -303,12 +393,62 @@ test("promote writes the project from his entry's words, never the agent's, what
       project: "downloads-photos",
     })
   ).toMatchObject({ project: "downloads-photos", state: "promoted" });
+  expect(
+    handedRows(t).filter((r) => r.assignment_id === taken.id)
+  ).toHaveLength(1);
 });
 
-test("promote on a blocked runtime keeps the project, his entry and the notes for the agent the tick registers", async () => {
+test("promote: a deleted entry is never promoted or read; an ask told before the entry was kept promotes by its handed work, one with none stays the agent's", async () => {
   const t = desk();
-  const words = "Sort my receipts into folders by year";
-  const { ask: id, s } = await told(t, 8, 11, words, "Sort my receipts");
+  const gone = await told(
+    t,
+    6,
+    10,
+    "Plan the move to the new flat",
+    "Plan the move"
+  );
+  t.desk.db.run(
+    "update thread_entry set deleted_at = ?, words = null where id = 6",
+    [clock().toISOString()]
+  );
+  expect(
+    await promote(t.desk, gone.s, { ask: gone.ask, name: "Move" })
+  ).toMatchObject({ error: expect.stringContaining("not kept") });
+  expect(readHandedConversation(t.desk, gone.s, 6)).toEqual({ entries: [] });
+  // Asks told at different instants, as they always are: an old ask is found by its instant.
+  advance(1000);
+  const old = await told(
+    t,
+    14,
+    15,
+    "Scan my old letters",
+    "Scan my old letters",
+    {
+      legacy: true,
+    }
+  );
+  expect(
+    await promote(t.desk, old.s, { ask: old.ask, name: "Old letters" })
+  ).toMatchObject({ project: "old-letters", state: "promoted" });
+  const lost = await told(t, 16, 17, "Frame the prints", "Frame the prints", {
+    legacy: true,
+    tag: "x",
+  });
+  t.desk.db.run("delete from handed_work where entry_id = 16");
+  expect(
+    await promote(t.desk, lost.s, { ask: lost.ask, name: "Prints" })
+  ).toMatchObject({ error: expect.stringContaining("not kept") });
+});
+
+test("promote on a blocked runtime keeps the project, his entry and the notes for the agent the poll registers", async () => {
+  const t = desk();
+  const { ask: id, s } = await told(
+    t,
+    8,
+    11,
+    "Sort my receipts into folders by year",
+    "Sort my receipts"
+  );
   t.fake.blocked = "no key";
   expect(
     await promote(t.desk, s, {
@@ -316,19 +456,32 @@ test("promote on a blocked runtime keeps the project, his entry and the notes fo
       name: "Receipts",
       notes: "Receipts are in Documents.",
     })
-  ).toMatchObject({ error: expect.stringContaining("keeps his ask") });
-  expect(handedAskOf(t.desk.db, id)).toMatchObject({
-    agent_id: null,
-    notes: "Receipts are in Documents.",
-    project: "receipts",
-  });
+  ).toMatchObject({ pending: expect.stringContaining("no key") });
+  expect(takenBy(t, "receipts")).toBeNull();
   t.fake.blocked = undefined;
   await openOneOffProjects(t.desk);
-  const [agent] = agentsOn(t, "receipts");
-  const taken = assignmentOf(
-    t.desk.db,
-    ownAssignmentOf(t.desk.db, agent?.id ?? "") ?? ""
+  const p = (await loadTruth()).projects.find((x) => x.id === "receipts");
+  expect(handedProjectOf(t.desk.db, p)?.notes).toBe(
+    "Receipts are in Documents."
   );
-  expect(taken && readNotes(taken)).toBe("Receipts are in Documents.");
-  expect(handedAskOf(t.desk.db, id)?.agent_id).toBe(agent?.id ?? "");
+  expect(takenBy(t, "receipts")).toBe(agentsOn(t, "receipts")[0]?.id);
+});
+
+test("the time a kind of handed work takes is whole ms, past five ends", () => {
+  const t = desk();
+  const agent = register(t.desk, {
+    brief: "Test: estimates",
+    folder: t.dir,
+    runtime: BUILT_IN_RUNTIME,
+  });
+  const s = openAssignment(t.desk, agent, { openedBy: "owner" });
+  const at = (ms: number) => new Date(Date.UTC(2026, 10, 1) + ms).toISOString();
+  for (const i of [1, 2, 3, 4, 5]) {
+    recordHandedWork(t.desk.db, 100 + i, s, "project", at(i * 1000));
+    t.desk.db.run(
+      "insert into turn (agent_id, assignment_id, cause, started_at, ended_at) values (?, ?, 'test', ?, ?)",
+      [agent, s, at(i * 1000 + 1), at(i * 1000 + 333.7 * i)]
+    );
+  }
+  expect(Number.isInteger(estimateOf(t.desk.db, "project"))).toBe(true);
 });

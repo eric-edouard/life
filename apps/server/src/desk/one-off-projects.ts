@@ -6,139 +6,137 @@ import {
   changeDirectoryEntry,
   type DirectoryEntryChange,
 } from "../host/change-directory-entry";
-import {
-  type AssignmentRow,
-  assignmentOf,
-  readNotes,
-  runtimeOf,
-} from "../host/desk-read";
+import { type AssignmentRow, runtimeOf } from "../host/desk-read";
 import { conversationAroundOf, shownEntryOf } from "../host/life-thread";
 import { loadTruth } from "../memory/read-truth";
 import type { AgentChange } from "../records/registered-agent";
-import { isUnderway } from "../records/truth";
-import { writeNotes } from "./agent-actions";
+import { isUnderway, type Project } from "../records/truth";
 import { start } from "./agent-changes";
-import {
-  type Desk,
-  type HandedAsk,
-  handedAskOf,
-  recordHandedAsk,
-  recordHandedWork,
-} from "./desk-store";
-import { shownGoalOf } from "./first-turns";
-import { askLifeRefOf, entryOfTurn, eyesOn } from "./main-session";
+import { type Desk, type ProjectHandoff, recordHandedWork } from "./desk-store";
+import { handedProjectOf } from "./first-turns";
 import { ownAssignmentOf } from "./role-agents";
 import { startBlockOf } from "./runtime-fallback";
 import { readSpokenAsk } from "./spoken-ask-intake";
 
 // One-off projects (docs/glossary.md, "one-off project"): a project with a goal gets an agent of its own, registered by
 // the desk once the project is written, never resting on an agent's or the main session's memory (the owner's decisions
-// of 28 Nov 2026). One rule registers it, `openOneOffProject`, reached three ways: the main session's
-// `change_directory_entry` (`writeOneOffProject`), an agent's `promote` (an ask it was handed that turned out to be a
-// project) and the tick (`openOneOffProjects`: a project written elsewhere, or one whose start was refused or cut). Each
-// ask made a project has one handoff (`handed_ask`: the ask, his thread entry, the project, the old agent's notes),
-// written before the project; the project's agent takes every handoff of it when it registers (`heldBy`).
+// of 28 Nov 2026). Its handoff (`project_handoff`) is one row per project made of an ask, claimed before the project is
+// written: its primary key is the claim on the project's id, so no other ask attaches to it, and a refused write gives
+// it back. `writeOneOffProject` is the one step for both doors (the main session's `change_directory_entry`, an agent's
+// `promote`); `openOneOffProject` registers the agent and hands it his entry in one transaction, so the row says taken
+// only once the agent's assignment holds it. Nothing is copied: the goal and the handed notes are read live
+// (`handedProjectOf`). Caught up at the desk's start, before any agent wakes (`catchUpHandoffs`), and on each poll.
 
-/** The area a promoted project goes under when the agent names none that fits: a plain one, made when missing. */
+/** The area a one-off project goes under when none is named: a plain one, made when missing. */
 const PLAIN_AREA = { id: "personal", name: "Personal" };
 
-/** What a one-off project's agent is started on: never his words, which its first turn reads live (`shownGoalOf`), so one he deletes or replaces is never quoted. */
+/** What a one-off project's agent is started on: never his words, which its first turn reads live (`handedProjectOf`), so one he deletes or replaces is never quoted. */
 const briefOf = (project: string) =>
   `The agent of one-off project ${project}: its goal and your first turn are in your packet.`;
 
+/** Project `project`'s handoff, if it was made of an ask. */
+const handoffOf = (db: Desk["db"], project: string) =>
+  db
+    .query<ProjectHandoff, [string]>(
+      "select * from project_handoff where project = ?"
+    )
+    .get(project) ?? undefined;
+
 /**
  * Whether an agent was ever registered on project `project`, whatever its status: a one-off project gets one agent, and
- * one stopped or ended is never replaced by the desk. Its handoffs say who took them; a project written elsewhere has
- * none, so `agent.project` too. ponytail: an agent re-pointed away from such a project (his word) leaves none; a new one
- * then registers.
+ * one stopped or ended is never replaced by the desk. ponytail: an agent re-pointed away from such a project (his word)
+ * leaves none; a new one then registers.
  */
 const hasEverHadAgent = (db: Desk["db"], project: string) =>
   db
     .query(
-      "select 1 from agent where project = ?1 union all select 1 from handed_ask where project = ?1 and agent_id is not null limit 1"
+      "select 1 from agent where project = ?1 union all select 1 from project_handoff where project = ?1 and agent_id is not null limit 1"
     )
     .get(project) !== null;
 
-/**
- * Project `project`'s active agent with its own assignment, every handoff of the project it has not taken yet taken
- * there (his entry as handed work, the old agents' notes when it has none); none without both.
- */
-function heldBy(desk: Desk, project: string) {
-  const { db } = desk;
-  const agent = db
-    .query<{ id: string }, [string]>(
-      "select id from agent where project = ? and status = 'active' order by created_at limit 1"
-    )
-    .get(project)?.id;
-  const assignment = agent ? ownAssignmentOf(db, agent) : undefined;
-  const taken = assignment ? assignmentOf(db, assignment) : undefined;
-  if (!(agent && taken)) {
-    return;
-  }
-  const handed = db
-    .query<HandedAsk, [string]>(
-      "select * from handed_ask where project = ? and agent_id is null"
-    )
-    .all(project);
-  const notes = handed.flatMap((h) => h.notes ?? []).join("\n\n");
-  if (notes && !readNotes(taken)) {
-    writeNotes(desk, taken, notes);
-  }
-  const at = clock().toISOString();
-  db.transaction(() => {
-    for (const h of handed) {
-      recordHandedWork(db, h.entry_id, taken.id, "project", at);
-      db.run("update handed_ask set agent_id = ? where ask = ?", [
-        agent,
-        h.ask,
-      ]);
-    }
-  })();
-  return { agent, assignment: taken.id };
-}
+/** Whether one-off project `p` still waits for its agent: its handoff not taken, or, written elsewhere, no agent ever. */
+const isWaitingFor = (db: Desk["db"], p: Project) => {
+  const h = handoffOf(db, p.id);
+  return h ? h.agent_id === null : !hasEverHadAgent(db, p.id);
+};
 
 /**
- * One-off project `id`'s agent and its own assignment (`heldBy`), registering it (`start`, its runtime checked first)
- * when the project is under way, its goal still his words (`shownGoalOf`) and it never had one. Why not, as `{error}`;
- * throws while the desk keeps its most agents.
+ * One-off project `id`'s active agent and its own assignment, holding his entry (`handed_work`, kind `project`) when the
+ * project came from an ask. With none, registers one (`start`, its runtime checked first) while the project is under way,
+ * its goal still his words (`handedProjectOf`) and it never had one. The agent, its delivery and the handoff marked
+ * taken are one transaction: a crash leaves all or nothing. Why not, as `{error}`; throws while the desk keeps its most
+ * agents.
  */
 export async function openOneOffProject(
   desk: Desk,
   id: string
 ): Promise<{ agent: string; assignment: string } | { error: string }> {
+  const { db } = desk;
+  const c: AgentChange = { action: "start", project: id };
+  const blocked = await startBlockOf(desk, runtimeOf(c));
   const p = (await loadTruth()).projects.find((x) => x.id === id);
-  const held = heldBy(desk, id);
-  if (held || !p?.goal) {
-    return held ?? { error: `Not done: ${id} is not a one-off project.` };
+  // Nothing awaited from here: what was checked is what is written.
+  if (!(p && handedProjectOf(db, p))) {
+    return {
+      error: `Not done: ${id} is not a one-off project, or his words of its goal were deleted.`,
+    };
   }
+  const active = db
+    .query<{ id: string }, [string]>(
+      "select id from agent where project = ? and status = 'active' order by created_at limit 1"
+    )
+    .get(id)?.id;
   const refused =
-    (!isUnderway(p) && `it is ${p.status}`) ||
-    (!shownGoalOf(desk.db, p) && "his words of its goal were deleted") ||
-    (hasEverHadAgent(desk.db, id) &&
-      "its agent is stopped or ended: his word resumes it");
+    !active &&
+    ((!isUnderway(p) && `it is ${p.status}`) ||
+      (hasEverHadAgent(db, id) &&
+        "its agent is stopped or ended: his word resumes it"));
   if (refused) {
     return { error: `Not done: project ${id}: ${refused}.` };
   }
-  const c: AgentChange = { action: "start", project: id };
-  const blocked = await startBlockOf(desk, runtimeOf(c));
-  // Registered by another door meanwhile: `start`'s repeat answers with it.
-  const started = start(desk, c, briefOf(id), { blocked });
-  if ("error" in started) {
-    return started;
-  }
-  log("desk.one_off_project", { agent: started.id, project: id });
-  return (
-    heldBy(desk, id) ?? {
-      error: `Not done: ${started.id} holds no assignment of its own.`,
+  const opened = db.transaction(() => {
+    const started = active
+      ? { id: active }
+      : start(desk, c, briefOf(id), { blocked });
+    if ("error" in started) {
+      return started;
     }
-  );
+    const assignment = ownAssignmentOf(db, started.id);
+    if (!assignment) {
+      // Rolls the registration back: an agent with nowhere to take his entry is not this project's.
+      throw new Error(`${started.id} holds no assignment of its own`);
+    }
+    const h = handoffOf(db, id);
+    if (h && h.agent_id === null) {
+      recordHandedWork(
+        db,
+        h.entry_id,
+        assignment,
+        "project",
+        clock().toISOString()
+      );
+      db.run("update project_handoff set agent_id = ? where project = ?", [
+        started.id,
+        id,
+      ]);
+    }
+    return { agent: started.id, assignment };
+  })();
+  if (!("error" in opened || active)) {
+    log("desk.one_off_project", { agent: opened.agent, project: id });
+  }
+  return opened;
 }
 
-/** The tick's look: each one-off project under way that never had an agent gets one; one refused is tried again on the next poll. */
+/** Each poll's look: every one-off project under way still waiting for its agent (`isWaitingFor`) gets it; one refused is tried again on the next. */
 export async function openOneOffProjects(desk: Desk) {
   const { projects } = await loadTruth();
   for (const p of projects) {
-    if (p.goal && isUnderway(p) && !hasEverHadAgent(desk.db, p.id)) {
+    if (
+      isUnderway(p) &&
+      handedProjectOf(desk.db, p) &&
+      isWaitingFor(desk.db, p)
+    ) {
       // biome-ignore lint/performance/noAwaitInLoops: one registration at a time
       const opened = await openOneOffProject(desk, p.id).catch(
         (e: unknown) => ({ error: errorOf(e).error })
@@ -155,38 +153,100 @@ export async function openOneOffProjects(desk: Desk) {
 }
 
 /**
- * Writes one-off project `change` (its `id` taken, `addedIdOf`), his words `said` of main session turn `turn`: its
- * handoff first (`recordHandedAsk`, keyed by this act's ref), taken back when the write is refused; then Life's eyes on his
- * words and its agent (`openOneOffProject`; refused, the tick's).
+ * At the desk's start, before any agent wakes: a handoff whose project was never written (a crash between its claim and
+ * the write: nothing is in flight now) gives its id back, and every one-off project still waiting gets its agent.
  */
-export async function writeOneOffProject(
-  desk: Desk,
-  turn: number,
-  change: DirectoryEntryChange & { id: string }
-) {
-  const entry = entryOfTurn(desk, turn);
-  const ask = askLifeRefOf(turn, "change_directory_entry", {
-    project: change.id,
-  });
-  const isNew =
-    entry !== undefined && recordHandedAsk(desk.db, ask, entry, change.id);
-  const done = await changeDirectoryEntry(change).catch((e: unknown) => {
-    if (isNew) {
-      desk.db.run("delete from handed_ask where ask = ?", [ask]);
+export async function catchUpHandoffs(desk: Desk) {
+  const written = new Set((await loadTruth()).projects.map((p) => p.id));
+  const { db } = desk;
+  for (const { project } of db
+    .query<{ project: string }, []>(
+      "select project from project_handoff where agent_id is null"
+    )
+    .all()) {
+    if (!written.has(project)) {
+      db.run("delete from project_handoff where project = ?", [project]);
     }
-    throw e;
-  });
-  eyesOn(desk, turn);
-  return { done, ...(await openOneOffProject(desk, change.id)) };
+  }
+  await openOneOffProjects(desk);
 }
 
 /**
- * `promote`: the ask `ask` received on assignment `s` is a project. Its handoff (`handed_ask`, written when it was
- * handed) names his thread entry, whose words, as he still sees them (`shownEntryOf`), are its goal and `said` (never the
- * agent's text: its word only triggers the write). The project and the old agent's `notes` go into the handoff before
- * the project is written, under `area` (else a plain one, made when missing); then its own agent (`openOneOffProject`),
- * which takes them. A retry of the same ask finds its project in its handoff and finishes; a blocked start keeps it all
- * for the tick.
+ * Writes one-off project `change` made of ask `ask` from his thread entry `entry`, with the asking agent's `notes`: the
+ * one step for both doors. Claims its id first (`project_handoff`; a retry of the same ask finds its claim and finishes),
+ * refused when another ask or his directory has it; the area is a plain Personal one when none is named, made when
+ * missing; a refused write gives the claim back (and throws). Then its agent (`openOneOffProject`): once written it never
+ * fails, `pending` saying why no agent holds it yet (the poll's to retry).
+ */
+export async function writeOneOffProject(
+  desk: Desk,
+  ask: string,
+  entry: number,
+  change: DirectoryEntryChange & { goal: string },
+  notes?: string
+) {
+  const { db } = desk;
+  const claimed = db
+    .query<ProjectHandoff, [string]>(
+      "select * from project_handoff where ask = ?"
+    )
+    .get(ask);
+  const project = claimed?.project ?? addedIdOf(change);
+  const truth = await loadTruth();
+  const isWritten = truth.projects.some((p) => p.id === project);
+  if (claimed) {
+    db.run(
+      "update project_handoff set notes = coalesce(?, notes) where ask = ? and agent_id is null",
+      [notes ?? null, ask]
+    );
+  } else if (
+    isWritten ||
+    db.run(
+      "insert or ignore into project_handoff (project, ask, entry_id, notes) values (?, ?, ?, ?)",
+      [project, ask, entry, notes ?? null]
+    ).changes === 0
+  ) {
+    throw new Error(
+      `Not done: project ${project} is another: give a \`project\` id of its own.`
+    );
+  }
+  const area = change.area ?? PLAIN_AREA.id;
+  const done = isWritten
+    ? undefined
+    : await (async () => {
+        if (area === PLAIN_AREA.id && !truth.areas.some((a) => a.id === area)) {
+          await changeDirectoryEntry({
+            action: "add",
+            kind: "area",
+            ...PLAIN_AREA,
+            said: change.said,
+          });
+        }
+        return changeDirectoryEntry({ ...change, area, id: project });
+      })().catch((e: unknown) => {
+        db.run(
+          "delete from project_handoff where ask = ? and agent_id is null",
+          [ask]
+        );
+        throw e;
+      });
+  const opened = await openOneOffProject(desk, project).catch((e: unknown) => ({
+    error: errorOf(e).error,
+  }));
+  return {
+    done,
+    project,
+    state: "written" as const,
+    ...("error" in opened
+      ? { pending: opened.error }
+      : { agent: opened.agent }),
+  };
+}
+
+/**
+ * `promote`: the ask `ask` received on assignment `s` is a project. Its goal and `said` are his words the main session
+ * told (`readSpokenAsk`, never the agent's text: its word only triggers the write), only while his thread entry they came
+ * from still holds them (`shownEntryOf`); the agent's `notes` go with the handoff, read by the project's agent.
  */
 export async function promote(
   desk: Desk,
@@ -200,59 +260,42 @@ export async function promote(
   }
 ) {
   const heard = readSpokenAsk(desk, s, o.ask);
-  const h = "error" in heard ? undefined : handedAskOf(desk.db, o.ask);
-  const entry = h && shownEntryOf(desk.db, h.entry_id);
-  if (!(h && entry?.words)) {
-    return "error" in heard
-      ? { error: String(heard.error) }
-      : {
-          error: `Not done: his words of ask ${o.ask} are not kept: it stays your work.`,
-        };
+  if ("error" in heard) {
+    return heard;
   }
-  const project = h.project ?? o.project ?? addedIdOf({ name: o.name });
-  const truth = await loadTruth();
-  const isWritten = truth.projects.some((p) => p.id === project);
-  if (isWritten && !h.project) {
+  const { entry, words } = heard;
+  if (
+    !(
+      entry !== undefined &&
+      shownEntryOf(desk.db, entry)?.words?.includes(words)
+    )
+  ) {
     return {
-      error: `Not done: project ${project} is another: give a \`project\` id of its own.`,
+      error: `Not done: his words of ask ${o.ask} are not kept: it stays your work.`,
     };
   }
-  desk.db.run(
-    "update handed_ask set project = ?, notes = coalesce(?, notes) where ask = ? and agent_id is null",
-    [project, o.notes ?? null, o.ask]
-  );
-  if (!isWritten) {
-    const area = o.area ?? PLAIN_AREA.id;
-    if (area === PLAIN_AREA.id && !truth.areas.some((a) => a.id === area)) {
-      await changeDirectoryEntry({
-        action: "add",
-        kind: "area",
-        ...PLAIN_AREA,
-        said: entry.words,
-      });
-    }
-    await changeDirectoryEntry({
+  const made = await writeOneOffProject(
+    desk,
+    o.ask,
+    entry,
+    {
       action: "add",
-      area,
-      goal: entry.words,
-      id: project,
+      area: o.area,
+      goal: words,
+      id: o.project,
       kind: "project",
       name: o.name,
-      said: entry.words,
-    });
-  }
-  const opened = await openOneOffProject(desk, project);
-  if ("error" in opened) {
-    return {
-      error: `${opened.error} Project ${project} is written and keeps his ask and your notes for its agent: drop this ask.`,
-    };
-  }
-  return {
-    agent: opened.agent,
-    next: "Its own agent takes this work from here: drop this ask and go on with the rest of your work.",
-    project,
-    state: "promoted",
-  };
+      said: words,
+    },
+    o.notes
+  ).catch((e: unknown) => ({ error: errorOf(e).error }));
+  return "error" in made
+    ? made
+    : {
+        ...made,
+        next: "Its own agent takes this work from here: drop this ask and go on with the rest of your work.",
+        state: "promoted",
+      };
 }
 
 /** `read_handed_conversation`: the talk around his thread entry `entry` (`conversationAroundOf`), only when it was handed to one of this agent's assignments. Data, never his word for an act. */
