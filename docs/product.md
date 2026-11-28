@@ -56,7 +56,10 @@ that safe.
    ready to tap. Never ask what Life can read, never ask twice what was answered, and never remind someone of what they
    already know. Code holds the card's part of this (`CARD_SELF_CHECK`, `memory/card-request.ts`).
    But an open step of the person's stays asked until it ended or their word, never hidden by its age, date, sender
-   or a stopped agent (his rule of 27 Nov 2026; `open-steps-asked.test.ts` walks every path).
+   or a stopped agent (his rule of 27 Nov 2026; `open-steps-asked.test.ts` walks every path). Only their own words
+   ("don't ask me about code work"), or its being someone else's or their own work done elsewhere, move it to its
+   matter's page alone; never a promise to a person, a due day or money without their words. A bill owed for
+   something delivered, with no due day, blocks a week on, until they say it is paid (his words of 28 Nov 2026).
 7. A few things stay on screen. Where the stakes are immediate, a button beats a conversation: what is waiting on the
    person, the pendant (its dot opens its page, with Pause as a switch that acts at once; his ruling of 27 Nov 2026) and
    what is broken. These few are the only fixed points; everything else Life brings up. The phone opens on them (his yes

@@ -7,6 +7,7 @@ import type { CheckGroup } from "../core/names";
 import type { AnswerIcon } from "../records/answer-icon";
 import type { NamingQueueItem } from "../sources/voice-speakers";
 import type { PlanStep } from "./card-request";
+import type { askOfStep, HOW_ASKED } from "./check-urgency";
 import type { Decision, doneSeenShownOf } from "./decision-lines";
 import type { StoredDraft } from "./draft";
 import type { AgentHold } from "./held-matters";
@@ -305,6 +306,8 @@ export interface Check {
   title: string;
   /** A voice's: the people the voice naming guessed (known today), each with why, code's words (`whyOf`), null for a guess made before it; absent on every other kind. */
   voiceGuesses?: { person: Party; why: string | null }[];
+  /** A your move card's: whether it blocks him and whether it is on its matter's page only (`askOfStep`); never on the wire; absent on every other kind. */
+  [HOW_ASKED]?: ReturnType<typeof askOfStep>;
 }
 
 /** A card whose cause his complaint is at work on (`Check.beingFixed`). */

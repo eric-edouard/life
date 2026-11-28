@@ -5,7 +5,7 @@ import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
-import { type Person, voiceHandleOf } from "../records/truth";
+import type { Person } from "../records/truth";
 import type { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import {
@@ -794,7 +794,7 @@ export function builtFor(
 export const voiceNames = (truth: Truth) =>
   new Map(
     truth.people.flatMap((p) => {
-      const id = voiceHandleOf(p.handles);
+      const id = p.handles.voice;
       return id ? [[id, p.name]] : [];
     })
   );
