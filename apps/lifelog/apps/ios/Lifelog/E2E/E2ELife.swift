@@ -1,6 +1,7 @@
 #if DEBUG
     import Foundation
     import LifeConnector
+    import MacLink
     import Synchronization
     import UIKit
 
@@ -35,7 +36,7 @@
             if !defaults.bool(forKey: "e2eKeepAnimations") { UIView.setAnimationsEnabled(false) }
             let fixtures = URL(filePath: defaults.string(forKey: "e2eFixtures") ?? "")
             FakeLife.state.withLock { $0 = FakeLife.Held(scenario: scenario, fixtures: fixtures, dir: dir) }
-            MCPClient.protocolsOfTests = [FakeLife.self]
+            IrohURLProtocol.protocolsOfTests = [FakeLife.self]
             // The lab's voice clips play a quiet tone (the fixtures' job), so read-along runs with no server.
             ClipAudio.writeTone(job: "11111111-2222-3333-4444-555555555555", seconds: 5)
             if defaults.bool(forKey: "e2eReset") {

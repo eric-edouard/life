@@ -2,6 +2,7 @@ import AudioPipeline
 import BackgroundTasks
 import Foundation
 import Library
+import MacLink
 import Network
 import Observation
 import ServerAPI

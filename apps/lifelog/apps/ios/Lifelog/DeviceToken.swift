@@ -1,4 +1,5 @@
 import Foundation
+import MacLink
 import ServerAPI
 
 /// The server this phone is paired with and its bearer token: the token in the Keychain (this device only, readable

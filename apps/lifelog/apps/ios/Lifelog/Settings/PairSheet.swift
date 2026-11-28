@@ -1,4 +1,5 @@
 import LifeConnector
+import MacLink
 import ServerAPI
 import SwiftUI
 
@@ -6,13 +7,15 @@ import SwiftUI
 /// nothing is kept until he says so in `PairSheet`.
 struct PairOffer: Identifiable {
     let id = UUID()
-    private(set) var server: Pairing?
-    private(set) var life: LifePairing?
+    private let link: PairLink
+    var server: Pairing? { link.server }
+    var life: LifePairing? { link.life }
+    /// Where the Mac link reaches this Mac, kept for both origins as the pairing starts: its checks go over it.
+    var macLink: MacLinkAddress? { link.macLink }
 
     init?(link: URL) {
-        server = Pairing(link: link)
-        life = LifePairing(link: link)
-        if server == nil && life == nil { return nil }
+        guard let link = PairLink(link: link) else { return nil }
+        self.link = link
     }
 
     var connections: [Connection] { [life == nil ? nil : .life, server == nil ? nil : .server].compactMap(\.self) }
@@ -177,6 +180,10 @@ struct PairSheet: View {
     private func pair() async {
         phase = .pairing
         runs = [:]
+        // The checks reach the Mac the way the link says; a pairing kept nowhere puts the old way back.
+        let origins = [offer.life?.origin, offer.server?.server].compactMap(\.self)
+        let before = origins.map(MacLinkBook.address(for:))
+        for origin in origins { MacLinkBook.remember(offer.macLink, for: origin) }
         for connection in offer.connections {
             runs[connection] = Run()
             let step = { (step: PairStep) in
@@ -196,6 +203,9 @@ struct PairSheet: View {
                 runs[connection]?.failedAt = failure.isLink ? 0 : runs[connection]?.passed
                 runs[connection]?.reason = failure.reason
             }
+        }
+        if !runs.values.contains(where: \.isKept) {
+            for (origin, address) in zip(origins, before) { MacLinkBook.remember(address, for: origin) }
         }
         phase = .done
     }

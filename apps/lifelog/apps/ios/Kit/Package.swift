@@ -20,8 +20,8 @@ let package = Package(
         .library(name: "Export", targets: ["Export"]),
         .library(name: "AudioPipeline", targets: ["AudioPipeline"]),
         .library(name: "ServerAPI", targets: ["ServerAPI"]),
-        // The Mac link (iroh): dynamic, so the app and its extensions share one copy of IrohLib. Never on the Watch.
-        .library(name: "MacLink", type: .dynamic, targets: ["MacLink"]),
+        // The Mac link (iroh), dynamic: the app and its extensions share one copy of IrohLib. Never on the Watch.
+        .library(name: "MacLinkFramework", type: .dynamic, targets: ["MacLink"]),
         .library(name: "Upload", targets: ["Upload"]),
         .library(name: "Health", targets: ["Health"]),
         // Life's connector: the phone's one client of Life (OAuth, MCP, the reads' models and states).
