@@ -34,7 +34,7 @@ Moved from the root `AGENTS.md` ("Invariants" and "Gotchas"). `SECURITY.md`, "Ag
   watcher's 30 s step, life#731; its asker hears `decision.withdrawn`).
 
 - **Life starts and wakes his registered agents, and nothing else of Life does** (his yes to the desk, 18 Nov 2026). The
-  desk (`apps/server/src/desk/`, off until his `desk` setting) creates an agent only on his word: a project's, or the
+  desk (`apps/server/src/desk/`, off until his `desk` setting) creates an agent only on his word: a project's (a one-off project's, once, when it is written with its goal: `openOneOffProject`, the owner's decision of 28 Nov 2026), or the
   Personal agent (its `role`, one active or stopped at most, its home `<agentsRepo>/personal/`), and wakes its session on its events, his answer or
   its deadline; the main session and the caretaker stand from the desk's start (his word of 22 Nov 2026: "we should
   create a main agent, and then we should also create the caretaker so that we don't run into issues later on"): each

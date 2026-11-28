@@ -156,6 +156,10 @@ private func values(_ spec: [String: Any], _ schema: String, _ properties: [Stri
         try quoted("host/appointments-calendar.ts", /(?s)type Changed =(.*?)\};/)
             == client(AppointmentChange.Result.self))
     #expect(try quoted("records/truth.ts", /status: z\.enum\(\[([^\]]*)\]/) == client(ProjectStatus.self))
+    #expect(
+        try quoted("host/desk-turn-reads.ts", /HANDED_KINDS = \[([^\]]*)\]/)
+            .union(quoted("host/desk-turn-reads.ts", /type HandedKind = ([^;]*);/))
+            == client(ThreadWireEntry.Handed.Kind.self))
     // `wait_decision` is worked out when read (`nextStepNow`), never stored.
     #expect(
         try quoted("records/matter.ts", /NextStepKind = z\.enum\(\[([^\]]*)\]/).union(["wait_decision"])

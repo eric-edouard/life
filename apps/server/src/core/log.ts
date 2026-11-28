@@ -28,6 +28,7 @@ type LogKind =
   | "desk.gate"
   | "desk.hand_out"
   | "desk.intention"
+  | "desk.one_off_project"
   | "desk.move"
   | "desk.net"
   | "desk.queued"

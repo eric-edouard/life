@@ -17,3 +17,5 @@ Paths are under `apps/server/src/` unless they start elsewhere; found by a code 
 - `projectHeaderOf` (`memory/read-truth.ts:57`) shows the goal in an agent's packet.
 - iPhone: `ProjectStatus` gains `dropped` (`apps/lifelog/apps/ios/Kit/Sources/LifeConnector/Models/Matter.swift:12`), else a dropped project's matters read as not parked.
 - `docs/glossary.md` ("area, project", and `dropped` kept apart from a matter's Drop) and `docs/SCHEMA.md:462`.
+
+Built: https://github.com/eric-edouard/life/pull/1560

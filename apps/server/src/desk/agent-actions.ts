@@ -747,7 +747,7 @@ export async function readPacket(
         ]
       : []),
     ...(desk.runtimes[a.runtime]?.pinsRules ? [] : [rulesOf(a, isOwn)]),
-    firstTurnOf(db, a, s).trim(),
+    firstTurnOf(db, a, s, truth.projects).trim(),
     `Your notes:\n${readNotes(s) || "(none yet)"}`,
     ...(held
       ? [
