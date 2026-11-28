@@ -2,8 +2,10 @@
 // no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { off } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { isOwnLife } from "../../core/platform";
+import { settings } from "../../core/settings";
 
 /** Life's brand tokens (assets/brand/tokens.css), for the pages that inline their styles. */
 export const TOKENS = readFileSync(
@@ -47,6 +49,23 @@ export function portOf(set = process.env.LIFE_PORT, isOwn = isOwnLife()) {
  * two after it, for a second Life on this Mac (a demo, `scripts/demo.ts`).
  */
 export const PUBLIC_PORT = portOf();
+/**
+ * The connector, worked out at read: its origin is the one set (a tunnel's), else this Mac's loopback, never written;
+ * its issuer and resource follow it. Off, it throws: only code behind it (server.ts checks it is on) asks.
+ */
+export function connector() {
+  const set = settings().connector;
+  if (set === false) {
+    throw new Error(off("connector"));
+  }
+  const origin = set?.origin ?? `http://127.0.0.1:${PUBLIC_PORT}`;
+  return {
+    /** The resource's OAuth metadata. */
+    metadata: `${origin}/.well-known/oauth-protected-resource/mcp`,
+    origin,
+    resource: `${origin}/mcp`,
+  };
+}
 /** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = PUBLIC_PORT + 1;
 /** The desk's door (`desk/desk-door.ts`): its registered agents' MCP, on loopback only, one key per agent. */

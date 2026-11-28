@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { EMBEDDER_URL } from "../core/embedder";
 import { digest, sha256Of } from "../core/hash";
+import { isOn } from "../core/outputs";
 import {
   IS_COMPILED_HELPER,
   LIFE_CODE_DIR,
@@ -29,6 +30,7 @@ import {
   secretOf,
   VOICE_URL,
 } from "../sources/voice-server-call";
+import { connector } from "./http/http";
 
 // Voice: the pendant pipeline's processes on this Mac (its server, the Mac helper, speaker recognition, the embedder),
 // each a launchd job Life's helper installs (`voiceStart`), so a Life crash, quit or update never stops them: the server
@@ -120,7 +122,8 @@ export const recordingsEnvOf = (support: string) => ({
 /**
  * The server's environment: its recordings, the token hashes (never the tokens), the owner's keys, the address the phone
  * reaches, restic when backups are on, speaker recognition when it is on, the build, and `server.env` under them:
- * restic's and speaker recognition's keys are voice's, set or unset, so turning either off can't be undone by it.
+ * restic's and speaker recognition's keys are voice's, set or unset, so turning either off can't be undone by it. On a
+ * loopback address no one can call its ElevenLabs webhook, so `server.env`'s is dropped: each send waits for its transcript.
  */
 export function serverEnvOf(v: VoiceInputs): Record<string, string> {
   const s = (key: string) => secretOf(v.secrets, key);
@@ -143,9 +146,15 @@ export function serverEnvOf(v: VoiceInputs): Record<string, string> {
     RESTIC_PASSWORD: v.backups ? s("resticPassword") : undefined,
     RESTIC_REPOSITORY: v.backups ? v.at.backups : undefined,
   });
+  const loopback = new URL(v.publicUrl).hostname === "127.0.0.1";
   const extra = Object.fromEntries(
     Object.entries(v.extra).filter(
-      ([k]) => !(k.startsWith("RESTIC_") || k.startsWith("IDENTITY_"))
+      ([k]) =>
+        !(
+          k.startsWith("RESTIC_") ||
+          k.startsWith("IDENTITY_") ||
+          (loopback && k.startsWith("ELEVENLABS_WEBHOOK_"))
+        )
     )
   );
   return { ...extra, ...recordingsEnvOf(v.at.support), ...own };
@@ -246,7 +255,7 @@ export async function readVoiceInputs(
     string,
     string
   >;
-  const origin = settings().connector?.origin;
+  const origin = isOn("connector") ? connector().origin : undefined;
   return {
     at,
     backups: settings().voice?.backups === true,

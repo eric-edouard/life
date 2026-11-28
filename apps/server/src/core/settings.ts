@@ -110,13 +110,20 @@ export const Settings = z
      * Absent means no amount: no stop.
      */
     budget: z.object({ monthlyUsd: z.number().positive() }).strict().optional(),
-    /** The connector (/mcp) and its sign-in (Life's own issuer, `oauth.ts`); without it Life serves no HTTP at all. */
+    /**
+     * The connector (/mcp), its sign-in (Life's own issuer, `oauth.ts`) and the phone link: on unless `false`. Absent, its
+     * origin is this Mac's loopback (`connector`, `host/http/http.ts`).
+     */
     connector: z
-      .object({
-        /** Its public address, where clients reach /mcp. */
-        origin: z.url(),
-      })
-      .strict()
+      .union([
+        z.literal(false),
+        z
+          .object({
+            /** Its public address (a tunnel's), where clients off this Mac reach /mcp. */
+            origin: z.url(),
+          })
+          .strict(),
+      ])
       .optional(),
     /**
      * The Mac writes a description of each photo taken from this local day on (`host/describe-photos.ts`); a local
@@ -346,20 +353,6 @@ export function changeSetting({
     ...(monthlyUsd !== undefined && { budget: { monthlyUsd } }),
   });
   return { aura: settings().aura, budget: settings().budget };
-}
-
-/** The connector's settings; only code that runs behind it (server.ts checks it is there) asks. */
-export function connector() {
-  const c = settings().connector;
-  if (!c) {
-    throw new Error("the connector is not set up (settings: connector)");
-  }
-  return {
-    ...c,
-    /** The resource's OAuth metadata. */
-    metadata: `${c.origin}/.well-known/oauth-protected-resource/mcp`,
-    resource: `${c.origin}/mcp`,
-  };
 }
 
 const TILDE = /^~(?=\/|$)/;

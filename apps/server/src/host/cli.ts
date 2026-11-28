@@ -11,7 +11,6 @@ import { Engine, ROLE_ASKERS } from "../core/names";
 import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
-  connector,
   hasEngineSet,
   readSettings,
   type Settings,
@@ -48,7 +47,7 @@ import {
 } from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
-import { LOCAL_PORT } from "./http/http";
+import { connector, LOCAL_PORT } from "./http/http";
 import { localKey } from "./http/local-key";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";

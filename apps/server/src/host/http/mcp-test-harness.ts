@@ -5,8 +5,8 @@ import {
   type JWK,
   SignJWT,
 } from "jose";
-import { connector as settingsOf } from "../../core/settings";
 import { ownerTokens } from "./auth";
+import { connector as settingsOf } from "./http";
 import { createMcp } from "./mcp";
 
 /** What the connector's tests share: an issuer's key, the connector built on it, a signed token and one JSON-RPC call to /mcp. */

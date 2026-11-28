@@ -91,6 +91,18 @@ test("the server gets hashes, never tokens, and listens on loopback", () => {
   expect(Object.values(env).some((v) => v.includes("token"))).toBe(false);
 });
 
+test("server.env's ElevenLabs webhook is kept on a public address, dropped on loopback, where no one can call it", () => {
+  const extra = { ELEVENLABS_WEBHOOK_SECRET: "whsec", KEEP: "k" };
+  const on = serverEnvOf(
+    inputs({ extra, publicUrl: "https://life.example/voice" })
+  );
+  const off = serverEnvOf(
+    inputs({ extra, publicUrl: "http://127.0.0.1:46200/voice" })
+  );
+  expect([on.ELEVENLABS_WEBHOOK_SECRET, on.KEEP]).toEqual(["whsec", "k"]);
+  expect([off.ELEVENLABS_WEBHOOK_SECRET, off.KEEP]).toEqual([undefined, "k"]);
+});
+
 test("the embedder listens where Life embeds, with inputs no longer than core/embedder.ts sends", () => {
   const args = embedderArgsOf("/m.gguf");
   expect(args).toContain("/m.gguf");
