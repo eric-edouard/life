@@ -106,22 +106,9 @@
 .amt b{font-size:var(--text-header);font-weight:650;min-width:52px}
 .amt span{font-size:var(--text-line);color:var(--muted)}
 
-/* a draft card: an agent's or one prepared on his words; Send is his one tap */
-.cardr{--ny:22px;--ns:8px}
-.card{padding:14px 16px 16px;border-radius:var(--panel-radius);background:var(--tile)}
-.card .from{font-size:var(--text-line);color:var(--muted)}
-.card .from b{color:var(--fg);font-weight:650}
-.card .ctx{margin:12px 0 0}
-.draft{margin-top:12px;padding:10px 14px;border-radius:18px 18px 6px 18px;background:color-mix(in srgb,var(--wa) 9%,var(--bg));outline:1.5px dashed color-mix(in srgb,var(--wa) 70%,transparent);outline-offset:-1.5px;transition:outline-color .6s,background .6s}
-.draft.sent{outline-color:transparent;background:color-mix(in srgb,var(--wa) 20%,var(--bg))}
-.edits{display:flex;gap:8px;margin-top:10px}
-.edits button{min-height:36px;padding:0 14px;border-radius:18px;background:var(--tint);font-size:var(--text-line);font-weight:600}
-.send{margin-top:14px;width:100%;height:48px;border-radius:24px;background:var(--fg);color:var(--on);font-size:var(--text-title);font-weight:650;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .2s,transform .2s}
-.send:active{transform:scale(.97)}
-.send:disabled{opacity:.55;cursor:default}
-.sentl{margin-top:14px;min-height:44px;display:flex;align-items:center;gap:8px;font-size:var(--text-line);color:var(--muted);animation:bloom .4s both}
-.sentl svg{color:var(--ok);flex:none}
-.sentl button{margin-left:auto;min-height:36px;padding:0 14px;border-radius:18px;background:var(--tint);color:var(--fg);font-weight:600}
+/* the cards (the shell's) on the path: one per item, swiped sideways, kept inside the path's column */
+.cardr{--ny:22px;--ns:8px;--s-pad:0px}
+.cardr .meta{margin:0 0 10px}
 .arrived{animation:arrive .9s var(--ease) both}
 @keyframes arrive{from{opacity:0;transform:translateY(24px)}}
 
@@ -145,7 +132,6 @@
 <script>
 var D=DATA,reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 var CHEV='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-var TICK='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
 var PIN='<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5a7 7 0 0 0-14 0C5 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
 var RING='<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.5"/></svg>';
 
@@ -221,28 +207,18 @@ function dayAnswer(c,t,d0){var a=D.asks.day.answer,d=d0,s=reduce?0:STEP;leadRow(
   row(t,'who','<div class="nm">'+w.who+'<small>waits on you · '+esc(w.about)+'</small></div><div class="msg">'+esc(w.last)+'<small><i></i>'+w.at+'</small></div>',d+=s,faceNode(D.asks.jade.answer.who.face));
   row(t,'ev end','<div class="amt"><b>'+a.payment.amount+'</b><span>'+esc(a.payment.t)+', due '+a.payment.due+nb(a.payment)+'</span></div>',d+=s);}
 
-/* a draft card on the path: Send, then Sent and Undo */
-function cardRow(c,t,k,d,node){var ctx=k.context?'<div class="ctx"><div class="msg">'+esc(k.context.t)+'<small><i></i>'+k.context.who+', '+k.context.app+', '+k.context.at+nb(k.context)+'</small></div></div>':'';
-  var r=row(t,'cardr end','<div class="card"><div class="from"><b>To '+k.to+'</b> on '+k.app+' · '+esc(k.made)+'</div>'+ctx+
-    '<div class="draft">'+esc(k.draft)+'</div>'+(k.edits?'<div class="edits">'+k.edits.map(function(e){return '<button type="button">'+e+'</button>';}).join('')+'</div>':'')+
-    '<button type="button" class="send">'+k.send+'</button></div>',d,node);
-  var cd=r.querySelector('.card'),b=cd.querySelector('.send');
-  b.onclick=async function(){if(b.disabled)return;b.disabled=true;b.textContent=k.sending;
-    try{await c.wait(k.sendMs);}catch(e){return;}
-    cd.querySelector('.draft').classList.add('sent');var ed=cd.querySelector('.edits');if(ed)ed.remove();
-    var l=el(cd,'sentl',TICK+'<span>'+k.sent+'</span><button type="button">'+k.undo+'</button>');b.replaceWith(l);
-    l.querySelector('button').onclick=function(){l.querySelector('span').textContent='Deleted for everyone';this.remove();cd.querySelector('.draft').style.opacity='.4';};};
-  return r;}
+/* the cards on the path: the shell's, one per item, swiped sideways; Send is his one tap */
+function cardRow(c,t,items,d,node,label){var r=row(t,'cardr end',label?'<div class="meta">'+label+'</div>':'',d,node);r.querySelector('.body').appendChild(c.cards(items));return r;}
 function jadeAnswer(c,t,d0){var a=D.asks.jade.answer,d=d0,s=reduce?0:STEP;leadRow(t,a.lead,d);
   row(t,'who','<div class="nm">'+a.who.name+nb(a.who)+'</div><div class="msg">'+esc(a.reply.t)+'<small><i></i>'+a.reply.app+', '+a.reply.at+nb(a.reply)+'</small></div>',d+=s,faceNode(a.who.face));
-  cardRow(c,t,a.card,d+=s);}
-function tellAnswer(c,t,d0){var a=D.asks.tell.answer;leadRow(t,a.lead,d0);cardRow(c,t,a.card,d0+(reduce?0:STEP));}
+  cardRow(c,t,[a.card],d+=s);}
+function tellAnswer(c,t,d0){var a=D.asks.tell.answer;leadRow(t,a.lead,d0);cardRow(c,t,[a.card],d0+(reduce?0:STEP));}
 function slowAnswer(c,t,d0){var a=D.slow.answer;leadRow(t,a.lead,d0);row(t,'ev solo end',placeBtn(a.place),d0+(reduce?0:STEP));}
 function failAnswer(c,t,d0){var r=leadRow(t,D.failure.error.t,d0);r.classList.add('end');}
 function followAnswer(c,t,d0){leadRow(t,D.followUp.answer.lead,d0).classList.add('end');}
 
-function greet(c,parent){var g=el(parent,'hi','');
-  row(g,'end','<h2>Hi</h2><p>'+D.now.day+'</p><div class="sug"><button type="button" data-s="answer-day">'+esc(D.asks.day.ask)+'</button><button type="button" data-s="answer-jade">'+esc(D.asks.jade.ask)+'</button></div>',0);
+function greet(c,parent,bare){var g=el(parent,'hi','');
+  row(g,'end','<h2>Hi</h2><p>'+D.now.day+'</p>'+(bare?'':'<div class="sug"><button type="button" data-s="answer-day">'+esc(D.asks.day.ask)+'</button><button type="button" data-s="answer-jade">'+esc(D.asks.jade.ask)+'</button></div>'),0);
   g.querySelectorAll('[data-s]').forEach(function(b){b.onclick=function(){Shell.run(b.dataset.s);};});return g;}
 /* a finished turn, drawn without the wait (the thread as it stands) */
 function done(c,a,draw){var t=turn(c);meRow(t,a.ask);var p=tipOf(t);a.steps.forEach(function(s){step(p,s.t);});step(p,'');p.tip.remove();
@@ -250,14 +226,19 @@ function done(c,a,draw){var t=turn(c);meRow(t,a.ask);var p=tipOf(t);a.steps.forE
 
 Shell.mount({title:'Turn by turn v2: E, path of work',scenes:[
   {id:'idle',label:'Idle',run:function(c){greet(c,c.stage);}},
+  {id:'home-waiting',label:'Opens with matters waiting',run:function(c){greet(c,c.stage,true);var t=el(c.stage,'turn','');t.style.paddingTop='20px';
+    cardRow(c,t,D.waiting.slice(0,3),reduce?0:.3,'<i class="node" style="background:var(--flag)"></i>','Waiting on you');}},
+  {id:'waiting-list',label:'Waiting on you',run:function(c){var t=turn(c);meRow(t,D.waitingAsk);t.classList.add('answered');c.edge.set('landed');
+    leadRow(t,D.waitingLead,reduce?0:.2);cardRow(c,t,D.waiting,reduce?0:.2+STEP);}},
+  {id:'pendant',label:'Pendant status',run:function(c){greet(c,c.stage);c.pendant();}},
   {id:'type-send',label:'He types an ask',run:async function(c){var t=turn(c);await ask(c,t,D.asks.day);c.edge.set('work');tipOf(t);}},
   {id:'voice-send',label:'He holds to talk',run:async function(c){var t=turn(c);await ask(c,t,D.asks.jade);c.edge.set('work');tipOf(t);}},
   {id:'working',label:'Life works',run:async function(c){var t=turn(c);meRow(t,D.asks.day.ask);await c.wait(400);await work(c,t,D.asks.day,true);}},
   {id:'answer-day',label:'Answer: the day',run:function(c){return full(c,turn(c),D.asks.day,dayAnswer);}},
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return full(c,turn(c),D.asks.jade,jadeAnswer);}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return full(c,turn(c),D.asks.tell,tellAnswer);}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var g=greet(c,c.stage);await c.wait(D.arrives.arriveMs);
-    var t=el(c.stage,'turn arrived','');t.style.paddingTop='20px';cardRow(c,t,D.arrives.card,0,'<i class="node" style="background:var(--muted)"></i>');scrollEnd(c);}},
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var g=greet(c,c.stage);await c.wait(D.arrives.arriveMs);c.count(D.waiting.length+1);
+    var t=el(c.stage,'turn arrived','');t.style.paddingTop='20px';cardRow(c,t,[D.arrives.card],0,'<i class="node" style="background:var(--muted)"></i>');scrollEnd(c);}},
   {id:'slow',label:'A slow ask',run:function(c){return full(c,turn(c),D.slow,slowAnswer);}},
   {id:'failure',label:'A read fails',run:function(c){return full(c,turn(c),D.failure,failAnswer);}},
   {id:'history',label:'Earlier turns',run:async function(c){var hs=D.history,past=turn(c);

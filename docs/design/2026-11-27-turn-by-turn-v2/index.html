@@ -1,6 +1,7 @@
 <!doctype html>
 <!-- Turn by turn v2: the five variations side by side in time. Pick one, then a scene: the same moment plays in each.
-     Every variant page is built on shell.js and implements the same scene ids. -->
+     Every variant page is built on shell.js and implements the same scene ids. The shell draws what every variant shares:
+     App v4's top controls (the waiting count, the pendant) and the cards, one per item, swiped sideways. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -32,7 +33,7 @@ iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 <div class="view" id="view"></div>
 <script>
 var VARIANTS=['a','b','c','d','e'],
-  SCENES=[['idle','Idle'],['type-send','Types an ask'],['voice-send','Holds to talk'],['working','Life works'],
+  SCENES=[['idle','Idle'],['home-waiting','Opens with matters waiting'],['waiting-list','Waiting on you'],['pendant','Pendant status'],['type-send','Types an ask'],['voice-send','Holds to talk'],['working','Life works'],
     ['answer-day','Answer: the day'],['answer-jade','Answer: Jade + draft'],['tell','Tell Ben'],['card-arrives','A card arrives'],
     ['slow','A slow ask'],['failure','A read fails'],['history','Earlier turns'],['follow-up','Follow-up'],['hey-life','Hey Life']],
   view=document.getElementById('view'),frame=null,scene='idle',variant=null;

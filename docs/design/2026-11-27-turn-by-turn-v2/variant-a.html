@@ -73,31 +73,15 @@ b{font-weight:650}
 .a-face.s{width:36px;height:36px;border-radius:18px;margin:0}
 .a-who{display:flex;align-items:center;gap:12px;font-size:var(--text-title)}
 .a-who small{display:block;color:var(--muted);font-size:var(--text-line);font-weight:450}
+.a-shot>.s-cards{margin-top:18px}
 .a-quote{margin:18px 0 0;padding:16px 18px;border-radius:var(--block-radius);background:var(--paper);font-size:var(--text-header);font-weight:600;line-height:1.4}
 .a-quote.s{font-size:var(--text-body);font-weight:450;color:var(--muted);margin-top:12px;padding:12px 14px}
-/* a draft card: whose, when, the exact words, Send; then Sent and Undo */
-.a-card{margin-top:18px}
-.a-card .from{font-size:var(--text-line);color:var(--muted);margin:0}
-.a-card .from b{color:var(--fg);font-weight:650}
-.a-draft{margin:10px 0 0 auto;max-width:88%;width:fit-content;padding:14px 16px;border-radius:22px 22px 6px 22px;background:var(--tint);font-size:var(--text-title);font-weight:600;transition:background .6s,opacity .4s}
-.a-card.sent .a-draft{background:var(--paper)}
-.a-card.undone .a-draft{opacity:.4;text-decoration:line-through}
-.a-edits{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
-.a-edits button{height:32px;padding:0 14px;border-radius:16px;background:var(--tile);font-size:var(--text-line);font-weight:600}
-.a-send{position:relative;display:block;margin-top:18px;width:100%;height:52px;border-radius:26px;background:var(--fg);color:var(--on);font-weight:650;font-size:var(--text-title);overflow:hidden}
-.a-send span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .25s,transform .4s var(--spring)}
-.a-send .l2{opacity:0;transform:translateY(12px)}
-.a-card.busy .a-send .l1{opacity:0;transform:translateY(-12px)}
-.a-card.busy .a-send .l2{opacity:1;transform:none}
-.a-card.sent .a-send,.a-card.undone .a-send{display:none}
-.a-done{display:none;margin-top:16px;justify-content:space-between;align-items:center;font-size:var(--text-title);font-weight:650;color:var(--ok)}
-.a-card.sent .a-done,.a-card.undone .a-done{display:flex}
-.a-card.undone .a-done{color:var(--muted)}
-.a-done button{height:36px;padding:0 16px;border-radius:18px;background:var(--tile);color:var(--fg);font-size:var(--text-line)}
-.a-card.undone .a-done button{display:none}
 /* a card brought in while he is idle: it rises above the field, the greeting steps back */
-.a-arr{position:absolute;left:-8px;right:-8px;bottom:0;padding:18px 18px 20px;border-radius:30px;background:#1a1b20;box-shadow:0 -20px 50px rgba(0,0,0,.6)}
-.a-arr .a-card{margin-top:14px}
+.a-arr{position:absolute;left:0;right:0;bottom:0;padding:0 20px}
+/* the home with matters waiting: the greeting up top, the top 3 cards above the field */
+.a-hi.up{top:12%}
+.a-home{position:absolute;left:0;right:0;bottom:4px;padding:0 20px}
+.a-home .a-k{margin-bottom:10px}
 /* the closing shot: everything in one list */
 .a-rows{margin-top:10px}
 .a-row{width:100%;min-height:60px;display:grid;grid-template-columns:64px 1fr;align-items:center;gap:12px;text-align:left;padding:8px 0;box-shadow:inset 0 -.5px 0 var(--line)}
@@ -213,16 +197,8 @@ function reel(c,r,top,shots,instant){var w=el(r,'a-reel',''),i=-1,user=false,n=s
     if(e.target.closest('button,a')||i===n-1)return;var b=w.getBoundingClientRect();go(e.clientX-b.left<b.width/3?i-1:i+1,true);});
   return {go:go,play:async function(){for(var x=0;x<n;x++){if(user)return;var ms=shots[x].ms||0;go(x,false,ms);if(x<n-1)await c.wait(ms);}}};}
 
-/* a draft card (an `items` block): whose, when it was drafted, the exact words, Send; then Sent and Undo */
-function cardHtml(k){return '<div class="a-card"><p class="from"><b>To '+k.to+' on '+k.app+'</b><br>'+k.made+'</p>'+
-  '<div class="a-draft">'+esc(k.draft)+'</div>'+
-  (k.edits?'<div class="a-edits">'+k.edits.map(function(x){return '<button type="button">'+x+'</button>';}).join('')+'</div>':'')+
-  '<button type="button" class="a-send"><span class="l1">'+k.send+'</span><span class="l2">'+k.sending+'</span></button>'+
-  '<div class="a-done" aria-live="polite"><span>'+k.sent+'</span><button type="button">'+k.undo+'</button></div></div>';}
-function wireCard(e,k,c){var card=e.querySelector('.a-card'),done=card.querySelector('.a-done span');
-  card.querySelector('.a-send').onclick=async function(){if(card.classList.contains('busy'))return;card.classList.add('busy');
-    try{await c.wait(k.sendMs);}catch(x){return;}card.classList.remove('busy');card.classList.add('sent');c.edge.set('landed');};
-  card.querySelector('.a-done button').onclick=function(){card.classList.remove('sent');card.classList.add('undone');done.textContent='Deleted for everyone';};}
+/* the shell's cards (one per item, swiped sideways), put at the end of a shot */
+function withCards(c,items){return function(e){e.appendChild(c.cards(items));};}
 function placeHtml(p){return '<a class="a-place" href="https://maps.apple.com/?q='+encodeURIComponent(p.name+', '+p.address)+'" target="_blank" rel="noopener"><b>'+p.name+'</b><small>'+p.address+'</small><em>Maps</em></a>';}
 
 function dayShots(){var a=D.asks.day.answer,ld=split(a.lead,'. '),face=D.asks.jade.answer.who.face,p=a.payment;
@@ -241,11 +217,11 @@ function jadeShots(c){var a=D.asks.jade.answer,ld=split(a.lead,'. '),who='<div c
   return [
     {ms:3000,html:nb('face','<img class="a-face" alt="" src="'+a.who.face+'">')+'<h3 class="a-h">'+ld[0]+'</h3>'},
     {ms:4200,html:who+nb('quote','<div class="a-quote">“'+a.reply.t+'”</div>')},
-    {html:who+'<div class="a-quote s">“'+a.reply.t+'”</div><p class="a-p">'+ld[1]+'</p>'+cardHtml(a.card),init:function(e){wireCard(e,a.card,c);}}];}
+    {html:who+'<div class="a-quote s">“'+a.reply.t+'”</div><p class="a-p">'+ld[1]+'</p>',init:withCards(c,[a.card])}];}
 
 function tellShots(c){var a=D.asks.tell.answer;
   return [{ms:2200,html:'<div class="a-hero mid">'+a.lead+'</div>'},
-    {html:'<p class="a-k">'+a.lead+'</p>'+cardHtml(a.card),init:function(e){wireCard(e,a.card,c);}}];}
+    {html:'<p class="a-k">'+a.lead+'</p>',init:withCards(c,[a.card])}];}
 
 /* one idea answers: the key part large, the rest under it */
 function oneShot(text,sep,extra,cls){var p=split(text,sep);return [{html:'<div class="'+(cls||'a-hero mid')+'">'+p[0]+'</div>'+(p[1]?'<p class="a-big">'+cap(p[1])+'</p>':'')+(extra||'')}];}
@@ -253,14 +229,21 @@ function oneShot(text,sep,extra,cls){var p=split(text,sep);return [{html:'<div c
 async function ask(c,r,a){var mine=asked;asked=null;var text=mine?mine.text:a.ask;
   return (mine?mine.how:a.how)==='voice'?spoken(c,r,text,!!mine):typed(c,r,text,!!mine);}
 async function turn(c,a,shots){var r=root(c),t=await ask(c,r,a),s=await work(c,r,t,a);await land(c,r,t,s,shots);}
+function hi(r){var h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
+  mv(h.firstChild,{opacity:0,transform:'translateY(16px)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);
+  mv(h.lastChild,{opacity:0},{opacity:1},600,SOFT,250);return h;}
 function shown(r,text){var t=title(r,text);mv(t,{opacity:0},{opacity:1},400);return t;}
 
 Shell.mount({title:'Turn by turn v2: A, cinema',
   onAsk:function(text,how){asked={text:text,how:how};Shell.run(how==='voice'?'voice-send':'type-send');},
   scenes:[
-  {id:'idle',label:'Idle',run:function(c){var r=root(c),h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
-    mv(h.firstChild,{opacity:0,transform:'translateY(16px)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);
-    mv(h.lastChild,{opacity:0},{opacity:1},600,SOFT,250);}},
+  {id:'idle',label:'Idle',run:function(c){hi(root(c));}},
+  {id:'home-waiting',label:'Opens with matters waiting',run:function(c){var r=root(c);hi(r).classList.add('up');
+    var w=el(r,'a-home','<p class="a-k">Waiting on you</p>');w.appendChild(c.cards(D.waiting.slice(0,3)));
+    mv(w,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},800,SPRING,350);}},
+  {id:'waiting-list',label:'Waiting on you',run:async function(c){var r=root(c),t=shown(r,D.waitingAsk);await c.wait(400);
+    await land(c,r,t,null,[{top:true,html:'<h3 class="a-h">'+D.waitingLead+'</h3>',init:withCards(c,D.waiting)}]);}},
+  {id:'pendant',label:'Pendant status',run:function(c){hi(root(c));c.pendant();}},
   {id:'type-send',label:'He types an ask',run:async function(c){if(asked)return turn(c,D.asks.day,dayShots());
     var r=root(c),t=await ask(c,r,D.asks.day);c.edge.set('work');subtitle(r,t).set('<span class="v">Thinking…</span>');}},
   {id:'voice-send',label:'He holds to talk',run:async function(c){if(asked)return turn(c,D.asks.jade,jadeShots(c));
@@ -269,10 +252,9 @@ Shell.mount({title:'Turn by turn v2: A, cinema',
   {id:'answer-day',label:'Answer: the day',run:function(c){return turn(c,D.asks.day,dayShots());}},
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(c,D.asks.jade,jadeShots(c));}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return turn(c,D.asks.tell,tellShots(c));}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var r=root(c),h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>'),k=D.arrives.card,x=k.context;
-    await c.wait(D.arrives.arriveMs);
-    var p=el(r,'a-arr','<div class="a-who"><span><b>'+x.who+'</b><small>'+x.app+', '+x.at+'</small></span></div>'+nb('quote','<div class="a-quote s">“'+x.t+'”</div>')+cardHtml(k));
-    wireCard(p,k,c);mv(h,{transform:'none'},{transform:'translateY(-120px)',opacity:.5},900,SOFT);
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var r=root(c),h=hi(r);
+    await c.wait(D.arrives.arriveMs);c.count(D.waiting.length+1);
+    var p=el(r,'a-arr','');p.appendChild(c.cards([D.arrives.card]));mv(h,{transform:'none'},{transform:'translateY(-120px)',opacity:.5},900,SOFT);
     mv(p,{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1},900,SPRING);}},
   {id:'slow',label:'A slow ask',run:function(c){var a=D.slow;return turn(c,a,oneShot(a.answer.lead,'. ',placeHtml(a.answer.place)));}},
   {id:'failure',label:'A read fails',run:function(c){var a=D.failure;return turn(c,a,oneShot(a.error.t,'. ','','a-h'));}},

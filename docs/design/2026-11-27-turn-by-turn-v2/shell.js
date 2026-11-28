@@ -4,17 +4,71 @@
    cancels the running one: its pending ctx.wait rejects, the stage is emptied, the field and the edge are reset.
    Use only ctx.wait for time (never setTimeout), so a cancelled scene stops cleanly.
    ctx.lock(time) shows the phone locked at that time (ctx.lock(false) unlocks); ctx.notify({title, body}) shows Life's
-   one notification on it, replacing the last (a push replaced by its outcome), and resolves when he taps it. */
+   one notification on it, replacing the last (a push replaced by its outcome), and resolves when he taps it.
+   App v4's two top controls stay on every screen: the "Waiting on you" count (a tap plays the scene 'waiting-list') and
+   the pendant (a tap opens its page over whatever shows, ctx.pendant()); ctx.count(n) sets the count.
+   ctx.cards(items) makes the cards: one per item, side by side, swiped sideways. What a card holds is drawn here only
+   (cardHtml), so it changes in one place; a variant places the row and may set --s-pad, --s-card-bg,
+   --s-card-radius, --s-card-shadow. */
 window.Shell=(function(){
   var MIC='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>';
   var UP='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/><path d="M12 8v10"/></svg>';
+  var BACK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>';
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var CANCEL={cancelled:true},run=0,scenes=[],opts,phone,stage,field,lock,buttons={};
+  var CANCEL={cancelled:true},run=0,scenes=[],opts,phone,stage,field,lock,count,pend,buttons={},kept=new WeakMap();
+  function esc(t){return String(t).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+
+  /* a card, as App v4 draws it: who (face or initial), what, its line; a matter's one sentence of why; a draft's message
+     it answers and the draft, dashed until sent; one wide action, then its outcome (a draft's with Undo) */
+  function cardHtml(k){var draft=k.draft!=null,who=k.to||k.who;
+    return '<article class="s-card"><div class="s-hd"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(who.charAt(0)))+'</span>'+
+      '<span class="s-tx"><b>'+esc(k.t)+'</b><small>'+esc(draft?k.app+' · '+k.made:k.sub+' · '+k.when)+'</small></span></div>'+
+      (k.why?'<p class="s-why">'+esc(k.why)+'</p>':'')+
+      (draft?'<div class="s-chat">'+(k.context?'<div class="s-in">'+esc(k.context.t)+'<span>'+esc(k.context.at)+'</span></div>':'')+'<div class="s-draft">'+esc(k.draft)+'</div></div>':'')+
+      (k.edits?'<div class="s-edits">'+k.edits.map(function(x){return '<button type="button">'+esc(x)+'</button>';}).join('')+'</div>':'')+
+      '<div class="s-act" aria-live="polite"></div></article>';}
+  /* its action's state is kept per item for the scene, so a card drawn again shows what he did */
+  function paint(e,k,token){var act=e.querySelector('.s-act'),st=kept.get(k);e.classList.toggle('sent',st==='done');e.classList.toggle('undone',st==='undone');
+    if(!st){act.innerHTML='<button type="button" class="s-go">'+esc(k.send||k.act)+'</button>';var b=act.firstChild;
+      b.onclick=function(){if(b.disabled)return;b.disabled=true;b.textContent=k.sending||k.doing;
+        setTimeout(function(){if(token!==run)return;kept.set(k,'done');paint(e,k,token);Edge.set('landed');},k.sendMs);};return;}
+    act.innerHTML='<div class="s-done"><span>'+esc(st==='undone'?'Deleted for everyone':k.sent||k.ok)+'</span>'+(st==='done'&&k.undo?'<button type="button">'+esc(k.undo)+'</button>':'')+'</div>';
+    var u=act.querySelector('button');if(u)u.onclick=function(){kept.set(k,'undone');paint(e,k,token);};}
+  function cards(items,token){var row=document.createElement('div'),list=document.createElement('div');row.className='s-cards';list.className='s-row';row.appendChild(list);
+    items.forEach(function(k){var w=document.createElement('div');w.innerHTML=cardHtml(k);var e=w.firstChild;list.appendChild(e);paint(e,k,token);});
+    if(items.length>1){row.classList.add('many');var dots=document.createElement('div');dots.className='s-dots';dots.setAttribute('aria-hidden','true');
+      dots.innerHTML=items.map(function(){return '<i></i>';}).join('');row.appendChild(dots);
+      var at=function(){var w=list.firstChild.offsetWidth+10,i=Math.round(list.scrollLeft/w);[].forEach.call(dots.children,function(d,j){d.classList.toggle('on',j===i);});};
+      list.addEventListener('scroll',at,{passive:true});at();}
+    /* a mouse drag pages by one card (touch and trackpads scroll natively); the row keeps its swipes from the variant */
+    var x0=null;
+    list.addEventListener('pointerdown',function(e){e.stopPropagation();if(e.pointerType==='mouse')x0=e.clientX;});
+    list.addEventListener('pointerup',function(e){e.stopPropagation();if(x0===null)return;var dx=e.clientX-x0;x0=null;
+      if(Math.abs(dx)>30)list.scrollBy({left:(dx<0?1:-1)*(list.firstChild.offsetWidth+10),behavior:reduce?'auto':'smooth'});});
+    return row;}
+
+  /* the pendant's page, as App v4 opens it: the page blurs, the pill's dot grows into the page's face, one status line
+     and Pause; Back puts it away */
+  function pendant(){if(phone.querySelector('.s-pov'))return;var paused=pend.classList.contains('paused');
+    var o=document.createElement('div');o.className='s-pov';o.innerHTML='<div class="s-pblur"></div><button type="button" class="s-pback" aria-label="Back">'+BACK+'</button>'+
+      '<div class="s-pav'+(paused?' off':'')+'"><i></i></div><div class="s-pbody"><div class="s-pname">Pendant</div><div class="s-pline"></div>'+
+      '<div class="s-setb"><div class="s-setr"><span><b>Pause</b><small>Nothing is recorded while paused</small></span><button type="button" class="s-sw" role="switch" aria-label="Pause"></button></div></div></div>';
+    phone.appendChild(o);var sw=o.querySelector('.s-sw'),line=o.querySelector('.s-pline'),av=o.querySelector('.s-pav');
+    function show(p){pend.classList.toggle('paused',p);av.classList.toggle('off',p);sw.setAttribute('aria-checked',String(p));line.textContent=p?DATA.pendant.paused:DATA.pendant.recording;
+      pend.setAttribute('aria-label',p?'Pendant, paused':'Pendant, recording');}
+    show(paused);sw.onclick=function(){show(sw.getAttribute('aria-checked')!=='true');};
+    requestAnimationFrame(function(){o.classList.add('on');});
+    if(av.animate&&!reduce)av.animate([{left:'334px',top:'60px',width:'40px',height:'40px'},{left:'135px',top:'118px',width:'120px',height:'120px'}],{duration:550,easing:'cubic-bezier(.2,.9,.22,1.06)'});
+    o.querySelector('.s-pback').onclick=function(){o.classList.remove('on');
+      if(av.animate&&!reduce)av.animate([{left:'135px',top:'118px',width:'120px',height:'120px'},{left:'334px',top:'60px',width:'40px',height:'40px',opacity:0}],{duration:380,easing:'cubic-bezier(.3,0,.2,1)',fill:'forwards'});
+      setTimeout(function(){o.remove();},reduce?0:400);};}
+  function setCount(n){count.textContent=n;count.setAttribute('aria-label',n+' waiting on you');count.style.visibility=n?'visible':'hidden';}
 
   function ctxFor(token){
     function alive(){if(token!==run)throw CANCEL;}
     function wait(ms){return new Promise(function(ok,no){setTimeout(function(){token===run?ok():no(CANCEL);},ms);});}
-    return {phone:phone,stage:stage,field:field,edge:Edge,wait:wait,
+    return {phone:phone,stage:stage,field:field,edge:Edge,wait:wait,pendant:pendant,count:setCount,
+      cards:function(items){return cards(items,token);},
       cancelled:function(){return token!==run;},
       lock:function(time){lock.hidden=time===false;if(time!==false){lock.querySelector('.lk-t').textContent=time||DATA.now.time;lock.querySelector('.lk-d').textContent=DATA.now.day;}},
       notify:function(n){var b=lock.querySelector('.lk-n');b.hidden=false;b.innerHTML='<small>LIFE · now</small><b></b><span></span>';
@@ -30,7 +84,8 @@ window.Shell=(function(){
           for(var j=0;j<6;j++){Edge.level(.45+.55*Math.random());await wait(55);}}
         Edge.level(1);await wait(300);field.live(false);}};}
 
-  function reset(){lock.hidden=true;lock.querySelector('.lk-n').hidden=true;stage.innerHTML='';field.clear();field.live(false);Edge.set('rest');Edge.level(1);}
+  function reset(){kept=new WeakMap();phone.querySelectorAll('.s-pov').forEach(function(o){o.remove();});pend.classList.remove('paused');setCount(DATA.waiting.length);
+    lock.hidden=true;lock.querySelector('.lk-n').hidden=true;stage.innerHTML='';field.clear();field.live(false);Edge.set('rest');Edge.level(1);}
 
   function start(id){var s=scenes.find(function(x){return x.id===id;});if(!s)return Promise.resolve();
     var token=++run;reset();Object.keys(buttons).forEach(function(k){buttons[k].setAttribute('aria-pressed',String(k===id));});
@@ -66,11 +121,13 @@ window.Shell=(function(){
     mount:function(o){opts=o;scenes=o.scenes;if(window.self!==window.top)document.documentElement.classList.add('embedded');
       document.title=o.title;
       document.body.innerHTML='<main class="shell"><div class="fit"><div class="ph">'+
-        '<div class="sbar"><span>9:41</span><span>●●● ▮</span></div><div class="stage"></div>'+
+        '<div class="sbar"><span>9:41</span><span>●●● ▮</span></div>'+
+        '<div class="s-top"><button type="button" class="s-count gl"></button><button type="button" class="s-pend gl" aria-label="Pendant, recording"><i></i></button></div><div class="stage"></div>'+
         '<div class="field gl"><input type="text" placeholder="Ask Life or hold to talk" aria-label="Ask Life" autocomplete="off"><span class="heard" aria-live="polite"></span>'+
         '<button type="button" class="k mic" aria-label="Talk (hold, or tap to start and stop)" aria-pressed="false">'+MIC+'</button><button type="button" class="k snd" aria-label="Send">'+UP+'</button></div>'+
         '<div class="lock" hidden><div class="lk-d"></div><div class="lk-t"></div><button type="button" class="lk-n gl" hidden></button></div><div class="home"></div></div></div><aside class="side"><h1></h1><p>Each scene starts from a clean screen. Click another to stop the one playing.</p><button type="button" class="play">Play all</button></aside></main>';
       phone=document.querySelector('.ph');stage=phone.querySelector('.stage');field=makeField(phone.querySelector('.field'));lock=phone.querySelector('.lock');
+      count=phone.querySelector('.s-count');pend=phone.querySelector('.s-pend');count.onclick=function(){start('waiting-list');};pend.onclick=pendant;
       document.querySelector('.side h1').textContent=o.title;Edge.mount(phone);
       var side=document.querySelector('.side');scenes.forEach(function(s){var b=document.createElement('button');b.type='button';b.textContent=s.label;b.setAttribute('aria-pressed','false');b.onclick=function(){start(s.id);};buttons[s.id]=b;side.appendChild(b);});
       side.querySelector('.play').onclick=playAll;

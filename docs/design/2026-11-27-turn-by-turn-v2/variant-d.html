@@ -79,22 +79,12 @@
 .d-big .d-face-img{width:52px;height:52px;border-radius:26px}
 .d-big .d-who b{font-size:var(--text-header)}
 .d-bubble{margin:12px 0 0;padding:10px 14px;border-radius:18px 18px 18px 6px;background:var(--tint);font-size:var(--text-body);line-height:1.4;width:fit-content;max-width:94%}
-/* a draft card: dashed until sent; tucked under its person when it answers them */
-.d-draft .d-face{outline:1.5px dashed color-mix(in srgb,var(--fg) 34%,transparent);outline-offset:-1.5px;transition:outline-color .4s}
-.d-draft.sent .d-face{outline-color:transparent}
-.d-obj.d-tucked{margin:-18px 10px 0 14px;z-index:1}
-.d-tucked .d-face{padding-top:30px}
-.d-ctx{margin-bottom:14px}
-.d-ctx .d-bubble{margin-top:6px}
-.d-draft-text{margin:8px 0 0;font-size:var(--text-title);font-weight:600;line-height:1.4}
-.d-edits{display:flex;gap:8px;margin-top:10px}
-.d-edits span{padding:5px 12px;border-radius:999px;background:var(--wash);font-size:var(--text-line);color:var(--muted);font-weight:600}
+/* the cards (the shell's): dealt as one object, each card an object of the table */
+.d-cards{--s-card-bg:var(--obj);--s-card-shadow:var(--lay);--s-card-radius:var(--block-radius)}
+.d-cards>.d-face{background:none;box-shadow:none;padding:0;border-radius:0}
+.d-cards .d-meta{margin-bottom:10px}
 .d-pill{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:22px;background:var(--tint);font-size:var(--text-body);font-weight:650;margin-top:12px}
-.d-pill.cream{background:var(--fg);color:var(--on)}
 .d-pill.wide{display:flex;width:100%}
-.d-pill:disabled{cursor:default}
-.d-sent{display:flex;align-items:center;gap:8px;min-height:44px;margin-top:12px;color:var(--ok);font-size:var(--text-line);font-weight:650}
-.d-undo{margin-left:auto;min-height:44px;padding:0 6px;color:var(--fg);font-weight:650;font-size:var(--text-line)}
 /* earlier turns: filed cards */
 .d-file .d-face{padding:14px 16px}
 .d-file .d-ask{font-size:var(--text-line);color:var(--muted);font-weight:600;margin:0 0 6px}
@@ -126,7 +116,6 @@ var D=DATA,RM=matchMedia('(prefers-reduced-motion: reduce)').matches,CTX=null,he
 var SETTLE='linear(0,.009,.035 2.1%,.141 4.4%,.723 12.9%,.938 16.7%,1.017 19.4%,1.067,1.099 24.3%,1.108 26%,1.1 27.6%,1.078 30.1%,1.049 32.5%,.994 37.3%,.981 40.2%,.974 43.4%,.975 50.2%,.997 62.5%,1.003 69.4%,1)';
 var SOFT='linear(0,.006,.025 2.8%,.101 6.1%,.539 18.9%,.721 25.3%,.849 31.5%,.937 38.1%,.968 41.8%,.991 45.7%,1.006 50.1%,1.015 55%,1.017 63.9%,1.001 85.9%,1)';
 var INK='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
-var CHECK='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
 var PIN='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
 
 function h(parent,cls,html,tag){var e=document.createElement(tag||'div');if(cls)e.className=cls;if(html!=null)e.innerHTML=html;if(parent)parent.appendChild(e);return e;}
@@ -177,19 +166,13 @@ function payCard(t){var p=D.asks.day.answer.payment;
   return obj(t,{tilt:2.2,cls:'d-pay',front:'<small>'+p.t+'</small><span class="d-amount">'+p.amount+'</span><small>Due '+p.due+'</small>'+tag(p)});}
 function dayObjects(t){var a=D.asks.day.answer,day=dayCard(t),pl=placeCard(t,a.place,1.1);pl.classList.add('d-under');
   var pair=h(t,'d-pair','');return [day,pl,waitingCard(pair),payCard(pair)];}
-/* Jade: her face and her words, her ready draft tucked under */
+/* Jade: her face and her words, her ready draft under */
 function jadeObjects(t){var a=D.asks.jade.answer;
   var front='<div class="d-who"><img class="d-face-img" alt="" src="'+a.who.face+'"><div><b>'+a.who.name+'</b><small>'+a.reply.app+', '+a.reply.at+'</small></div></div><p class="d-bubble">'+esc(a.reply.t)+'</p>'+tag(a.who,a.reply);
   var j=obj(t,{tilt:-.9,cls:'d-big',front:front,full:true});j.style.zIndex=2;
-  var d=draftCard(t,a.card,1.3);d.classList.add('d-tucked');return [j,d];}
-/* a draft card: an agent's, or one Life prepared on his words; Send is his one tap */
-function draftCard(t,k,tilt){var ctx=k.context;
-  var e=obj(t,{tilt:tilt||0,cls:'d-draft',front:
-    (ctx?'<div class="d-ctx"><small>'+ctx.who+', '+ctx.app+', '+ctx.at+'</small><p class="d-bubble">'+esc(ctx.t)+'</p>'+tag(ctx)+'</div>':'')+
-    '<span class="d-meta">'+k.app+' to '+k.to+'</span><small>'+k.made+'</small><p class="d-draft-text">'+esc(k.draft)+'</p>'+
-    (k.edits?'<div class="d-edits">'+k.edits.map(function(x){return '<span>'+x+'</span>';}).join('')+'</div>':'')+
-    '<button type="button" class="d-pill cream wide" data-act="send">'+k.send+'</button>'});
-  e.k=k;return e;}
+  return [j,cardsObj(t,[a.card])];}
+/* the cards: the shell's, one per item, swiped sideways; Send is his one tap */
+function cardsObj(t,items,label){var e=obj(t,{cls:'d-cards',front:label?'<span class="d-meta">'+label+'</span>':''});e.front.appendChild(CTX.cards(items));return e;}
 
 /* ---------- his turn ---------- */
 async function typed(c,w,text){await c.type(c.field.input,text);await c.wait(260);
@@ -225,8 +208,8 @@ async function work(c,w,a){var line=thinking(c,w),t=0,still=null;
       still=h(w.steps,'d-still',ring()+'<span>'+a.still+'</span>');ink(still);}
     await c.wait(ms);t+=ms;}
   await hold(a.first);for(var s of a.steps){line.textContent=s.t;ink(line);await hold(s.ms);}}
-/* app v4's still ring: a ring that never spins, p of it filled (the send's milestones; empty for a long turn) */
-function ring(p){var r=37.7;return '<svg class="pie" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="2.2"/>'+(p?'<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="'+(r*p).toFixed(1)+' '+r+'" transform="rotate(-90 8 8)" stroke-linecap="round"/>':'')+'</svg>';}
+/* app v4's still ring: a ring that never spins, empty for a long turn */
+function ring(){return '<svg class="pie" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="2.2"/></svg>';}
 async function turn(c,a,how,make,lead){var w=begin(c);
   if(how==='voice')await spoken(c,w,a.ask);else if(how==='typed')await typed(c,w,a.ask);else h(w.his,'',null,'span').textContent=a.ask;
   await work(c,w,a);await arrive(c,w,lead!=null?lead:esc(a.answer.lead),make);return w;}
@@ -252,37 +235,29 @@ function putBack(){if(!held)return;var x=held;held=null;var to=rel(x.L),now=x.L.
 addEventListener('keydown',function(ev){if(ev.key==='Escape')putBack();if((ev.key==='Enter'||ev.key===' ')&&ev.target.classList&&ev.target.classList.contains('can')){ev.preventDefault();lift(ev.target);}});
 
 /* taps on what lies on the table */
-document.addEventListener('click',async function(ev){if(ev.target.closest('a'))return;
-  var b=ev.target.closest('[data-act]'),o=ev.target.closest('.d-obj');
+document.addEventListener('click',function(ev){if(ev.target.closest('a'))return;
+  var b=ev.target.closest('[data-act="reply"]'),o=ev.target.closest('.d-obj'),c=CTX;
   if(!b){if(o)lift(o);return;}
-  var act=b.dataset.act,c=CTX;
-  try{
-    if(act==='reply'){putBack();c.field.input.value='Tell Jade ';c.field.sync();c.field.input.focus();anim(c.field.el,[{transform:'scale(1)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],{duration:320,easing:SOFT});}
-    else if(act==='send')await send(c,b);
-    else if(act==='undo')undo(b);
-  }catch(e){if(!e||!e.cancelled)throw e;}});
-/* Send: the still ring fills at each milestone, then Sent, with Undo (WhatsApp deletes for everyone) */
-async function send(c,b){var e=b.closest('.d-obj'),k=e.k,n=3;b.disabled=true;
-  for(var i=1;i<=n;i++){b.innerHTML=ring(i/n)+'<span>'+k.sending+'</span>';await c.wait(k.sendMs/n);}
-  var done=h(null,'d-sent',CHECK+'<span>'+k.sent+'</span><button type="button" class="d-undo" data-act="undo">'+k.undo+'</button>');
-  b.replaceWith(done);ink(done);e.classList.add('sent');c.edge.set('landed');}
-function undo(b){var row=b.closest('.d-sent'),e=row.closest('.d-obj');e.classList.remove('sent');
-  var s=h(null,'d-pill cream wide',e.k.send,'button');s.type='button';s.dataset.act='send';row.replaceWith(s);ink(s);}
-
+  putBack();c.field.input.value='Tell Jade ';c.field.sync();c.field.input.focus();anim(c.field.el,[{transform:'scale(1)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],{duration:320,easing:SOFT});});
 /* ---------- the scenes ---------- */
 function hi(w){return w.insertBefore(h(null,'d-hi','<b>Hi</b><small>'+D.now.day+'</small>'),w.table);}
 Shell.mount({title:'Turn by turn v2: D, cards on the table',scenes:[
   {id:'idle',label:'Idle',run:function(c){ink(hi(begin(c)));}},
+  {id:'home-waiting',label:'Opens with matters waiting',run:function(c){var w=begin(c);ink(hi(w));w.table.classList.add('edge-of');
+    deal(cardsObj(w.table,D.waiting.slice(0,3),'Waiting on you'),300);}},
+  {id:'waiting-list',label:'Waiting on you',run:function(c){var w=begin(c);h(w.his,'',null,'span').textContent=D.waitingAsk;w.classList.add('lit');
+    return arrive(c,w,esc(D.waitingLead),function(t){return [cardsObj(t,D.waiting)];});}},
+  {id:'pendant',label:'Pendant status',run:function(c){ink(hi(begin(c)));c.pendant();}},
   {id:'type-send',label:'He types an ask',run:async function(c){var w=begin(c);await typed(c,w,D.asks.day.ask);thinking(c,w);}},
   {id:'voice-send',label:'He holds to talk',run:async function(c){var w=begin(c);await spoken(c,w,D.asks.jade.ask);thinking(c,w);}},
   {id:'working',label:'Life works',run:function(c){return turn(c,D.asks.day,'shown',dayObjects);}},
   {id:'answer-day',label:'Answer: the day',run:function(c){return turn(c,D.asks.day,'typed',dayObjects);}},
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(c,D.asks.jade,'voice',jadeObjects);}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){var a=D.asks.tell;
-    return turn(c,a,'typed',function(t){return [draftCard(t,a.answer.card,-.6)];});}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var w=begin(c),x=hi(w);ink(x);await c.wait(D.arrives.arriveMs);
+    return turn(c,a,'typed',function(t){return [cardsObj(t,[a.answer.card])];});}},
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var w=begin(c),x=hi(w);ink(x);await c.wait(D.arrives.arriveMs);c.count(D.waiting.length+1);
     anim(x,[{opacity:1},{opacity:.45}],{duration:600,fill:'forwards'});
-    var e=draftCard(w.table,D.arrives.card,.8);w.table.classList.add('edge-of');
+    var e=cardsObj(w.table,[D.arrives.card]);w.table.classList.add('edge-of');
     anim(e,[{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1}],{duration:900,easing:SOFT});}},
   {id:'slow',label:'A slow ask',run:function(c){var a=D.slow;return turn(c,a,'shown',function(t){return [placeCard(t,a.answer.place,-.8)];});}},
   {id:'failure',label:'A read fails',run:function(c){var a=D.failure;return turn(c,a,'shown',null,esc(a.error.t));}},
