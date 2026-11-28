@@ -62,6 +62,24 @@ can delay or drop traffic, never read it.
 What the relay does see, and SECURITY.md must say once: the address used, the user's IP addresses, when they connect
 and how much data moves. Addresses are random ids, never names, because the certificate logs are public.
 
+## Bring your own
+
+hostedbyme.app is the default and free. A user who doesn't want to trust the developer's domain or relay picks one of
+these in Life's settings (prices checked 28 Nov 2026, per year):
+
+| Option | Removes | Costs |
+|---|---|---|
+| Their own domain on our relay | the domain owner's certificate | the domain: a `.com` is about $10–12 a year (Cloudflare at cost, Porkbun $11.81) |
+| Their own domain and their own relay | both caveats | the domain, plus about $90 a year for `apps/relay` on Fly (two small machines, a dedicated IPv4, a volume) |
+
+- Own domain: one CNAME record to the relay. The Mac gets its own certificate over TLS-ALPN-01 through the relay, so
+  only the user's DNS can issue for it. The relay still sees the metadata above.
+- Own relay: `apps/relay` deployed from the repository in one step.
+- Domains: buy a `.com`. Cheap first years hide high renewals (`.xyz` $1.29 then $14.21, `.site` $1.96 then $28.84),
+  and the cheapest endings (`.top`) are on spam blocklists.
+- Not offered: Cloudflare Tunnel (Cloudflare decrypts the traffic); Tailscale Funnel is free but Tailscale owns its
+  domain, the same caveat as ours.
+
 ## Where the relay runs
 
 On Fly.io (chosen 28 Nov 2026), the one developer-friendly host found that passes raw TCP on port 443 under our own
@@ -122,6 +140,8 @@ mesh and limits OpenTunnel has).
 - [ ] iPhone app: key fingerprint in the pairing code, pinning.
 - [ ] Certificate log watch and its warning.
 - [ ] Encrypted shared artifacts (with the artifacts work).
+- [ ] Bring your own: the relay routes a user's verified domain to their tunnel; the Mac's setting for a domain or a
+  relay; a `docs/use/` how-to.
 - [ ] SECURITY.md "Network" and "What leaves the Mac", architecture.md, use/connect.md updated; #137 closed by it.
 
 ## Debt plan
