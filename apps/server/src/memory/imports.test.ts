@@ -131,15 +131,24 @@ test("a judging reply is checked: one line per conversation asked about", () => 
   ]);
 });
 
-test("an import without a historical engine stops before copying or any model work", async () => {
+test("an import with no engine of its own runs on his engine, never on none", async () => {
   const folder = folderWith(exportOf("An older export."));
   const before = settings().backfillEngine;
+  const schedule = await import("./schedule");
+  const models = await import("../models/llm");
+  const quota = spyOn(schedule, "spareQuota").mockResolvedValue();
+  const ask = spyOn(models, "askOnce").mockResolvedValue({
+    conversations: [{ id: "c1", keep: true, why: "About family." }],
+  });
   try {
     setSettings({ backfillEngine: null });
-    await expect(importExport(folder)).rejects.toThrow("set backfillEngine");
-    expect(dryRun(folder).source).toBe("claude");
-    expect(existsSync(exportsDir("claude"))).toBe(false);
+    await importExport(folder);
+    expect(quota).toHaveBeenCalledWith("claude");
+    expect(ask.mock.calls[0]?.[0].llm.engine).toBe("claude");
+    expect(existsSync(exportsDir("claude"))).toBe(true);
   } finally {
+    ask.mockRestore();
+    quota.mockRestore();
     setSettings({ backfillEngine: before ?? null });
   }
 });

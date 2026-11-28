@@ -155,6 +155,7 @@ invariant into the rule file or doc it belongs to, and a one-line pointer here o
 
 **Ask first:** a new table in the archive; a migration of stored data; re-running the whole archive through a model;
 bumping a prompt version; removing a regression case; anything that spends his model quota heavily (a backfill).
+A user's pick under setup's "How far back" (`backfillFrom`) is that yes for his backfill, within its shown cost.
 
 **Never:** commit anything of his; hand-edit or wipe `memory/`; touch the archive's files; push or add a remote to the
 data repo; add a send beside a card's draft, a connector tool or an action; let Life's own code act or send on recorded

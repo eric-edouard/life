@@ -483,9 +483,10 @@ export function readPassageTexts(db: Database): boolean {
     if (!ready.includes(source)) {
       return false;
     }
+    // A read that fails can't say the source is whole.
     let earliest: string | null | undefined;
     try {
-      earliest = source.earliest?.();
+      earliest = source.held?.()?.earliest;
     } catch {
       return false;
     }

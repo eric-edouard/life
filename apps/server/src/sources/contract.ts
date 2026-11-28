@@ -8,6 +8,17 @@ import type { Person } from "../records/truth";
 // The source contract: what Life knows about each source, in one descriptor. Each reader gives its parts; the registry
 // (`memory/sources.ts`) lists them. Code asks a source's kind or what it can do, never its name.
 
+/**
+ * What a source holds: how many of `noun` it has (`messages`, `photos`, `commits`...), and the earliest instant among
+ * them, from the same read (`descriptor.held`).
+ */
+export interface Held {
+  count: number;
+  earliest: string | null;
+  /** The plural word for what `count` counts, for a sentence about it. */
+  noun: string;
+}
+
 /** A source's newest item, for the status snapshot: when it came, his words in it, by part. */
 export interface Newest {
   at: string | null;
@@ -163,8 +174,8 @@ export type Descriptor = {
   name: SourceName;
   /** Its newest item (the status snapshot's card); a voice source's is the voice server's to tell. */
   newest?: () => Newest | Promise<Newest>;
-  /** Earliest stored instant, read from source metadata without reading message text. */
-  earliest?: () => string | null;
+  /** What it holds, in one read of its metadata, no message text; null when its store is not there. */
+  held?: () => Held | null;
   /** How long it may stay silent before its card turns amber (`toneOf`, integration-health.ts). */
   silentAfter: number;
 } & (

@@ -127,8 +127,13 @@ export const Settings = z
       .optional(),
     /** The edge's look he saved from the halo settings (`change_setting`); absent, the phone's default. */
     aura: Aura.optional(),
-    /** The model runner for imports and historical model backfills; absent means off. */
+    /** The model runner for imports and historical model backfills; absent, his `engine` (`readBackfillEngine`). */
     backfillEngine: Engine.optional(),
+    /**
+     * The local day (`YYYY-MM-DD`) the backfill reads his history from: absent means no backfill. His pick of a range in
+     * setup is the approval of that range's shown cost (`host/backfill.ts`).
+     */
+    backfillFrom: z.iso.date().optional(),
     /** The daily restic snapshot (`backup.ts`): its repository, and the command that prints its password. Without it, no backup. */
     backup: z
       .object({ password: z.string(), repository: z.string() })
@@ -363,10 +368,19 @@ export function setSettings(
 /** His monthly amount as the file holds it now, read afresh: his `change_setting` reaches the desk without a restart. */
 export const readMonthlyUsd = () => readSettings().budget?.monthlyUsd;
 
-/** What his word may change through `change_setting`: the monthly amount (question 22), in billed dollars, the edge's look (`Aura`), and the apps he pays with (`PayWith`, the whole list). */
+/**
+ * The model runner the backfill's steps use, read afresh: `backfillEngine`, else his `engine`. Two names for one runner:
+ * the backfill may run on another engine than the night, never on none.
+ */
+export const readBackfillEngine = (
+  { backfillEngine, engine }: Settings = readSettings()
+): Engine | undefined => backfillEngine ?? engine;
+
+/** What his word may change through `change_setting`: the monthly amount (question 22), in billed dollars, the edge's look (`Aura`), the apps he pays with (`PayWith`, the whole list), and the day the backfill reads from (his pick, the approval of its shown cost). */
 export const SettingChange = z
   .object({
     aura: Aura.optional(),
+    backfillFrom: z.iso.date().optional(),
     monthlyUsd: z.number().positive().max(100_000).optional(),
     payWith: PayWith.optional(),
   })
@@ -375,14 +389,23 @@ export const SettingChange = z
 /** His `change_setting`: writes what it names; the settings it changes as they now stand. */
 export function changeSetting({
   aura,
+  backfillFrom,
   monthlyUsd,
   payWith,
 }: z.infer<typeof SettingChange>) {
-  if (aura === undefined && monthlyUsd === undefined && payWith === undefined) {
-    throw new Error("Not done: name `monthlyUsd`, `aura` or `payWith`.");
+  if (
+    aura === undefined &&
+    backfillFrom === undefined &&
+    monthlyUsd === undefined &&
+    payWith === undefined
+  ) {
+    throw new Error(
+      "Not done: name `monthlyUsd`, `aura`, `payWith` or `backfillFrom`."
+    );
   }
   setSettings({
     ...(aura !== undefined && { aura }),
+    ...(backfillFrom !== undefined && { backfillFrom }),
     ...(monthlyUsd !== undefined && { budget: { monthlyUsd } }),
     ...(payWith !== undefined && {
       payments: { ...readSettings().payments, payWith },
@@ -390,6 +413,7 @@ export function changeSetting({
   });
   return {
     aura: settings().aura,
+    backfillFrom: settings().backfillFrom,
     budget: settings().budget,
     payWith: settings().payments?.payWith,
   };

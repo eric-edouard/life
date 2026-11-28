@@ -7,26 +7,26 @@ import { WINDOWS } from "../core/platform";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import {
-  earliestAppleHealth,
   newestAppleHealth,
   readAppleHealth,
+  readHeldAppleHealth,
 } from "../sources/apple-health";
 import {
   archiveDb,
   incomingArchived,
   readArchivedMessageAt,
-  readEarliestArchived,
+  readHeldArchived,
 } from "../sources/archived";
 import {
   FORMATS,
   hasExportCopy,
   newestAssistant,
   readAssistant,
-  readEarliestAssistant,
+  readHeldAssistant,
 } from "../sources/assistants";
 import { bridgedSource } from "../sources/bridged";
 import type { AppStore, Descriptor } from "../sources/contract";
-import { newestCommit, readEarliestCommit, readGit } from "../sources/git";
+import { newestCommit, readGit, readHeldCommit } from "../sources/git";
 import {
   copyGithub,
   githubSend,
@@ -41,7 +41,7 @@ import {
   incomingImessage,
   isImessageGroup,
   newestImessage,
-  readEarliestImessage,
+  readHeldImessage,
   readImessage,
   readImessageAt,
   readSharedPictures,
@@ -50,7 +50,7 @@ import {
   incomingMail,
   mailRoot,
   newestMail,
-  readEarliestMail,
+  readHeldMail,
   readMail,
   readMailAt,
 } from "../sources/mail";
@@ -65,9 +65,9 @@ import {
   readPhone,
 } from "../sources/phone";
 import {
-  earliestPhoto,
   newestPhoto,
   PHOTOS_DB,
+  readHeldPhoto,
   readPhotos,
 } from "../sources/photos";
 import { copyScreen, newestScreen, readScreen } from "../sources/screen";
@@ -86,15 +86,11 @@ import {
   whatsappLinkOf,
   whatsappRoomOf,
 } from "../sources/whatsapp";
-import { newestAgent, readAgent, readEarliestAgent } from "./agent-source";
+import { newestAgent, readAgent, readHeldAgent } from "./agent-source";
 import { deletedEventsOf } from "./deletions";
 import { deletionsNow } from "./memory-files";
 import { readFiles, showFiles } from "./message-files";
-import {
-  newestToldLife,
-  readEarliestToldLife,
-  readToldLife,
-} from "./told-life";
+import { newestToldLife, readHeldToldLife, readToldLife } from "./told-life";
 
 // The registry: every source's descriptor (`Descriptor`, `contract.ts`). The tables of sources are derived from it
 // (`tablesOf`, below).
@@ -129,10 +125,10 @@ const LISTED: Descriptor[] = [
     capturesOnItsOwn: true,
     chatDays: 7,
     chatLinkOf: imessageLinkOf,
-    earliest: readEarliestImessage,
     group: isImessageGroup,
     handleOf,
     hasPhoneHandles: true,
+    held: readHeldImessage,
     incoming: incomingImessage,
     integration: {
       privacy:
@@ -246,7 +242,7 @@ const LISTED: Descriptor[] = [
     capturesOnItsOwn: true,
     chatLinkOf: (handle) =>
       handle.includes("@") ? `mailto:${handle}` : undefined,
-    earliest: readEarliestMail,
+    held: readHeldMail,
     incoming: incomingMail,
     integration: {
       privacy:
@@ -305,7 +301,7 @@ const LISTED: Descriptor[] = [
   ...(["claude", "chatgpt"] as const).map((name): Descriptor => {
     const { label } = FORMATS[name];
     return {
-      earliest: () => readEarliestAssistant(name),
+      held: () => readHeldAssistant(name),
       imported: true,
       integration: {
         privacy: `Read from the ${label} export file you drop in; nothing new is fetched. What Life reads goes to the AI you chose.`,
@@ -327,7 +323,7 @@ const LISTED: Descriptor[] = [
   }),
   // What he told Life in a chat with ChatGPT or Claude (`tell_life`): his words marked, a question as the assistant's.
   {
-    earliest: readEarliestToldLife,
+    held: readHeldToldLife,
     kind: "chat",
     label: "Told Life",
     name: "told-life",
@@ -337,7 +333,7 @@ const LISTED: Descriptor[] = [
   },
   // The agent's done tasks (decision 14, 21 Oct): Life's own ledger, never silent by its own fault.
   {
-    earliest: readEarliestAgent,
+    held: readHeldAgent,
     kind: "agent",
     label: "Agents",
     name: AGENT_WORD,
@@ -346,7 +342,7 @@ const LISTED: Descriptor[] = [
     silentAfter: Number.POSITIVE_INFINITY,
   },
   {
-    earliest: readEarliestCommit,
+    held: readHeldCommit,
     integration: {
       privacy:
         "Read on this computer from the repos in your folder; what Life reads of their commits goes to the AI you chose, and turning the source off stops it.",
@@ -389,7 +385,7 @@ const LISTED: Descriptor[] = [
     store: { copies: "events", copy: () => copyScreen() },
   },
   {
-    earliest: earliestAppleHealth,
+    held: readHeldAppleHealth,
     integration: {
       privacy:
         "Sent by your phone's app to this computer; what Life reads goes to the AI you chose, and turning the source off stops it.",
@@ -410,8 +406,8 @@ const LISTED: Descriptor[] = [
   },
   // His photo library, read in place from Photos' own store: Photos keeps its history, so nothing is copied.
   {
-    earliest: earliestPhoto,
     hasPhoneHandles: true,
+    held: readHeldPhoto,
     integration: {
       privacy:
         "The photos themselves never leave this computer: a local model describes them on the Mac, and only those descriptions go to the AI you chose.",
@@ -445,7 +441,7 @@ export const SOURCES = LISTED.map((s): Descriptor => {
   return store
     ? {
         ...s,
-        earliest: () => readEarliestArchived(s.name, store.copies),
+        held: () => readHeldArchived(s.name, store.copies),
         missing: () =>
           unreadable(archiveDb(s.name), `${s.label} not archived yet`),
       }
@@ -478,6 +474,18 @@ export const keptStores = (on = settings().sources) =>
  */
 export const readySources = (all = enabledSources()) =>
   all.filter((s) => !s.missing?.());
+
+/** A source's earliest stored instant: null when it is missing, has nothing, or its read fails. */
+export function earliestOf(source: Descriptor): string | null {
+  if (source.missing?.()) {
+    return null;
+  }
+  try {
+    return source.held?.()?.earliest ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** Whether a voice source is on and set up: what the watcher listens to, and what voice search and `read_day` read. */
 export const listening = () => readySources().some((s) => s.kind === "voice");

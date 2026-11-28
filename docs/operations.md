@@ -159,8 +159,12 @@ subscription per run. `LIFE_DEMO_RUNTIME=codex bun run e2e:demo` runs the same s
 - **Offline** (his model provider unreachable, `isOnline`: travelling, a VPN down): a tick runs nothing and logs
   `offline`; a run that fails while offline spends no try and sends no mail.
 - Everything looks back 7 days.
-- **Backfill:** no tick reads past days with a model until prompts are frozen. Imports and future model backfills require `backfillEngine`, with
-  no fallback to `engine`; the night still uses `engine`.
+- **Backfill:** a tick reads past days with a model only once `backfillFrom` is set: a user's pick under setup's "How
+  far back" is the yes that "ask first" and frozen prompts call for, within its shown cost (`backfillEstimateOf`).
+  `host/backfill.ts` runs, once the night is done, one week per tick: hearing voice notes, historical units, episodes
+  and extract newest month first, then matters and conversation summaries oldest first, stopping at the quota reserve
+  or the month's budget; its progress is `LIFE_STATE_DIR/memory/backfill.json` and the source's integration line.
+  Imports and backfills run on `backfillEngine`, else `engine`.
 - **Quota:** over 75% of the Codex quota (`reserved`) imports and
   `scripts/eval.ts` and the bench refuse to start (the bench's own grading, `eval.ts --json`, skips the check). The
   night always runs. The quota is read from `codex app-server` (no model call) at the start and end of

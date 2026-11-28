@@ -1,7 +1,7 @@
 import { AGENT_WORD } from "../core/names";
 import { askedAgent } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
-import type { Newest } from "../sources/contract";
+import type { Held, Newest } from "../sources/contract";
 import { lastUpdate, tasksOf } from "./memory-files";
 import { wall } from "./zones";
 
@@ -20,11 +20,15 @@ const done = () =>
       : [];
   });
 
-/** The earliest completed task's timestamp, using the ledger's read-once cache. */
-export const readEarliestAgent = () =>
-  done()
-    .map(({ last }) => last.at)
-    .sort()[0] ?? null;
+/** What his agents hold: how many tasks closed done, and the first, from the ledger's read-once cache. */
+export const readHeldAgent = (): Held => {
+  const tasks = done();
+  return {
+    count: tasks.length,
+    earliest: tasks.map(({ last }) => last.at).sort()[0] ?? null,
+    noun: "tasks",
+  };
+};
 
 /** The status snapshot's card: when the agent last closed a task done. */
 export const newestAgent = (): Newest => ({

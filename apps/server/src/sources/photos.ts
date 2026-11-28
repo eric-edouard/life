@@ -7,7 +7,7 @@ import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { Photo, SourceEvent } from "../records/source";
 import { type Contact, readContactRecords } from "./contacts";
-import type { Newest } from "./contract";
+import type { Held, Newest } from "./contract";
 import { fromAppleS, toAppleS } from "./imessage";
 import {
   DESCRIPTIONS,
@@ -357,9 +357,10 @@ export function readPhotoOffsets(since: Date, before: Date, library = LIBRARY) {
   }
 }
 
-/** The first photo's time, without reading anything else. */
-export function earliestPhoto(library = LIBRARY) {
-  return readShown(library).first;
+/** What the library holds: how many photos it shows and the first, in one read; videos are not counted. */
+export function readHeldPhoto(library = LIBRARY): Held {
+  const { first, photos } = readShown(library);
+  return { count: photos, earliest: first, noun: "photos" };
 }
 
 /** The library's first and last photo or video, and how many photos (not videos) it shows, in one read. */

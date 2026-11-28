@@ -7,7 +7,7 @@ import { expand, settings } from "../core/settings";
 import type { InferredRepo } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { Person, Project } from "../records/truth";
-import type { Newest, RepoMap } from "./contract";
+import type { Held, Newest, RepoMap } from "./contract";
 
 // Git commits as a source: local `git log` of every repo in the `repos` setting's folder, read-only. A repo-day is a
 // unit like a chat-day.
@@ -56,8 +56,8 @@ export function listRepos(root = work()): Repo[] {
   return [...repos.values()];
 }
 
-/** The earliest author timestamp across local repos, without subjects or file changes. */
-export function readEarliestCommit(root = work()) {
+/** What his repos hold: how many commits and the first, from their author times, without subjects or file changes. */
+export function readHeldCommit(root = work()): Held {
   const times = listRepos(root).flatMap(({ path }) => {
     const out = git(path, ["log", "--all", "--no-merges", "--format=%aI"]);
     if (out.exitCode !== 0) {
@@ -70,9 +70,14 @@ export function readEarliestCommit(root = work()) {
       .filter(Boolean)
       .map(Date.parse);
   });
-  return times.length > 0
-    ? new Date(times.reduce((a, b) => Math.min(a, b))).toISOString()
-    : null;
+  return {
+    count: times.length,
+    earliest:
+      times.length > 0
+        ? new Date(times.reduce((a, b) => Math.min(a, b))).toISOString()
+        : null,
+    noun: "commits",
+  };
 }
 
 /** The newest commit in any repo, and how many repos had one in the last day (the status snapshot). */

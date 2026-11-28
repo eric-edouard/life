@@ -27,7 +27,17 @@ const SONNET = { cached: 0.1, input: 2, output: 10 };
 const OPUS = { cached: 0.2, input: 4, output: 20 };
 const SOL = { cached: 0.1, input: 2, output: 10 };
 
-/** List prices of the models his subscriptions run (Life's calls, his agents), by `<runtime>:<model>`; `default` is the runtime's own. */
+/**
+ * The OpenRouter model's row (the DeepSeek route of `models/llm.ts`), what the backfill's estimate is priced at
+ * (`host/backfill.ts`): it is billed, so this is its list price, not an equivalent.
+ */
+export const OPENROUTER_DEEPSEEK =
+  "openrouter:deepseek/deepseek-v4.1-flash-1017";
+
+/**
+ * List prices of the models his subscriptions run (Life's calls, his agents), by `<runtime>:<model>`; `default` is the
+ * runtime's own; the OpenRouter row prices what his credits buy.
+ */
 export const TOKEN_PRICES: Row<TokenPrice>[] = [
   // Claude Code's aliases on 21 Nov 2026: opus is Opus 5.5, sonnet Sonnet 5.5, haiku Haiku 5.5 (its cache read at a tenth).
   {
@@ -67,6 +77,16 @@ export const TOKEN_PRICES: Row<TokenPrice>[] = [
     output: 0.5,
     read: "2026-11-21",
     source: CLAUDE,
+  },
+  // OpenRouter's own list price of the model (its public models API).
+  {
+    cached: 0.003,
+    from: "2026-11-08",
+    input: 0.15,
+    item: OPENROUTER_DEEPSEEK,
+    output: 0.6,
+    read: "2026-11-28",
+    source: "https://openrouter.ai/deepseek/deepseek-v4.1-flash-1017",
   },
   {
     from: "2026-09-30",

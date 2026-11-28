@@ -5,11 +5,11 @@ import { join } from "node:path";
 import { setSettings, settings } from "../core/settings";
 import { SourceEvent } from "../records/source";
 import {
-  earliestAppleHealth,
   type Measurement,
   newestAppleHealth,
   nightsOf,
   readAppleHealth,
+  readHeldAppleHealth,
   syncAppleHealth,
 } from "./apple-health";
 
@@ -109,7 +109,7 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
     );
   }) as typeof globalThis.fetch);
   try {
-    expect(earliestAppleHealth(dir)).toBeNull();
+    expect(readHeldAppleHealth(dir)).toBeNull();
     expect(newestAppleHealth(dir)).toEqual({ at: null });
     expect(readAppleHealth(new Date(0), undefined, dir)).toEqual([]);
     await syncAppleHealth(dir);
@@ -122,7 +122,11 @@ test("sync pages after its copied cursor, replaces a changed id and rebuilds a l
       text: "walking, 280 kcal",
       until: base.endAt,
     });
-    expect(earliestAppleHealth(dir)).toBe(base.startAt);
+    expect(readHeldAppleHealth(dir)).toEqual({
+      count: 1,
+      earliest: base.startAt,
+      noun: "readings",
+    });
     expect(newestAppleHealth(dir)).toEqual({ at: base.startAt });
     expect(readAppleHealth(new Date(0), new Date(base.startAt), dir)).toEqual(
       []

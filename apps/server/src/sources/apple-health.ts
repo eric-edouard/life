@@ -4,7 +4,7 @@ import { z } from "zod";
 import { DAY, HOUR, minutes } from "../core/clock";
 import { openReadOnly, openWritable } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
-import { isWithin } from "./contract";
+import { type Held, isWithin } from "./contract";
 import { WATCH } from "./voice-server";
 import { call } from "./voice-server-call";
 
@@ -209,7 +209,25 @@ export function readAppleHealth(
   }
 }
 
-function readEdge(dir: string, edge: "min" | "max") {
+/** What the copied measurements hold: how many and the first; null until the voice server's copy is there. */
+export function readHeldAppleHealth(dir = WATCH): Held | null {
+  if (!existsSync(copyPathOf(dir))) {
+    return null;
+  }
+  const db = openReadOnly(copyPathOf(dir));
+  try {
+    const r = db
+      .query<{ at: string | null; count: number }, []>(
+        "select min(start_at) as at, count(*) as count from measurements"
+      )
+      .get();
+    return { count: r?.count ?? 0, earliest: r?.at ?? null, noun: "readings" };
+  } finally {
+    db.close();
+  }
+}
+
+const newestEdge = (dir = WATCH) => {
   if (!existsSync(copyPathOf(dir))) {
     return null;
   }
@@ -218,16 +236,15 @@ function readEdge(dir: string, edge: "min" | "max") {
     return (
       db
         .query<{ at: string | null }, []>(
-          `select ${edge}(start_at) as at from measurements`
+          "select max(start_at) as at from measurements"
         )
         .get()?.at ?? null
     );
   } finally {
     db.close();
   }
-}
+};
 
-export const earliestAppleHealth = (dir = WATCH) => readEdge(dir, "min");
 export const newestAppleHealth = (dir = WATCH) => ({
-  at: readEdge(dir, "max"),
+  at: newestEdge(dir),
 });

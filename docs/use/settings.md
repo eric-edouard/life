@@ -102,7 +102,8 @@ bun life import ~/Downloads/claude-export
 
 Download your data from claude.ai or ChatGPT and unzip it first (a large ChatGPT export comes as several
 `conversations-000.json` files: Life reads them as one). The optional `backfillEngine` selects the runner for
-imports and historical model backfills; without it those jobs are off. Codex uses your subscription quota, while an
+imports and historical model backfills; without it they use `engine`. `backfillFrom`, the day picked under setup's
+"How far back", starts the backfill. Codex uses your subscription quota, while an
 API engine uses its paid credits. This setting leaves the nightly runner unchanged.
 
 The dry run copies nothing and calls no model; it says what is new in the export. A newer export imports the same way:

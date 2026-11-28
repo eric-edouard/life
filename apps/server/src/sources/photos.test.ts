@@ -8,8 +8,8 @@ import type { Contact } from "./contacts";
 import { toAppleS } from "./imessage";
 import { writeDescriptions } from "./photo-descriptions";
 import {
-  earliestPhoto,
   newestPhoto,
+  readHeldPhoto,
   readPhotoOffsets,
   readPhotos,
   waitingPhotos,
@@ -209,7 +209,11 @@ test("trashed, hidden, screenshots, unpicked burst frames and undated photos are
     readPhotos(since, before, dir, []).map((e) => e.id);
   expect(read(new Date("2026-10-15T00:00:00Z"))).toEqual(["photos:keep"]);
   expect(read()).toEqual(["photos:keep", "photos:after-window"]);
-  expect(earliestPhoto(dir)).toBe("2026-09-30T23:59:00.000Z");
+  expect(readHeldPhoto(dir)).toEqual({
+    count: 3,
+    earliest: "2026-09-30T23:59:00.000Z",
+    noun: "photos",
+  });
   expect(newestPhoto(dir).at).toBe("2026-10-20T00:00:00.000Z");
 });
 

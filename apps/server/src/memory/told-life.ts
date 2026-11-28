@@ -4,7 +4,7 @@ import { clock } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { isoDateTime } from "../records/fields";
 import type { SourceEvent } from "../records/source";
-import type { Newest } from "../sources/contract";
+import type { Held, Newest } from "../sources/contract";
 import { MEMORY } from "./memory-files";
 
 // What he told Life in a chat with ChatGPT or Claude (`tell_life`, the connector): his words, verbatim, and the question
@@ -59,11 +59,15 @@ export const newestToldLife = (): Newest => ({
   at: readAll().at(-1)?.at ?? null,
 });
 
-/** The first timestamp in the read-once told cache. */
-export const readEarliestToldLife = () =>
-  readAll()
-    .map((t) => t.at)
-    .sort()[0] ?? null;
+/** What he told Life: how many lines, and the first, from the read-once told cache. */
+export const readHeldToldLife = (): Held => {
+  const all = readAll();
+  return {
+    count: all.length,
+    earliest: all.map((t) => t.at).sort()[0] ?? null,
+    noun: "messages",
+  };
+};
 
 /** What he told Life since `since`: his words marked, each question as the assistant's line just before. */
 export function readToldLife(since: Date, before?: Date): SourceEvent[] {

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   changeSetting,
+  readBackfillEngine,
   readSettings,
   SettingChange,
   Settings,
@@ -154,6 +155,29 @@ test("his halo settings are saved whole beside his amount; a value past its safe
   refused({ ...AURA, wobble: 1 });
   refused({ ...AURA, states: { ...AURA.states, still: undefined } });
   expect(() => changeSetting({})).toThrow("Not done");
+});
+
+test("his word sets the day the backfill reads from, a real local day; the backfill runs on his engine unless he names another", () => {
+  const before = readSettings();
+  try {
+    expect(changeSetting({ backfillFrom: "2021-03-04" }).backfillFrom).toBe(
+      "2021-03-04"
+    );
+    setSettings({ backfillEngine: "openrouter", engine: "claude" });
+    expect(readBackfillEngine()).toBe("openrouter");
+    setSettings({ backfillEngine: null });
+    expect(readBackfillEngine()).toBe("claude");
+  } finally {
+    setSettings({
+      backfillEngine: null,
+      backfillFrom: null,
+      engine: before.engine ?? null,
+    });
+  }
+  expect(readSettings().backfillFrom).toBeUndefined();
+  expect(SettingChange.safeParse({ backfillFrom: "2021-02-30" }).success).toBe(
+    false
+  );
 });
 
 test("his word sets the apps he pays with, the whole list, keeping his payments' source; an http link or a payer outside his directory's refs is refused", () => {

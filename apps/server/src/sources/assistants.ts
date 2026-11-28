@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { OWNER_DATA_DIR } from "../core/paths";
 import type { SourceEvent } from "../records/source";
-import { isWithin, type Newest } from "./contract";
+import { type Held, isWithin, type Newest } from "./contract";
 
 // His conversations with AI assistants, from the exports of claude.ai and ChatGPT (~/Life/docs/
 // claude-import-scope-2026-10-21.md). Each export is kept as it came in `imports/<source>/` in his data (an export
@@ -441,11 +441,17 @@ export const readAssistant =
       .filter(isWithin(since, before))
       .sort((a, b) => a.at.localeCompare(b.at));
 
-/** The first imported message's timestamp, using the export's read-once cache. */
-export const readEarliestAssistant = (source: Assistant) =>
-  conversationsOf(source)
-    .flatMap((c) => c.messages.map((m) => m.at))
-    .sort()[0] ?? null;
+/** What an export holds: how many conversations and the first message among them. */
+export const readHeldAssistant = (source: Assistant): Held => {
+  const conversations = conversationsOf(source);
+  return {
+    count: conversations.length,
+    earliest:
+      conversations.flatMap((c) => c.messages.map((m) => m.at)).sort()[0] ??
+      null,
+    noun: "conversations",
+  };
+};
 
 /** The status snapshot's card: when his newest imported message was, and how many conversations were imported. */
 export function newestAssistant(source: Assistant): Newest {
