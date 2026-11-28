@@ -401,7 +401,7 @@ test("his Yes on an at organization card adds that one member with the card's ro
   await expect(yes()).rejects.toThrow("me is already at test-garage");
 });
 
-test("an edit of one handle keeps his comments and the rest of the file as written; `voice` replaces its old name `lifelog`", async () => {
+test("an edit of one handle keeps his comments and the rest of the file as written", async () => {
   const id = "00000000-0000-8000-8000-0000000000b1";
   const bea = [
     "  - id: test-bea",
@@ -410,7 +410,6 @@ test("an edit of one handle keeps his comments and the rest of the file as writt
     "    relation: friend",
     "    aliases: [Bea, Béa]",
     "    handles:",
-    `      lifelog: ${id}`,
     "      # Owner, 2 Nov: her work address.",
     '      email: ["bea@example.test"]',
   ];
@@ -424,12 +423,12 @@ test("an edit of one handle keeps his comments and the rest of the file as writt
     handles: { voice: id },
     id: "test-bea",
     kind: "person",
-    said: "Rename both",
+    said: "Her voice is this one",
   });
   const after = file("people.yaml");
   expect(after).toBe(
     before.replace(
-      `      lifelog: ${id}\n      # Owner, 2 Nov: her work address.\n      email: ["bea@example.test"]\n`,
+      `      # Owner, 2 Nov: her work address.\n      email: ["bea@example.test"]\n`,
       `      # Owner, 2 Nov: her work address.\n      email: ["bea@example.test"]\n      voice: ${id}\n`
     )
   );

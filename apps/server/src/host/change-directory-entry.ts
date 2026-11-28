@@ -332,12 +332,9 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
 
 /** His handles over the ones there: lists added to, never replaced. */
 function handlesWith(
-  all: Record<string, unknown>,
+  old: Record<string, unknown>,
   h: NonNullable<DirectoryEntryChange["handles"]>
 ) {
-  // `lifelog`, `voice`'s old name, goes when he gives `voice` (PLAN.md: removed with the old name in the follow-up PR).
-  const { lifelog: _old, ...rest } = all;
-  const old = h.voice ? rest : all;
   return {
     ...old,
     ...(h.email && { email: union(old.email, h.email) }),
