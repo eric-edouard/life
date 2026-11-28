@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isCollection, isMap, isSeq, parseDocument, type YAMLMap } from "yaml";
 import { z } from "zod";
 import { writeWhole } from "../core/files";
 import { oneAtATimeAcross } from "../core/lock";
@@ -24,7 +25,7 @@ import {
 import { recordToldLife } from "../memory/told-life";
 import { PERSON } from "../memory/units";
 import { slug } from "../records/fields";
-import { Handles, OrganizationPerson, PictureFrom } from "../records/truth";
+import { OrganizationPerson, PictureFrom } from "../records/truth";
 import { listRow } from "./init";
 
 // Changes his directory (docs/glossary.md: his people, organizations, projects, areas and goals, in truth/) by his own
@@ -79,10 +80,8 @@ export const DirectoryEntryChange = z.object({
 export type DirectoryEntryChange = z.infer<typeof DirectoryEntryChange>;
 type Change = DirectoryEntryChange;
 
-const ENTRY = /^ {2}- /;
 const NEWLINE = /[\r\n]/;
 const HEADING = /^#{1,2} /m;
-const NOTHING = /^\s*(#.*)?$/;
 const CONTINUES = /^(\s|-)/;
 const FRONT = /^---\n([\s\S]*?)\n---\n?/;
 const GOAL = /^\d+\.\s/;
@@ -123,30 +122,73 @@ const LISTS = {
 } as const;
 type List = (typeof LISTS)[keyof typeof LISTS];
 
-/** A list's file with `entry` added at the end of its list, or, with `id`, replacing that one entry (its comments go with it). */
-function withEntry(text: string, key: List, entry: object, id?: string) {
-  const row = listRow(entry);
-  if (!id) {
+type Row = Record<string, unknown>;
+const isPlain = (v: unknown): v is Row =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Sets in `map` only what differs from `was` to `next`, a nested map field by field: every other node keeps its comments and style. */
+function setChanged(
+  doc: ReturnType<typeof parseDocument>,
+  map: YAMLMap,
+  was: Row,
+  next: Row
+) {
+  for (const [k, v] of Object.entries(next)) {
+    const old = map.get(k, true);
+    if (isPlain(v) && isPlain(was[k]) && isMap(old)) {
+      setChanged(doc, old, was[k], v);
+    } else if (JSON.stringify(v) !== JSON.stringify(was[k])) {
+      const node = doc.createNode(v);
+      if (isCollection(old) && isCollection(node)) {
+        node.flow = old.flow;
+      }
+      map.set(k, node);
+    }
+  }
+  for (const k of Object.keys(was).filter((x) => !(x in next))) {
+    map.delete(k);
+  }
+}
+
+/** The entry `id` of `key`'s list in a parsed `doc`, with its place in the text it was parsed from. */
+function entryNode(
+  doc: ReturnType<typeof parseDocument>,
+  key: List,
+  id: string
+) {
+  const list = doc.get(key);
+  const node = isSeq(list)
+    ? list.items.find((i) => isMap(i) && i.get("id") === id)
+    : undefined;
+  return isMap(node) && node.range
+    ? { node, range: node.range }
+    : refuse(`${key}.yaml has no entry ${id} this tool can edit.`);
+}
+
+/**
+ * A list's file with `entry` added at the end of its list, or, with `id`, that one entry edited in place: only its
+ * fields that change are written, so his comments and the rest of the file stay as they are.
+ */
+function withEntry(
+  text: string,
+  key: List,
+  entry: Row,
+  edit?: { id: string; was: Row }
+) {
+  if (!edit) {
     const open = text.replace(
       new RegExp(`^${key}:\\s*\\[\\]\\s*$`, "m"),
       () => `${key}:`
     );
-    return `${open.trimEnd()}\n${row}\n`;
+    return `${open.trimEnd()}\n${listRow(entry)}\n`;
   }
-  const lines = text.split("\n");
-  const starts = lines.flatMap((l, i) => (ENTRY.test(l) ? [i] : []));
-  const entries = entriesOf(text, key);
-  const k = entries.findIndex((e) => e.id === id);
-  const start = starts[k];
-  if (start === undefined || starts.length !== entries.length) {
-    return refuse(`${key}.yaml has no entry ${id} this tool can edit.`);
-  }
-  let end = starts[k + 1] ?? lines.length;
-  while (end - 1 > start && NOTHING.test(lines[end - 1] ?? "")) {
-    end -= 1;
-  }
-  lines.splice(start, end - start, row);
-  return lines.join("\n");
+  const doc = parseDocument(text);
+  const { node, range } = entryNode(doc, key, edit.id);
+  setChanged(doc, node, edit.was, entry);
+  // The edited entry alone is taken from the new text: the rest keeps his own spacing, which the printer would change.
+  const out = doc.toString({ flowCollectionPadding: false, lineWidth: 0 });
+  const [start, , end] = entryNode(parseDocument(out), key, edit.id).range;
+  return text.slice(0, range[0]) + out.slice(start, end) + text.slice(range[2]);
 }
 
 /** A project file with its frontmatter lines for `fields` set (others and the notes untouched). */
@@ -272,15 +314,16 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
   ] as const;
 }
 
-/** His handles over the ones there: lists added to, never replaced; a kind of handle Life no longer has goes (the strict schema would refuse it). */
+/** His handles over the ones there: lists added to, never replaced. */
 function handlesWith(
-  old: Record<string, unknown>,
+  all: Record<string, unknown>,
   h: NonNullable<DirectoryEntryChange["handles"]>
 ) {
+  // `lifelog`, `voice`'s old name, goes when he gives `voice` (PLAN.md: removed with the old name in the follow-up PR).
+  const { lifelog: _old, ...rest } = all;
+  const old = h.voice ? rest : all;
   return {
-    ...Object.fromEntries(
-      Object.entries(old).filter(([k]) => k in Handles.shape)
-    ),
+    ...old,
     ...(h.email && { email: union(old.email, h.email) }),
     ...(h.phone && { phone: union(old.phone, h.phone) }),
     ...(h.whatsapp && { whatsapp: union(old.whatsapp, h.whatsapp) }),
@@ -341,7 +384,10 @@ function entryWrite(a: Change, read: Read) {
   if (a.kind === "organization") {
     Object.assign(entry, organizationFieldsOf(a, was));
   }
-  return [file, withEntry(text, key, entry, isAdd ? undefined : id)] as const;
+  return [
+    file,
+    withEntry(text, key, entry, isAdd ? undefined : { id, was: { ...was } }),
+  ] as const;
 }
 
 /** The one file this change writes: its path under truth/ and its new text. Pure: nothing is written. */

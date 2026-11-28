@@ -362,12 +362,24 @@ test("his Yes on an at organization card adds that one member with the card's ro
   await expect(yes()).rejects.toThrow("me is already at test-garage");
 });
 
-test("his word moves a handle kind Life renamed (lifelog to voice): the old key goes, the entry validates again", async () => {
+test("an edit of one handle keeps his comments and the rest of the file as written; `voice` replaces its old name `lifelog`", async () => {
   const id = "00000000-0000-8000-8000-0000000000b1";
+  const bea = [
+    "  - id: test-bea",
+    "    name: Test Bea",
+    "    # Owner, 1 Nov: met at the bakery.",
+    "    relation: friend",
+    "    aliases: [Bea, Béa]",
+    "    handles:",
+    `      lifelog: ${id}`,
+    "      # Owner, 2 Nov: her work address.",
+    '      email: ["bea@example.test"]',
+  ];
   writeFileSync(
     join(TRUTH, "people.yaml"),
-    `${file("people.yaml")}  - id: test-bea\n    name: Test Bea\n    handles: { lifelog: ${id} }\n`
+    `${file("people.yaml").trimEnd()}\n${bea.join("\n")}\n  # the last line\n`
   );
+  const before = file("people.yaml");
   await changeDirectoryEntry({
     action: "edit",
     handles: { voice: id },
@@ -375,7 +387,14 @@ test("his word moves a handle kind Life renamed (lifelog to voice): the old key 
     kind: "person",
     said: "Rename both",
   });
-  const bea = (await loadTruth()).people.find((p) => p.id === "test-bea");
-  expect(bea?.handles.voice).toBe(id);
-  expect(file("people.yaml")).not.toContain("lifelog");
+  const after = file("people.yaml");
+  expect(after).toBe(
+    before.replace(
+      `      lifelog: ${id}\n      # Owner, 2 Nov: her work address.\n      email: ["bea@example.test"]\n`,
+      `      # Owner, 2 Nov: her work address.\n      email: ["bea@example.test"]\n      voice: ${id}\n`
+    )
+  );
+  expect(
+    (await loadTruth()).people.find((p) => p.id === "test-bea")?.handles.voice
+  ).toBe(id);
 });
