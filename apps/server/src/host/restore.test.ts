@@ -13,7 +13,11 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { sha256Of } from "../core/hash";
-import { DESK_STORE, OWNER_DATA_DIR } from "../core/paths";
+import {
+  DESK_STORE,
+  OWNER_DATA_DIR,
+  PROJECT_WORK_FOLDERS,
+} from "../core/paths";
 import { linesIn, rowsIn, stage } from "./export";
 import { started } from "./init";
 import { putNotes, restore } from "./restore";
@@ -239,4 +243,25 @@ test("a failed note placement takes back only the notes it made that still hold 
   expect(readFileSync(note("asg_3"), "utf8")).toBe(
     "Test notes: another writer's"
   );
+});
+
+test("a project's files come back, never over another file of the same place, and nothing is installed or run", async () => {
+  const project = join(PROJECT_WORK_FOLDERS, "bakery-page");
+  mkdirSync(join(project, "node_modules"), { recursive: true });
+  writeFileSync(join(project, "PLAN.md"), "plan");
+  writeFileSync(
+    join(project, "package.json"),
+    '{"scripts":{"postinstall":"touch ran"}}'
+  );
+  const dir = await exported();
+  rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
+  const other = install();
+  mkdirSync(join(other.state, "projects", "bakery-page"), { recursive: true });
+  writeFileSync(join(other.state, "projects", "bakery-page", "PLAN.md"), "x");
+  await expect(restore(dir, other)).rejects.toThrow("holds another file");
+  const to = install();
+  await restore(dir, to);
+  const back = join(to.state, "projects", "bakery-page");
+  expect(readFileSync(join(back, "PLAN.md"), "utf8")).toBe("plan");
+  expect(existsSync(join(back, "ran"))).toBe(false);
 });

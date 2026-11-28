@@ -324,7 +324,7 @@ Each snapshot holds one export (`stage`, `apps/server/src/host/export.ts`, the s
 everything…):
 
 - `data/`: the owner's data, cloned under the lock (the one reader that takes it);
-- `state/`: Life's state without secrets or the rebuildable index, passages and vectors, with the watcher's store and cursor;
+- `state/`: Life's state without secrets or the rebuildable index, passages and vectors, with the watcher's store and cursor and the one-off projects' work folders (`projects/<id>/`) without files starting `.env`, `node_modules`, build caches or git history (life#1607; the project's agent reinstalls packages on its next wake, Life runs no install at import);
 - `archive/`: every archive store and its media;
 - `notes/`: each desk assignment's notes file kept outside Life's state (in `desk.agentsRepo`), as `<asg>.md`; an import puts each back at the path its store names, never over a file there;
 - `manifest.json`: every file's sha256, what each part holds, and the secrets left out, by name.

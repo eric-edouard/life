@@ -1,10 +1,13 @@
 import {
+  closeSync,
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -49,8 +52,8 @@ export const FORMAT = 1;
 export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
- * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own), one-off projects' work folders (an agent's scratch work), and the
- * secrets.
+ * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own) and the
+ * secrets. One-off projects' work folders (`state/projects/`) are copied apart by `stageProjects`.
  */
 const KEPT_OUT = [
   WATCH,
@@ -63,7 +66,50 @@ const KEPT_OUT = [
   PROJECT_WORK_FOLDERS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
+/** Inside a project's work folder, never exported: its `.git` (history is not backed up: life#1607), its secret files (any name starting `.env`) and its installed packages and build caches (its agent reinstalls packages after a restore; the owner, 28 Nov 2026). */
+const PROJECT_LEFT_OUT =
+  /(^|\/)(node_modules|\.git|\.cache|\.turbo|\.next|\.env[^/]*)(\/|$)/;
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
+
+/** Whether `file` is a SQLite database, by its header: a live store (WAL) is copied by SQLite, whatever its name. */
+const isDb = (file: string) => {
+  const fd = openSync(file, "r");
+  try {
+    const head = Buffer.alloc(16);
+    readSync(fd, head, 0, 16, 0);
+    return head.toString("latin1") === "SQLite format 3\0";
+  } finally {
+    closeSync(fd);
+  }
+};
+
+/**
+ * One-off projects' work folders (the owner, 28 Nov 2026): plain files, nothing renamed or filtered by name but the
+ * left-out ones. Links are left out (a link could carry a secret file out); a store is copied whole by SQLite, and a
+ * failure stops the staging rather than keep a copy that may not be consistent.
+ */
+function stageProjects(dir: string) {
+  if (!existsSync(PROJECT_WORK_FOLDERS)) {
+    return;
+  }
+  const to = join(dir, "state", "projects");
+  cpSync(PROJECT_WORK_FOLDERS, to, {
+    filter: (from) =>
+      !(
+        PROJECT_LEFT_OUT.test(pathIn(PROJECT_WORK_FOLDERS, from)) ||
+        lstatSync(from).isSymbolicLink()
+      ),
+    recursive: true,
+  });
+  for (const p of filesUnder(to)) {
+    if (existsSync(join(to, p)) && isDb(join(to, p))) {
+      rmSync(join(to, p));
+      copyDb(join(PROJECT_WORK_FOLDERS, p), join(to, p));
+      rmSync(join(to, `${p}-wal`), { force: true });
+      rmSync(join(to, `${p}-shm`), { force: true });
+    }
+  }
+}
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
 export const filesUnder = (dir: string) =>
@@ -132,7 +178,9 @@ export async function inventory(dir: string) {
     lines: linesIn(join(dir, "data")),
     rows: Object.fromEntries(
       filesUnder(dir)
-        .filter((p) => p.endsWith(".sqlite"))
+        .filter(
+          (p) => p.endsWith(".sqlite") && !p.startsWith("state/projects/")
+        )
         .map((p) => [p, rowsIn(join(dir, p))])
     ),
   };
@@ -229,7 +277,11 @@ export async function stage(
     },
     recursive: true,
   });
+  stageProjects(dir);
   for (const p of filesUnder(join(dir, "state"))) {
+    if (p.startsWith("projects/")) {
+      continue;
+    }
     const staged = join(dir, "state", p);
     if (KEPT_OUT_END.some((e) => p.endsWith(e))) {
       rmSync(staged, { force: true });

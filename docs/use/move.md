@@ -6,8 +6,8 @@ your Life at a time: two would read the same sources twice and hand your agent e
 ## On the old Mac
 
 1. Open Life's settings and press **Export everything…**. Pick a folder on a drive the new Mac can read.
-   The export holds your memory, Life's state, the archive and a list of every file with its checksum. It holds no
-   secrets; the list names the ones you will give again.
+   The export holds your memory, Life's state, the archive and a list of every file with its checksum. It leaves out
+   Life's secrets and any project file starting `.env`; the list names the secrets you will give again.
 2. Quit Life from its menu, and turn off **Open Life at login**, so it doesn't start again.
 
 ## On the new Mac

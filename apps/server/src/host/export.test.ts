@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -17,7 +18,7 @@ import { PASSAGES } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
 import { writePassages } from "../memory/passages";
 import { DESCRIPTIONS } from "../sources/photo-descriptions";
-import { stage, stateInDataOf } from "./export";
+import { rowsIn, stage, stateInDataOf } from "./export";
 
 const SECRET = /oauth|local\.key|\.bak$/;
 
@@ -60,15 +61,38 @@ test("an export holds everything with its checksum and counts, and never a secre
     );
     expect(existsSync(PASSAGES)).toBe(true);
 
-    // A one-off project's work folder: an agent's scratch work, never exported.
-    mkdirSync(join(PROJECT_WORK_FOLDERS, "bakery-page"), { recursive: true });
-    writeFileSync(join(PROJECT_WORK_FOLDERS, "bakery-page", "PLAN.md"), "x");
+    // A one-off project's work folder: what a project made, exported apart from the filters.
+    const project = join(PROJECT_WORK_FOLDERS, "bakery-page");
+    mkdirSync(join(project, "node_modules"), { recursive: true });
+    writeFileSync(join(project, "PLAN.md"), "x");
+    writeFileSync(join(project, "result.tmp"), "y");
+    writeFileSync(join(project, "notes.sqlite"), "not a database");
+    writeFileSync(join(project, ".env.local"), "KEY=made-up");
+    writeFileSync(join(project, "node_modules", "pkg.js"), "z");
+    mkdirSync(join(project, ".git"));
+    writeFileSync(join(project, ".git", "HEAD"), "ref");
+    writeFileSync(join(project, ".envrc"), "KEY=made-up");
+    const live = new Database(join(project, "live.sqlite"));
+    live.run("pragma journal_mode = wal");
+    live.run("create table t (a)");
+    live.run("insert into t values (1)");
+    symlinkSync(join(project, ".env.local"), join(project, "config"));
 
     const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
     const m = await stage(dir, archive);
+    // The live store, its WAL not checkpointed, comes whole.
+    expect(rowsIn(join(dir, "state/projects/bakery-page/live.sqlite"))).toEqual(
+      { t: 1 }
+    );
+    live.close();
     rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
-    expect(paths.filter((p) => p.startsWith("state/projects/"))).toEqual([]);
+    // A project's files, odd names kept, links left out, never its .git or a file starting .env; its secret files and packages left out.
+    expect(paths.filter((p) => p.startsWith("state/projects/")).sort()).toEqual(
+      ["PLAN.md", "live.sqlite", "notes.sqlite", "result.tmp"].map(
+        (f) => `state/projects/bakery-page/${f}`
+      )
+    );
     expect(paths).toContain("archive/whatsapp.sqlite");
     expect(paths).toContain("archive/phone.sqlite");
     expect(m.counts.rows["archive/phone.sqlite"]).toEqual({ calls: 1 });
