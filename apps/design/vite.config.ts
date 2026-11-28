@@ -96,6 +96,7 @@ function servedFolders(): Plugin {
             name,
             name.toLowerCase() === "cache-control" ? "no-store" : value
           );
+        set("Cache-Control", "no-store");
         next();
       });
       server.middlewares.use((req, res, next) => {
