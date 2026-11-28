@@ -85,7 +85,7 @@ export const quietestAt = (n: Newest) =>
     : n.at;
 
 /**
- * Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (AGENTS.md), in `tz` (the
+ * Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (.claude/rules/one-way.md), in `tz` (the
  * Mac's zone read now, `systemZone`: a long-running process's own zone can be the one it started in).
  */
 export const waking = (d: Date, tz: string | undefined) => {

@@ -449,7 +449,7 @@ const STARTS_MODEL = [
 ];
 const RUNS_PROGRAMS = /Bun\.spawn|Bun\.\$|\bexec\(|spawnSync|child_process/;
 
-// Life's own model calls are llm.ts's; the desk's runtime rows and pi runtime start his registered agents' sessions (AGENTS.md);
+// Life's own model calls are llm.ts's; the desk's runtime rows and pi runtime start his registered agents' sessions (.claude/rules/desk.md);
 // voice.ts starts voice's Mac helper (its summaries on the pinned Codex) and that Codex's own sign-in.
 test("only llm.ts, the desk's runtime rows and voice start the model CLIs", async () => {
   const code = repoFiles(

@@ -14,6 +14,7 @@ import { notifyPhone, pushIdOf } from "../sources/voice-server-push";
 import {
   type Desk,
   readSpokenAsksCursor,
+  recordToldWork,
   saveSpokenAsksCursor,
 } from "./desk-store";
 import { queue } from "./event-queue";
@@ -193,7 +194,10 @@ export async function receiveSpokenAsks(desk: Desk) {
     const to = toldToOf(a);
     return to ? [{ a, place: toldPlaceOf(db, to), to }] : [];
   });
-  db.transaction(() =>
+  db.transaction(() => {
+    for (const { a } of told) {
+      recordToldWork(db, a);
+    }
     queue(
       db,
       ASK_SPOKEN,
@@ -202,8 +206,8 @@ export async function receiveSpokenAsks(desk: Desk) {
           ? [{ assignment: place, eventId: a.id, payload: payloadOf(a, to) }]
           : []
       )
-    )
-  )();
+    );
+  })();
   const orphans = told.filter(({ place }) => !place);
   if (orphans.length > 0) {
     const newest = orphans.reduce((n, { a }) => (a.at > n ? a.at : n), "");
@@ -262,8 +266,22 @@ export async function receiveSpokenAsks(desk: Desk) {
 }
 
 /**
+ * His thread entry told ask `a` came from: `after.entry`, else, for an ask told before it was kept (28 Nov 2026), the
+ * work `tellAgent` handed at the ask's own instant. ponytail: drop the second once no such ask stays open (from 2027).
+ */
+const entryOfAsk = (db: Desk["db"], a: LedgerEntry) =>
+  typeof a.after.entry === "number"
+    ? a.after.entry
+    : db
+        .query<{ entry_id: number }, [string, string]>(
+          "select entry_id from handed_work where assignment_id = ? and handed_at = ?"
+        )
+        .get(String(a.after.to), a.at)?.entry_id;
+
+/**
  * His words through Ask Life that the main session told an agent (`tell_agent`), as that agent reads them through its
- * door (`read_spoken_ask`): only one received on assignment `s` (its `ask.spoken` event there). Verbatim, as data.
+ * door (`read_spoken_ask`): only one received on assignment `s` (its `ask.spoken` event there). Verbatim, as data,
+ * with his thread entry they came from (`entry`, for `read_handed_conversation`), when kept.
  */
 export function readSpokenAsk(
   { db }: Desk,
@@ -274,5 +292,9 @@ export function readSpokenAsk(
   if (!(a?.instruction && isSpokenAsk(a) && toldToOf(a))) {
     return { error: `Not done: no spoken ask ${ask} was received here.` };
   }
-  return { at: a.instruction.at, words: a.instruction.quote };
+  return {
+    at: a.instruction.at,
+    entry: entryOfAsk(db, a),
+    words: a.instruction.quote,
+  };
 }

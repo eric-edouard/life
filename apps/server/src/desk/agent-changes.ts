@@ -1,9 +1,10 @@
 import { existsSync } from "node:fs";
-import { isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { DESK_AGENT } from "../core/names";
+import { PROJECT_WORK_FOLDERS } from "../core/paths";
 import { asksFor } from "../host/asks";
 import {
   agentChangeOf,
@@ -98,7 +99,7 @@ function subjectRefusal(desk: Desk, c: AgentChange, self?: string) {
  * Starts on his words (`brief`). On a matter: an assignment of the agent that takes it (`taker`, `agentForOf`), his words
  * kept as `said`; an agent that holds it already answers. On a project or as the Personal agent: a new agent, on a
  * runtime the desk drives that answers, or else pi (`blocked`: why neither can now, `startBlockOf`), in a folder that exists when one is named (the
- * Personal agent's home by default). A repeat (an active agent on the same project, or the Personal agent, started on
+ * Personal agent's home by default, a one-off project's its work folder). A repeat (an active agent on the same project, or the Personal agent, started on
  * the same words) is that agent, not a refusal. A start hands over the stopped agents on its subject.
  */
 export function start(
@@ -158,10 +159,12 @@ export function start(
   if (refused) {
     return { error: refused };
   }
+  // A one-off project's agent runs in its work folder (made by `openOneOffProject`), whichever door starts it.
+  const work = c.project ? join(PROJECT_WORK_FOLDERS, c.project) : undefined;
   const id = register(desk, {
     brief,
     effort: c.effort,
-    folder: c.folder,
+    folder: c.folder ?? (work && existsSync(work) ? work : undefined),
     model: c.model,
     name: c.name,
     project: c.project,

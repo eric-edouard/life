@@ -1,0 +1,210 @@
+<!doctype html>
+<!-- Onboarding on the phone, round 1 (28 Nov 2026): bundles I (day one: pairing, permissions in context, the pendant,
+     messaging apps) and I2 (getting to know you, the first small task). It happens in Life's own thread, App v4's, not
+     in screens: Life says why, asks one thing with two pills (Later on the left, the answer on the right), and the
+     system's own prompt follows. Every line reads the integrations (integrations.js). Known answers are skipped: the
+     name comes from the computer, so the phone greets by it. A step left becomes an ask, counted, never a nag.
+     Parts marked "new block" are proposals; everything is made up. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Onboarding: the phone</title>
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<link rel="stylesheet" href="../2026-11-28-turn-by-turn-v3/edge.css">
+<link rel="stylesheet" href="../2026-11-28-turn-by-turn-v3/shell.css">
+<link rel="stylesheet" href="onboarding.css">
+<style>
+.stage>*{flex:none}
+.o-sp{margin-top:auto!important}
+.o-me{align-self:flex-end;max-width:300px;margin-top:14px;padding:9px 14px;border-radius:20px;background:var(--tint);font-weight:600;animation:rise .3s ease-out}
+.o-bt{margin-top:14px;font-size:15.5px;line-height:1.45;animation:rise .4s ease-out}
+.o-bt b{font-weight:650}
+.o-hi{margin-top:14px;font-size:var(--text-profile);font-weight:650;letter-spacing:-.015em;animation:rise .4s ease-out}
+.o-step{margin-top:14px;display:flex;align-items:center;gap:9px;color:var(--muted);animation:rise .3s ease-out}
+.o-step b{color:var(--fg);font-weight:600}
+.o-line{align-self:center;margin-top:10px;font-size:13px;color:var(--muted);animation:rise .3s ease-out}
+.o-new{position:absolute;top:-8px;right:10px;padding:1px 7px;border-radius:8px;background:var(--bg);font-style:normal;font-size:10.5px;font-weight:650;color:var(--flag)}
+/* a question's two pills: Later left, the likelier answer inverted on the right */
+.o-two{display:flex;gap:8px;margin-top:12px;animation:rise .35s ease-out}
+.o-pill{flex:1;height:44px;border-radius:22px;background:var(--tint);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .25s,color .25s,opacity .25s}
+.o-pill.main{background:var(--fg);color:var(--on);font-weight:650}
+.o-pill.okd{background:var(--ok);color:var(--on)}
+.o-two.gone{opacity:0;height:0;margin:0;overflow:hidden;transition:opacity .2s,height .3s .1s,margin .3s .1s}
+/* a block in the thread */
+.o-box{position:relative;margin-top:12px;background:var(--tile);border-radius:var(--block-radius);padding:14px 16px;display:flex;flex-direction:column;gap:12px;animation:rise .38s ease-out}
+/* an app to tick: its icon, its name, its note; then its state, live */
+.o-app{display:flex;align-items:center;gap:12px;width:100%;text-align:left}
+.o-app .tx{flex:1;min-width:0}.o-app b{display:block;font-size:var(--text-title);font-weight:650}
+.o-app small{display:block;font-size:var(--text-line);color:var(--muted)}
+.o-tk{flex:none;width:22px;height:22px;border-radius:7px;background:var(--tint);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:650;color:var(--on);transition:background .2s}
+.o-app[aria-checked="true"] .o-tk{background:var(--fg)}.o-app[aria-checked="true"] .o-tk::after{content:'✓'}
+.o-st{flex:none;font-size:13.5px;font-weight:650;display:flex;align-items:center;gap:6px}
+/* the system's own prompt (iOS draws it; drawn here only to show the order) */
+.o-sys{position:absolute;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);animation:rise .2s ease-out}
+.o-alert{width:270px;border-radius:14px;background:rgba(44,44,48,.92);-webkit-backdrop-filter:blur(30px);backdrop-filter:blur(30px);text-align:center;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+.o-alert b{display:block;padding:18px 16px 4px;font-size:16px;font-weight:600;line-height:1.3}
+.o-alert p{margin:0;padding:0 16px 16px;font-size:13px;line-height:1.35}
+.o-alert .bb{display:flex;box-shadow:inset 0 .5px 0 rgba(255,255,255,.18)}
+.o-alert button{flex:1;height:44px;font-size:16px;color:#0a84ff}
+.o-alert button+button{box-shadow:inset .5px 0 0 rgba(255,255,255,.18);font-weight:600}
+/* the camera, to scan the computer's code */
+.o-cam{position:absolute;inset:0;z-index:3;background:radial-gradient(90% 60% at 50% 45%,#2a2d36,#0b0c0e);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:0 32px;text-align:center}
+.o-vf{position:relative;width:240px;height:240px;border-radius:28px;box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
+.o-vf i{position:absolute;width:44px;height:44px;border:3px solid var(--fg);border-radius:4px}
+.o-vf i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-top-left-radius:28px}
+.o-vf i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-top-right-radius:28px}
+.o-vf i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-bottom-left-radius:28px}
+.o-vf i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-bottom-right-radius:28px}
+.o-vf .lap{position:absolute;inset:40px;border-radius:12px;background:#000;display:flex;align-items:center;justify-content:center;opacity:.8;transition:opacity .4s}
+.o-vf .lap span{width:90px;height:90px;border-radius:8px;background:repeating-conic-gradient(var(--fg) 0 25%,#000 0 50%) 0 0/18px 18px}
+.o-cam h2{margin:0;font-size:var(--text-header);font-weight:650}
+.o-cam p{margin:-12px 0 0;color:var(--muted);font-size:var(--text-line)}
+.o-cam.found .o-vf i{border-color:var(--ok)}
+/* the pendant pairing: its disc, then its status, live */
+.o-pd{display:flex;align-items:center;gap:14px}
+.o-pd .disc{flex:none;width:56px;height:56px;border-radius:28px;background:radial-gradient(circle at 35% 30%,#3a3b42,#1b1c20);display:flex;align-items:center;justify-content:center}
+.o-pd .disc i{width:14px;height:14px;border-radius:7px;background:var(--fg);opacity:.35;transition:opacity .4s}
+.o-pd.on .disc i{opacity:1;animation:lit 2.6s ease-in-out infinite}
+.o-pd b{display:block;font-size:var(--text-title);font-weight:650}.o-pd small{display:flex;align-items:center;gap:6px;font-size:var(--text-line);color:var(--muted)}
+.o-quote{font-size:17px;font-weight:600;line-height:1.4}
+.o-quote span{opacity:0;filter:blur(4px);transition:opacity .3s,filter .3s}.o-quote span.in{opacity:1;filter:none}
+/* the sign-in sheet (exists in the app; drawn plainly here) */
+.o-sheet{position:absolute;left:0;right:0;bottom:0;z-index:8;border-radius:22px 22px 0 0;background:#1a1b1f;padding:22px 20px 44px;display:flex;flex-direction:column;gap:14px;transform:translateY(100%);transition:transform .4s cubic-bezier(.2,.9,.25,1)}
+.o-sheet.on{transform:none}
+.o-sheet h3{margin:0;font-size:var(--text-header);font-weight:650;display:flex;align-items:center;gap:10px}
+.o-sheet .fld{height:46px;border-radius:12px;background:var(--bg);display:flex;align-items:center;padding:0 14px;color:var(--muted)}
+.o-sheet .go{height:48px;border-radius:24px;background:var(--fg);color:var(--on);font-weight:650;display:flex;align-items:center;justify-content:center;gap:8px}
+/* faces side by side, for "which one?" */
+.o-faces{display:flex;gap:18px;justify-content:center;margin-top:12px;animation:rise .35s ease-out}
+.o-face{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.o-face i{width:64px;height:64px;border-radius:32px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:22px;font-weight:650;color:#000;transition:box-shadow .25s}
+.o-face small{font-weight:450;color:var(--muted);font-size:12px}
+.o-face.picked i{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--fg)}
+/* an item: a row, its face, its title, one line (App v4's) */
+.o-row{display:flex;align-items:center;gap:14px;margin-top:12px;animation:rise .35s ease-out}
+.o-row .disc{width:44px;height:44px;border-radius:22px;background:var(--glass);display:flex;align-items:center;justify-content:center;flex:none;font-weight:650}
+.o-row b{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}.o-row small{display:block;font-size:var(--text-line);color:var(--muted)}
+.o-ring{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
+.o-cta{height:50px;border-radius:25px;background:var(--fg);color:var(--on);font-weight:650;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .25s,color .25s}
+.o-cta.busy{background:var(--tint);color:var(--fg)}.o-cta.okd{background:var(--ok);color:var(--on)}
+.o-box .opt{background:var(--card)}
+.s-pend.off,.s-count.off{visibility:hidden!important}
+</style>
+</head>
+<body>
+<script src="../2026-11-28-turn-by-turn-v3/edge.js"></script>
+<script src="../2026-11-28-turn-by-turn-v3/data.js"></script>
+<script src="../2026-11-23-chat-first/2026-11-26-design-lab/card-blocks.js" charset="utf-8"></script>
+<script src="integrations.js" charset="utf-8"></script>
+<script src="../2026-11-28-turn-by-turn-v3/shell.js"></script>
+<script>
+DATA.waiting=[];
+var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function el(cls,html,tag){var e=document.createElement(tag||'div');e.className=cls;e.innerHTML=html;return e;}
+function add(c,e){c.stage.appendChild(e);if(!c.cancelled())c.stage.scrollTo({top:c.stage.scrollHeight,behavior:reduce?'auto':'smooth'});return e;}
+function newBlock(k){return '<i class="o-new">new block · '+k+'</i>';}
+/* the top controls: the pendant's dot shows once a pendant is paired; the count once something waits */
+function topControls(c,pend,n){var p=c.phone.querySelector('.s-pend'),k=c.phone.querySelector('.s-count');p.classList.toggle('off',!pend);
+  k.classList.toggle('off',!n);k.textContent=n||'';}
+function begin(c,o){c.field.el.style.visibility='';c.stage.appendChild(el('o-sp',''));topControls(c,o&&o.pend,o&&o.n);}
+function me(c,t){var e=el('o-me','');e.textContent=t;return add(c,e);}
+/* Life's words come in word by word */
+async function say(c,html){var e=add(c,el('o-bt',''));if(reduce){e.innerHTML=html;return e;}
+  var parts=html.split(/(\s+)/);for(var i=0;i<parts.length;i++){e.innerHTML=parts.slice(0,i+1).join('');if(/\S/.test(parts[i]))await c.wait(38);}return e;}
+async function works(c,steps){c.edge.set('work');var s=add(c,el('o-step','<span class="spin"></span><span>Thinking…</span>'));await c.wait(900);
+  for(var i=0;i<steps.length;i++){s.lastChild.innerHTML=steps[i];await c.wait(1200);}s.remove();}
+/* a question's two pills; resolves with the one tapped (or Life's pick after a while, so Play all runs) */
+function ask(c,later,main,auto,autoPick){var e=add(c,el('o-two','<button type="button" class="o-pill">'+later+'</button><button type="button" class="o-pill main">'+main+'</button>'));
+  return new Promise(function(ok){var b=e.querySelectorAll('button'),done=false;
+    function pick(i){if(done)return;done=true;e.classList.add('gone');ok(i);}
+    b[0].onclick=function(){pick(0);};b[1].onclick=function(){pick(1);};c.wait(auto||3200).then(function(){pick(autoPick==null?1:autoPick);},function(){});});}
+/* the system's own prompt, after Life's line: the order this page proposes; iOS draws it */
+function sys(c,title,body){var o=el('o-sys','<div class="o-alert"><b>'+title+'</b><p>'+body+'</p><div class="bb"><button type="button">Don’t Allow</button><button type="button">Allow</button></div></div>');
+  c.phone.appendChild(o);return new Promise(function(ok){var done=false;function pick(v){if(done)return;done=true;o.remove();ok(v);}
+    o.querySelectorAll('button').forEach(function(b,i){b.onclick=function(){pick(i===1);};});c.wait(1800).then(function(){pick(true);},function(){o.remove();});});}
+/* --- the permissions, each with its value line (Life's sentence), its question, then the system's prompt --- */
+var PERMS=[
+  {why:'I find what needs you while you’re busy.',q:'Can I tell you when something needs you?',sys:['“Life” Would Like to Send You Notifications','Notifications may include alerts, sounds and icon badges.']},
+  {why:'Then “where was I on Tuesday?” has an answer, and a reminder can wait until you’re home.',q:'Can I know where you are?',sys:['Allow “Life” to use your location?','Life knows where your day happened.']},
+  {why:'Your pendant talks to your phone over Bluetooth.',q:'Can I look for your pendant?',sys:['“Life” Would Like to Use Bluetooth','To find and record from your pendant.']},
+  {why:'Hold the microphone and just talk to me.',q:'Can I hear you when you hold to talk?',sys:['“Life” Would Like to Access the Microphone','To hear you when you hold to talk.']},
+  {why:'Sleep, steps and workouts tell me how your days really go.',q:'Can I read your Health?',sys:['“Life” Would Like to Access Your Health Data','Sleep, steps and workouts, read on your phone.']},
+  {why:'A photo answers “what was that place called?”',q:'Can I see your photos?',sys:['“Life” Would Like Full Access to Your Photos','To find a photo when you ask about one.']}];
+async function permission(c,p){await say(c,p.why+' <b>'+p.q+'</b>');var v=await ask(c,'Later','Allow');
+  if(!v){me(c,'Later');return false;}me(c,'Allow');await c.wait(300);await sys(c,p.sys[0],p.sys[1]);return true;}
+/* --- the scenes --- */
+var NETS=['network:whatsapp','network:instagram','network:messenger','network:line','network:linkedin','network:telegram'].map(integration);
+var picked={'network:whatsapp':true,'network:instagram':true,'network:messenger':false,'network:line':false,'network:linkedin':false,'network:telegram':false};
+function appsBox(){return '<div class="o-box">'+newBlock('apps')+NETS.map(function(x){return '<button type="button" class="o-app" role="checkbox" data-app="'+x.id+'" aria-checked="'+picked[x.id]+'"><span class="o-tk"></span>'+appIcon(x,34)+
+  '<span class="tx"><b>'+x.name+'</b>'+(x.note?'<small>'+x.note+'</small>':'')+'</span><span class="o-st"></span></button>';}).join('')+
+  '<div class="priv">Nothing is sent in your name unless you say Send.</div><button type="button" class="o-cta" data-connect>Connect</button></div>';}
+function ring(f){return '<svg class="o-ring" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.6"/><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="'+(f*39)+' 40" transform="rotate(-90 8 8)"/></svg>';}
+Shell.mount({title:'Onboarding: the phone',onAsk:function(){},scenes:[
+  {id:'idle',label:'1. Scan the computer’s code · I',run:async function(c){begin(c);c.edge.set('still');
+    var cam=el('o-cam','<div class="o-vf"><i></i><i></i><i></i><i></i><div class="lap"><span></span></div></div><h2>Scan the code on your computer</h2><p>It’s in the Life window, at its last step.</p>');c.phone.appendChild(cam);c.field.el.style.visibility='hidden';
+    await c.wait(2200);cam.classList.add('found');cam.querySelector('h2').textContent='Found Sam’s MacBook Air';cam.querySelector('p').innerHTML='<span class="spin"></span> Linking…';
+    await c.wait(1600);cam.remove();c.field.el.style.visibility='';c.edge.set('landed');
+    add(c,el('o-hi','Hi Sam'));await say(c,'I’m on your Mac now, reading the last year of your mail, messages and photos. That takes a couple of nights; ask me anything meanwhile.');
+    await say(c,'A few things so I can help. You can leave any of them.');}},
+  {id:'notify',label:'2. Notifications, asked in context · I',run:async function(c){begin(c);
+    await permission(c,PERMS[0]);c.edge.set('landed');await say(c,'Thanks. I only tell you when something needs you.');}},
+  {id:'perms',label:'3. Each permission in turn · I',run:async function(c){begin(c);
+    for(var i=1;i<PERMS.length;i++){await permission(c,PERMS[i]);c.edge.set('landed');if(i<PERMS.length-1)await c.wait(400);}
+    await say(c,'That’s all I need on your phone.');}},
+  {id:'pendant',label:'4. Your pendant · I',run:async function(c){begin(c);
+    await say(c,'A pendant hears your day, so you never take notes. <b>Do you have one?</b>');
+    var v=await ask(c,'Not now','Omi');me(c,v?'Omi':'Not now');if(!v)return;
+    await say(c,'Press its button once and keep it close.');
+    var b=add(c,el('o-box',newBlock('pairing')+'<div class="o-pd"><span class="disc"><i></i></span><span><b>Your Omi</b><small><span class="spin"></span>Looking…</small></span></div>'));
+    var st=b.querySelector('small'),pd=b.querySelector('.o-pd');await c.wait(1800);st.innerHTML='<span class="spin"></span>Found it, pairing…';await c.wait(1500);
+    pd.classList.add('on');st.innerHTML='<span class="ok">Paired</span> · battery 92%';topControls(c,true);c.edge.set('landed');await c.wait(600);
+    await say(c,'Say something to it.');c.edge.set('listen');await c.wait(1200);
+    var q=add(c,el('o-box','<div class="o-quote"></div><div class="priv">Heard on your Mac, in English. Nothing else heard it.</div>'));
+    var words='“Testing, testing, this is Sam, in the kitchen.”'.split(' ');q.firstChild.innerHTML=words.map(function(w){return '<span>'+w+'</span>';}).join(' ');
+    var sp=q.querySelectorAll('span');for(var i=0;i<sp.length;i++){sp[i].classList.add('in');await c.wait(220);}
+    c.edge.set('landed');await say(c,'I heard you. From now on I keep what it hears, and you can pause it any time from its dot, up there.');}},
+  {id:'apps',label:'5. Messaging apps · I',run:async function(c){begin(c,{pend:true});
+    await say(c,'So I can read your chats and draft your replies: <b>which of these do you use?</b>');
+    var b=add(c,el('',appsBox()));
+    b.querySelectorAll('[data-app]').forEach(function(e){e.onclick=function(){if(e.dataset.locked)return;picked[e.dataset.app]=!picked[e.dataset.app];e.setAttribute('aria-checked',picked[e.dataset.app]);};});
+    var go=b.querySelector('[data-connect]');
+    await new Promise(function(ok){go.onclick=ok;c.wait(3600).then(ok,function(){});});
+    go.style.display='none';var list=NETS.filter(function(x){return picked[x.id];});
+    b.querySelectorAll('[data-app]').forEach(function(e){e.dataset.locked=1;if(!picked[e.dataset.app])e.style.display='none';});
+    for(var i=0;i<list.length;i++){var x=list[i],row=b.querySelector('[data-app="'+x.id+'"] .o-st');row.innerHTML='<span class="spin"></span>';
+      if(x.id==='network:whatsapp'){await c.wait(1400);row.innerHTML='<span class="ok">✓</span>';continue;}
+      var sh=el('o-sheet','<h3>'+appIcon(x,30)+'Sign in to '+x.name+'</h3><div class="fld">Phone, username or email</div><div class="fld">Password</div><div class="priv">You sign in on '+x.name+'’s own page. Life never sees your password.</div><div class="go">Sign in</div>');
+      c.phone.appendChild(sh);await c.wait(60);sh.classList.add('on');await c.wait(2000);sh.querySelector('.go').innerHTML='<span class="spin"></span>Signing in…';await c.wait(1200);
+      sh.classList.remove('on');await c.wait(400);sh.remove();row.innerHTML='<span class="ok">✓</span>';}
+    c.edge.set('landed');await say(c,'Done. Your chats arrive over the next hour.');}},
+  {id:'later',label:'6. A step left for later · I',run:async function(c){begin(c,{pend:true});
+    await say(c,'Then “where was I on Tuesday?” has an answer, and a reminder can wait until you’re home. <b>Can I know where you are?</b>');
+    var v=await ask(c,'Later','Allow',2600,0);me(c,v?'Allow':'Later');if(v)return;
+    await say(c,'Sure. It waits with the rest, never a reminder.');topControls(c,true,1);
+    add(c,el('o-row','<span class="disc">📍</span><span><b>Let Life know where you are</b><small>From setup · Later</small></span>'));}},
+  {id:'know',label:'7. Getting to know you · I2',run:async function(c){begin(c,{pend:true});
+    await say(c,'Tell me what’s going on in your life right now: what you’re working on, who matters, what you want this year. Just talk.');
+    await c.wait(500);await c.speak('I’m moving to Lisbon in March, my sister Ana is helping me, and I really need to finish my thesis by June');
+    me(c,'I’m moving to Lisbon in March, my sister Ana is helping me, and I really need to finish my thesis by June');
+    await works(c,['Looking at <b>your contacts</b>']);c.edge.set('landed');
+    await say(c,'Two goals, then: <b>finish the thesis by June</b>, and <b>the move to Lisbon in March</b>. <b>Keep them as your goals?</b>');
+    var v=await ask(c,'Not now','Keep both');me(c,v?'Keep both':'Not now');
+    await say(c,'<b>Which one is your sister?</b>');
+    var f=add(c,el('o-faces','<button type="button" class="o-face"><i style="background:var(--aura-rose)">AR</i>Ana Rivera<small>Google</small></button><button type="button" class="o-face"><i style="background:var(--aura-teal)">AC</i>Ana Costa<small>Phone</small></button>'));
+    await c.wait(1800);f.firstChild.classList.add('picked');await c.wait(600);me(c,'Ana Rivera');c.edge.set('landed');
+    await say(c,'Got it. Tell me more whenever you like; I learn the rest from your days.');}},
+  {id:'task',label:'8. The first small task · I2',run:async function(c){begin(c,{pend:true});
+    await say(c,'One thing I can do now: find movers from Lyon to Lisbon for March, and ask three of them for a quote. <b>Want me to?</b>');
+    var v=await ask(c,'Not now','Find movers');me(c,v?'Find movers':'Not now');if(!v)return;
+    await works(c,['Looking at <b>movers between Lyon and Lisbon</b>','Writing to <b>three of them</b>']);c.edge.set('landed');
+    add(c,el('o-row','<span class="disc">🚚</span><span><b>Get quotes for the move</b><small>'+ring(.3)+'Waiting on 3 movers · about 1 day</small></span>'));
+    await c.wait(2400);add(c,el('o-line','Next day, 9:10'));
+    await say(c,'Three movers answered about your move. <b>Which one?</b>');
+    var o=add(c,el('o-box','<button type="button" class="opt" role="radio" aria-checked="true"><i></i><span><b>TransEuro <em>Life’s pick</em></b><small>14 Mar · packing included · 4.8 ★</small></span><span class="fig">1,850 €</span></button>'+
+      '<button type="button" class="opt" role="radio" aria-checked="false"><i></i><span><b>Moov Iberia</b><small>18 Mar · no packing · 4.5 ★</small></span><span class="fig">1,420 €</span></button>'+
+      '<button type="button" class="opt" role="radio" aria-checked="false"><i></i><span><b>Lusa Removals</b><small>21 Mar · packing included · 4.2 ★</small></span><span class="fig">2,100 €</span></button>'+
+      '<button type="button" class="o-cta">Book TransEuro</button>'));}}]});
+</script>
+</body>
+</html>

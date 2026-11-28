@@ -494,7 +494,7 @@ export async function planDeletion(
     cuts,
     days,
     named,
-    // A chapter unit is never read again (AGENTS.md): its hash in `oldHashes` would hide every fact of it for good.
+    // A chapter unit is never read again (.claude/rules/memory.md): its hash in `oldHashes` would hide every fact of it for good.
     oldHashes: units
       .filter((u) => !isFrozen(u) && reaches.units.includes(u.id))
       .map((u) => u.hash),

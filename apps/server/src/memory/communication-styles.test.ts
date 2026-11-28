@@ -62,13 +62,15 @@ test("Life's output, the agent's reports, calls and bulk mail are never writing 
 test("a draft Life sent for him is his message but never a sample: the same words in another chat are kept", () => {
   const sent = sentDraftsOf([
     {
-      draft: {
-        channel: "whatsapp",
-        chat: "+1",
-        text: "See you at 8 ",
-        to: "Ana",
-      },
-      send: { eventId: "$e" },
+      drafts: [
+        {
+          channel: "whatsapp",
+          chat: "+1",
+          text: "See you at 8 ",
+          to: "Ana",
+        },
+      ],
+      sends: [{ eventId: "$e" }],
     } as unknown as Decision,
   ]);
   const { chat } = styleSampleOf(

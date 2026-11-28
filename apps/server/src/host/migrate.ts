@@ -17,7 +17,7 @@ import { commitMemory } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
 import { dayStart } from "../memory/zones";
 
-// This release's steps (AGENTS.md, "A rename or a new field backfills"), run on every start before any command reads
+// This release's steps (.claude/rules/memory.md, "A rename or a new field backfills"), run on every start before any command reads
 // the settings or the corrections (`cli.ts`): the settings lose `agents` (spoken asks PR 3, Direction's OK of 21 Nov
 // 2026) and `notifications` (Life's own checks stop pushing, his yes of 25 Nov 2026, question 18); his Not now on a your
 // move card (`your-move-not-now`) becomes his Later on any check (`deferred`, question 12); the voice source's stored
@@ -136,7 +136,7 @@ function migrateCorrections(dir: string) {
   }
   if (existsSync(join(LIFE_CODE_DIR, ".git")) && isOwnLife(dir)) {
     throw new Error(
-      'his corrections hold `your-move-not-now`: only the new Life.app moves them (AGENTS.md, "A rename or a new field backfills")'
+      'his corrections hold `your-move-not-now`: only the new Life.app moves them (.claude/rules/memory.md, "A rename or a new field backfills")'
     );
   }
   const isRepo = existsSync(join(dir, ".git"));

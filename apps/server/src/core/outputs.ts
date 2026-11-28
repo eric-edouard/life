@@ -1,3 +1,4 @@
+import { permissionsHelperPath } from "./platform";
 import { settings } from "./settings";
 
 // The outputs Life can turn on or off (docs/tasks.md), one entry each: what he calls it and its
@@ -21,7 +22,7 @@ export const OUTPUTS = {
     on: () => {
       const { pastCalendar } = settings();
       return Boolean(
-        pastCalendar && (pastCalendar.account || process.env.LIFE_EVENTKIT)
+        pastCalendar && (pastCalendar.account || permissionsHelperPath())
       );
     },
   },

@@ -17,6 +17,7 @@ import {
   LIFE_CODE_DIR,
   LIFE_STATE_DIR,
   OWNER_DATA_DIR,
+  PROJECT_WORK_FOLDERS,
 } from "../core/paths";
 import { pathInside, slashed } from "../core/platform";
 import { execOk } from "../core/proc";
@@ -48,7 +49,7 @@ export const FORMAT = 1;
 export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
- * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own), and the
+ * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own), one-off projects' work folders (an agent's scratch work), and the
  * secrets.
  */
 const KEPT_OUT = [
@@ -59,6 +60,7 @@ const KEPT_OUT = [
   EXCHANGE_COUNTS,
   MENTIONS,
   RECORDED_DAYS,
+  PROJECT_WORK_FOLDERS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
@@ -219,13 +221,17 @@ export async function stage(
   if (inData) {
     rmSync(join(dir, "data", inData), { force: true, recursive: true });
   }
-  cpSync(LIFE_STATE_DIR, join(dir, "state"), { recursive: true });
+  cpSync(LIFE_STATE_DIR, join(dir, "state"), {
+    // Never copied: a kept-out folder (a work folder's packages) would cost a copy only to be removed.
+    filter: (from) => {
+      const p = pathIn(LIFE_STATE_DIR, from);
+      return !KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`));
+    },
+    recursive: true,
+  });
   for (const p of filesUnder(join(dir, "state"))) {
     const staged = join(dir, "state", p);
-    if (
-      KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`)) ||
-      KEPT_OUT_END.some((e) => p.endsWith(e))
-    ) {
+    if (KEPT_OUT_END.some((e) => p.endsWith(e))) {
       rmSync(staged, { force: true });
     } else if (p.endsWith(".sqlite")) {
       // A store kept in Life's state (the photo descriptions) is written meanwhile, in WAL: copied whole by SQLite
