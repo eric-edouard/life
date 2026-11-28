@@ -19,7 +19,7 @@ The `<context>` at the end is one JSON object: `me` (who {{owner}} is), `people`
 The user message is one JSON object:
 
 - `day`: the local day (`YYYY-MM-DD`, {{owner}}'s time zone) the units belong to.
-- `units`: every unit of that day, in time order (a day too long for one reading comes in parts, a later part's units not shown yet). Each has `id`, `source` (lifelog, whatsapp, line, instagram, telegram, imessage, mail,
+- `units`: every unit of that day, in time order (a day too long for one reading comes in parts, a later part's units not shown yet). Each has `id`, `source` (voice, whatsapp, line, instagram, telegram, imessage, mail,
   git, screen, apple-health, photos, and {{owner}}'s agents' reports), `start` and `end` (local `YYYY-MM-DD HH:MM`), `title`, `people` (who is in it, when known), sometimes
   `areaHint`. A unit already read on an earlier reading of this day is a stub: it has `read` (what that reading said
   it is) and no `text`; it is there so you see the whole day, and you give it no verdict. A new unit has `text`: for a recording, its title and then its turns as `HH:MM who: words`, or
@@ -71,7 +71,7 @@ Give one verdict per new unit of `units` (one with `text`), same ids, in `verdic
 - `topics`: one to three lowercase English tags for what the unit is about, each one or two words, singular ("philosophy",
   "psychology", "ai", "construction", "family-money", "health", "travel", "shop"). Reuse a tag from the context
   `topics` when one fits. Tag the subject, not the type or the people.
-- `kind` (lifelog only): conversation ({{owner}} talking with people {{owner}} knows or deals with), small-talk (light chat with no
+- `kind` (voice only): conversation ({{owner}} talking with people {{owner}} knows or deals with), small-talk (light chat with no
   substance), media (TV, video, music, a call on speaker {{owner}} isn't in), dictation ({{owner}} talking to {{owner}}'s phone or an AI),
   customer (counter talk with shop customers). Omit it for other sources.
 - `reason`: one short line, in {{language}}, under 120 characters, saying what it is and why this importance.
@@ -126,7 +126,7 @@ Give 2 or 3 only when the unit carries one of: something {{owner}} must do or pr
 money that moved or is owed, health, legal or official matters, a booking, ticket or reservation (a repeat
 confirmation too: it holds the dates), news about a person or project {{owner}} cares about<!-- part:aboutMe -->, or {{owner}} saying what {{owner}}
 believes, values, aims for or how {{owner}} wants to live<!-- /part -->. Two or more people weighing
-an approach for one of {{owner}}'s own projects (Life, lifelog, {{owner}}'s apps) and agreeing on something is a choice at 2; {{owner}}
+an approach for one of {{owner}}'s own projects (Life, {{owner}}'s apps) and agreeing on something is a choice at 2; {{owner}}
 thinking aloud alone is an idea at 1. When in doubt between 1 and 2, ask whether a line about it would still be useful
 to {{owner}} in a month.
 
@@ -171,7 +171,7 @@ For each entry of `unknown` that today's units say something about, one entry in
   {{owner}} for the night"). A business, a bot or a notification sender says so.
 - `area`: one of `areas` (its `id`) or null; `project`: one of `projects` or `involved`'s (its `id`, without `project:`) or null.
 - `person`: when it is someone already on the map (one of its `near`, or the same first name and context: a sister
-  writing in the family group from a number the map lacks, a friend lifelog names by first name only), their `ref`;
+  writing in the family group from a number the map lacks, a friend the voice source names by first name only), their `ref`;
   else null. Any person of the context's or `involved`'s `people`, Contacts and inferred ones included, never the entry's own `earlier`: if `earlier` is already someone else on the map (same name, same address, same invoice), give that one. With two it could
   be (two Alices), null.
 - `isOrganization`: true for a business, a bot or a notification sender; `relation` still says what it is.

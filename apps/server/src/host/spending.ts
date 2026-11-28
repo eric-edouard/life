@@ -20,8 +20,8 @@ import {
   spendsOfVoice,
 } from "../memory/spends";
 import { dayNow, dayRange, dayStart } from "../memory/zones";
-import { lifelogMissing } from "../sources/lifelog-call";
-import { readVoiceSpending } from "../sources/lifelog-spending";
+import { voiceServerMissing } from "../sources/voice-server-call";
+import { readVoiceSpending } from "../sources/voice-server-spending";
 import { activeAgents, readDesk } from "./desk-read";
 import { turnsEndedIn } from "./desk-turn-reads";
 
@@ -148,7 +148,7 @@ const readApifySpends = async (from: string, to: string) =>
 /** Voice's spending, or none while Voice is not set up. */
 const voiceSpending = (from: string, to: string) =>
   // Set up without its token: it can't be read, so the day waits (never written without Voice).
-  lifelogMissing() && !settings().lifelog?.url
+  voiceServerMissing() && !settings().lifelog?.url
     ? Promise.resolve({ jobs: [], modelRuns: [], unsettled: 0, voiceNotes: [] })
     : readVoiceSpending(from, to);
 

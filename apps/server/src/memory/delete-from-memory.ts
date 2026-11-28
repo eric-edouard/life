@@ -180,7 +180,7 @@ export function cutInLine(text: string, quote: string, ref: string) {
     : null;
 }
 
-/** A turn as a deletion names it, its day from the ref: refused unless lifelog's store still has it. */
+/** A turn as a deletion names it, its day from the ref: refused unless the voice server's store still has it. */
 async function namedTurn(id: string, t: { jobId: string; turnIndex: number }) {
   const found = await findTurn(id, t);
   if (!found.found) {

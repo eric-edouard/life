@@ -1,5 +1,5 @@
 import { SubjectRef } from "../records/fields";
-import { parseTurnRef } from "../sources/lifelog";
+import { parseTurnRef } from "../sources/voice-server";
 import { isDay } from "./zones";
 
 // A read part: one bounded piece of what Life holds about a subject, opened by its ref through `fetch` (and `person

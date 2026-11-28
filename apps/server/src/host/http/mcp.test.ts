@@ -12,13 +12,13 @@ import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decision-lines";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
-import { apply, type Stay } from "../../sources/lifelog";
 import {
   conversation,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../../sources/store-fixtures";
+import { apply, type Stay } from "../../sources/voice-server";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,
@@ -181,7 +181,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_resource_samples()",
     "read_spending(month)",
     "read_thread(before,ifNot)",
-    "request_decision(ask,changed,context,deadline,doneSeenBy,draft,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
+    "request_decision(ask,changed,context,deadline,doneSeenBy,draft,drafts,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
     "search(from,query,to)",
     "sign_in_to_network(answers,loginId,network,stepId,type)",
     "tell_life(asked,said)",
@@ -436,7 +436,7 @@ test("the server is named Life, carries its icons, and its instructions fit in 5
 
 test("places: each stay lists the conversations recorded during it", async () => {
   const open = () => {
-    const store = lifelogStore();
+    const store = voiceStore();
     apply(
       store,
       pageFixture({

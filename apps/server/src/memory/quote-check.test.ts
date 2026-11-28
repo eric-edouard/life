@@ -468,7 +468,7 @@ test("the extractor's reply is checked: quotes, units, subjects; unknown names r
   expect(todo).toMatchObject({
     area: SHOP,
     quote: "Il faut que j’appelle le vitrier",
-    source: { channel: "lifelog", ref: "job-1:0@2026-10-09T10:00:00.000Z" },
+    source: { channel: "voice", ref: "job-1:0@2026-10-09T10:00:00.000Z" },
     speaker: "person:me",
     subjects: ["person:me", "project:bakery"],
     when: "2026-10-12",

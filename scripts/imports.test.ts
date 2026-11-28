@@ -63,7 +63,7 @@ const withScripts = new Map([
 ]);
 
 // No module imports one that imports it back, type-only imports included (fallow's cycle check skips those): a
-// capability's implementations import its contract.ts, and only its registry imports them (.claude/rules/one-way.md).
+// capability's implementations import its contract.ts, and only its registry imports them (docs/helpers.md).
 test("no import cycles in the server's code", () => {
   const known = new Set(files);
   const edges = new Map<string, string[]>();
@@ -162,11 +162,11 @@ test("only the payments backend imports money, and only money.ts runs the money 
 
 // A voice guess stays a guess (docs/glossary.md, "voice guess"): what acts on his word is pinned to its writers, so a
 // file that reads or makes guesses (`voice-naming.ts`, `naming-context.ts`, `voice-guesses.ts`) can never be one of them:
-// only the connector forwards a correction to lifelog, and only his word (the command and the connector, through
+// only the connector forwards a correction to the voice server, and only his word (the command and the connector, through
 // `recordHisCorrection`, which checks a next step's context), his answer to a check (`answer-check.ts`) and a start's
 // goal (`change-registered-agent.ts`) record one.
 test("forward and recordCorrection have only their known importers", () => {
-  expect(importers(["forward"], "lifelog")).toEqual([
+  expect(importers(["forward"], "voice-server")).toEqual([
     "apps/server/src/host/http/mcp.ts",
   ]);
   expect(importers(["recordCorrection"], "memory-files")).toEqual([
@@ -205,7 +205,7 @@ test("no importance is compared with or capped at a bare number: KEEP_AT, SEARCH
   expect(linesMatching(BARE_IMPORTANCE, [])).toEqual([]);
 });
 
-// .claude/rules/one-way.md: now is `clock()`, in lifelog too (78 direct reads until 8 Nov 2026).
+// docs/helpers.md: now is `clock()`, in lifelog too (78 direct reads until 8 Nov 2026).
 test("now is read only through clock()", () => {
   expect(
     linesMatching(DIRECT_CLOCK, ["apps/server/src/core/clock.ts"], true)

@@ -6,7 +6,7 @@ import { errorOf } from "../core/log-line";
 import { systemZone } from "../core/platform";
 import type { Episode } from "../records/episode";
 import { Zone } from "../records/unit";
-import { readPhoneZone } from "../sources/lifelog";
+import { readPhoneZone } from "../sources/voice-server";
 import { daysOf, ZONES } from "./memory-files";
 
 // Where the owner was, as a time zone: memory/zones.jsonl, where he was from each `from` on (`readZoneHere`), and the
@@ -100,8 +100,8 @@ export function cutAt(now: Date, was: string, tz: string) {
 /**
  * Where he is now, his decision (27 Oct): the phone's latest zone, whatever its age. The phone is the source of truth (the
  * recordings go through it, and every upload brings a new one), while the Life server may run anywhere. Undefined when
- * lifelog is set up but can't be read (logged): the last zone recorded, the phone's, stands. The Mac's zone only when no
- * phone ever said one (lifelog not set up, or no heartbeat named a zone).
+ * the voice server is set up but can't be read (logged): the last zone recorded, the phone's, stands. The Mac's zone only when no
+ * phone ever said one (the voice server not set up, or no heartbeat named a zone).
  */
 export async function readZoneHere(
   read = { mac: systemZone, phone: readPhoneZone }
@@ -112,7 +112,7 @@ export async function readZoneHere(
     log("source.read", {
       ...errorOf(e),
       ok: false,
-      source: "lifelog",
+      source: "voice",
       what: "zone",
     });
   }

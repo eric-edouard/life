@@ -1,10 +1,14 @@
 import { clock, daysBefore } from "../core/clock";
 import { log } from "../core/log";
-import type { Engine } from "../core/names";
+import type { Engine, SourceName } from "../core/names";
 import { ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
-import { readConversations, type Store, withStore } from "../sources/lifelog";
+import {
+  readConversations,
+  type Store,
+  withStore,
+} from "../sources/voice-server";
 import {
   deletionsNow,
   keptConversations,
@@ -31,23 +35,23 @@ import {
   type Built,
   frozenBuilt,
   frozenUnits,
-  lifelogNames,
-  lifelogUnits,
   type Resolve,
   readEventsOf,
   sourceUnitsOf,
+  voiceNames,
+  voiceUnitsOf,
 } from "./units";
 import { dayStart, lastDays, localDate, type Window } from "./zones";
 
 /**
  * The default look-back of every step: yesterday, plus what a sleeping Mac or a late transcript left behind, and the
- * conversations lifelog regroups a few days later (their new hash needs a new verdict). Files are described
+ * conversations the voice server regroups a few days later (their new hash needs a new verdict). Files are described
  * (`describeFiles`) only on messages of these days: an older one stays a tag. Today's are described on arrival too.
  */
 export const DAYS = 7;
 
 /**
- * The evidence of a window of local days: every source (lifelog,
+ * The evidence of a window of local days: every source (the voice server,
  * chats, mail, notes, his commits), cut into units with the code rules applied, senders kept unresolved (`resolve` names them in the text only), in time order across channels; also
  * what the later stages need around them. The one reader of the sources for the memory steps: a processing run gathers once
  * and hands it to each step, which reads the days of its units. The recent messages' new files are read first
@@ -64,7 +68,7 @@ export async function gather(
     files?: false;
     /** How each source read is logged: `safely` every read (a processing run's), `quietly` only a failure (the watcher's). */
     log?: typeof safely;
-    /** `false`: lifelog is not read (the watcher writes the voice units; a historical month has none). */
+    /** `false`: the voice server is not read (the watcher writes the voice units; a historical month has none). */
     voice?: false;
   } = {}
 ) {
@@ -76,7 +80,7 @@ export async function gather(
     truth,
     options.log
   );
-  // Lifelog's units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
+  // The voice units come from the watcher's store, cut first as the registry lists it (a chapter unit as stored); every
   // other source's from its events, in the registry's order. Only the sources he turned on that can be read now; the others' units are kept.
   const sources = readySources().filter(
     (s) => options.voice !== false || s.kind !== "voice"
@@ -88,9 +92,10 @@ export async function gather(
   // The voice units the watcher writes, composed the same way (`voiceUnits`).
   let chapters: Unit[] = [];
   let voice: Built[] = [];
-  const lifelog = sources.some((s) => s.kind === "voice")
+  const voiceSource = sources.find((s) => s.kind === "voice");
+  const voiceConversations = voiceSource
     ? await safely(
-        "lifelog",
+        voiceSource.name,
         () =>
           withStore(async (store) => {
             const v = await voiceUnits(store, since, truth);
@@ -128,9 +133,17 @@ export async function gather(
   ]
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
+  // By source, what this gather read (a source it did not read has no key: its units stay as they were).
+  const counts: Partial<Record<SourceName, number>> = {};
+  if (voiceSource) {
+    counts[voiceSource.name] = voiceConversations.length;
+  }
+  for (const { events, s } of shown) {
+    counts[s.name] = events.length;
+  }
   return {
     built,
-    conversations: lifelog,
+    conversations: voiceConversations,
     engine: options.engine,
     events: shown.flatMap(({ events }) => events),
     failed,
@@ -139,15 +152,7 @@ export async function gather(
     /** `files.jsonl` as the lines above were shown with it: the arrival reader's one snapshot of what waits for a file. */
     fileLines: known,
     files,
-    // By source, what this gather read (a source it did not read has no key: its units stay as they were).
-    read: {
-      ...(sources.some((s) => s.kind === "voice") && {
-        lifelog: lifelog.length,
-      }),
-      ...Object.fromEntries(
-        shown.map(({ events, s }) => [s.name, events.length])
-      ),
-    },
+    read: counts,
     repos,
     /** Sources he turned on that can't be read now: their units stay as they were. */
     skipped: (options.voice === false
@@ -161,7 +166,7 @@ export async function gather(
 export type Evidence = Awaited<ReturnType<typeof gather>>;
 
 /**
- * Every readable source's events but lifelog's, from `since` to `before`, in the registry's order, each read through
+ * Every readable source's events but the voice server's, from `since` to `before`, in the registry's order, each read through
  * `guard`: `safely` logs every read (a processing run's), `quietly` only a failure (the watcher's, every few minutes). A source
  * that throws is named in `failed` and gives no rows.
  */
@@ -190,13 +195,13 @@ export async function readSourceEvents(
 }
 
 /**
- * The voice units from `since` on, composed once for both writers (`gather`, `syncLifelogUnits`): the conversations
- * lifelog has that end at or after it, built into conversation-days; `have`, the stored voice units they replace (of a
+ * The voice units from `since` on, composed once for both writers (`gather`, `syncVoiceUnits`): the conversations
+ * the voice server has that end at or after it, built into conversation-days; `have`, the stored voice units they replace (of a
  * conversation read, or ending at or after `since`), read from the earliest day either begins; the frozen chapters
  * among them (`frozenUnits`).
  */
 export async function voiceUnits(store: Store, since: Date, truth: Truth) {
-  const conversations = readConversations(store, since, lifelogNames(truth));
+  const conversations = readConversations(store, since, voiceNames(truth));
   const read = new Set(conversations.map((c) => c.id));
   const from = [since.toISOString(), ...conversations.map((c) => c.startedAt)]
     .map(localDate)
@@ -208,7 +213,7 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
   );
   const chapters = frozenUnits(store, have);
   return {
-    built: lifelogUnits(
+    built: voiceUnitsOf(
       conversations,
       new Set(chapters.map((u) => u.key)),
       deletionsNow()

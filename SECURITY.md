@@ -157,7 +157,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one
   macOS grant is Automation, Life → Messages, asked at the first send): a card's
   draft, its exact text and the one file he approved (it leaves the Mac for the network, through its bridge), once, on
-  his answer to its outgoing option (his decision of 18 Nov 2026; .claude/rules/acts-and-sends.md). Asking a
+  his answer to its outgoing option (his decision of 18 Nov 2026; .claude/rules/acts-and-sends.md); a batch card's
+  drafts, each into its own chat, each exactly as shown and checked on its own, on his one answer (the owner's decision
+  of 28 Nov 2026; refused until his app shows every draft). Asking a
   card for a new WhatsApp chat sends the number to WhatsApp, through its bridge, to ask whether it has an account.
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
@@ -206,6 +208,10 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
 - Full Disk Access makes Life a high-value target on the Mac.
+- A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
+  every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility
+  lets a script drive any app's interface, past the send guard; an agent asks for it only on a card, and he turns it on
+  himself in System Settings.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).
 

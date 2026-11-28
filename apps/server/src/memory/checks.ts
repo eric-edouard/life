@@ -8,8 +8,13 @@ import { answerIconOf } from "../records/answer-icon";
 import { isEndingCheck } from "../records/fact-check";
 import { KEEP_AT } from "../records/unit";
 import { readContactStores } from "../sources/contacts";
-import { pushIdOf } from "../sources/lifelog-push";
-import { readNamingQueue } from "../sources/lifelog-voices";
+import { pushIdOf } from "../sources/voice-server-push";
+import { readNamingQueue } from "../sources/voice-speakers";
+import {
+  ACCESS_STATUSES,
+  type AccessStatuses,
+  readAccessStatuses,
+} from "./access";
 import {
   atOrganizationAsksOf,
   atOrganizationPairOf,
@@ -43,9 +48,15 @@ import { inboxOrderOf, type Urgency, urgencyOf } from "./check-urgency";
 import { pagedNow } from "./closeness";
 import { fixingOf, withComplaintFields } from "./complaint-checks";
 import { notSentOf } from "./decision-after-answer";
-import { DECISIONS, type Decision, doneSeenShownOf } from "./decision-lines";
-import { decisionsNow, doneSeenByOf, isOnMatter } from "./decisions";
+import {
+  DECISIONS,
+  type Decision,
+  doneSeenByOf,
+  doneSeenShownOf,
+} from "./decision-lines";
+import { decisionsNow, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
+import { isBatchOf, onlyDraftOf } from "./draft";
 import { withDraftConfirms } from "./draft-send";
 import { type Fix, fixesNow, type MonthBudget } from "./fix-checks";
 import {
@@ -103,10 +114,13 @@ import { dayNow } from "./zones";
 // The checks: everything waiting on his word, in one shape, with no limit: a guess of Life's his word would settle,
 // shown with its evidence while something rides on it (Life uses its guess meanwhile), a decision an agent asks, or a
 // new matter Life offers an agent for. Derived when read, never stored: his answer (`answerCheck`) goes to its kind's own
-// store: a correction, a fact-check answer, the decision's answer, lifelog's naming queue, or the desk (a Start).
+// store: a correction, a fact-check answer, the decision's answer, the voice server's naming queue, or the desk (a Start).
 
-/** What a decision's card holds beyond every check's shape (`checks.ts`): its `ask` line, its `recommended` option, his suggested next asks (`follow`), a draft's quick `edits`, what a replacing card `changed`, its needs with their lines, how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
-export const decisionCardOf = (d: Decision) => ({
+/** What a decision's card holds beyond every check's shape (`checks.ts`): its `ask` line, its `recommended` option, his suggested next asks (`follow`), a draft's quick `edits`, what a replacing card `changed`, its needs with their lines (an access need's steps with their status, from `access`, the Mac's statuses read once per inbox), how and whether Life saw it done, its plan's steps and what they were gathered from, its options with what each takes (and, on a plan card, its `role`: its id), its last send that did not go, the older card it replaces ("Replaces an older draft"). */
+export const decisionCardOf = (
+  d: Decision,
+  access: AccessStatuses = { statuses: {} }
+) => ({
   ask: d.ask ?? null,
   changed: d.changed ?? null,
   doneSeen: doneSeenShownOf(d.doneSeen, d.needs),
@@ -114,7 +128,7 @@ export const decisionCardOf = (d: Decision) => ({
   edits: d.edits ?? null,
   follow: d.follow ?? null,
   gathered: d.gathered ?? null,
-  needs: needsShownOf(d.needs),
+  needs: needsShownOf(d.needs, access),
   notSent: notSentOf(d),
   options: d.options.map((o) => {
     const role = d.plan && planRoleOf(o.id);
@@ -128,8 +142,9 @@ export const decisionCardOf = (d: Decision) => ({
 /** Each kind of check, from what is stored. A new kind (a voice, a tie, an appointment, a line with a doubt of its own) is one more entry. */
 const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
   /** Every open decision, but one he deleted what it rests on (`deletionsOf`: its own ref or its step); one on a matter step leaves once the matters holding it have all ended (a step no matter holds now, after a re-group, keeps it). */
-  decision: (c) =>
-    c.decisions
+  decision: (c) => {
+    const access = readAccessStatuses();
+    return c.decisions
       .filter(
         (d) =>
           !(c.deleted.has(d.id) || (d.subject && c.deleted.has(d.subject))) &&
@@ -147,7 +162,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           clips: [],
           context: d.context || null,
           deadline: d.deadline,
-          draft: d.draft ?? null,
+          draft: onlyDraftOf(d) ?? null,
+          ...(isBatchOf(d) ? { drafts: d.drafts } : {}),
           goal: null,
           group: "decision",
           // The gate's reading of what is at stake orders it (`inboxOrderOf`): only high moves it.
@@ -161,7 +177,7 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           ...sessionOf(d),
           onMatters: [],
           onSilence: d.onSilence,
-          ...decisionCardOf(d),
+          ...decisionCardOf(d, access),
           question: d.question,
           ref: d.id,
           ridesOn: {
@@ -176,7 +192,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
         },
         day: d.at,
         matter: d.matter,
-      })),
+      }));
+  },
   /** Every open step a link says ended and he has not answered, unless the link rests on his own later words. */
   ending: (c) =>
     [...c.endings].flatMap(([ref, link]) => {
@@ -467,6 +484,7 @@ let last: { key: string; list: Promise<InboxCheck[]> } | undefined;
 /** Every file the checks read as stored (truth/ included; the project situations: a project head's answer is kept under this key), never units or their publications: the watcher's syncs write those every few minutes, and the checks don't read them but for an inferred person's evidence; the pictures' index. */
 const CHECKS_READ = [
   ...MATTER_BOOK_READS,
+  ACCESS_STATUSES,
   APPOINTMENTS,
   CLOSENESS,
   DECISIONS,
@@ -477,7 +495,7 @@ const CHECKS_READ = [
   ZONES,
 ];
 
-/** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices lifelog queues. The same key, the same list. */
+/** What the checks are read from, cheaply: the files they read (`readChangeStamp`: stats, no read), his day, the open decisions (one lapses), the stamp of what agents hold and the voices the voice server queues. The same key, the same list. */
 const checksKeyOf = (
   held: HeldRead | null,
   voices: CheckInputs["voices"],
@@ -502,7 +520,7 @@ export async function checksAndKeyNow(
 ) {
   const fixes = await fixesNow(budget, dayNow());
   const queue = await readNamingQueue();
-  // Guesses that cannot be read leave the cards as lifelog suggests; the answer reads them again and refuses then.
+  // Guesses that cannot be read leave the cards as the voice server suggests; the answer reads them again and refuses then.
   const guessed = await withVoiceGuesses(queue).catch((e) => {
     log("run.error", { ...errorOf(e), step: "voice.guesses" });
     return queue;

@@ -9,7 +9,7 @@ import { requestDecision } from "../memory/decisions";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelog from "../sources/lifelog-push";
+import * as voiceServerPush from "../sources/voice-server-push";
 import {
   pushLevelOf,
   pushNewCards,
@@ -45,7 +45,7 @@ const alone = (n: number) => ({
 
 let open = cards(0);
 let look: ReturnType<typeof spyOn<typeof checks, "checksNow">>;
-let push: ReturnType<typeof spyOn<typeof lifelog, "notifyPhone">>;
+let push: ReturnType<typeof spyOn<typeof voiceServerPush, "notifyPhone">>;
 const clean = () => {
   rmSync(SEEN, { force: true });
   rmSync(DECISIONS, { force: true });
@@ -55,7 +55,7 @@ beforeEach(() => {
   look = spyOn(checks, "checksNow").mockImplementation(() =>
     Promise.resolve(open)
   );
-  push = spyOn(lifelog, "notifyPhone").mockResolvedValue(true);
+  push = spyOn(voiceServerPush, "notifyPhone").mockResolvedValue(true);
 });
 afterEach(() => {
   look.mockRestore();
@@ -100,7 +100,7 @@ test("Life's own checks push nothing: a new one moves only the badge", async () 
 test("a voice card whose question changes (a new suggested person, a grown group) is not pushed again; its old notification is removed (life#1011)", async () => {
   const asked = (ref: string) => ({
     ...card(1, "voice"),
-    pushId: lifelog.pushIdOf(ref),
+    pushId: voiceServerPush.pushIdOf(ref),
     ref,
   });
   open = [asked("voice:g1~0a1b2c3d")];
@@ -114,8 +114,8 @@ test("a voice card whose question changes (a new suggested person, a grown group
     [
       {
         removed: [
-          lifelog.pushIdOf("voice:g1~0a1b2c3d"),
-          lifelog.pushIdOf("voice:g2~0a1b2c3d"),
+          voiceServerPush.pushIdOf("voice:g1~0a1b2c3d"),
+          voiceServerPush.pushIdOf("voice:g2~0a1b2c3d"),
         ],
       },
     ],
@@ -220,7 +220,7 @@ test("while a run holds the lock a new decision still pushes, from its own lines
         badge: 3,
         body: "1 new card",
         level: "active",
-        pushId: lifelog.pushIdOf(id),
+        pushId: voiceServerPush.pushIdOf(id),
         title: "Life",
       },
     ],
@@ -228,7 +228,11 @@ test("while a run holds the lock a new decision still pushes, from its own lines
   // The lock is released with the decision open: the full look finds it seen, and pushes nothing more.
   open = [
     ...cards(2),
-    { group: "decision", kind: "decision", pushId: lifelog.pushIdOf(id) },
+    {
+      group: "decision",
+      kind: "decision",
+      pushId: voiceServerPush.pushIdOf(id),
+    },
   ] as checks.InboxCheck[];
   held.mockReturnValue(false);
   await pushNewCardsIfChanged();
@@ -294,7 +298,7 @@ test("an agent's card pushes once the gate delivered it, never before, and never
   const shown = (id: string) =>
     ({
       ...card(9),
-      pushId: lifelog.pushIdOf(id),
+      pushId: voiceServerPush.pushIdOf(id),
       ref: id,
     }) as checks.InboxCheck;
   open = [...cards(1), shown(a.id), shown(b.id)];
@@ -304,6 +308,6 @@ test("an agent's card pushes once the gate delivered it, never before, and never
   recordDelivered(b.id, { silent: true, verdict: "deliver" });
   await pushNewCards();
   expect(push.mock.calls.map(([p]) => p.pushId)).toEqual([
-    lifelog.pushIdOf(a.id),
+    voiceServerPush.pushIdOf(a.id),
   ]);
 });

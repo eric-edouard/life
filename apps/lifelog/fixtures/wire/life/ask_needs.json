@@ -1,5 +1,22 @@
 [
   {
+    "kind": "access",
+    "steps": [
+      {
+        "check": "photos",
+        "text": "Allow Life to see your photos",
+        "status": "missing"
+      },
+      {
+        "check": "disk_free",
+        "freeGb": 20,
+        "text": "Free 20 GB",
+        "status": "missing"
+      }
+    ],
+    "line": "1. Allow Life to see your photos\n2. Free 20 GB"
+  },
+  {
     "bank": "Kasikornbank",
     "holder": "Blue Reef Diving Co., Ltd.",
     "kind": "account",

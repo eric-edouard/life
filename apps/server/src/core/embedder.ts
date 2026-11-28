@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { digest } from "./hash";
 
-// Search by meaning's model, for lifelog's voice and Life's memory alike: EmbeddingGemma-300M (Q8), run on the Mac by
+// Search by meaning's model, for the voice server's voice and Life's memory alike: EmbeddingGemma-300M (Q8), run on the Mac by
 // llama.cpp's server, voice's `embedder` (`host/voice.ts`, a launchd job; Lifelog Host's child until it goes). Chosen on 5 Nov 2026 against OpenAI's
 // text-embedding-3-large and seven open models, on the owner's French, English and Thai queries (his data repo,
 // docs/research/embedding-bench-2026-11-05). Nothing it embeds leaves the Mac.
@@ -57,7 +57,7 @@ const vectorsOf = (json: unknown) =>
 
 /**
  * Where voice runs the embedder, on this Mac only (`embedderArgsOf`, `host/voice.ts`, takes its port from here): the one
- * address lifelog's search and Life's memory both embed at, so no text leaves the Mac.
+ * address the voice server's search and Life's memory both embed at, so no text leaves the Mac.
  */
 export const EMBEDDER_URL = "http://127.0.0.1:47615";
 

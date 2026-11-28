@@ -24,7 +24,7 @@ like any app; it holds no second API. One gate, `bun run check` at the root, cov
 | What leaves the Mac; agents' powers | `SECURITY.md` |
 | Releasing; reopening the memory's layers | `docs/releasing.md`, `docs/rethinking-memory.md` |
 | User how-tos; how docs are written | `docs/use/`, `docs/STYLE.md` |
-| Area rules (Claude Code loads each when you open a matching file; any other agent reads it before editing there) | `.claude/rules/`: `one-way.md` (server: the helper for each job), `memory.md` (writers, deletions, migrations, reads), `desk.md` (agents, wakes), `acts-and-sends.md` (truth/, to-do list, calendar, sends, connector), `sources.md` (archive, imports), `models-and-prompts.md`, `surfaces.md` (product, brand, designs), `derived.md` |
+| Area rules (Claude Code loads each when you open a matching file; any other agent reads it before editing there) | `.claude/rules/`: `one-way.md` (server conventions; the helper for each job is in `docs/helpers.md`), `memory.md` (writers, deletions, migrations, reads), `desk.md` (agents, wakes), `acts-and-sends.md` (truth/, to-do list, calendar, sends, connector), `sources.md` (archive, imports), `models-and-prompts.md`, `surfaces.md` (product, brand, designs), `derived.md` |
 
 ## Commands
 

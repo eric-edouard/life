@@ -51,9 +51,9 @@ conversation's turns) and checked by the nightly.
 | Field | Meaning |
 |---|---|
 | `schemaVersion` | `1` |
-| `id` | `unit_` + 12 hex. Stable: the same conversation-day (`lifelog` + conversation + day), chat-day (source + chat + day) or thread-day always gets the same id. A chapter unit keeps the id it was stored with (from lifelog's chapter id). |
+| `id` | `unit_` + 12 hex. Stable: the same conversation-day (`lifelog` + conversation + day: the voice source's old name, kept so no id changes), chat-day (source + chat + day) or thread-day always gets the same id. A chapter unit keeps the id it was stored with (from lifelog's chapter id). |
 | `hash` | 16 hex of SHA-256 over the unit's content (a conversation-day: its turn refs and marks, as Life holds no words; a chapter: as stored; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
-| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `line`, `instagram`, `messenger`, `linkedin` and `telegram` (from Life's own archive of each network's bridge, `line.sqlite` and so on, which keeps messages deleted for everyone; refs `<network>:<room>/<event number>`), `imessage` (Messages' chat.db), `phone` (Phone & FaceTime, the latest call versions from `archive/phone.sqlite`, table `calls`), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `github` (Life's archive of the issues and comments of the repos in `githubRepos`, `github.sqlite`; refs `github:<owner/name>#<issue>/<comment id, 0 for the issue>`), `git` (local `git log` of every repo under the `reposFolder` setting's folder; commits are never extracted: code caps their importance at 1), `screen` (Screen Time, from Life's own archive, `screen.sqlite`, which keeps what Biome prunes; one device-day per device, key the device's Biome id, refs `screen:<device>/<app or web: domain>/<start>`; never extracted, importance at most 1), `apple-health` (Apple Health through lifelog, derived `watch/apple-health.sqlite`; one measurement-day per local day, key `apple-health`; activity, never extracted, importance at most 1), `photos` (the Photos library, read in place; one photo-day per local day, key `photos`, refs the first and last photo `photos:<uuid>`; activity, never extracted, importance at most 1; the people Apple's People names in its photos, `unknown:<handle or name>`), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, each export kept whole as an export copy in `imports/<source>/` beside `memory/` (`conversations.json`, a newer export `conversations.<12 hex of its bytes>.json`, never replaced or merged), a conversation read at its latest version; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its importance to 2, so it is always read) |
+| `source` | `voice`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `line`, `instagram`, `messenger`, `linkedin` and `telegram` (from Life's own archive of each network's bridge, `line.sqlite` and so on, which keeps messages deleted for everyone; refs `<network>:<room>/<event number>`), `imessage` (Messages' chat.db), `phone` (Phone & FaceTime, the latest call versions from `archive/phone.sqlite`, table `calls`), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `github` (Life's archive of the issues and comments of the repos in `githubRepos`, `github.sqlite`; refs `github:<owner/name>#<issue>/<comment id, 0 for the issue>`), `git` (local `git log` of every repo under the `reposFolder` setting's folder; commits are never extracted: code caps their importance at 1), `screen` (Screen Time, from Life's own archive, `screen.sqlite`, which keeps what Biome prunes; one device-day per device, key the device's Biome id, refs `screen:<device>/<app or web: domain>/<start>`; never extracted, importance at most 1), `apple-health` (Apple Health through lifelog, derived `watch/apple-health.sqlite`; one measurement-day per local day, key `apple-health`; activity, never extracted, importance at most 1), `photos` (the Photos library, read in place; one photo-day per local day, key `photos`, refs the first and last photo `photos:<uuid>`; activity, never extracted, importance at most 1; the people Apple's People names in its photos, `unknown:<handle or name>`), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, each export kept whole as an export copy in `imports/<source>/` beside `memory/` (`conversations.json`, a newer export `conversations.<12 hex of its bytes>.json`, never replaced or merged), a conversation read at its latest version; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its importance to 2, so it is always read) |
 | `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor brings its own), the chat id (a Matrix room id of a bridged network, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the phone source’s remote handle or `group:<JSON participant array>` (missing handles: `unknown:<call id>`), the mail thread id, a GitHub issue (`owner/name#12`), the note id, or the repo (its main folder name under the `reposFolder` setting's folder: worktrees fold into it) |
 | `date`, `start`, `end` | Local day; first and last instant |
 | `title` | The conversation label (a chapter: its chapter title), chat name, mail subject, or note title (`(shared)` after a shared note's) |
@@ -155,7 +155,7 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 | `type`, `when`, `area`, `importance` | As defined above (`nothing` is never an observation). |
 | `text` | The observation, one English sentence, self-contained (names, absolute dates). |
 | `quote` | The source's own words for it, verbatim (original language, original spelling). Code checked it is in the source text the model read, comparing without case, accents, quote style or spacing, and stores the source's exact substring. That text has secrets (passwords, card numbers, IBANs, codes) replaced by `[… removed]` first. |
-| `source` | `{channel, ref}`: channel `lifelog`, `whatsapp`, `line`, `instagram`, `messenger`, `linkedin`, `telegram`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: lifelog `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `line:<room>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
+| `source` | `{channel, ref}`: channel `voice`, `whatsapp`, `line`, `instagram`, `messenger`, `linkedin`, `telegram`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: voice `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `line:<room>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
 | `speaker` | Who said or wrote the cited line: `person:<slug>`, or `unknown:<label>` (a phone, an address, lifelog's `speaker_1`, or a name lifelog knows and the directory doesn't). |
 | `speakerName` | Optional, from 11 Oct: a readable name for an `unknown:` chat sender, the title of the 1:1 chat they wrote in. |
 | `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, lifelog's id for a voice). Readers resolve the author again from it (`aboutNow`; for a fact from before it, a 1:1 chat's handle). An author who is someone else now is that person in every fact of the unit (speaker, subjects), never the owner, nor someone who still writes in that unit as themself, and their old name is swapped in the sentences (worked out at every read, never stored). A voice keeps lifelog's id; an unknown voice whose id the directory lacks resolves by lifelog's name for it, while a known one keeps its filing: a later identity fix of an author needs no new reading. A non-author misfiled in a group chat still needs `reread`. |
@@ -281,7 +281,8 @@ outside the lock, schemaVersion 3, by `kind`:
   (redacted; a mail's: the one message it replies to, its first body line, since Mail's thread key can mix threads; empty for a new chat or mail; cards asked
   before 21 Nov 2026 have none, which is true of them); `people`, how many people a group chat holds, him included, as its
   network keeps them (absent for a 1:1 chat, one its network can't count, and cards asked before 21 Nov 2026). A mail draft has no `chat`: `from`, `to`, `cc` and `subject` as given are what it sends. Life sends exactly
-  what is stored), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
+  what is stored), `drafts` (a batch, since 28 Nov 2026: 2 or more drafts, each as `draft` is stored, each into its own
+  chat; never with `draft`, which a one-draft card keeps; read together as `drafts` by `draftsOf`), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
   recommended one first; `outgoing: true` when it acts outside Life (sends, pays, books, deletes or changes something);
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
@@ -290,16 +291,17 @@ outside the lock, schemaVersion 3, by `kind`:
   `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read),
   `plan` and `gathered` (on any card, optional: the steps after his yes, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; plan cards before 25 Nov 2026 have options `start` and `decline`). `ask`, `recommended`, `follow` (every agent's card since 25 Nov 2026: its imperative line, the recommended option's id, up to three next asks in his voice), `edits` (a draft's quick changes), `changed` (what changed on a subject asked again unanswered), `instructions` (the ids of his instructions in force when asked); cards before them have none, which is true of them. A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
-  `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
+  `amount`; an access card's one is `access`, `{steps: [{text, check, freeGb?}]}`), `doneSeenBy` (`payment`, `access` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
   key for one tap, kept on every repeat of it; lines before it have none). The first answer stands, unless its send
   ended `not sent:`.
-- `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone): `id`, `at`, and the
+- `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone; one per draft, a batch's
+  past the first with its `draftIndex`, its place in `drafts`, since 28 Nov 2026): `id`, `at`, and the
   `eventId` (the sent message's id: Life's own event id where it knows it, else the network's) once its network took it,
   or the `error` (which says whether it may have gone, or began `not sent:`: nothing went), and `canRetry: false` when the same draft
-  can never go (the file gone or changed, no chat, the channel off). A `not sent:` line voids the answer before it: the
+  can never go (the file gone or changed, no chat, the channel off). A `not sent:` line (on a batch, once every draft's line is in and all are `not sent:`) voids the answer before it: the
   decision is open again and the next answer is the first (`notSent` holds it, `voided` every answer one voided, each with its outcome, so a repeat of any of those taps by its `answerKey` finds its own); any other
   outcome belongs to the answer it follows. With no outcome 5 minutes after his answer, the send never ended (worked out
   when read). A lapse a late `not sent:` voided settles at that line's `at`.
@@ -315,7 +317,7 @@ outside the lock, schemaVersion 3, by `kind`:
 - `answer-withdrawn` (`withdrawAnswer`, his Undo through `answer_check`): `id`, `at`, `unsent` (the sent message Life
   deleted for everyone first). It voids his answer as `not sent:` does: the card is open again.
 - `rated` (`rateDecision`): `id`, `at`, `mark` (`bad`, `okay`, `good`), his "How am I doing?"; the latest stands.
-- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, or `not_found`, with `error`
+- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, none on an access card, or `not_found`, with `error`
   when the look failed), Life's outcome of looking for the card's step done, never his answer. A `not_found` voids the
   answer it follows: the card is open again. A `seen` settles the card even with no answer of his. A look with no outcome
   30 seconds past his answer (and a minute's grace) never finished: worked out when read as a `not_found`, and written
@@ -729,6 +731,12 @@ pull request: `statements.jsonl`, `ratings.jsonl` and `told.jsonl` became `fact-
 `after.link` `after.deepLinkId`; a page's History `Earlier` and `bond` `between_us`; five prompts' names in each `madeBy`;
 the settings' keys and the log's `run.phase` as `run.entered`. "Memory: before the names' rename" and
 "Memory: stored names renamed (names-2026-11)" hold both sides.
+`voice-source-2026-12` (`apps/server/src/host/migrate.ts`): the voice source's name `lifelog` became `voice` in the
+typed fields that hold a source (a unit's `source`, an observation's `source.channel`, a fact check's `source`, a
+publication's `sources`) and as the `<source>|` prefix of the message keys (read replies' and appointment events'
+`messages`, a correction's `inConversation`), plus the settings' `sources` and the past days' logged `reads`; never in
+text, nor the project `lifelog`; a voice unit's id keeps its recipe. "Memory: before the voice source's rename" and
+"Memory: the voice source renamed (voice-source-2026-12)" hold both sides.
 
 ## The search index (not in memory/)
 
@@ -741,12 +749,19 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 episodes' day files (`readEpisodesWith`, `memory/person-episodes.ts`). Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|checks|chats|places` (read-only).
 
+## The Mac's access statuses (not in memory/)
+
+`LIFE_STATE_DIR/access-statuses.json`: `{statuses: {accessibility, calendars, contacts, full_disk_access, photos}, freeGb}`,
+each status `done`, `missing` or `refused`, as the permissions helper last read them (`host/mac-access.ts`'s `readAccessNow`,
+on the watcher's minute while an access card is open, and on his "I'm at my Mac"). Rewritten whole when it changes, never
+migrated: machine state, from which an access card's steps are worked out when read (`memory/access.ts`).
+
 ## The desk's store (not in memory/)
 
 `LIFE_STATE_DIR/desk/desk.sqlite` (WAL; backed up whole with Life's state) is the desk's one state, written only by the
 desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
 through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
-brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
+brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state; a one-off project's agent's is its project work folder, `projects/<id>/` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), `name` (his name for it; null until set), `role` (`personal`, `caretaker` or `main`: code's list, `AgentRole`, the store checks none; one active or stopped at most of each; null for every other agent; the Personal flag `is_personal` until `stepRoles`), its end (`ended_at`, `outcome`: its last assignment's)), `assignment` (one subject given to an agent, `asg_…`:
 `agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no

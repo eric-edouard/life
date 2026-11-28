@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { writeWhole } from "../core/files";
-import { readPhoneZone } from "../sources/lifelog";
-import { lifelogServer } from "../sources/store-fixtures";
+import { voiceServer } from "../sources/store-fixtures";
+import { readPhoneZone } from "../sources/voice-server";
 import { ZONES } from "./memory-files";
 import {
   cutAt,
@@ -40,24 +40,24 @@ test("where he is now: the phone's latest zone, whatever its age; the Mac's only
   expect(await readZoneHere({ mac, phone: phone("Asia/Jakarta") })).toBe(
     "Asia/Jakarta"
   );
-  // No phone ever named a zone (lifelog not set up, or no heartbeat with one): the Mac's.
+  // No phone ever named a zone (the voice server not set up, or no heartbeat with one): the Mac's.
   expect(await readZoneHere({ mac, phone: phone(null) })).toBe("Europe/Berlin");
-  // lifelog set up but unreadable: nothing to record, so the last zone (the phone's) stands; never the server's.
+  // The voice server set up but unreadable: nothing to record, so the last zone (the phone's) stands; never the server's.
   expect(
     await readZoneHere({
       mac,
       phone: () => Promise.reject(new Error("lifelog down")),
     })
   ).toBeUndefined();
-  // The same through lifelog's real status read: a failed request (no route, 404) and an answer it can't read.
+  // The same through the voice server's real status read: a failed request (no route, 404) and an answer it can't read.
   const failing: Record<string, () => unknown>[] = [
     {},
     { "/status": () => ({ phoneHeartbeat: "not a heartbeat" }) },
   ];
   for (const routes of failing) {
-    const server = lifelogServer(routes);
+    const server = voiceServer(routes);
     try {
-      // biome-ignore lint/performance/noAwaitInLoops: one fake lifelog at a time, each sets the settings it is read by
+      // biome-ignore lint/performance/noAwaitInLoops: one fake voice server at a time, each sets the settings it is read by
       expect(await readZoneHere({ mac, phone: readPhoneZone })).toBeUndefined();
     } finally {
       server.close();

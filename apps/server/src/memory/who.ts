@@ -17,7 +17,7 @@ import { namesOne, relationWordOf } from "../records/relation-words";
 import { type DirectoryParty, firstNameOf, ME } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { contactKeyOf } from "../sources/contacts";
-import { voiceKey } from "../sources/lifelog-voices";
+import { voiceKey } from "../sources/voice-speakers";
 import { readLidPhones } from "../sources/whatsapp";
 import { readAgentReports } from "./agent-source";
 import { type ContactNow, contactsNow } from "./contact-people";
@@ -278,7 +278,7 @@ export function aboutNow(
     const was = canon(o.speaker);
     const unknown = was.startsWith(UNKNOWN);
     const from = authorFrom(o, chatOf);
-    // A voice keeps lifelog's id, which the directory may not know: then, for an unknown one, the name lifelog gave it.
+    // A voice keeps the voice server's id, which the directory may not know: then, for an unknown one, the name the voice server gave it.
     const now =
       voicePersonOf(
         (x) => resolve(x, o.source.channel),
@@ -334,7 +334,7 @@ export function aboutNow(
 }
 
 /**
- * Who a lifelog person id is: the id, else the name lifelog gave it (`readVoiceNames`: the directory knows the id of few
+ * Who a voice server's person id is: the id, else the name the voice server gave it (`readVoiceNames`: the directory knows the id of few
  * people), which the caller passes as `name`. The one rule.
  */
 export const voicePersonOf = (
@@ -343,7 +343,7 @@ export const voicePersonOf = (
   name: string | null | undefined
 ) => (id ? resolve(id) : null) ?? (name ? resolve(name) : null);
 
-/** A queue item as a voice card reads it: lifelog's, with the voice naming's guesses (`guessed`) and the names lifelog gives its person ids (`names`), both from `withVoiceGuesses`. */
+/** A queue item as a voice card reads it: the voice server's, with the voice naming's guesses (`guessed`) and the names the voice server gives its person ids (`names`), both from `withVoiceGuesses`. */
 interface VoiceCardItem {
   guessed?: readonly string[];
   likely: readonly string[];
@@ -355,9 +355,9 @@ interface VoiceCardItem {
 /**
  * The person a voice card asks about, what its "Yes" names (its `subject`): the one person the voice naming guessed for
  * its voices (`guessed`, `withVoiceGuesses`; only someone known today), which offers only who could be there
- * (`possibleSpeakersOf`), and lifelog's suggestion (its person, else the name it heard, as `resolve` reads it) does not
- * contradict; none otherwise. "Yes" assigns lifelog's id for them (`voiceIdOf`), else names a new person of Voice by
- * their name (his yes of 22 Nov 2026: a guess may be someone Voice has not heard yet). Lifelog's suggestion alone never names anyone: it reads sound and words, not who could be there. Only ever
+ * (`possibleSpeakersOf`), and the voice server's suggestion (its person, else the name it heard, as `resolve` reads it) does not
+ * contradict; none otherwise. "Yes" assigns the voice server's id for them (`voiceIdOf`), else names a new person of Voice by
+ * their name (his yes of 22 Nov 2026: a guess may be someone Voice has not heard yet). The voice server's suggestion alone never names anyone: it reads sound and words, not who could be there. Only ever
  * a question to him ("Is this X?"): his tap is the answer.
  */
 export function voiceSuggestionOf(
@@ -369,21 +369,21 @@ export function voiceSuggestionOf(
       .map((g) => people.refOf(g))
       .filter((r) => people.names.has(r))
   );
-  const lifelog = voicePersonOf(
+  const voicePerson = voicePersonOf(
     people.resolve,
     item.personId,
     item.names?.[item.personId ?? ""] ?? item.name
   );
   const [one] = guessed;
-  return guessed.size === 1 && (lifelog === null || lifelog === one)
+  return guessed.size === 1 && (voicePerson === null || voicePerson === one)
     ? (one as string)
     : null;
 }
 
 /**
- * The lifelog person id a voice answer naming `ref` assigns ("Yes", "Someone else…"), each id read as `voicePersonOf`
- * with the name lifelog gives it: the card's own (its person, its `likely`, named in `names`) first, else the one id of
- * `elsewhere` (id → lifelog's name), never one of two; none when lifelog knows them by no such id.
+ * The voice server's person id a voice answer naming `ref` assigns ("Yes", "Someone else…"), each id read as `voicePersonOf`
+ * with the name the voice server gives it: the card's own (its person, its `likely`, named in `names`) first, else the one id of
+ * `elsewhere` (id → the voice server's name), never one of two; none when the voice server knows them by no such id.
  */
 export function voiceIdOf(
   people: Pick<People, "resolve">,
@@ -403,7 +403,7 @@ export function voiceIdOf(
 }
 
 /**
- * A voice card's ref: its lifelog group, the recordings his answer would change (a digest of its voices) and the person
+ * A voice card's ref: its voice group, the recordings his answer would change (a digest of its voices) and the person
  * it suggests, so an answer reaches only the card he saw (`voiceSuggestionOf`): a group that grew or changed its
  * suggestion is another card.
  */

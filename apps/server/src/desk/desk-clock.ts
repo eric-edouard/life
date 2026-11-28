@@ -44,11 +44,17 @@ import {
 import { monthBudgetOf, readProjectsWithoutRoom } from "../host/spending";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
+import { onlyDraftOf } from "../memory/draft";
 import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
 import { type People, readPeople } from "../memory/who";
 import { isWokenOnlyByHisWords } from "../records/registered-agent";
-import { readStore, storeFiles, WATCH, withStore } from "../sources/lifelog";
-import { recordingsOf } from "../sources/lifelog-speech";
+import {
+  readStore,
+  storeFiles,
+  WATCH,
+  withStore,
+} from "../sources/voice-server";
+import { recordingsOf } from "../sources/voice-server-speech";
 import { matterRecordOf, readPacket } from "./agent-actions";
 import { applyAgentChanges } from "./agent-changes";
 import {
@@ -203,7 +209,7 @@ export async function pollMessages(desk: Desk, readPeopleNow: ReadPeople) {
 
 /**
  * Queues `call.ended` for each open assignment whose wait wants a call that ended in the last 12 hours
- * (`readEndedCalls`), once lifelog holds the call's words (`recordingsOf`): the chat, the span, who was on it and where
+ * (`readEndedCalls`), once the voice server holds the call's words (`recordingsOf`): the chat, the span, who was on it and where
  * its turns are, never a word. A call with no turn inside (the pendant was off) queues nothing and is looked at again
  * next poll until it is 12 hours old; the queue keeps it once per agent and call (`queue`), so no cursor is kept. `at` is the time the polls look back from, passed
  * so a replay can set the evening.
@@ -337,8 +343,8 @@ export function pollAnswers({ db }: Desk) {
           ? []
           : wakesOf([d.contests], `${d.id}.${DRAFT_CONTESTED}`, {
               asker: d.agent ?? d.asker,
-              channel: d.draft?.channel,
-              chat: d.draft?.chat,
+              channel: onlyDraftOf(d)?.channel,
+              chat: onlyDraftOf(d)?.chat,
               held: d.contests,
               id: d.id,
               until: new Date(Date.parse(d.at) + CONTEST_WAIT).toISOString(),

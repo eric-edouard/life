@@ -3,7 +3,7 @@ import { clock, HOUR, iso, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
 import { paymentsChannelOf, placesChannelOf } from "../host/event-channels";
 import type { EventFilter } from "../records/registered-agent";
-import type { Stay } from "../sources/lifelog";
+import type { Stay } from "../sources/voice-server";
 import { register, setWait } from "./agent-actions";
 import { readPeopleOnce, wakeDue } from "./desk-clock";
 import { pollChannels } from "./event-queue";
@@ -31,15 +31,15 @@ const stay = (north = 0, over: Partial<Stay> = {}): Stay => ({
   ...over,
 });
 
-/** A desk whose lifelog holds `list` (failing with `lifelog.why`), and an agent after its first turn waiting on `filters`. */
+/** A desk whose voice server holds `list` (failing with `lifelog.why`), and an agent after its first turn waiting on `filters`. */
 async function waitingOn(...filters: Partial<EventFilter>[]) {
   const s = setup();
   const list: Stay[] = [];
-  const lifelog: { why: string } = { why: "" };
+  const voiceServer: { why: string } = { why: "" };
   s.desk.channels = [
     placesChannelOf(() =>
-      lifelog.why
-        ? Promise.reject(new Error(lifelog.why))
+      voiceServer.why
+        ? Promise.reject(new Error(voiceServer.why))
         : Promise.resolve(list)
     ),
     paymentsChannelOf(() => ({ between: () => Promise.resolve([]) })),
@@ -64,7 +64,7 @@ async function waitingOn(...filters: Partial<EventFilter>[]) {
     await pollChannels(s.desk, readPeopleOnce());
   };
   const queued = () => queuedEvents(s.desk.db, asgOf(s.desk, id));
-  return { ...s, id, lifelog, list, poll, queued, rewait, set };
+  return { ...s, id, list, poll, queued, rewait, set, voiceServer };
 }
 
 test("a wait on a place is woken once by an arrival inside 100 m, never by one 400 m away", async () => {
@@ -155,10 +155,10 @@ test("a wait refuses coordinates alone, a radius alone, and coordinates on a cha
 });
 
 test("a failing read queues nothing and the next wake says so", async () => {
-  const { desk, fake, lifelog, list, poll, queued } = await waitingOn({
+  const { desk, fake, voiceServer, list, poll, queued } = await waitingOn({
     channels: ["places"],
   });
-  lifelog.why = "lifelog: down";
+  voiceServer.why = "lifelog: down";
   list.push(stay(0));
   await poll();
   expect(queued()).toEqual([]);

@@ -11,6 +11,8 @@ How the access card's self-ticking steps and "I'm at my Mac" work.
 
 ## Answer
 
+Built: https://github.com/eric-edouard/life/pull/1561
+
 Paths are under `apps/server/src/` unless they start elsewhere; found by a code inventory of 28 Nov 2026.
 - A need kind `access` in `memory/needs.ts` (`KINDS`, `:111`): steps, each with what Life checks silently; each step's done state worked out when read, never stored.
 - A watcher `lookForAccessDone` beside `lookForPaymentsDone` (`host/done-seen.ts:110`) reads the statuses.

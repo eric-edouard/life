@@ -30,7 +30,7 @@ import { describeFilesOnArrival } from "../memory/message-files";
 import { writePersonPictures } from "../memory/person-pictures";
 import type { Truth } from "../memory/read-truth";
 import { listening, quietly, readySources } from "../memory/sources";
-import { publishTodayUnits, syncLifelogUnits } from "../memory/unit-writer";
+import { publishTodayUnits, syncVoiceUnits } from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
 import { nameVoicesOnArrival } from "../memory/voice-naming-on-arrival";
 import { readPeople } from "../memory/who";
@@ -40,12 +40,12 @@ import { LedgerEntry } from "../records/ledger-entry";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
 import { syncAppleHealth } from "../sources/apple-health";
-import { lastSeen, openStore, poll, type Store } from "../sources/lifelog";
+import { lastSeen, openStore, poll, type Store } from "../sources/voice-server";
 import { checks, pull } from "../todo-list/backend";
 import { syncAppointments } from "./appointments-calendar";
 import { pushNewCardsIfChanged, pushNewDecisionsAtOnce } from "./card-push";
 import { describePhotos } from "./describe-photos";
-import { lookForPaymentsDone } from "./done-seen";
+import { lookForAccessDone, lookForPaymentsDone } from "./done-seen";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -53,8 +53,8 @@ import { inbound } from "./inbound";
 import { lockReport, sendReport } from "./report";
 import { sampleResources } from "./resource-sample";
 
-// `bun life watch` (kept running by the app): long-polls lifelog's change feed into the store and, when a page changed
-// anything, rewrites the lifelog units from where it touched and their index rows; the whole index when a unit went
+// `bun life watch` (kept running by the app): long-polls the voice server's change feed into the store and, when a page changed
+// anything, rewrites the voice units from where it touched and their index rows; the whole index when a unit went
 // or a code rule dropped or took one back, or what the full rebuild reads changed (not while the nightly holds the lock). Every 5 minutes it
 // builds today's units from every other source the same way (`gather`); its model calls describe today's new files
 // (`describeFilesOnArrival`), read what arrived (`readArrivals`), name the voices of a conversation under way or just
@@ -62,7 +62,7 @@ import { sampleResources } from "./resource-sample";
 // derived/watch/health.json (`bun life status`). An outage (the Mac offline, mostly) delays, never loses: the cursor
 // is gap-free and speech up to a week old is still heard, so nothing alerts on it (decided 20 Oct).
 // It also hears "hey Life": once a conversation's speech is complete (`speechIn`, `SPEECH_WAIT_MS`), `hear` records its asks
-// (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: lifelog
+// (a wake with no speaker waits for one, up to `NAMING_MS`). Each minute, on its own timer, `tick` reads his to-do list: the voice server
 // down never stops it (1 Nov: 20 h without one). Every 30 minutes his calendar follows the appointments. Every 10 minutes, on another, what search ranks by meaning is embedded, and on a third the photos with no description are described.
 
 let ticking = false;
@@ -143,7 +143,7 @@ async function describeNew() {
 const WAIT_S = 60;
 const RETRY_MS = 30_000;
 /**
- * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once lifelog's rows for
+ * How long after his last turn arrived a conversation is heard (`speechIn`): complete speech once the voice server's rows for
  * it have settled (its speaker, mostly within 3 s), open speech once the next recording is usually in. A wake with no
  * speaker yet waits longer, in `hear` (`NAMING_MS`).
  * ponytail: a recording later than that ends the ask before it (`spansIn` starts at a wake); joining it to the open
@@ -265,9 +265,9 @@ const earliest = (a: Date | null, b: Date | null) =>
   a && b && b < a ? b : (a ?? b);
 
 /**
- * Pays what is owed holding the lock: the lifelog units from `from` on (null: none) and the index (`reindexFor`),
+ * Pays what is owed holding the lock: the voice units from `from` on (null: none) and the index (`reindexFor`),
  * with what the index's staleness adds (`readStaleness`: a correction is searchable within the minute; a `truth/` edit
- * builds every lifelog unit again); returns the instant still owed (all of it when another run held the lock).
+ * builds every voice unit again); returns the instant still owed (all of it when another run held the lock).
  */
 async function settle(
   store: Store,
@@ -281,7 +281,7 @@ async function settle(
     return null;
   }
   const done = await locked(async () => {
-    const built = due ? await syncLifelogUnits(store, due) : null;
+    const built = due ? await syncVoiceUnits(store, due) : null;
     await reindexFor(built);
     return { built };
   });
@@ -318,7 +318,7 @@ async function reindexFor(
 }
 
 let syncing = false;
-/** How often today's units from every source but lifelog are built (`gather`), the first a tick after start: search finds a message by its words within this. */
+/** How often today's units from every source but the voice server are built (`gather`), the first a tick after start: search finds a message by its words within this. */
 const TODAY_EVERY = 5 * MIN;
 /** How soon a new decision reaches his phone: a stat of its file, cheap. */
 const DECISIONS_EVERY = 3000;
@@ -369,7 +369,7 @@ async function syncToday() {
 
 /**
  * The pass's one read of the watcher's store (`readRecentVoice`), made only when a reader asks for it and shared by
- * both; none while voice is not a source he turned on (`listening`), or when lifelog is unreadable (chats and mail are
+ * both; none while voice is not a source he turned on (`listening`), or when the voice server is unreadable (chats and mail are
  * still read).
  */
 function voiceOnce(truth: Truth) {
@@ -630,6 +630,9 @@ function minute() {
   );
   lookForPaymentsDone().catch((e: Error) =>
     log("run.error", { ...errorOf(e), step: "watch.done-seen" })
+  );
+  lookForAccessDone().catch((e: Error) =>
+    log("run.error", { ...errorOf(e), step: "watch.access-seen" })
   );
   pushNewCardsIfChanged();
   if (isOwnLife()) {

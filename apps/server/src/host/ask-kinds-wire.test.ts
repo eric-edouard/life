@@ -29,6 +29,13 @@ afterEach(() => {
 });
 
 const NEEDS: Record<(typeof NEED_KINDS)[number], Need> = {
+  access: {
+    kind: "access",
+    steps: [
+      { check: "photos", text: "Allow Life to see your photos" },
+      { check: "disk_free", freeGb: 20, text: "Free 20 GB" },
+    ],
+  },
   account: {
     bank: "Kasikornbank",
     holder: "Blue Reef Diving Co., Ltd.",
@@ -184,7 +191,7 @@ test("the card parts beyond its question: quick edits, next asks, what changed, 
       clips: [],
       context: d.context || null,
       deadline: d.deadline,
-      draft: d.draft ?? null,
+      draft: d.drafts[0] ?? null,
       group: "decision",
       isPlan: false,
       kind: "decision",

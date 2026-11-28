@@ -6,7 +6,7 @@ import { partyOf } from "../../memory/party";
 
 // The made-up records behind the phone's reads (`mcp-phone-reads.test.ts`).
 
-/** Gran's person in lifelog, a voice's likely speaker. */
+/** Gran's person in the voice server, a voice's likely speaker. */
 const GRAN_VOICE = "00000000-0000-4000-8000-000000000001";
 const line = (id: string, text: string, over = {}) => ({
   about: undefined,
@@ -121,32 +121,34 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       context:
         "He asked for it by Friday: [his message](life:msg:whatsapp|whatsapp:155@s.whatsapp.net/M1).",
       deadline: "2099-01-01T09:00:00.000Z",
-      draft: {
-        channel: "whatsapp",
-        chat: "33600000001@s.whatsapp.net",
-        file: {
-          mime: "application/pdf",
-          name: "quote.pdf",
-          path: "/tmp/quote.pdf",
-          sha256: "0".repeat(64),
-          size: 52_000,
+      drafts: [
+        {
+          channel: "whatsapp",
+          chat: "33600000001@s.whatsapp.net",
+          file: {
+            mime: "application/pdf",
+            name: "quote.pdf",
+            path: "/tmp/quote.pdf",
+            sha256: "0".repeat(64),
+            size: 52_000,
+          },
+          quoted: { sender: "Kit", text: "Can you send the quote?" },
+          recent: [
+            {
+              at: "2026-10-12T17:00:00.000Z",
+              file: { kind: "photo", name: "IMG_0001.HEIC", size: 1_200_000 },
+              sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
+            },
+            {
+              at: "2026-10-12T17:01:00.000Z",
+              sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
+              text: "Can you send the quote?",
+            },
+          ],
+          text: "Here is the signed quote.",
+          to: "Kit",
         },
-        quoted: { sender: "Kit", text: "Can you send the quote?" },
-        recent: [
-          {
-            at: "2026-10-12T17:00:00.000Z",
-            file: { kind: "photo", name: "IMG_0001.HEIC", size: 1_200_000 },
-            sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
-          },
-          {
-            at: "2026-10-12T17:01:00.000Z",
-            sender: { kind: "person", name: "Kit", ref: "person:inf_kit" },
-            text: "Can you send the quote?",
-          },
-        ],
-        text: "Here is the signed quote.",
-        to: "Kit",
-      },
+      ],
       id: "dec_000000000001",
       kind: "asked",
       links: ["https://agents.example.test/s/1"],
@@ -157,6 +159,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       ],
       question: "Send Kit the signed quote?",
       schemaVersion: 3,
+      sends: [],
       state: "open",
       subject: "obs_000000000005",
       title: "Kit is waiting for the quote.",
@@ -176,6 +179,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
         state: "not_found",
       },
       doneSeenBy: "payment",
+      drafts: [],
       id: "dec_000000000002",
       kind: "asked",
       links: [],
@@ -207,6 +211,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       ],
       question: "Pay the dive course deposit?",
       schemaVersion: 3,
+      sends: [],
       state: "open",
       title: "Pay the deposit",
     },
@@ -217,6 +222,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       at: "2026-10-14T10:00:00.000Z",
       context: "What I read: [Kit's quote](life:unit_000000000001).",
       deadline: "2099-01-02T09:00:00.000Z",
+      drafts: [],
       gathered: { text: "From Kit's quote and two others" },
       id: "dec_000000000003",
       kind: "asked",
@@ -242,6 +248,7 @@ export const madeUpBase: Omit<CheckInputs, "nameGroups"> = {
       ],
       question: "Start with this plan?",
       schemaVersion: 3,
+      sends: [],
       state: "open",
       title: "Mend the strap",
     },

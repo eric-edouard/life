@@ -2,12 +2,14 @@ import type { z } from "zod";
 import { apifyToken } from "../apify/backend";
 import { DAY, HOUR } from "../core/clock";
 import { isOn } from "../core/outputs";
+import { permissionsHelperPath } from "../core/platform";
 import { isLifeActIcon } from "../records/answer-icon";
-import type { Ask, Option } from "./card-request";
+import { type Ask, DONE_SEEN_BY, type Option } from "./card-request";
 import type { Decision } from "./decision-lines";
+import { draftsOf } from "./draft";
 import { effectOf, instructionsFor } from "./instructions";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
-import { eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
+import { accessOf, eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
 
 // What breaks a card's rules beyond its shape (`requestDecision`), in words the asking agent can fix, each naming the
 // ask page that explains it (`fetch("ask/<name>")`, `card-request.ts`).
@@ -17,7 +19,11 @@ const WHITESPACE = /\s+/;
 const DONE_SEEN_NOT_BUILT = ["call", "mail", "message", "visit"];
 
 /** What a request uses that the asks contract has and Life does not build yet, named; false when nothing. */
-export function notBuiltOf(r: { doneSeenBy?: unknown; options?: unknown }) {
+export function notBuiltOf(r: {
+  doneSeenBy?: unknown;
+  drafts?: unknown;
+  options?: unknown;
+}) {
   const options = (Array.isArray(r.options) ? r.options : []).filter(
     (o): o is Record<string, unknown> => typeof o === "object" && o !== null
   );
@@ -29,7 +35,10 @@ export function notBuiltOf(r: { doneSeenBy?: unknown; options?: unknown }) {
       "an option's `cost`, `effect` and `pick`") ||
     (takes && `\`takes: ${JSON.stringify(takes.takes)}\` (only \`note\`)`) ||
     (DONE_SEEN_NOT_BUILT.includes(String(r.doneSeenBy)) &&
-      `\`doneSeenBy: "${r.doneSeenBy}"\` (only \`payment\` and \`tap\`)`)
+      `\`doneSeenBy: "${r.doneSeenBy}"\` (only ${DONE_SEEN_BY.map((b) => `\`${b}\``).join(", ")})`) ||
+    // ponytail: until his app shows every draft of a batch; the phone's batch screens lift it.
+    (r.drafts !== undefined &&
+      "`drafts`, a batch (his app shows one `draft` so far)")
   );
 }
 
@@ -53,6 +62,16 @@ export function pageHintOf(request: { needs?: unknown }, error: z.ZodError) {
   return page ? ` Read fetch("ask/${page}").` : "";
 }
 
+/** What breaks a card's draft rules: `edits` only with one `draft`, `draft` or `drafts`, and the one option that sends them. */
+const draftRulesProblemOf = (ask: z.infer<typeof Ask>) =>
+  (ask.edits &&
+    !ask.draft &&
+    "`edits` go only with a `draft`: quick changes to its message") ||
+  (ask.draft && ask.drafts && "a card has `draft` or `drafts`, not both") ||
+  (draftsOf(ask).length > 0 &&
+    ask.options.filter((o) => o.outgoing).length !== 1 &&
+    "a `draft` needs the one option that sends it marked `outgoing`");
+
 /** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. */
 export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const ids = ask.options.map((o) => o.id);
@@ -60,15 +79,10 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const silence = ask.options.find((o) => o.id === ask.onSilence);
   return (
     (new Set(ids).size !== ids.length && "option ids repeat") ||
-    (ask.edits &&
-      !ask.draft &&
-      "`edits` go only with a `draft`: quick changes to its message") ||
+    draftRulesProblemOf(ask) ||
     silenceProblemOf(ask, silence) ||
     marksProblemOf(ask, silence) ||
     planProblemOf(ask) ||
-    (ask.draft &&
-      ask.options.filter((o) => o.outgoing).length !== 1 &&
-      "a `draft` needs the one option that sends it marked `outgoing`") ||
     (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
     ((ahead < HOUR || ahead > 14 * DAY) &&
       "the deadline must be 1 hour to 14 days ahead") ||
@@ -203,7 +217,9 @@ function addsProblemOf(
       "`onSilence` never takes an `adds` option: on silence nothing is added") ||
     (adds.some((o) => o.outgoing || o.ends || o.looks || o.takes) &&
       'an `adds` option has no other mark (fetch("ask/event"))') ||
-    (ask.draft && adds.length > 0 && "an `adds` card has no `draft`") ||
+    (draftsOf(ask).length > 0 &&
+      adds.length > 0 &&
+      "an `adds` card has no `draft`") ||
     eventProblemOf(ask)
   );
 }
@@ -250,7 +266,9 @@ function runsProblemOf(
       "`onSilence` never takes a `runs` option: on silence nothing runs") ||
     (runs.some((o) => o.outgoing || o.adds || o.ends || o.looks || o.takes) &&
       'a `runs` option has no other mark (fetch("ask/apify"))') ||
-    (ask.draft && runs.length > 0 && "a `runs` card has no `draft`") ||
+    (draftsOf(ask).length > 0 &&
+      runs.length > 0 &&
+      "a `runs` card has no `draft`") ||
     (apify.some((n) => n.estimateUsd > n.maxUsd) &&
       "an `apify` need's `estimateUsd` is at most its `maxUsd`") ||
     (apify.length > 0 &&
@@ -276,13 +294,30 @@ function lookProblemOf(
     (looks.length > 1 && "at most one option `looks`") ||
     (looks.length > 0 &&
       ask.doneSeenBy !== "payment" &&
-      'a `looks` option needs `doneSeenBy: "payment"` (fetch("ask/payment"))') ||
+      ask.doneSeenBy !== "access" &&
+      'a `looks` option needs `doneSeenBy: "payment"` (fetch("ask/payment")) or `"access"` (fetch("ask/access"))') ||
+    accessProblemOf(ask, looks.length) ||
     (ask.doneSeenBy === "payment" &&
       ask.needs?.filter((n) => n.kind === "amount").length !== 1 &&
       '`doneSeenBy: "payment"` needs one `amount` need (fetch("ask/payment"))') ||
     (ask.doneSeenBy === "payment" &&
       payeeWordsOf(ask.needs).length === 0 &&
       '`doneSeenBy: "payment"` needs the payee\'s name as the bank shows it: the `account`\'s `holder` or the `link`\'s `vendor` (fetch("ask/payment"))')
+  );
+}
+
+/** What breaks an access card's rules (`doneSeenBy: "access"`, `fetch("ask/access")`); false when nothing does. */
+function accessProblemOf(ask: z.infer<typeof Ask>, looks: number) {
+  if ((ask.doneSeenBy === "access") !== (accessOf(ask.needs) !== undefined)) {
+    return '`doneSeenBy: "access"` goes with one `access` need, and an `access` need with it (fetch("ask/access"))';
+  }
+  return (
+    ask.doneSeenBy === "access" &&
+    (((ask.needs?.filter((n) => n.kind === "access").length !== 1 ||
+      looks !== 1) &&
+      '`doneSeenBy: "access"` needs one `access` need and one `looks` option, "I\'m at my Mac" (fetch("ask/access"))') ||
+      (!permissionsHelperPath() &&
+        "Life can't check or ask anything on this Mac (no permissions helper: Life.app is not running Life)"))
   );
 }
 
@@ -381,10 +416,10 @@ export function endsProblemOf(
 
 /** What refuses a card's draft where his instructions in force (`inForce`, `instructionsFor`) say Life drafts no replies (`no-drafts` over `drafts`, `effectOf`); false when nothing does. */
 const draftsProblemOf = (
-  ask: Pick<z.infer<typeof Ask>, "draft">,
+  ask: Pick<z.infer<typeof Ask>, "draft" | "drafts">,
   inForce: Parameters<typeof effectOf>[0]
 ) =>
-  ask.draft !== undefined &&
+  draftsOf(ask).length > 0 &&
   effectOf(inForce, "drafts", "no-drafts") === false &&
   "he asked Life to draft no replies here: ask what you need without a `draft`, or leave the reply to him";
 
@@ -396,16 +431,17 @@ const draftsProblemOf = (
  */
 export function agentCardOf(
   ask: Parameters<typeof askFieldsProblemOf>[0] &
-    Pick<z.infer<typeof Ask>, "changed" | "draft" | "subject">,
+    Pick<z.infer<typeof Ask>, "changed" | "draft" | "drafts" | "subject">,
   earlier: readonly Pick<Decision, "matter" | "state" | "subject">[],
   on: { matter?: string; project?: string | null }
 ) {
+  const drafts = draftsOf(ask);
   const inForce = instructionsFor({
-    channels: [ask.draft?.channel, ask.draft?.to].filter(
-      (c) => c !== undefined
+    channels: drafts.flatMap((d) =>
+      [d.channel, d.to].filter((c) => c !== undefined)
     ),
     matter: on.matter,
-    people: ask.draft?.to.startsWith("person:") ? [ask.draft.to] : [],
+    people: drafts.flatMap((d) => (d.to.startsWith("person:") ? [d.to] : [])),
     projects: on.project ? [on.project] : [],
   });
   return {
