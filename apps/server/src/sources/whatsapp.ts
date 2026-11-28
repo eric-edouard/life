@@ -286,7 +286,8 @@ interface StoreRow {
 
 // One row per version a message was seen in: the original, each edit, and the "deleted" placeholder (type 14).
 // A delete for everyone removes the original and adds a type-14 row with a new id but the original's time and sender.
-const open = (dir: string) =>
+/** The WhatsApp archive in `dir`, its tables and its `deleted` view made: what `copyWhatsapp` and an export's import write. */
+export const openWhatsapp = (dir: string) =>
   openArchive(
     dir,
     "whatsapp",
@@ -311,7 +312,7 @@ export function copyWhatsapp(
   now = clock().getTime(),
   isFull = false
 ): number {
-  const archive = open(dir);
+  const archive = openWhatsapp(dir);
   const whatsapp = openReadOnly(join(source, "ChatStorage.sqlite"));
   try {
     const empty = !archive.query("select 1 from messages limit 1").get();

@@ -84,6 +84,14 @@ export function dayStart(date: string, tz?: string, hm = "00:00") {
 }
 
 /**
+ * The instant a wall clock reaches in Life's zone (`dayStart`): where he was that day, the day's own UTC guess giving
+ * the zone's first read. What an export's own wall times need (sources read no memory: it is passed in).
+ */
+export function instantOfWall(day: string, hm: string) {
+  return dayStart(day, zoneAt(`${day}T${hm}:00Z`), hm).toISOString();
+}
+
+/**
  * When a move from `was` to `tz` noticed at `now` takes effect: now when both zones are on the same day, else at the
  * next midnight of the one ahead, so a local day never goes back and never starts mid-way. ponytail: that can leave
  * up to a day in the old zone's times.

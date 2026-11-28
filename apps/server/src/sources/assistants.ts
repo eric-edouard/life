@@ -1,9 +1,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { log } from "../core/log";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { keysOf, ShapeReport, shapeOf } from "../core/shape-report";
 import type { SourceEvent } from "../records/source";
-import { isWithin, type Newest } from "./contract";
+import { type Held, isWithin, type Newest } from "./contract";
 
 // His conversations with AI assistants, from the exports of claude.ai and ChatGPT (~/Life/docs/
 // claude-import-scope-2026-10-21.md). Each export is kept as it came in `imports/<source>/` in his data (an export
@@ -11,7 +13,7 @@ import { isWithin, type Newest } from "./contract";
 // messages only, pruned by code: every pruned message is searched, and only the conversations the import step kept as
 // about his life become memory (the `not-kept` rule, units.ts). `fetch` gives one back whole, the assistant's turns too.
 
-type Assistant = "chatgpt" | "claude";
+export type Assistant = "chatgpt" | "claude";
 
 /** A message of a conversation as both exports reduce to: who wrote it, its words, and the files it carried as tags. */
 export interface ExportMessage {
@@ -264,11 +266,19 @@ export function pruned(all: Conversation[]) {
   });
 }
 
-/** An export as read: its conversations with his messages only (the assistant's turns are not memory). */
+/**
+ * An export as read: its conversations with his messages only (the assistant's turns are not memory). One whose
+ * structure is not recognized is a `ShapeReport` (its keys alone: the export's words are his).
+ */
 export function parsedExport(source: Assistant, json: unknown) {
-  return FORMATS[source]
-    .parse(json)
-    .map((c) => ({ ...c, messages: c.messages.filter((m) => m.fromMe) }));
+  try {
+    return FORMATS[source]
+      .parse(json)
+      .map((c) => ({ ...c, messages: c.messages.filter((m) => m.fromMe) }));
+  } catch {
+    // biome-ignore lint/style/useErrorCause: the parser's own error can quote the export's words; its shape alone leaves
+    throw shapeOf("assistant-export", { keys: keysOf(json) });
+  }
 }
 
 /** Where an assistant's export copies are kept in his data. */
@@ -307,9 +317,43 @@ const inCopyOrder = (copies: Copy[]) =>
       a.updatedAt.localeCompare(b.updatedAt) || a.path.localeCompare(b.path)
   );
 
+/** The copies Life cannot read, by path: their mtime and shape. Skipped as they are, read again when the file or Life changes. */
+const unreadable = new Map<string, { mtime: number; report: ShapeReport }>();
+
+/** One copy Life does not recognize, said once and skipped: its shape alone (its own words never reach the log). */
+function reportUnknownCopy(
+  source: Assistant,
+  file: string,
+  error: unknown
+): ShapeReport {
+  const shape =
+    error instanceof ShapeReport
+      ? error.fields
+      : shapeOf("assistant-export").fields;
+  const report = shapeOf(shape.format, {
+    ...shape,
+    files: [file, ...shape.files],
+  });
+  log("run.error", { ...report.fields, source, step: "import.shape" });
+  return report;
+}
+
+/** The shape reports of an assistant's copies Life cannot read now (`exportCopiesOf` finds them as it reads). */
+export function unreadableCopiesOf(
+  source: Assistant,
+  dir = exportsDir(source)
+) {
+  exportCopiesOf(source, dir);
+  return [...unreadable]
+    .filter(([path]) => path.startsWith(join(dir, "/")))
+    .map(([, { report }]) => report);
+}
+
 /**
  * The export copies kept for an assistant, in copy order, each with his messages and update times. Each is parsed once
- * per process (and again only when its file changes): a unit's `builtFor` reads its source again.
+ * per process (and again only when its file changes): a unit's `builtFor` reads its source again. A copy whose
+ * structure is not recognized is skipped, never a failed night: nothing is stored, and the next process (an update)
+ * reads it again, so a fixed parser resumes it by itself.
  */
 export function exportCopiesOf(source: Assistant, dir = exportsDir(source)) {
   if (!existsSync(dir)) {
@@ -318,21 +362,33 @@ export function exportCopiesOf(source: Assistant, dir = exportsDir(source)) {
   return inCopyOrder(
     readdirSync(dir)
       .filter((f) => COPY.test(f))
-      .map((f): Copy => {
+      .flatMap((f): Copy[] => {
         const path = join(dir, f);
         const { mtimeMs } = statSync(path);
-        let hit = memo.get(path);
-        if (hit?.mtime !== mtimeMs) {
-          hit = {
+        const hit = memo.get(path);
+        if (hit?.mtime === mtimeMs) {
+          return [hit];
+        }
+        if (unreadable.get(path)?.mtime === mtimeMs) {
+          return [];
+        }
+        try {
+          const copy = {
             ...copyOf(
               path,
               parsedExport(source, JSON.parse(readFileSync(path, "utf8")))
             ),
             mtime: mtimeMs,
           };
-          memo.set(path, hit);
+          memo.set(path, copy);
+          return [copy];
+        } catch (error) {
+          unreadable.set(path, {
+            mtime: mtimeMs,
+            report: reportUnknownCopy(source, f, error),
+          });
+          return [];
         }
-        return hit;
       })
   );
 }
@@ -441,11 +497,17 @@ export const readAssistant =
       .filter(isWithin(since, before))
       .sort((a, b) => a.at.localeCompare(b.at));
 
-/** The first imported message's timestamp, using the export's read-once cache. */
-export const readEarliestAssistant = (source: Assistant) =>
-  conversationsOf(source)
-    .flatMap((c) => c.messages.map((m) => m.at))
-    .sort()[0] ?? null;
+/** What an export holds: how many conversations and the first message among them. */
+export const readHeldAssistant = (source: Assistant): Held => {
+  const conversations = conversationsOf(source);
+  return {
+    count: conversations.length,
+    earliest:
+      conversations.flatMap((c) => c.messages.map((m) => m.at)).sort()[0] ??
+      null,
+    noun: "conversations",
+  };
+};
 
 /** The status snapshot's card: when his newest imported message was, and how many conversations were imported. */
 export function newestAssistant(source: Assistant): Newest {

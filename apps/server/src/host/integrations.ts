@@ -6,15 +6,30 @@
 // reads hold under the same keys.
 
 import { cached, safe } from "../core/cached";
-import { clock, MIN } from "../core/clock";
+import { clock, daysBefore, MIN } from "../core/clock";
+import type { Engine } from "../core/names";
 import { systemZone } from "../core/platform";
-import { appHere, enabledSources, SOURCES } from "../memory/sources";
+import { settings } from "../core/settings";
+import {
+  appHere,
+  enabledSources,
+  readySources,
+  SOURCES,
+} from "../memory/sources";
+import { localDate } from "../memory/zones";
 import { providerOf, readEngine, readEngineCheck } from "../models/llm";
 import type { IntegrationTerms, Requirement } from "../records/integration";
-import type { Descriptor, Newest } from "../sources/contract";
+import type { Descriptor, Held, Newest } from "../sources/contract";
 import { NETWORKS, type Network } from "../sources/networks";
 import { newestTurn, readVoiceServerStatus } from "../sources/voice-server";
 import { archiveFailing } from "./archive";
+import {
+  type BackfillState,
+  backfillEstimateOf,
+  backfillProgressOf,
+  type HeldSource,
+  readBackfillState,
+} from "./backfill";
 import { latestBridgeChecks } from "./bridge-check";
 import {
   type IntegrationFacts,
@@ -26,6 +41,7 @@ import {
   wokeAt,
 } from "./integration-health";
 import { readFullDiskAccess } from "./mac-access";
+import { pausedImportsNow } from "./paused-imports";
 import { voiceStatus } from "./voice";
 
 /** Every source's newest item (`Descriptor.newest`), each read by its own module. */
@@ -193,9 +209,30 @@ export function integrationFactsOf(
 const pendantOf = (r: IntegrationReads) =>
   r.life.ok ? r.life.value.pendant : undefined;
 
+/** A range "How far back" offers the AI's integration: its first day, its label, and what reading from it costs. */
+export interface HowFarBackChoice {
+  from: string;
+  hours: number;
+  label: string;
+  tokens: number;
+  usd?: number;
+}
+
+/** "How far back" in the AI's integration: the ranges to read his history from, and the day he picked. */
+export interface HowFarBack {
+  choices: HowFarBackChoice[];
+  picked?: string;
+}
+
 /** An integration as every surface shows it: its terms, its state now, and why when it waits on him or is broken. */
 export interface Integration {
+  /** The backfill's line for a source: "reading 2019, about 3 hours left", or its paused import's. */
+  backfill?: string;
   group: "ai" | "voice" | "sources" | "messaging" | "phone";
+  /** What a source holds, as one line: "48,000 messages since 2014". */
+  holds?: string;
+  /** "How far back" the AI's integration offers: the ranges, and the one he picked. */
+  howFarBack?: HowFarBack;
   icon: string;
   id: string;
   name: string;
@@ -208,8 +245,11 @@ export interface Integration {
 
 /** One integration built from its terms and facts, its state decided once (`integrationHealthOf`). */
 function integrationOf(o: {
+  backfill?: string;
   facts: IntegrationFacts;
   group: Integration["group"];
+  holds?: string;
+  howFarBack?: HowFarBack;
   icon: string;
   id: string;
   name: string;
@@ -217,7 +257,10 @@ function integrationOf(o: {
 }): Integration {
   const h = integrationHealthOf(o.facts);
   return {
+    ...(o.backfill ? { backfill: o.backfill } : {}),
     group: o.group,
+    ...(o.holds ? { holds: o.holds } : {}),
+    ...(o.howFarBack ? { howFarBack: o.howFarBack } : {}),
     icon: o.icon,
     id: o.id,
     name: o.name,
@@ -240,8 +283,136 @@ const VOICE_TERMS: IntegrationTerms = {
   },
 };
 
+/** A source's held, read once an hour: its "holds" line and "How far back" both use it. */
+const heldOf = (d: Descriptor) =>
+  cached(`held:${d.name}`, 60 * MIN, () => {
+    try {
+      return d.held?.() ?? null;
+    } catch {
+      return null;
+    }
+  });
+
+const COUNT = new Intl.NumberFormat("en-US");
+
+/** A noun's final s, dropped for a count of one. */
+const FINAL_S = /s$/;
+
+/** A source's held as one line: "48,000 messages since 2014", a count of one singular. Nothing when it holds nothing. */
+export function holdsLineOf(held: Held | null) {
+  if (!held?.count) {
+    return;
+  }
+  const noun = held.count === 1 ? held.noun.replace(FINAL_S, "") : held.noun;
+  const since = held.earliest ? ` since ${held.earliest.slice(0, 4)}` : "";
+  return `${COUNT.format(held.count)} ${noun}${since}`;
+}
+
+/** A paused import's line, the same for every source: the caretaker offers its shape report. */
+const PAUSED_LINE =
+  "Import paused: Life is learning this format. It resumes by itself after an update";
+
+/**
+ * The backfill's line for a source: its paused import's first; else, while the backfill runs, the year it reads and the
+ * hours left (the estimate's before a week is done); nothing when it is done. Pure: the state, the held and the day.
+ */
+export function backfillLineOf(o: {
+  engine: Engine;
+  from: string | undefined;
+  held: Held | null;
+  name: string;
+  on: boolean;
+  paused: boolean;
+  state: BackfillState | undefined;
+  today: string;
+}) {
+  if (o.paused) {
+    return PAUSED_LINE;
+  }
+  if (!(o.on && o.from && o.held?.earliest && o.held.earliest < o.today)) {
+    return;
+  }
+  const progress = backfillProgressOf(o.state, o.from, o.today);
+  if (progress.hoursLeft === 0 && progress.doneWeeks === progress.totalWeeks) {
+    return;
+  }
+  const hours =
+    progress.hoursLeft > 0
+      ? progress.hoursLeft
+      : backfillEstimateOf(
+          [{ held: o.held, name: o.name }],
+          o.from,
+          o.engine,
+          o.today
+        ).hours;
+  const left = Math.max(1, Math.round(hours));
+  return `reading ${progress.reading}, about ${left} ${left === 1 ? "hour" : "hours"} left`;
+}
+
+/**
+ * "How far back" for the AI's integration: three ranges, each priced by `backfillEstimateOf` over every ready source's
+ * held on the engine now; "Everything" starts at the earliest. Pure: the held, the engine and the pick come in.
+ */
+export function howFarBackOf(o: {
+  engine: Engine;
+  picked: string | undefined;
+  sources: readonly HeldSource[];
+  today: string;
+}): HowFarBack {
+  const earliest = o.sources.reduce<string | undefined>(
+    (at, s) =>
+      s.held?.earliest && (!at || s.held.earliest < at) ? s.held.earliest : at,
+    undefined
+  );
+  const choices = [
+    { from: daysBefore(o.today, 91), label: "The last 3 months" },
+    { from: daysBefore(o.today, 365), label: "The last year" },
+    { from: (earliest ?? o.today).slice(0, 10), label: "Everything" },
+  ].map((c) => {
+    const { hours, tokens, usd } = backfillEstimateOf(
+      o.sources,
+      c.from,
+      o.engine,
+      o.today
+    );
+    return { ...c, hours, tokens, ...(usd === undefined ? {} : { usd }) };
+  });
+  return { choices, ...(o.picked ? { picked: o.picked } : {}) };
+}
+
+/** Every ready source's held, read once an hour: "How far back" prices what each offers. */
+const heldSourcesOf = async (): Promise<HeldSource[]> =>
+  Promise.all(
+    readySources().map(async (d) => ({
+      held: await heldOf(d),
+      name: d.name as string,
+    }))
+  );
+
+/** A source's two lines, its held's and the backfill's: what its integration adds to its facts. */
+const linesOf = (o: {
+  engine: Engine;
+  from: string | undefined;
+  held: Held | null;
+  name: string;
+  on: boolean;
+  paused: boolean;
+  state: BackfillState | undefined;
+  today: string;
+}) => {
+  const holds = holdsLineOf(o.held);
+  const backfill = backfillLineOf(o);
+  return { ...(backfill ? { backfill } : {}), ...(holds ? { holds } : {}) };
+};
+
 /** Each messaging network as an integration: each is a source by name, its own entry holding its terms. */
-export const networkIntegrationsOf = (reads: IntegrationReads) =>
+export const networkIntegrationsOf = (
+  reads: IntegrationReads,
+  linesFor: (d: Descriptor) => {
+    backfill?: string;
+    holds?: string;
+  } = () => ({})
+) =>
   NETWORKS.map((n) => ({ d: SOURCES.find((s) => s.name === n.name), n }))
     .filter(
       (x): x is { d: Descriptor; n: Network } =>
@@ -249,6 +420,7 @@ export const networkIntegrationsOf = (reads: IntegrationReads) =>
     )
     .map(({ d, n }) =>
       integrationOf({
+        ...linesFor(d),
         facts: integrationFactsOf(d, reads),
         group: "messaging",
         icon: n.name,
@@ -289,13 +461,37 @@ export function aiFactsOf(
 export async function integrationsNow(now = clock()): Promise<Integration[]> {
   const engine = readEngine();
   const { integration: aiTerms, label } = providerOf(engine);
-  const [reads, engineCheck] = await Promise.all([
+  const today = localDate(now.toISOString());
+  const from = settings().backfillFrom;
+  const [reads, engineCheck, state, heldSources, paused] = await Promise.all([
     readIntegrationReads(now),
     cached(`engine check:${engine}`, MIN, () => readEngineCheck(engine)),
+    readBackfillState(),
+    heldSourcesOf(),
+    pausedImportsNow(),
   ]);
+  const held = new Map(heldSources.map((s) => [s.name, s.held]));
+  const pausedNames = new Set(paused.map((p) => p.source));
+  const linesFor = (d: Descriptor) =>
+    linesOf({
+      engine,
+      from,
+      held: held.get(d.name as string) ?? null,
+      name: d.name as string,
+      on: reads.on.has(d.name),
+      paused: pausedNames.has(d.name),
+      state,
+      today,
+    });
   const ai: Integration = integrationOf({
     facts: aiFactsOf(engineCheck, aiTerms),
     group: "ai",
+    howFarBack: howFarBackOf({
+      engine,
+      picked: from,
+      sources: heldSources,
+      today,
+    }),
     icon: engine,
     id: "ai",
     name: label,
@@ -319,6 +515,7 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
   });
   const sources = SOURCES.filter((d) => d.integration && appHere(d)).map((d) =>
     integrationOf({
+      ...linesFor(d),
       facts: integrationFactsOf(d, reads),
       group: d.kind === "voice" ? "voice" : "sources",
       icon: d.name,
@@ -327,5 +524,5 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
       terms: d.integration as IntegrationTerms,
     })
   );
-  return [ai, voice, ...sources, ...networkIntegrationsOf(reads)];
+  return [ai, voice, ...sources, ...networkIntegrationsOf(reads, linesFor)];
 }

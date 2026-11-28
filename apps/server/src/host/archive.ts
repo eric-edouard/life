@@ -7,9 +7,13 @@ import { errorOf } from "../core/log-line";
 import { LIFE_CODE_DIR } from "../core/paths";
 import { exec, readRunning } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
+import { ownerNamesOf } from "../memory/arrival-reader";
+import { loadTruth } from "../memory/read-truth";
 import { ARCHIVED, type Archived, keptStores } from "../memory/sources";
+import { instantOfWall } from "../memory/zones";
 import { ARCHIVE, archiveDb } from "../sources/archived";
 import { copyWhatsapp } from "../sources/whatsapp";
+import { importWhatsappExports } from "../sources/whatsapp-export";
 
 // Keeps every message the Mac's WhatsApp app receives, and every LINE, Telegram, Instagram and Messenger message the bridges (or Beeper)
 // hold, before a delete for everyone wipes it, and every version of each Apple Note, which Notes overwrites in place.
@@ -245,7 +249,9 @@ export async function archiveCommand(args: string[]): Promise<number> {
   const failing = new Set(
     openIncidents(await recentEvents(ARCHIVE_LOOKBACK)).keys()
   );
+  const ownerNames = ownerNamesOf(await loadTruth());
   await copyAll(failing);
+  readWhatsappExports(ownerNames);
   while (readRunning(LIFE_CODE_DIR) === running) {
     if (args.includes("--once")) {
       return 0;
@@ -254,7 +260,39 @@ export async function archiveCommand(args: string[]): Promise<number> {
     // biome-ignore lint/performance/noAwaitInLoops: sequential poll loop
     await Promise.all([keepAppsOpen(), Bun.sleep(5000)]);
     copyAll(failing);
+    readWhatsappExports(ownerNames);
   }
   console.log(`${clock().toISOString()} new code or sources: restarting`);
   return 0;
+}
+
+/** The WhatsApp export copies read since this process started: one that failed is retried only by a new one (an update). */
+const triedExports = new Set<string>();
+
+/**
+ * One pass over the copies of WhatsApp exports he dropped (`importWhatsappExports`): their messages land in the
+ * archive as export rows. A copy Life does not know is logged as its shape alone and skipped: no night fails on it.
+ */
+function readWhatsappExports(ownerNames: string[]) {
+  try {
+    const { added, failed } = importWhatsappExports(triedExports, {
+      atWall: instantOfWall,
+      ownerNames,
+    });
+    if (added > 0) {
+      console.log(
+        `${clock().toISOString()} ${added} WhatsApp messages from an export`
+      );
+    }
+    for (const report of failed) {
+      log("run.error", { ...report.fields, step: "archive.whatsapp-export" });
+    }
+  } catch (error) {
+    // Not a shape Life can report (a disk, a store): an incident of the archive's own, as any store's.
+    console.error(clock().toISOString(), "whatsapp export", error);
+    log("run.error", {
+      ...errorOf(error),
+      step: "archive.whatsapp-export",
+    });
+  }
 }

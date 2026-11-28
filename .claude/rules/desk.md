@@ -73,7 +73,9 @@ His yes, 18 Nov 2026. The desk (`apps/server/src/desk/`, off until his `desk` se
   session's question ends only once it read his words (`main_question`).
 - The caretaker (22 Nov 2026) says nothing technical, fixes memory itself with `correct_memory` (`said` from the
   complaint, `complaintWordsIn`), and sends a fault in Life's code only as an anonymized card mailed to
-  `DEVELOPER_CONTACT` on his Send.
+  `DEVELOPER_CONTACT` on his Send. It also wakes on a paused import (`import.paused`, `receivePausedImports`): an
+  export Life cannot read yet, its shape report (no words) offered as a mail to the developer; the import resumes by
+  itself after an update.
 - The main session (`desk/main-session.ts`, one at most, 21 Nov 2026) wakes only on his words, never the clock, an
   event or the hand-out; low-confidence words run no turn. His words are its prompt as he sent them.
   Its door's extra writers (`SECURITY.md`, "Agents"; also `read_assignment`, `record_instruction`) are no other

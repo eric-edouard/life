@@ -10,7 +10,7 @@ import { z } from "zod";
 import { appendJsonl, writeWhole } from "../core/files";
 import { digest } from "../core/hash";
 import { hold, release } from "../core/lock";
-import { settings } from "../core/settings";
+import { readBackfillEngine } from "../core/settings";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { MadeBy } from "../records/fields";
 import { Imported } from "../records/observation";
@@ -249,10 +249,7 @@ const utcDaysOf = (c: Conversation | undefined) =>
 export async function importExport(folder: string) {
   const { conversations, copy, source } = readExport(folder);
   const plan = planOf(source, conversations, copy);
-  const engine = settings().backfillEngine;
-  if (!engine) {
-    throw new Error("imports are off: set backfillEngine in settings first");
-  }
+  const engine = readBackfillEngine();
   await spareQuota(engine);
   if (!plan.have) {
     const dir = exportsDir(source);
@@ -338,10 +335,7 @@ export async function importExport(folder: string) {
  * import again describes and collects what a stopped one left.
  */
 export async function importInstagramExport(folder: string) {
-  const engine = settings().backfillEngine;
-  if (!engine) {
-    throw new Error("imports are off: set backfillEngine in settings first");
-  }
+  const engine = readBackfillEngine();
   await spareQuota(engine);
   // The archive's one writer only while the rows are written: describing and collecting need no archive lock, and
   // the archiver must not wait on them.

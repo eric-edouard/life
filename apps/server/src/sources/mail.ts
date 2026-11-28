@@ -4,7 +4,7 @@ import { htmlTextOf } from "../core/html-text";
 import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
-import type { MessageAt, Newest, NewRow } from "./contract";
+import type { Held, MessageAt, Newest, NewRow } from "./contract";
 import { sourceFile } from "./contract";
 
 // Apple Mail's local store, every account Mail.app syncs, opened read-only. Never written.
@@ -39,18 +39,23 @@ export function mailRoot(base = MAIL): string {
 const openIndex = (root: string) =>
   openReadOnly(join(root, "MailData", "Envelope Index"));
 
-/** The earliest timestamp in Mail's index; no message file or body is opened. */
-export function readEarliestMail(root = mailRoot()) {
+/** What Mail holds: how many messages and the first in its index; no message file or body is opened. */
+export function readHeldMail(root = mailRoot()): Held {
   const db = openIndex(root);
   try {
-    const at = db
-      .query<{ at: number | null }, []>(
-        "select min(date_received) as at from messages"
+    const r = db
+      .query<{ at: number | null; count: number }, []>(
+        "select min(date_received) as at, count(*) as count from messages"
       )
-      .get()?.at;
-    return at === null || at === undefined
-      ? null
-      : new Date(at * 1000).toISOString();
+      .get();
+    return {
+      count: r?.count ?? 0,
+      earliest:
+        r?.at === null || r?.at === undefined
+          ? null
+          : new Date(r.at * 1000).toISOString(),
+      noun: "messages",
+    };
   } finally {
     db.close();
   }

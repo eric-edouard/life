@@ -6,7 +6,7 @@ import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent } from "../records/source";
 import { handleKey, readContacts } from "./contacts";
-import type { MessageAt, Newest, NewRow, Picture } from "./contract";
+import type { Held, MessageAt, Newest, NewRow, Picture } from "./contract";
 import { sourceFile } from "./contract";
 
 // iMessage and SMS from the Mac's Messages database, opened read-only. Never written.
@@ -27,18 +27,23 @@ export const fromAppleNs = (ns: number | bigint) =>
 export const fromAppleS = (s: number) => new Date((s + APPLE_EPOCH_S) * 1000);
 export const toAppleS = (ms: number) => ms / 1000 - APPLE_EPOCH_S;
 
-/** The first message's timestamp, without loading its text or attachments. */
-export function readEarliestImessage(path = DB) {
+/** What Messages holds: how many messages and the first, without loading text or attachments. */
+export function readHeldImessage(path = DB): Held {
   const db = openReadOnly(path);
   try {
-    const at = db
-      .query<{ at: number | bigint | null }, []>(
-        "select min(date) as at from message where item_type = 0"
+    const r = db
+      .query<{ at: number | bigint | null; count: number }, []>(
+        "select min(date) as at, count(*) as count from message where item_type = 0"
       )
-      .get()?.at;
-    return at === null || at === undefined
-      ? null
-      : fromAppleNs(at).toISOString();
+      .get();
+    return {
+      count: r?.count ?? 0,
+      earliest:
+        r?.at === null || r?.at === undefined
+          ? null
+          : fromAppleNs(r.at).toISOString(),
+      noun: "messages",
+    };
   } finally {
     db.close();
   }

@@ -17,19 +17,27 @@ import {
   setSettings,
   settings,
 } from "../core/settings";
+import { ShapeReport } from "../core/shape-report";
+import { ownerNamesOf } from "../memory/arrival-reader";
 import { DAYS } from "../memory/gather";
 import { collectHistorical } from "../memory/historical-collection";
 import { dryRun, importExport, importInstagramExport } from "../memory/imports";
 import { reindex } from "../memory/index-writer";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { SOURCES } from "../memory/sources";
-import { dayNow, dayRange } from "../memory/zones";
+import { dayNow, dayRange, instantOfWall } from "../memory/zones";
 import { engineKeys, readEngine } from "../models/llm";
 import { entryLine } from "../records/ledger-entry";
 import {
   copyInstagramExport,
   isInstagramExport,
 } from "../sources/instagram-export";
+import {
+  copyWhatsappExport,
+  isNamedWhatsappExport,
+  isWhatsappExport,
+  readWhatsappExport,
+} from "../sources/whatsapp-export";
 import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { archiveCommand } from "./archive";
@@ -68,6 +76,73 @@ const pluginOff = () => {
   }
   return Boolean(why);
 };
+
+/** A WhatsApp chat export as `import` reads it (his names from truth/ for his own side), or the shape Life can't read. */
+async function whatsappExportOf(dir: string) {
+  try {
+    return readWhatsappExport(dir, {
+      atWall: instantOfWall,
+      ownerNames: ownerNamesOf(await loadTruth()),
+    });
+  } catch (error) {
+    if (error instanceof ShapeReport) {
+      return error;
+    }
+    throw error;
+  }
+}
+
+const WRONG_FILE =
+  "That is no WhatsApp chat export: in WhatsApp choose Export chat, then import its .txt (or the folder holding it). Nothing was kept.";
+
+/** `import <folder> --dry`: what an assistant's, Instagram's or a WhatsApp export holds, counted, nothing kept. */
+async function dryImport(dir: string) {
+  if (!isInstagramExport(dir) && isWhatsappExport(dir)) {
+    const parsed = await whatsappExportOf(dir);
+    console.log(
+      JSON.stringify(
+        parsed instanceof ShapeReport
+          ? parsed.fields
+          : {
+              chat: parsed.chatName,
+              from: parsed.messages[0]?.at,
+              messages: parsed.messages.length,
+              to: parsed.messages.at(-1)?.at,
+            }
+      )
+    );
+    return parsed instanceof ShapeReport ? 2 : 0;
+  }
+  console.log(
+    JSON.stringify(
+      isInstagramExport(dir)
+        ? copyInstagramExport(dir, { dry: true })
+        : dryRun(dir)
+    )
+  );
+  return 0;
+}
+
+/**
+ * `import <a WhatsApp export>`: kept as it came in `imports/whatsapp/`; the archiver reads it on its next pass. One named
+ * as WhatsApp's that Life can't read yet is kept too (an update reads it); any other unreadable file is the wrong one.
+ */
+async function importWhatsappCopy(dir: string) {
+  const parsed = await whatsappExportOf(dir);
+  const isUnknown = parsed instanceof ShapeReport;
+  if (isUnknown && !isNamedWhatsappExport(dir)) {
+    console.error(WRONG_FILE);
+    return 2;
+  }
+  const copied = copyWhatsappExport(dir);
+  const kept = copied.isNew ? "kept" : "kept already";
+  console.log(
+    isUnknown
+      ? `WhatsApp: Life can't read this export's format yet; it is ${kept} and read by itself after an update.`
+      : `WhatsApp: ${parsed.messages.length} messages ${kept}; the archiver reads them on its next pass.`
+  );
+  return 0;
+}
 
 const commands: Record<string, () => number | Promise<number>> = {
   /**
@@ -298,8 +373,9 @@ const commands: Record<string, () => number | Promise<number>> = {
   /**
    * One verb for whatever is brought in (`import <folder> [--dry]`): a Life export (a manifest: `restore`, into a new
    * install, checked before and counted after), his claude.ai or ChatGPT export (a newer one lands beside the older),
-   * or his Instagram export (an unzipped folder: its messages go into the Instagram archive, with Life quit, since
-   * the archive has one writer). `--dry` only counts.
+   * his Instagram export (an unzipped folder: its messages go into the Instagram archive, with Life quit, since the
+   * archive has one writer), or a WhatsApp chat export (a `.txt`, or the folder holding it: kept as it came, and the
+   * archiver writes its messages on its next pass). `--dry` only counts.
    */
   async import() {
     const { positionals, values } = parseArgs({
@@ -309,7 +385,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     });
     const [dir] = positionals;
     if (!dir) {
-      console.error("usage: bun life import <folder> [--dry]");
+      console.error("usage: bun life import <folder|chat.txt> [--dry]");
       return 2;
     }
     if (existsSync(join(dir, "manifest.json"))) {
@@ -325,14 +401,8 @@ const commands: Record<string, () => number | Promise<number>> = {
       );
       return 0;
     }
-    const isInstagram = isInstagramExport(dir);
     if (values.dry) {
-      console.log(
-        JSON.stringify(
-          isInstagram ? copyInstagramExport(dir, { dry: true }) : dryRun(dir)
-        )
-      );
-      return 0;
+      return dryImport(dir);
     }
     // Its copy goes into his data: a new install starts first (`init`), or brings a Life export.
     if (!started()) {
@@ -340,6 +410,10 @@ const commands: Record<string, () => number | Promise<number>> = {
         "Start Life first (or import a Life export): an export of his goes into a set-up Life"
       );
       return 2;
+    }
+    const isInstagram = isInstagramExport(dir);
+    if (!isInstagram && isWhatsappExport(dir)) {
+      return importWhatsappCopy(dir);
     }
     return step(async () => {
       const result = isInstagram

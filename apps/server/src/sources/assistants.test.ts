@@ -312,8 +312,25 @@ test("a file with no name in an export reads, and whether a copy is kept never p
   expect(conversationsOf("claude")[0]?.messages[0]?.tags).toEqual([
     "[file plan.pdf]",
   ]);
-  // A copy that does not parse is still found by its file: the source reads it, and fails, inside the night's guard.
+  // A copy that does not parse is still found by its file: it is one, whatever its shape (the next test).
   putCopy("claude", "conversations.json", "not an export");
   expect(hasExportCopy("claude")).toBe(true);
+  rmSync(exportsDir("claude"), { force: true, recursive: true });
+});
+
+test("a copy whose shape Life does not know is skipped, never a failed night", () => {
+  rmSync(exportsDir("claude"), { force: true, recursive: true });
+  putCopy("claude", "conversations.json", [
+    claudeChat("k", "2026-03-02T10:00:00.000Z", ["k1", "human", "Kept."]),
+  ]);
+  // A copy of another shape, and one that is no JSON at all: the copy beside them still reads, and neither throws.
+  putCopy("claude", "conversations.0123456789ab.json", {
+    rows: [{ "Jane Doe": "not an export" }],
+  });
+  putCopy("claude", "conversations.ffffffffffff.json", "not an export");
+  expect(conversationsOf("claude").map((c) => c.id)).toEqual(["k"]);
+  expect(readAssistant("claude")(new Date(0)).map((e) => e.text)).toEqual([
+    "Kept.",
+  ]);
   rmSync(exportsDir("claude"), { force: true, recursive: true });
 });

@@ -115,8 +115,11 @@ on the local port: what he can turn on and where each stands, for setup and onbo
 `host/integrations.ts`). One row each for the AI, voice, the pendant, every source on this system and every messaging
 network: its `requirements` in the order he meets them, each with `done` read now, and its `state` (`off`,
 `waiting_on_user`, `connecting`, `working`, `broken`) with `why` in plain words, both `integrationHealthOf`'s, the same
-judgement the status window's source cards show. Nothing stored; each read is cached (newest 3 s, bridges 15 s, the
-engine check 1 minute, voice 15 s).
+judgement the status window's source cards show. A source also carries `holds` (what it holds, one line: "48,000
+messages since 2014") and `backfill` (the year it reads and its hours left, or "Import paused: ..."); the AI carries
+`howFarBack` (`choices`: three ranges, each its `from` day, `label`, `tokens`, `hours` and `usd` when billed, and `picked`,
+the day he chose, written with `change_setting {backfillFrom}`). Nothing stored; each read is cached (newest 3 s, bridges
+15 s, the engine check 1 minute, voice 15 s, held and a source's lines 1 hour).
 
 ## changes
 

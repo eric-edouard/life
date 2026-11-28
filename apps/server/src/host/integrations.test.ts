@@ -4,9 +4,13 @@ import { SOURCES } from "../memory/sources";
 import { providerOf } from "../models/llm";
 import type { IntegrationTerms } from "../records/integration";
 import { NETWORKS } from "../sources/networks";
+import type { HeldSource } from "./backfill";
 import { integrationHealthOf } from "./integration-health";
 import {
   aiFactsOf,
+  backfillLineOf,
+  holdsLineOf,
+  howFarBackOf,
   type IntegrationReads,
   integrationFactsOf,
   isDoneOf,
@@ -126,6 +130,143 @@ test("Telegram with no keys yet waits on him, with the key's words; signed in wi
   });
   const [key] = requirementsOf(telegram);
   expect(key && isDoneOf(key, "telegram", reads())).toBe(true);
+});
+
+/** A made-up held, as a source's own read gives it. */
+const held = (count: number, earliest: string, noun = "messages") => ({
+  count,
+  earliest,
+  noun,
+});
+
+test("a source's holds line: its count in thousands, its noun, and the year its earliest came", () => {
+  expect(holdsLineOf(held(48_000, "2014-05-02T10:00:00.000Z"))).toBe(
+    "48,000 messages since 2014"
+  );
+  // A count of one drops the noun's final s.
+  expect(holdsLineOf(held(1, "2024-01-02T00:00:00.000Z", "notes"))).toBe(
+    "1 note since 2024"
+  );
+  expect(holdsLineOf(null)).toBeUndefined();
+  expect(holdsLineOf(held(0, "2020-01-01T00:00:00.000Z"))).toBeUndefined();
+});
+
+/** A backfill line's shape: its year and its hours. */
+const READING = /^reading \d{4}, about \d+ hours? left$/;
+
+test("a source's backfill line: the year it reads and its hours left, the estimate's before a week is done; nothing once done", () => {
+  const from = "2026-11-01";
+  const today = "2026-11-28";
+  const line = (state: Parameters<typeof backfillLineOf>[0]["state"]) =>
+    backfillLineOf({
+      engine: "claude",
+      from,
+      held: held(12_000, "2019-03-04T00:00:00.000Z"),
+      name: "whatsapp",
+      on: true,
+      paused: false,
+      state,
+      today,
+    });
+  // No week done yet: the estimate's hours, on the year the backfill is reading.
+  expect(line({ weeks: {} })).toMatch(READING);
+  // A week done: its mean per week, for the weeks left.
+  expect(line({ weeks: { "2026-11-01": 7200 } })).toMatch(READING);
+  // Every week done and the matters and summaries read: nothing.
+  expect(
+    line({
+      phaseB: "done",
+      weeks: { "2026-11-01": 60, "2026-11-08": 60, "2026-11-15": 60 },
+    })
+  ).toBeUndefined();
+  // The backfill off, or nothing held: no line.
+  expect(
+    backfillLineOf({
+      engine: "claude",
+      from: undefined,
+      held: held(12_000, "2019-03-04T00:00:00.000Z"),
+      name: "whatsapp",
+      on: true,
+      paused: false,
+      state: { weeks: {} },
+      today,
+    })
+  ).toBeUndefined();
+  expect(
+    backfillLineOf({
+      engine: "claude",
+      from,
+      held: null,
+      name: "whatsapp",
+      on: true,
+      paused: false,
+      state: { weeks: {} },
+      today,
+    })
+  ).toBeUndefined();
+});
+
+test("a paused import's line wins over the backfill's, and stands with the backfill off", () => {
+  const paused = backfillLineOf({
+    engine: "claude",
+    from: "2026-11-01",
+    held: held(12_000, "2019-03-04T00:00:00.000Z"),
+    name: "whatsapp",
+    on: true,
+    paused: true,
+    state: { weeks: {} },
+    today: "2026-11-28",
+  });
+  expect(paused).toBe(
+    "Import paused: Life is learning this format. It resumes by itself after an update"
+  );
+  expect(
+    backfillLineOf({
+      engine: "claude",
+      from: undefined,
+      held: null,
+      name: "whatsapp",
+      on: false,
+      paused: true,
+      state: undefined,
+      today: "2026-11-28",
+    })
+  ).toBe(paused);
+});
+
+test("how far back: three ranges, priced on what the ready sources hold, the earliest as Everything, and the pick", () => {
+  const sources: HeldSource[] = [
+    { held: held(48_000, "2014-05-02T00:00:00.000Z"), name: "whatsapp" },
+    { held: held(300, "2019-03-04T00:00:00.000Z", "photos"), name: "photos" },
+    { held: null, name: "git" },
+  ];
+  const howFarBack = howFarBackOf({
+    engine: "claude",
+    picked: "2025-11-28",
+    sources,
+    today: "2026-11-28",
+  });
+  expect(howFarBack.choices.map((c) => [c.label, c.from])).toEqual([
+    ["The last 3 months", "2026-08-29"],
+    ["The last year", "2025-11-28"],
+    ["Everything", "2014-05-02"],
+  ]);
+  for (const choice of howFarBack.choices) {
+    expect(choice.hours).toBeGreaterThan(0);
+    expect(choice.tokens).toBeGreaterThan(0);
+    // A subscription engine: no dollars.
+    expect(choice.usd).toBeUndefined();
+  }
+  expect(howFarBack.picked).toBe("2025-11-28");
+  // Nothing picked: no picked field.
+  expect(
+    howFarBackOf({
+      engine: "claude",
+      picked: undefined,
+      sources,
+      today: "2026-11-28",
+    }).picked
+  ).toBeUndefined();
 });
 
 test("the Pendant before the phone's first heartbeat is not red: the voice server answers, it just has none yet", () => {

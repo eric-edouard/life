@@ -99,6 +99,11 @@ const byDay = (list: DayZone[]) => {
 const agreed = (set?: Set<string | null>) =>
   set?.size === 1 ? [...set][0] : undefined;
 
+/** A day of the era would end after the first recorded zone begins: its units would move hours into it. */
+const endsPastEra = (day: string, tz: string, eraFrom?: string) =>
+  eraFrom !== undefined &&
+  dayStart(daysBefore(day, -1), tz).toISOString() > eraFrom;
+
 /**
  * Each day's zone from its own evidence, else the nearest day that has one (ties earlier: a gap).
  * 1. Photos agree on one offset: that zone (`photos`), deferred if it is a quarter hour. A photo is where he stood.
@@ -108,7 +113,8 @@ const agreed = (set?: Set<string | null>) =>
  *    from a move), except a travel day, which is deferred.
  * A run carries the source of the day that opened it. `eraFrom` is where the first recorded zone begins: the last day
  * of the era is deferred when it would end after it. Later model backfill must re-read this report: a gap is only a
- * calendar boundary, never evidence of where he was.
+ * calendar boundary, never evidence of where he was. No evidence at all (no photo, no sent mail) defers no day: every
+ * day is a gap, placed by the first recorded zone (`zoneAt`'s fallback).
  */
 export function historicalZonesOf(
   evidence: ZoneEvidence,
@@ -166,11 +172,12 @@ export function historicalZonesOf(
       gaps.push(day);
     }
     const closest = nearestOf(day, before, after);
-    if (
-      !closest ||
-      (eraFrom &&
-        dayStart(daysBefore(day, -1), closest.tz).toISOString() > eraFrom)
-    ) {
+    if (!closest) {
+      // Nothing places him on any day (no photo, no sent mail): the day is a gap, read where the first recorded zone
+      // puts it (`zoneAt`'s fallback, the computer's own), never deferred: deferring would lose the whole era.
+      continue;
+    }
+    if (endsPastEra(day, closest.tz, eraFrom)) {
       deferred.push(day);
       continue;
     }

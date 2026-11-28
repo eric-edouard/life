@@ -638,7 +638,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
   tool(
     server,
     "change_setting",
-    "His app's token only, on his word: the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count; past it, background work slows; one piece of work stops and asks at 2% of it), or the edge's look as his halo settings save it (`aura`, every value whole), or the apps he pays with (`payWith`, the whole list: each `{currency, app: {name, url}, payer?}`, `url` an https link into the app, `payer` a `project:` or `person:` ref of his directory when he pays as it, absent for himself; a payment card in that currency for that payer shows the app). Returns the settings as they now stand.",
+    "His app's token only, on his word: the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count; past it, background work slows; one piece of work stops and asks at 2% of it), or the edge's look as his halo settings save it (`aura`, every value whole), or the apps he pays with (`payWith`, the whole list: each `{currency, app: {name, url}, payer?}`, `url` an https link into the app, `payer` a `project:` or `person:` ref of his directory when he pays as it, absent for himself; a payment card in that currency for that payer shows the app), or the local day the backfill reads his history from (`backfillFrom`, `YYYY-MM-DD`; his pick of a range in setup is the approval of that range's shown cost; absent means no backfill). Returns the settings as they now stand.",
     SettingChange,
     (a, agent) => {
       if (agent) {

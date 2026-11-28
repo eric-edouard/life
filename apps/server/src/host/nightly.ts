@@ -68,8 +68,10 @@ import {
 } from "../memory/run";
 import { type Run, runs, spendLines } from "../memory/run-log";
 import {
+  AFTER_NIGHT_HOUR,
   afterNightDue,
   decide,
+  FIRST_HOUR,
   isOutOfTries,
   quotaLine,
   readState,
@@ -105,6 +107,7 @@ import { TOP_AT } from "../records/unit";
 import { readScreen } from "../sources/screen";
 import { checks } from "../todo-list/backend";
 import { ARCHIVE_LOOKBACK, openIncidents } from "./archive";
+import { backfill } from "./backfill";
 import { backup, backupLine } from "./backup";
 import { healBridges } from "./bridges";
 import { lastNeedsYouOf } from "./desk-health";
@@ -308,17 +311,31 @@ export async function nightly(days: number, force = false) {
     log("run.error", { ...errorOf(e), step: "alert" });
   }
   const { backup: was, night: state } = states();
-  if (force || !afterNightDue(now.getHours(), day, state, was)) {
-    return code;
+  if (!force && afterNightDue(now.getHours(), day, state, was)) {
+    // Recorded even when it throws, so a day never tries more than 3 times.
+    let backedUp = 1;
+    try {
+      backedUp = await backup();
+    } finally {
+      recordState(day, backedUp === 0, "backup");
+    }
+    code = Math.max(code, backedUp);
   }
-  // Recorded even when it throws, so a day never tries more than 3 times.
-  let backedUp = 1;
-  try {
-    backedUp = await backup();
-  } finally {
-    recordState(day, backedUp === 0, "backup");
+  // The backfill drains over nights, one twenty-minute turn per tick: only once the day's night is done (`decide` skips
+  // it, from the night's first hour) and before the daily jobs stop waiting for it (`AFTER_NIGHT_HOUR`), so it never holds
+  // memory's lock when the night's first try comes. A failure only logs; the next turn retries it.
+  const hour = now.getHours();
+  if (
+    !force &&
+    hour >= FIRST_HOUR &&
+    hour < AFTER_NIGHT_HOUR &&
+    decide(hour, day, state) === "skip"
+  ) {
+    await backfill(now).catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "backfill" })
+    );
   }
-  return Math.max(code, backedUp);
+  return code;
 }
 
 /**

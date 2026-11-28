@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { MACHINE_DIR } from "../core/platform";
 import { openReadOnly, openWritable } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
-import type { MessageAt, Newest, NewRow } from "./contract";
+import type { Held, MessageAt, Newest, NewRow } from "./contract";
 
 // Life's archive (apps/server/src/host/archive.ts): opening a store to copy into it, and reading it back read-only: WhatsApp and the bridges'
 // chats, a message deleted for everyone with the text the archive kept, an edited one by its latest text; each version
@@ -16,21 +16,32 @@ export const ARCHIVE = join(MACHINE_DIR, "archive");
 export const archiveDb = (name: string, dir = ARCHIVE) =>
   join(dir, `${name}.sqlite`);
 
-/** The earliest timestamp an archive holds, without reading message bodies. */
-export function readEarliestArchived(
+/** What a store's table counts, for `held`: a table's name is not always the word for what it holds. */
+const NOUNS: Record<string, string> = {
+  calls: "calls",
+  events: "events",
+  messages: "messages",
+  versions: "notes",
+};
+
+/** What an archive holds: how many rows in `table` and the first, without reading message bodies. */
+export function readHeldArchived(
   name: string,
   table: string,
   dir = ARCHIVE
-) {
+): Held {
   const db = openReadOnly(archiveDb(name, dir));
   try {
-    return (
-      db
-        .query<{ at: string | null }, []>(
-          `select min(at) as at from "${table.replaceAll('"', '""')}"`
-        )
-        .get()?.at ?? null
-    );
+    const r = db
+      .query<{ at: string | null; count: number }, []>(
+        `select min(at) as at, count(*) as count from "${table.replaceAll('"', '""')}"`
+      )
+      .get();
+    return {
+      count: r?.count ?? 0,
+      earliest: r?.at ?? null,
+      noun: NOUNS[table] ?? "items",
+    };
   } finally {
     db.close();
   }
@@ -195,7 +206,7 @@ export function incomingArchived(
         [number | null]
       >(
         `select m.rowid as row, m.chat, m.id, m.at from messages m
-          where m.rowid >= ? ${key === "eventId" ? `and not (${EXPORT_ROW})` : ""}
+          where m.rowid >= ? and not (${key === "eventId" ? EXPORT_ROW : EXPORT_ROW_ID})
             and m.rowid = (select min(x.rowid) from messages x
             where x.chat is m.chat and x.${key} = m.${key})
           order by m.rowid`
@@ -260,6 +271,8 @@ export const matrixArchive = (
 
 /** An export row (docs/glossary.md): a message an export's import wrote into a Matrix-shaped archive, not one a copier saw arrive. */
 export const EXPORT_ROW = "m.eventId like 'export:%'";
+/** The same in an archive of its own shape, whose messages key on `id` (WhatsApp's, where an export's chat is one id). */
+export const EXPORT_ROW_ID = "m.id like 'export:%'";
 
 /** From a Matrix-shaped archive: of each message's versions, the latest with a text or not deleted (a photo has no text), with its latest files. */
 export const LATEST_VERSIONS = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.type, m.text, f.files,

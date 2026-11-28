@@ -421,16 +421,27 @@ export const agentInRole = (db: Database, role: AgentRole) =>
     )
     .get(role);
 
-/** The caretaker's assignments, of every caretaker it ever had: a complaint received by one is received for good. */
-const CARETAKER_EVENTS = `select e.*, s.closed_at, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${COMPLAINT_RECEIVED}'`;
+/** The caretaker's events named `name`, of every caretaker it ever had: one received by one is received for good. */
+const caretakerEventsOf = (name: string) =>
+  `select e.*, s.closed_at, s.id as assignment from event e join assignment s on s.id = e.assignment_id join agent a on a.id = s.agent_id where a.role = 'caretaker' and e.name = '${name}'`;
+
+const CARETAKER_EVENTS = caretakerEventsOf(COMPLAINT_RECEIVED);
+
+/** Where event `eventId` of a caretaker's event named `name` was received (its event row), or null before. */
+export const caretakerReceiptOf = (
+  db: Database,
+  name: string,
+  eventId: string
+) =>
+  db
+    .query<{ assignment: string; received_at: string }, [string]>(
+      `${caretakerEventsOf(name)} and e.event_id = ?`
+    )
+    .get(eventId);
 
 /** Where complaint `ask` was received (its receipt: the event row the desk queued for a caretaker's assignment), or null before. */
 export const complaintReceiptOf = (db: Database, ask: string) =>
-  db
-    .query<{ assignment: string; received_at: string }, [string]>(
-      `${CARETAKER_EVENTS} and e.event_id = ?`
-    )
-    .get(ask);
+  caretakerReceiptOf(db, COMPLAINT_RECEIVED, ask);
 
 /**
  * His complaints the caretaker is at work on, in the order received: each received for an assignment still open, its

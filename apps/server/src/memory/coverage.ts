@@ -6,7 +6,7 @@ import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
 import { PUBLICATIONS, UNITS } from "./memory-files";
 import { type RecordedDays, readRecordedDays } from "./recorded-days";
-import { enabledSources } from "./sources";
+import { earliestOf, enabledSources } from "./sources";
 import { dayNow, localDate } from "./zones";
 
 // Coverage (docs/glossary.md): whether a source that captures on its own (`capturesOnItsOwn`) was captured on a local
@@ -185,7 +185,7 @@ export function readCoverage(
     .map((s) => {
       // A source that can't be read can't say its first day: the index's first unit of it stands.
       const missing = s.missing?.();
-      const earliest = missing ? undefined : s.earliest?.();
+      const earliest = earliestOf(s);
       return {
         firstDay:
           (earliest ? localDate(earliest) : undefined) ??

@@ -6,7 +6,7 @@ import {
 } from "./historical-zones";
 import { reindex } from "./index-writer";
 import { preparePassages } from "./passages";
-import { readySources } from "./sources";
+import { earliestOf, readySources } from "./sources";
 import { publishUnits, unitDays } from "./unit-writer";
 import { readPeople } from "./who";
 import { dayNow, isDay, localDate, monthsOf, type Window, wall } from "./zones";
@@ -36,9 +36,7 @@ export async function collectHistorical(
   const sources = readySources().filter((s) => s.kind !== "voice");
   const starts = requested.from
     ? []
-    : await Promise.all(
-        sources.map(async (s) => ("earliest" in s ? s.earliest?.() : undefined))
-      );
+    : await Promise.all(sources.map(async (s) => earliestOf(s)));
   const [earliest] = starts.filter((s): s is string => !!s).sort();
   if (!(requested.from || earliest)) {
     return {
