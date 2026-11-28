@@ -44,8 +44,8 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   rows sit on the page, a `line` hairline between them. A card is kept only where a thing is a block of its own (a
   matter's goal, a field, a button), and then `card`, `tile` and `paper` are faint lifts of black (`#0b0c0e`, `#111214`,
   `#131416`), never a grey panel. Light is unchanged apart from lists.
-- **Three more fills** (owner, 26 Nov 2026), cream at a strength so they sit on any ground: `tint` (10%, a quiet pill,
-  his bubble), `glass` (14%, a floating control) and `wash` (5%, an unfolded item). Nothing else draws a grey; the
+- **Three more fills** (owner, 26 Nov 2026), cream at a strength so they sit on any ground: `tint` (10%, a quiet
+  pill), `glass` (14%, a floating control) and `wash` (5%, an unfolded item). Nothing else draws a grey; the
   phone takes tokens.css only, never a literal. The phone is dark only for now.
 - **No borders** (owner, 30 Oct 2026 for cards; a hard rule for everything since 19 Nov 2026): no outline, ring or
   stroke around any surface or control. A card, a panel, an option or a field stands out from the page by its `card`

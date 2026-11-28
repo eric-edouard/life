@@ -92,7 +92,7 @@ line links there.
 - The pendant's own screen is a page (owner, 26 Nov 2026, lab pick D).
 - The count is a round button showing the number; it becomes a coral mark when Life is out of reach (owner, 26 Nov
   2026, lab pick Settings 2 B).
-- The count's tap plays his bubble "What's waiting on me?" and code's answer, at once, never a model turn
+- The count's tap plays his question "What's waiting on me?" and code's answer, at once, never a model turn
   (owner, 23 Nov 2026).
 - What reaches him is ranked by the main session from his situation; code keeps the full list so nothing is lost, and
   the ranking runs in the background so the count's tap stays instant (owner, 23 Nov 2026).
@@ -116,8 +116,6 @@ line links there.
 
 - One endless conversation, opening at its bottom, with Show earlier and day separators; it grows only with what he
   and Life say (owner, 23 Nov 2026).
-- His messages are a quiet tinted bubble (the `tint` fill, cream text); the full cream bubble was too loud
-  (owner, 23 Nov 2026).
 - What Life says comes in progressively: text word by word, blocks one after another, each from blurred to sharp; his
   own words appear at once; under Reduce Motion everything appears whole (owner, 23 Nov 2026).
 - The thread follows Life's reveal in batches: the message is laid out first, then one smooth move when the revealed
@@ -125,6 +123,11 @@ line links there.
   (owner, 23 Nov 2026).
 - Small blocks stay as they are; a page-sized answer shows whole while it is the latest and collapses into its card
   when he next writes, never on its own (owner, 23 Nov 2026).
+- Turn by turn on the one thread: each turn (his question, Life's answer) is at least a screen tall, a short answer
+  centred under the question and a long one as long as it needs, never scrolled inside a card. His question heads its
+  turn, its size stepped down by length (short, medium, long), pinned at the top over a soft edge while its answer
+  scrolls under it, two lines at most there and whole back at its turn's top. A release near a turn's top settles
+  there; inside a turn the scroll is free (owner, 28 Nov 2026; his question replaces 23 Nov's tinted bubble).
 
 ### Items and asks
 
@@ -227,7 +230,7 @@ line links there.
   a phrase to say, a place (owner, 23 Nov 2026).
 - A picture, or a phrase to show someone, opens full screen on a tap: the one exception to "nothing opens a screen"
   (owner, 23 Nov 2026).
-- Life failing to answer says "I couldn't answer that."; tapping his bubble asks again; never "tell the caretaker"
+- Life failing to answer says "I couldn't answer that."; tapping his question asks again; never "tell the caretaker"
   (owner, 23 Nov 2026).
 - Answer his question directly, as an assistant would, then go on: "What's on today" shows the day's list at once (no
   reveal step by step), then "You also have 3 decisions to make" and lists them (owner, 28 Nov 2026).
@@ -266,7 +269,7 @@ line links there.
 - A person: their faces side by side; his own words: the field starts his sentence with Life's suggestion and the
   microphone calls softly (owner, 23 Nov 2026).
 - Doing something else leaves the question, with no closing line (owner, 23 Nov 2026).
-- An answer can start real work: it carries a small lit mark, and the work shows under his bubble as an item in its
+- An answer can start real work: it carries a small lit mark, and the work shows under his question as an item in its
   state; work that would send in his name becomes an ask with its draft, the yes on the exact words (owner, 23 Nov 2026).
 
 ### Profiles
@@ -291,7 +294,7 @@ line links there.
 - A notification is the ask: its one-line title, who and when, the draft, at most two answers (the main one and Later,
   in the card's words) (owner, 23 Nov 2026).
 - Silence when it worked; only a failure notifies (owner, 23 Nov 2026).
-- Answered on a notification, the ask lands in the thread as its item in its state, then his answer as his bubble in
+- Answered on a notification, the ask lands in the thread as its item in its state, then his answer as his question in
   the card's words with the bell and the time (owner, 23 Nov 2026).
 - Opened without answering, Life brings the ask to the bottom with its answers (owner, 23 Nov 2026).
 - "Hey Life": one notification that it was heard, replaced by the answer; not read aloud; no live listening; the
@@ -440,6 +443,9 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 ### 28 Nov 2026
 
+- Ask Life's thread goes turn by turn on the existing thread, so he tries it on his real data at once: his question a
+  pinned header with a soft edge under it, a turn at least a screen tall, a gentle snap to a turn's top, the question's
+  size by length ([The thread](#the-thread)).
 - Onboarding, host, round 1 review ([host][onb-host]): the welcome, languages, "How far back", the phone step and the
   menu bar are kept. No "Life's pick" for the AI: each option says where his words go (Anthropic, or OpenRouter then
   DeepSeek). The OpenRouter route is DeepSeek Flash, latest, only at zero-data-retention providers, about $5–20 a
