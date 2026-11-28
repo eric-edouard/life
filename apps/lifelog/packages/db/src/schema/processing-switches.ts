@@ -5,11 +5,9 @@ import { boolean, instant } from "./columns";
 // Who transcribes a block: ElevenLabs Scribe whole, or the speech service with Scribe for the turns
 // it routes (route-turns.ts). The owner's switch picks it; a job keeps the one it was sent with.
 export const transcribers = ["scribe", "speech"] as const;
-export type Transcriber = (typeof transcribers)[number];
 // The language mode, the owner's `transcriber` switch: `scribe`, `speech`, or `local` (the speech
 // service alone, nothing routed to Scribe: every language heard is within its set).
 export const transcriberChoices = [...transcribers, "local"] as const;
-export type TranscriberChoice = (typeof transcriberChoices)[number];
 export const macEngines = ["claude", "codex"] as const;
 export type MacEngine = (typeof macEngines)[number];
 // Where a field's dictation on the phone is heard: on the Mac after each pause (`POST

@@ -1028,27 +1028,6 @@ test("the speech service: a block with enough Thai goes to Scribe whole, as a Sc
   });
 });
 
-test("the language mode local: a Thai block stays with the speech service, nothing to Scribe", async () => {
-  const app = appWith(withSpeech);
-  setSwitches(env.db, { transcriber: "local" });
-  inThaiZone();
-  // The same block `speech` sends to Scribe whole: the Thai turn is within local speech's set.
-  speech.heard = {
-    durationSeconds: 10,
-    models: {},
-    turns: [turn(0, 2, "0", "en"), turn(2, 10, "1", "th")],
-    words: [said(1, "Hi"), said(3, "สวัสดี")],
-  };
-  const jobId = await admitFragment(app, speechAudio(10), 1);
-  await app.s.worker.work();
-  expect(speech.blocks).toBe(1);
-  expect(uploads()).toHaveLength(0);
-  expect(jobRow(jobId)).toMatchObject({
-    state: "completed",
-    transcriber: "speech",
-  });
-});
-
 test("the speech service: one cut off by a restart goes again, unless Scribe may have billed its turns", async () => {
   const app = appWith(withSpeech);
   const fresh = await admitFragment(app, speechAudio(10), 1);

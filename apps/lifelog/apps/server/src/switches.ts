@@ -13,7 +13,7 @@ import {
   type DictationHeard,
   type MacEngine,
   processingSwitches,
-  type TranscriberChoice,
+  type transcriberChoices,
 } from "@lifelog/db/schema";
 import { logChange } from "./change-log";
 import { record } from "./events";
@@ -23,7 +23,7 @@ export interface Switches {
   dictationHeard: DictationHeard;
   engine: MacEngine;
   openAppAfterMinutes: number;
-  transcriber: TranscriberChoice;
+  transcriber: (typeof transcriberChoices)[number];
   transcription: boolean;
 }
 
@@ -65,7 +65,7 @@ export function setSwitches(
     transcription?: boolean | undefined;
     engine?: MacEngine | undefined;
     openAppAfterMinutes?: number | undefined;
-    transcriber?: TranscriberChoice | undefined;
+    transcriber?: Switches["transcriber"] | undefined;
   }
 ) {
   const before = loadSwitches(db);
