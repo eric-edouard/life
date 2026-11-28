@@ -42,11 +42,15 @@ if (
     "a release needs a Developer ID Application identity, LIFE_RELEASES_REPO, LIFE_SPARKLE_KEY and LIFE_VERSION"
   );
 }
-process.env.LIFE_SIGN_IDENTITY = identity;
-// The app's feed: the latest release's appcast.
-process.env.LIFE_APPCAST_URL = `https://github.com/${repo}/releases/latest/download/appcast.xml`;
+// What the build of the app is told (Bun's child processes do not see a changed `process.env`): the identity to sign
+// with and the app's feed, the latest release's appcast.
+const env = {
+  ...process.env,
+  LIFE_APPCAST_URL: `https://github.com/${repo}/releases/latest/download/appcast.xml`,
+  LIFE_SIGN_IDENTITY: identity,
+};
 
-const run = (cmd: string[]) => execOk(cmd, { cwd: ROOT, timeout: HOUR });
+const run = (cmd: string[]) => execOk(cmd, { cwd: ROOT, env, timeout: HOUR });
 
 /** Sends a file to Apple's notary service, waits for its answer, and staples the ticket to `staple`. */
 async function notarize(file: string, staple: string) {
