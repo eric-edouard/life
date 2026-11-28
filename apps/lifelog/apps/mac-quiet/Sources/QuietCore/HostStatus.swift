@@ -314,11 +314,11 @@ extension Host {
                 ],
                 inMenu: true))
 
-        // Local transcription: the Mac transcribes, Scribe hears only the Thai turns.
+        // Local transcription: the Mac transcribes, Scribe hears only the Thai turns (`speech`) or nothing (`local`).
         let forCredits = status.pipeline?.transcription?.waiting?.forCredits ?? 0
         let localText: String =
             switch status.switches?.transcriber {
-            case "speech": forCredits > 0 ? "\(forCredits) blocks wait for ElevenLabs credits" : "on"
+            case "speech", "local": forCredits > 0 ? "\(forCredits) blocks wait for ElevenLabs credits" : "on"
             case nil: unknown
             default: "off: Scribe transcribes"
             }

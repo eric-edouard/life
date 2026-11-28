@@ -104,7 +104,8 @@ without the person answering slower or worse goes.
 Nothing jumps (owner, 19 Nov 2026). A state change, a new element and a shift of layout are animated. A thing that
 changes state stays the same thing: a button becomes its busy state, then its result. A new element enters from where
 it comes and leaves the way it came, and what sits below something that grows or shrinks slides. Motion answers a
-tap; by itself only the recording dot, a spinner and a countdown move. It takes 0.2 s to leave, 0.3 s to change and
+tap; by itself only the edge, the pendant's dot, the ink-in of words, the suggested asks and the thinking shimmer
+move, and a long task is a still ring, never a spinner (owner, 26 Nov 2026). It takes 0.2 s to leave, 0.3 s to change and
 0.35 s to enter, and under Reduce Motion the same steps cross-fade without movement.
 
 ## The mark

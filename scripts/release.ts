@@ -13,7 +13,8 @@ import { execOk } from "@life/server/src/core/proc";
 // Signing and notarizing use the maintainer's release keychain (`SIGNING_KEYCHAIN`: the Developer ID certificate and the
 // notarytool profile, whose password is in 1Password, never here); `LIFE_SIGN_IDENTITY` and `LIFE_NOTARY_PROFILE` override
 // the identity and the profile. Set up once (docs/releasing.md): the certificate, `xcrun notarytool store-credentials`,
-// Sparkle's `generate_keys` (its private key stays in the Keychain), the repo.
+// Sparkle's `generate_keys` (its private key stays in the Keychain), the repo. `SPARKLE_ED_KEY_FILE` signs the appcast with
+// that file's key instead (a GitHub runner has no Keychain item).
 
 const ROOT = join(import.meta.dir, "..");
 const out = join(ROOT, "dist");
@@ -114,6 +115,9 @@ await run([
   "--download-url-prefix",
   `https://github.com/${repo}/releases/download/v${version}/`,
   updates,
+  ...(process.env.SPARKLE_ED_KEY_FILE
+    ? ["--ed-key-file", process.env.SPARKLE_ED_KEY_FILE]
+    : []),
 ]);
 const publish = [
   ...["gh", "release", "create", `v${version}`, "--repo", repo],

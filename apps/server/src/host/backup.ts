@@ -1,11 +1,12 @@
-import { rmSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, HOUR } from "../core/clock";
 import { readJson } from "../core/files";
 import { isOn } from "../core/outputs";
 import { LIFE_STATE_DIR } from "../core/paths";
-import { MACHINE_DIR } from "../core/platform";
+import { HOME, MACHINE_DIR } from "../core/platform";
 import { exec } from "../core/proc";
+import { SECRETS } from "../core/secret";
 import { expand, settings } from "../core/settings";
 import { localTime } from "../memory/zones";
 import { type Manifest, stage } from "./export";
@@ -29,6 +30,46 @@ export const backupOld = (now: Date, s = readBackup()) =>
   !s?.okAt || now.getTime() - Date.parse(s.okAt) > 48 * HOUR;
 export const backupSize = (s = readBackup()) =>
   `${((s?.bytes ?? 0) / 1e9).toFixed(1)} GB`;
+
+/**
+ * The cloud folders on this computer, in the order setup offers them (the first preselected): iCloud Drive, then each
+ * Google Drive's My Drive, then each OneDrive. `bun life backup folders` prints them.
+ */
+export function cloudFoldersOf(home = HOME): string[] {
+  const storage = join(home, "Library/CloudStorage");
+  const folders = existsSync(storage) ? readdirSync(storage).sort() : [];
+  return [
+    join(home, "Library/Mobile Documents/com~apple~CloudDocs"),
+    ...folders
+      .filter((f) => f.startsWith("GoogleDrive-"))
+      .map((f) => join(storage, f, "My Drive")),
+    ...folders
+      .filter((f) => f.startsWith("OneDrive"))
+      .map((f) => join(storage, f)),
+  ].filter((f) => existsSync(f));
+}
+
+/** A new install's `backup` setting: a repository in the folder he picked, its password Life's own secret (`init --backup` mints it). */
+export const backupSettingsOf = (folder: string) => ({
+  password: `cat '${SECRETS.backupKey}'`,
+  repository: join(folder, "Life backup", "restic"),
+});
+
+/**
+ * Life's `backup` setting as voice needs it, its password read the way restic reads its command (`RESTIC_PASSWORD_COMMAND`):
+ * none when no backup is set, or when the command fails.
+ */
+export async function readBackupTarget() {
+  const target = settings().backup;
+  if (!target) {
+    return;
+  }
+  const r = await exec(["sh", "-c", target.password]);
+  const password = r.stdout.trim();
+  return r.code === 0 && password
+    ? { password, repository: expand(target.repository) }
+    : undefined;
+}
 
 /** The nightly report's line, flagged when the last run went wrong or the last snapshot is over 48 h old. */
 export function backupLine(now: Date, s = readBackup()) {

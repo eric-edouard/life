@@ -320,7 +320,11 @@ chat.db must stay readable (Full Disk Access, as for reading). A file is written
 
 `apps/server/src/host/backup.ts` snapshots with restic once a day (3 tries) when the `backup` setting is set; without it the report
 says the backup is off. On Sundays it also forgets (keeping 14 daily, 8 weekly and 24 monthly snapshots), prunes and
-checks 5% of the data. By hand: `bun life backup`.
+checks 5% of the data. By hand: `bun life backup`. `bun life backup folders` lists the cloud folders on the
+Mac for setup to offer (iCloud Drive, Google Drive, OneDrive, the first preselected); `init --backup <folder>` points
+`backup` at the one picked and mints its password (`SECRETS.backupKey`). Without it there is no backup.
+
+Voice's daily snapshot (`voice.backups`, off unless true) goes into that same repository, with that same password.
 
 Each snapshot holds one export (`stage`, `apps/server/src/host/export.ts`, the same as `bun life export` and the app's Export
 everything…):

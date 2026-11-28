@@ -1,5 +1,6 @@
+import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { APIFY_KEY_ENV } from "../apify/backend";
@@ -11,7 +12,6 @@ import { Engine, ROLE_ASKERS } from "../core/names";
 import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
-  hasEngineSet,
   readSettings,
   type Settings,
   setSettings,
@@ -34,7 +34,7 @@ import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { archiveCommand } from "./archive";
 import { timings } from "./asks";
-import { backup } from "./backup";
+import { backup, backupSettingsOf, cloudFoldersOf } from "./backup";
 import { bridgeCommand } from "./bridges";
 import {
   changeDirectoryEntry,
@@ -53,7 +53,7 @@ import { macLinkAddress } from "./http/mac-link";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
-import { init, started } from "./init";
+import { ENGINE_CHOICES, engineSettingsOf, init, started } from "./init";
 import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
@@ -168,8 +168,17 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log(`${done.id}: ${entryLine(done)}`);
     return 0;
   },
-  /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (apps/server/src/host/backup.ts). */
-  backup,
+  /**
+   * The daily restic snapshot to the `backup` repository, and weekly its forget, prune and check (apps/server/src/host/backup.ts);
+   * `backup folders` prints the cloud folders setup offers for it, as JSON, the first preselected.
+   */
+  backup: () => {
+    if (process.argv[3] !== "folders") {
+      return backup();
+    }
+    console.log(JSON.stringify(cloudFoldersOf()));
+    return 0;
+  },
   /** The messaging bridges: `bridge [status] | add|link|remove <network> [flow]` (host/bridges.ts, docs/use/bridges.md). */
   bridge: () => bridgeCommand(process.argv.slice(3)),
   /**
@@ -352,27 +361,52 @@ const commands: Record<string, () => number | Promise<number>> = {
       return result;
     })({}, []);
   },
-  /** A new install's data, once: `init --name <his name> [--language <his memory's>] [--email a]… [--phone +33…]…`. */
+  /** A new install's data, once: `init`, its options in the usage line below. */
   async init() {
     const { values: v } = parseArgs({
       args: process.argv.slice(3),
       options: {
+        backup: { type: "string" },
         email: { multiple: true, type: "string" },
+        engine: { type: "string" },
         language: { type: "string" },
         name: { type: "string" },
         phone: { multiple: true, type: "string" },
       },
     });
-    if (!v.name) {
+    const choice = ENGINE_CHOICES.find((c) => c === v.engine);
+    if (!(v.name && choice)) {
       console.error(
-        "usage: bun life init --name <name> [--language English] [--email a]… [--phone +33…]…"
+        `usage: bun life init --name <name> --engine ${ENGINE_CHOICES.join("|")} [--backup <folder>] [--language English] [--email a]… [--phone +33…]…`
+      );
+      return 2;
+    }
+    // The engine and the backup are his choices, never defaults: no `--backup`, no backup. Its repository has a
+    // password of its own, so one already there (another install's) is never taken.
+    const before = readSettings();
+    const folder = v.backup ? resolve(v.backup) : undefined;
+    const fresh = folder ? backupSettingsOf(folder) : undefined;
+    if (
+      folder &&
+      fresh &&
+      !(
+        statSync(folder, { throwIfNoEntry: false })?.isDirectory() &&
+        !existsSync(fresh.repository)
+      )
+    ) {
+      console.error(
+        `init: --backup needs a folder with no Life backup in it: ${folder}`
       );
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
-    // A new install thinks on OpenRouter (no Claude needed; the app asks for its key once). A file naming an engine keeps it.
+    const isNew = fresh && !before.backup;
+    if (isNew) {
+      writeSecret("backupKey", randomBytes(32).toString("base64url"));
+    }
     setSettings({
-      ...(hasEngineSet() ? {} : { engine: "openrouter" as const }),
+      ...engineSettingsOf(choice, before.desk),
+      ...(isNew ? { backup: fresh } : {}),
       ...(v.language ? { memoryLanguage: v.language } : {}),
     });
     console.log("Life: data ready");

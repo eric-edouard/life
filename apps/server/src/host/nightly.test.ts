@@ -2,10 +2,14 @@ import { expect, spyOn, test } from "bun:test";
 import {
   existsSync,
   mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
   rmSync,
   utimesSync,
   writeFileSync,
 } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DAY } from "../core/clock";
 import { LOG_DIR } from "../core/log";
@@ -276,3 +280,55 @@ test("a voice naming that cannot read lifelog's voices is logged once under its 
     }
   }
 });
+
+test("a night with no source runs clean", () => {
+  const folder = mkdtempSync(join(tmpdir(), "life-night-"));
+  // The report kept on the Mac is announced by osascript: a stand-in that shows nothing on the Mac running the test.
+  mkdirSync(join(folder, "bin"));
+  writeFileSync(join(folder, "bin", "osascript"), "#!/bin/sh\nexit 0\n", {
+    mode: 0o755,
+  });
+  const env = {
+    ...process.env,
+    // A home of its own: nothing of the Mac running the test is read.
+    HOME: folder,
+    LIFE_MACHINE_DIR: join(folder, "machine"),
+    LIFE_OWNER_DATA_DIR: join(folder, "data"),
+    LIFE_STATE_DIR: join(folder, "state"),
+    NODE_ENV: "",
+    PATH: `${join(folder, "bin")}:${process.env.PATH}`,
+  };
+  try {
+    const entry = join(import.meta.dir, "../desk/life-entry.ts");
+    const init = Bun.spawnSync(
+      ["bun", entry, "init", "--name", "Ada Example", "--engine", "openrouter"],
+      { env }
+    );
+    expect(init.exitCode).toBe(0);
+    // No source, and a voice server that never answers: the night reads nothing and writes no call.
+    const settingsFile = join(folder, "state", "settings.json");
+    writeFileSync(
+      settingsFile,
+      JSON.stringify({
+        ...JSON.parse(readFileSync(settingsFile, "utf8")),
+        lifelog: { url: "http://127.0.0.1:9" },
+        sources: [],
+      })
+    );
+    const night = Bun.spawnSync(
+      ["bun", entry, "memory", "nightly", "--force"],
+      {
+        env,
+      }
+    );
+    expect(night.exitCode).toBe(0);
+    const log = join(folder, "state", "log");
+    const lines = readdirSync(log)
+      .map((f) => readFileSync(join(log, f), "utf8"))
+      .join("");
+    expect(lines).not.toContain("run.error");
+    expect(lines).not.toContain('"outcome":"failed"');
+  } finally {
+    rmSync(folder, { force: true, recursive: true });
+  }
+}, 60_000);

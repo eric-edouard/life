@@ -16,7 +16,7 @@ what's open.
 ![Local first](https://img.shields.io/badge/memory-on%20your%20Mac-181818.svg)
 
 [What it does](#what-it-does-for-you) · [Add-ons](#optional-about-you-and-the-people-close-to-you) ·
-[What it reads](#what-it-reads) · [The pendant](#the-pendant-optional) · [Install](#install) · [Privacy](#privacy)
+[What it reads](#what-it-reads) · [The pendant](#the-pendant-optional) · [Install](#install) · [Security and privacy](#security-and-privacy)
 
 </div>
 
@@ -183,20 +183,37 @@ open dist/Life.app
 
 The rest: [settings](docs/use/settings.md).
 
-## Privacy
+## Security and privacy
 
-Your memory is plain text in a git repository on your Mac, with no remote, and Life never pushes it. Your messages,
-mail and notes stay in their own apps, opened read-only; the archive of deleted messages stays on your Mac and in your
-backup.
+Don't take our word for it: ask your own agent. In a clone of this repository, give Claude Code, Codex or any coding
+agent this prompt:
 
-What leaves the Mac: the text Life reads, to the model provider you chose (only through hosts that keep no data, for
-OpenRouter); what your assistant reads through the connector; and, when you turn them on, the email report, the
-encrypted backup, Google for the calendars and Tasks, and ElevenLabs for the pendant's speech. The full list is in
-[SECURITY.md](SECURITY.md#what-leaves-the-mac).
+```text
+Audit this project: will any of my data leak? Is it safe? Read SECURITY.md, then check it against the code: every
+host the code calls, what each one is sent, and how to turn it off.
+```
 
-Life sends nothing into a chat, ever: its only mail and notifications are to you. The connector reads, and changes
-only what you ask in your own words: a correction, something you tell it to remember, an entry in your directory
-(your people, projects, goals and what Life may keep), and your to-do list.
+What stays on your Mac: your memory (plain text in a git repository with no remote; Life refuses to commit to one that
+has a remote), the archive of deleted messages and old notes, search by meaning (embedded on the Mac), and your keys
+(the Keychain; the backup's password in Life's state folder, `backup.key`). Your messages, mail and notes stay in their own apps, opened read-only.
+
+What leaves, and why:
+
+- The text Life reads, to the AI you chose (your Claude or ChatGPT subscription, or OpenRouter, only through providers
+  that keep no data): a model reads your day to write your memory.
+- What your assistant and your agents read through the connector: you connected them to ask.
+- Your phone's link to your Mac: encrypted end to end between the two devices' keys; a relay, when a direct path fails,
+  sees only IP addresses, timing and size.
+- Notifications through Apple: a count and an opaque id, never words; your phone reads the rest from your Mac.
+- What you turn on: the email report (Resend), Google for the calendars and Tasks, ElevenLabs for speech in languages the Mac can't hear, web search and Apify for your agents.
+- Your backup, only if you pick a cloud folder at setup (off otherwise): one restic repository, encrypted on your Mac
+  before your cloud provider gets it.
+- Into a chat or by mail, only a card's draft, exactly as you saw it, when you tap Send.
+
+Nothing goes to Life's developer: a bug report is a mail you approve word for word. Every host is in
+[SECURITY.md](SECURITY.md#what-leaves-the-mac), and a test (`scripts/what-leaves.test.ts`) fails when the code calls
+one that isn't. Releases are built from a tagged commit on GitHub's runners, with an attestation you can check:
+`gh attestation verify Life-<version>.dmg --repo eric-edouard/life`.
 
 ## Status and limits
 

@@ -266,8 +266,10 @@ struct SettingsView: View {
     if !firstKey.isEmpty {
       Keychain.write(supervisor.info?.engineKeys["openrouter"]?.first ?? "OPENROUTER_API_KEY", firstKey)
     }
+    // The first run asks for the OpenRouter key, so memory runs there (`--engine`); a Mac with Claude alone sets it after.
     let r = await Helper.run(
-      ["init", "--name", name, "--language", language] + (email.isEmpty ? [] : ["--email", email]))
+      ["init", "--name", name, "--engine", "openrouter", "--language", language]
+        + (email.isEmpty ? [] : ["--email", email]))
     status = r.code == 0 ? "Life is set up." : r.err
     await supervisor.start()
     await load()
