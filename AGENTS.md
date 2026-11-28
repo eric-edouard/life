@@ -450,7 +450,7 @@ own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.
 - The formatter sorts object keys: never let a key order carry meaning (use an array).
 - `derived/` is generated; its rules load from `.claude/rules/derived.md` when you touch it.
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
-  (`lifelog.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).
+  (`voice-server.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).
 - The desk never resumes a Claude session a live process runs (Claude's own record, `~/.claude/sessions/<pid>.json`: his
   app keeps one while the session is open, between his turns too): the wake stays queued until it lets go (`isSessionOpen`,
   `runtime-rows.ts`; a send it refuses deletes its unbegun turn), logged once per hold (`desk.session_open`) and shown on the
