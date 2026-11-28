@@ -189,7 +189,8 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
   written for a moment to a private temporary folder for gog, and removed after. One such card is the caretaker's
   feedback: its audit of something Life's code got wrong, anonymized by the caretaker (no names, places, messages or
-  handles of his), as a mail to Life's developer (`DEVELOPER_CONTACT`, the alias `feedback@ericedouard.com`), sent only on his Send of that exact text (his
+  handles of his), or a paused import's shape report (file-name patterns, keys and counts; never words or names), as a
+  mail to Life's developer (`DEVELOPER_CONTACT`, the alias `feedback@ericedouard.com`), sent only on his Send of that exact text (his
   ruling of 22 Nov 2026: "Bug reports should be an email to me. It just writes an email through their usual gate").
 - To GitHub, through `gh` as his account, with the `github` source on: requests for the issues and comments of the repos
   he listed in `githubRepos`; and a card's draft (a comment's text, or a new issue's title and text),

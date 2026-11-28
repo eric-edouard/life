@@ -43,7 +43,9 @@ to his agents through the desk, which starts and wakes them.
   his last complaint, leaves it waiting (his next complaint tries once more), and the answer says so. The
   caretaker reads it through its door (`read_complaint`, only on the assignment that received it; an agent reads his words the main session told it the same way, `read_spoken_ask`); while it holds it, the
   card with that cause shows `beingFixed` and stops blocking. An assignment that closes gives back the complaints it
-  never handed to a turn: the desk receives them again.
+  never handed to a turn: the desk receives them again. Right after, each export copy Life cannot read yet is received
+  the same way (`receivePausedImports`: its `import.paused` event, its payload the source and the shape report, never a
+  word; the caretaker offers it as a mail to `DEVELOPER_CONTACT`, and the import resumes by itself after an update).
 - Old ledger lines of an agent's updates and replies (`TASK_LINES`) are history, parsed and never written; `read_memory_changes`
   with `about` `task:<id>` is an ask's whole history, and for one before 2 Nov 2026 its agent's lines.
 

@@ -13,7 +13,7 @@ import { type Held, isWithin, type Newest } from "./contract";
 // messages only, pruned by code: every pruned message is searched, and only the conversations the import step kept as
 // about his life become memory (the `not-kept` rule, units.ts). `fetch` gives one back whole, the assistant's turns too.
 
-type Assistant = "chatgpt" | "claude";
+export type Assistant = "chatgpt" | "claude";
 
 /** A message of a conversation as both exports reduce to: who wrote it, its words, and the files it carried as tags. */
 export interface ExportMessage {
@@ -276,6 +276,7 @@ export function parsedExport(source: Assistant, json: unknown) {
       .parse(json)
       .map((c) => ({ ...c, messages: c.messages.filter((m) => m.fromMe) }));
   } catch {
+    // biome-ignore lint/style/useErrorCause: the parser's own error can quote the export's words; its shape alone leaves
     throw shapeOf("assistant-export", { keys: keysOf(json) });
   }
 }
@@ -316,11 +317,15 @@ const inCopyOrder = (copies: Copy[]) =>
       a.updatedAt.localeCompare(b.updatedAt) || a.path.localeCompare(b.path)
   );
 
-/** The copies Life cannot read, by path and mtime: skipped as they are, read again when the file or Life changes. */
-const unreadable = new Map<string, number>();
+/** The copies Life cannot read, by path: their mtime and shape. Skipped as they are, read again when the file or Life changes. */
+const unreadable = new Map<string, { mtime: number; report: ShapeReport }>();
 
 /** One copy Life does not recognize, said once and skipped: its shape alone (its own words never reach the log). */
-function reportUnknownCopy(source: Assistant, file: string, error: unknown) {
+function reportUnknownCopy(
+  source: Assistant,
+  file: string,
+  error: unknown
+): ShapeReport {
   const shape =
     error instanceof ShapeReport
       ? error.fields
@@ -330,6 +335,18 @@ function reportUnknownCopy(source: Assistant, file: string, error: unknown) {
     files: [file, ...shape.files],
   });
   log("run.error", { ...report.fields, source, step: "import.shape" });
+  return report;
+}
+
+/** The shape reports of an assistant's copies Life cannot read now (`exportCopiesOf` finds them as it reads). */
+export function unreadableCopiesOf(
+  source: Assistant,
+  dir = exportsDir(source)
+) {
+  exportCopiesOf(source, dir);
+  return [...unreadable]
+    .filter(([path]) => path.startsWith(join(dir, "/")))
+    .map(([, { report }]) => report);
 }
 
 /**
@@ -352,7 +369,7 @@ export function exportCopiesOf(source: Assistant, dir = exportsDir(source)) {
         if (hit?.mtime === mtimeMs) {
           return [hit];
         }
-        if (unreadable.get(path) === mtimeMs) {
+        if (unreadable.get(path)?.mtime === mtimeMs) {
           return [];
         }
         try {
@@ -366,8 +383,10 @@ export function exportCopiesOf(source: Assistant, dir = exportsDir(source)) {
           memo.set(path, copy);
           return [copy];
         } catch (error) {
-          unreadable.set(path, mtimeMs);
-          reportUnknownCopy(source, f, error);
+          unreadable.set(path, {
+            mtime: mtimeMs,
+            report: reportUnknownCopy(source, f, error),
+          });
           return [];
         }
       })

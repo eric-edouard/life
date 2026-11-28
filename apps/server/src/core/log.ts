@@ -27,6 +27,7 @@ type LogKind =
   | "desk.fold"
   | "desk.gate"
   | "desk.hand_out"
+  | "desk.imports"
   | "desk.intention"
   | "desk.one_off_project"
   | "desk.move"

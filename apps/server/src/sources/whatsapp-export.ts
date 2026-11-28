@@ -46,6 +46,12 @@ export const whatsappCopiesDir = (data = OWNER_DATA_DIR) =>
 
 /** A copy's file name: the first 12 hex of its sha256 (the same bytes are kept once), then the chat's name if known. */
 const COPY = /^([0-9a-f]{12})(?: (.+))?\.txt$/;
+
+/** A copy's file name as `copyWhatsappExport` writes it: its hex and the chat's name, or none for another file. */
+export const whatsappCopyOf = (file: string) => {
+  const [, id, name] = COPY.exec(file) ?? [];
+  return id ? { id, name } : undefined;
+};
 /** A chat's text as the phone zips it, or as it exports a chat (its name is not a word of any line). */
 const CHAT_FILE = /^(?:_chat|WhatsApp Chat with .+)\.txt$/i;
 /** The chat's name in an export's file name, or in the folder an iPhone's zip unzips to. */
@@ -237,9 +243,10 @@ export function copyWhatsappExport(from: string, copies = whatsappCopiesDir()) {
   const hex = digest("sha256", bytes, 12);
   const name = chatNameOf(text) ?? chatNameOf(from);
   const path = join(copies, `${hex}${name ? ` ${name}` : ""}.txt`);
-  const isNew =
-    !existsSync(copies) ||
-    !readdirSync(copies).some((f) => COPY.exec(f)?.[1] === hex);
+  const isNew = !(
+    existsSync(copies) &&
+    readdirSync(copies).some((f) => COPY.exec(f)?.[1] === hex)
+  );
   if (isNew) {
     mkdirSync(copies, { recursive: true });
     writeWhole(path, bytes);

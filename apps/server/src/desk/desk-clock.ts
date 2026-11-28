@@ -68,7 +68,11 @@ import {
 } from "./agent-moves";
 import { eventLineOf, nextWakeOf, STARTS_PER_TICK } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
-import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
+import {
+  CARETAKER_BRIEF,
+  receiveComplaints,
+  receivePausedImports,
+} from "./complaint-intake";
 import { takeBackIfLeft, takeBackMainIfLeft } from "./continue-on-mac";
 import { type Desk, saveCursor } from "./desk-store";
 import {
@@ -786,6 +790,7 @@ export async function tick(desk: Desk, isPollDue = true) {
   // Ask Life may come at any moment: the main session is taken back from his Mac whenever he left it, no wake needed.
   await takeBackMainIfLeft(desk);
   await receiveComplaints(desk);
+  await receivePausedImports(desk);
   const people = readPeopleOnce();
   // A failure here never holds his answers or the turns due.
   await receiveSpokenAsks(desk).catch((error: unknown) =>
