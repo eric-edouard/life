@@ -246,9 +246,12 @@ function drawLangs(){var off=Object.keys(S.langs).filter(function(l){return S.la
     '<div class="priv">Only '+(all?'your recordings':'the parts in '+off.join(', '))+' go to ElevenLabs, on your account. A few hours a month are free.</div></div>';}
 /* --- what Life reads. On a Mac, one grant (Full Disk Access) opens most of it, so it is asked once, drawn as macOS
    draws it; sign-ins and a folder follow. Messaging apps are the phone's (bridges sign in there). --- */
+/* a broken integration's line: its fail, or the one grant it is still waiting on */
+function whyOf(x){if(x.state!=='broken')return '';var f=fdaSrc(x)&&S.fda==='denied'?{why:'Not allowed yet.',fix:'Open System Settings'}:x.fail;
+  return '<span class="why">'+f.why+'<button type="button" class="chip sm" data-fix="'+x.id+'">'+f.fix+'</button></span>';}
 function row(x){return '<div class="irow" role="checkbox" data-src="'+x.id+'" aria-checked="'+!!on(x.id)+'"><span class="tk"></span>'+appIcon(x,32)+
-  '<span class="tx"><b>'+x.name+(x.covers?' <small>'+x.covers+'</small>':'')+'</b><span class="vl"><q>'+x.value.ask+'</q> <span>'+x.value.answer+'</span></span>'+
-  (x.why?'<span class="why">'+x.why+'<button type="button" class="chip sm" data-fix="'+x.id+'">'+x.fix+'</button></span>':'<span class="priv">'+x.privacy+'</span>')+'</span>'+
+  '<span class="tx"><b>'+x.name+(x.covers?' <small>'+x.covers+'</small>':'')+'</b>'+(x.value?'<span class="vl"><q>'+x.value.ask+'</q> <span>'+x.value.answer+'</span></span>':'')+
+  (whyOf(x)||'<span class="priv">'+x.privacy+'</span>')+'</span>'+
   '<span class="st">'+srcState(x)+'</span></div>';}
 function srcState(x){if(!on(x.id))return '';
   return {working:'<span class="ok">✓</span>',broken:'<span class="flag">!</span>',connecting:'<span class="spin"></span>',
@@ -263,16 +266,15 @@ function fdaHelp(){if(!S.fda||S.fda==='done')return '';var lifeOn=S.fda==='reope
     [['Arc',true],['Terminal',false],['Life',lifeOn]].map(function(r){return '<div class="sys-r'+(r[0]==='Life'?' me':'')+'"><span>'+r[0]+'</span><i class="sw'+(r[1]?' on':'')+'"></i></div>';}).join('')+
     (lifeOn?'<div class="alert"><b>“Life” will not have full disk access until it is quit.</b><span><i>Later</i><i class="d">Quit &amp; Reopen</i></span></div>':'')+'</div>'+
     '<div class="say">'+{asking:'System Settings opened beside this window. Switch Life on.',reopen:'Choose Quit &amp; Reopen: Life comes back right here.',denied:'Life is still off in that list, so these can’t be read yet.'}[S.fda]+'</div>';}
-function settle(x,ms){later(function(){var fl=x.fails||(x.group==='imports'&&[{why:'That file isn’t a '+x.name+' export.',fix:'Pick the file'}]);
-  var bad=S.fail&&fl&&!x.tried;x.tried=true;x.state=bad?'broken':'working';x.why=bad?fl[0].why:'';x.fix=bad?fl[0].fix:'';render();},ms);}
+function settle(x,ms){later(function(){var bad=S.fail&&x.fail&&!x.tried;x.tried=true;x.state=bad?'broken':'working';render();},ms);}
 function fdaRows(f){sources().forEach(function(x){if(on(x.id)&&fdaSrc(x))f(x);});}
-function fdaRun(){S.fda='asking';fdaRows(function(x){x.state='waiting_on_user';x.why='';});render();
-  later(function(){if(S.fail&&!S.fdaTried){S.fdaTried=true;S.fda='denied';fdaRows(function(x){x.state='broken';x.why='Not allowed yet.';x.fix='Open System Settings';});return render();}
+function fdaRun(){S.fda='asking';fdaRows(function(x){x.state='waiting_on_user';});render();
+  later(function(){if(S.fail&&!S.fdaTried){S.fdaTried=true;S.fda='denied';fdaRows(function(x){x.state='broken';});return render();}
     S.fda='reopen';render();later(function(){S.fda='done';fdaRows(function(x){x.state='connecting';settle(x,700);});render();},2000);},2200);}
 function connectAll(){sources().forEach(function(x){if(!on(x.id)||x.state!=='off'||fdaSrc(x))return;
   if(x.id==='health')x.state='waiting_on_user';else{x.state='connecting';settle(x,1800);}});
   if(sources().some(function(x){return on(x.id)&&fdaSrc(x);}))fdaRun();else render();}
-function fix(x){if(fdaSrc(x)&&S.fda==='denied')return fdaRun();x.state='connecting';x.why='';render();settle(x,1400);}
+function fix(x){if(fdaSrc(x)&&S.fda==='denied')return fdaRun();x.state='connecting';render();settle(x,1400);}
 function sourcesGo(){var p=sources().filter(function(x){return on(x.id);});if(!p.length)return 'Skip for now';
   if(p.some(function(x){return x.state==='connecting'||(x.state==='waiting_on_user'&&x.id!=='health');}))return null;
   var bad=p.filter(function(x){return x.state==='broken';}).length;return bad?'Continue, fix '+bad+' later':'Continue';}
@@ -290,7 +292,7 @@ function drawFar(){var got=sources().filter(function(x){return on(x.id)&&x.state
 function importRow(x){var r=x.requirements[0],st=x.later?'<span style="color:var(--faint)">Coming later</span>':
     {off:'<button type="button" class="chip sm" data-imp="'+x.id+'">Ask for it ↗</button>',waiting_on_user:'<span class="ai">Asked</span>',connecting:'<span class="spin"></span>',
      working:'<span class="ok">✓ '+x.holds.n+'</span>',broken:'<span class="flag">!</span>'}[x.state];
-  var line=x.why?'<span class="why">'+x.why+'<button type="button" class="chip sm" data-fix="'+x.id+'">'+x.fix+'</button></span>':
+  var line=whyOf(x)||
     x.state==='waiting_on_user'?'<span class="priv">Arrives '+r.arrives+'. Life picks it up from your Downloads.</span>':'<span class="priv">'+r.ask+'</span>';
   return '<div class="irow">'+appIcon(x,32)+'<span class="tx"><b>'+x.name+(x.holds?' <small>'+x.holds.what+'</small>':'')+'</b>'+line+'</span><span class="st">'+st+'</span></div>';}
 /* --- backups: the cloud folders found, encrypted; the recovery key shown once. Life keeps its folder downloaded,
@@ -329,8 +331,8 @@ function setup(){var L=live(),s=L[Math.min(S.step,L.length-1)],go=typeof s.go===
     '<div class="ba"><span>←</span><span>→</span><span>↻</span><div class="url">127.0.0.1:4318<span>/setup</span></div></div>'+page+'</div>':'<div class="win"><div class="tl"><i></i><i></i><i></i></div>'+page+'</div>';
   return {frame:frame,bundle:win()?'W':s.bundle,label:s.label};}
 /* --- the menu bar and the tray: one dot per integration that is on; the icon gets a red dot while any is broken --- */
-function menu(){var rows=[['source:mail','Reading 2021 · about 2 hours left','connecting'],['source:imessage','',''],['source:photos','',''],['google','',''],['ai','',''],['voice','',''],['pendant','',''],['reach','',''],
-    ['source:whatsapp',S.broken?'WhatsApp for Mac is signed out. Open it to sign in again.':'',S.broken?'broken':'']];
+function menu(){var rows=[['source:mail','Reading 2021 · about 2 hours left','connecting'],['source:imessage','',''],['source:photos','',''],['github','',''],['ai','',''],['voice','',''],['pendant','',''],['reach','',''],
+    ['google',S.broken?'Google signed Life out. Sign in again from your phone.':'',S.broken?'broken':'']];
   if(win())rows=rows.filter(function(r){return !integration(r[0]).mac;});
   rows.sort(function(a,b){return (b[2]==='broken')-(a[2]==='broken');});// what is broken comes first
   var items=rows.map(function(r){var x=integration(r[0]),st=r[2]||'working',name=x.id==='ai'?(S.ai==='claude'?'Claude':'DeepSeek'):x.name;
@@ -364,7 +366,7 @@ function wire(){var b=document.getElementById('box');
   each('[data-back]',function(){next(-1);});}
 function next(d){clear();S.sheet=null;S.step=Math.max(0,Math.min(live().length-1,S.step+d));var s=live()[S.step];
   if(s.id==='phone'){S.phone='waiting';later(function(){S.phone='paired';render();},5000);}render();}
-function pair(a,b,on){return '<div class="two"><button type="button" '+a[0]+' aria-pressed="'+!on+'">'+a[1]+'</button><button type="button" '+b[0]+' aria-pressed="'+on+'">'+b[1]+'</button></div>';}
+function pair(a,b,second){return '<div class="two"><button type="button" '+a[0]+' aria-pressed="'+!second+'">'+a[1]+'</button><button type="button" '+b[0]+' aria-pressed="'+second+'">'+b[1]+'</button></div>';}
 function side(){var L=live(),h='<h1>Onboarding: the host</h1><p>The setup window on a Mac, the same as a page in the browser on Windows, and the menu bar or tray after. Every screen reads one list, the integrations. A screen whose answer is known is skipped.</p>'+
   pair(['data-plat="mac"','Mac'],['data-plat="win"','Windows'],win())+pair(['data-re="0"','First install'],['data-re="1"','Reinstall'],S.reinstall)+
   (win()?'':pair(['data-intel="0"','M2 Mac'],['data-intel="1"','Intel Mac'],S.intel))+pair(['data-fail="0"','All goes well'],['data-fail="1"','Things go wrong'],S.fail)+
@@ -386,7 +388,7 @@ function prefill(){var s=live()[S.step].id,order=STEPS.map(function(x){return x.
   if(at>order.indexOf('langs'))S.flows.voice={steps:[],done:true};
   if(at>order.indexOf('sources')&&!sources().some(function(x){return on(x.id);})){if(!win())S.fda='done';
     sources().forEach(function(x){if(x.holds){S.picked[x.id]=true;x.state='working';}});}}
-function reset(){clear();INTEGRATIONS.forEach(function(x){x.state='off';x.tried=false;x.why='';});
+function reset(){clear();INTEGRATIONS.forEach(function(x){x.state='off';x.tried=false;});
   S.step=0;S.scene='setup';S.ai=null;S.flows={};S.sheet=null;S.fda='';S.fdaTried=false;S.picked={};S.shown=false;S.far='year';S.backup=0;S.langs={English:true};S.phone='waiting';render();}
 function fit(){var box=document.querySelector('.fit'),k=Math.min((innerHeight-40)/720,(innerWidth-360)/900,1.2);if(innerWidth<700)k=(innerWidth-20)/900;
   document.getElementById('box').style.transform='scale('+k+')';box.style.width=900*k+'px';box.style.height=720*k+'px';}

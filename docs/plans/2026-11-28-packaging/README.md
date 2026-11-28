@@ -29,7 +29,7 @@ Promised: a packaged system "in a few days" (21 Nov) and a public, auditable rep
   - a Windows host;
   - onboarding is a setup window on the host, then a QR code hands off to the phone;
   - each user pays for their own model account;
-  - the AI step offers Claude (their subscription, Claude Code detected or installed), OpenRouter, or both;
+  - the AI step offers Claude (their subscription, Claude Code detected or installed), DeepSeek through OpenRouter (zero data retention), or both, with no pick;
   - very aggressive batching: the fewest PRs;
   - the audit test: any agent auditing the public repo must answer that no data can leak;
   - pushes through the relay, ids only;
@@ -52,7 +52,7 @@ Details: [spec.md](spec.md), section 1.
 2. **Onboarding on the host.**
    1. The computer check: can it transcribe locally?
    2. Languages, then local voice or ElevenLabs, asked only when needed.
-   3. The AI: Claude, OpenRouter or both.
+   3. The AI: Claude, DeepSeek through OpenRouter, or both.
    4. Sources, each with its value line and connect flow.
    5. How far back: what each source holds ("48,000 messages since 2014"), then 3 months, a year or everything, with
       the cost; the import runs in the background.

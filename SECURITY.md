@@ -126,9 +126,11 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   messages).
 - A new user's default model route, once packaging bundle M ships (not built yet): OpenRouter, model
   `~deepseek/deepseek-flash-latest`, every request with `provider: {"zdr": true}`, so only providers that keep nothing
-  serve it; the key is made by OpenRouter's OAuth (PKCE) with a spending `limit` ($20 by default), about $5–20 a month.
+  serve it (any such provider, wider than the two hosts of 22 Nov, on his words below); the key is made by OpenRouter's OAuth (PKCE) with a spending `limit` ($20 by default), about $5–20 a month.
   His words of 28 Nov 2026: DeepSeek Flash latest, a zero data retention policy, flagged for audits as the default
   route. Turn it off by choosing Claude in setup, or by asking Life.
+- Anonymous diagnostics to Life's developer: proposed, not built (issue #1599, his ask of 28 Nov 2026); nothing leaves
+  until it ships with its fields listed here and a way to turn it off.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to lifelog's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.

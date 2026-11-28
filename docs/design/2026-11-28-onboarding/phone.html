@@ -134,7 +134,9 @@ var PERMS=[
 async function permission(c,p){await say(c,p.why+' <b>'+p.q+'</b>');var v=await ask(c,'Later','Allow');
   if(!v){me(c,'Later');return false;}me(c,'Allow');await c.wait(300);await sys(c,p.sys[0],p.sys[1]);return true;}
 /* --- the scenes --- */
-var NETS=['network:whatsapp','network:instagram','network:messenger','network:line','network:linkedin','network:telegram'].map(integration);
+/* WhatsApp is the host's when it already reads WhatsApp for Mac (a known answer is skipped) */
+var NETS=['network:whatsapp','network:instagram','network:messenger','network:line','network:linkedin','network:telegram'].map(integration)
+  .filter(function(x){return x.id!=='network:whatsapp'||integration('source:whatsapp').state==='off';});
 var picked={'network:whatsapp':true,'network:instagram':true,'network:messenger':false,'network:line':false,'network:linkedin':false,'network:telegram':false};
 function appsBox(){return '<div class="o-box">'+newBlock('apps')+NETS.map(function(x){return '<button type="button" class="o-app" role="checkbox" data-app="'+x.id+'" aria-checked="'+picked[x.id]+'"><span class="o-tk"></span>'+appIcon(x,34)+
   '<span class="tx"><b>'+x.name+'</b>'+(x.note?'<small>'+x.note+'</small>':'')+'</span><span class="o-st"></span></button>';}).join('')+

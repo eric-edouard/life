@@ -398,7 +398,8 @@ line links there.
 
 - Onboarding, round 2 ([host][onb-host], [phone][onb-phone]): the phone's onboarding in Life's thread rather than its own
   screens (not reviewed yet); one Full Disk Access ask for every Mac source; sign-in and payment pages opened inside
-  Life's window; ElevenLabs' own sign-up making the key; messaging apps connected from the phone only; drawn, not decided.
+  Life's window; ElevenLabs' own sign-up making the key; messaging apps connected from the phone only; a recovery key
+  shown once; drawn, not decided.
 - Turn by turn, before it ships: the arrivals rule first, then live items in history, "You" and "Life" labels against
   marks, centred reading, turns taller than the screen, the mesh beside the edge, the largest text sizes ([proposal][v5]).
 - Turn by turn's first slice and the order after it ([proposal][v5]); the rows-or-tiles rule (rows always, tiles only
