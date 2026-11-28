@@ -140,7 +140,8 @@ enum MacLinkExchange {
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             fields[name] = fields[name].map { "\($0), \(value)" } ?? value
         }
-        guard let status, let answer = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: fields)
+        guard let status,
+            let answer = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: fields)
         else { throw URLError(.badServerResponse) }
         return answer
     }
@@ -208,7 +209,7 @@ actor MacLinkDialer {
         while true {
             do {
                 return try await endpoint.connect(addr: to, alpn: alpn)
-            } catch where ContinuousClock.now < deadline {
+            } catch  where ContinuousClock.now < deadline {
                 try await Task.sleep(for: .seconds(1))
             }
         }

@@ -36,11 +36,17 @@ private let relay = "https%3A%2F%2Frelay.example.%2F"
 
 /// With the Mac's key any address is valid, the Mac's loopback too; without it, plain HTTP stays refused.
 @Test(arguments: [
-    ("life=http%3A%2F%2F127.0.0.1%3A46200&code=ABC234&token=abc_DEF-123-xyz_789&url=http%3A%2F%2F127.0.0.1%3A46200%2Fvoice&mac=\(key)&relay=\(relay)", true, true, true),
+    (
+        "life=http%3A%2F%2F127.0.0.1%3A46200&code=ABC234&token=abc_DEF-123-xyz_789&url=http%3A%2F%2F127.0.0.1%3A46200%2Fvoice&mac=\(key)&relay=\(relay)",
+        true, true, true
+    ),
     ("life=http%3A%2F%2Flife.example&code=ABC234&mac=\(key)&relay=\(relay)", true, false, true),
     ("url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=\(key)&relay=\(relay)", false, true, true),
     ("url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=\(key)", false, false, false),
-    ("url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=\(key)&relay=http%3A%2F%2Frelay.example", false, false, false),
+    (
+        "url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=\(key)&relay=http%3A%2F%2Frelay.example",
+        false, false, false
+    ),
     ("life=https%3A%2F%2Flife.example&code=ABC234&mac=short&relay=\(relay)", true, false, false),
 ])
 func theMacsKeyCarriesAnyAddress(query: String, hasLife: Bool, hasServer: Bool, isLinked: Bool) {
@@ -82,7 +88,9 @@ private func exchange(_ request: URLRequest, _ stream: FakeStream) async -> (HTT
     nonisolated(unsafe) var answer: HTTPURLResponse?
     nonisolated(unsafe) var pieces: [String] = []
     do {
-        try await MacLinkExchange.run(request, over: stream) { answer = $0 } body: {
+        try await MacLinkExchange.run(request, over: stream) {
+            answer = $0
+        } body: {
             pieces.append(String(decoding: $0, as: UTF8.self))
         }
         return (answer, pieces, nil)
