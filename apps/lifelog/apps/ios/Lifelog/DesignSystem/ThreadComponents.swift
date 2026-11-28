@@ -89,51 +89,66 @@ extension View {
     }
 }
 
-/// His words, a bubble on the right with Life's mark on it. `waiting` goes when he is back, `failed` is tapped to ask
-/// again. A reaction sits on the bubble's bottom-left corner, outside the words.
-struct HisBubble: View {
+/// His question, heading its turn (the owner's decision of 28 Nov 2026): centred, its size stepped down by its length.
+/// Pinned at the thread's top while its answer scrolls under it, it shows at most two lines over a soft edge; at its
+/// turn's top, in full. Its full words always hold its place, so pinning never moves the answer. `waiting` goes when he
+/// is back, `failed` is tapped to ask again; Life's mark sits under it.
+struct ThreadTurnQuestion: View {
     enum State { case sent, waiting, failed }
     let words: String
     var state = State.sent
     var reaction: Reaction?
-    /// A failed bubble is tapped to ask again.
+    var isPinned = false
+    /// A failed question is tapped to ask again.
     var retry: () -> Void = {}
-    /// The widest bubble and the corner mark grow with the text size, so a large type still wraps and the mark keeps room.
-    @ScaledMetric private var width = Metrics.bubbleWidth
     @ScaledMetric private var mark = Metrics.reactionMark
 
+    private var step: TypeStep {
+        switch ThreadTurns.size(of: words) {
+        case .short: .profileName
+        case .medium: .header
+        case .long: .rowTitle
+        }
+    }
+
+    private func question(lines: Int?) -> some View {
+        Text(words).font(step).foregroundStyle(Palette.fg).multilineTextAlignment(.center).lineLimit(lines)
+            .frame(maxWidth: .infinity)
+            // Only a failed question is a button: a disabled one would dim his words.
+            .onTapGesture { if state == .failed { retry() } }
+            .accessibilityAddTraits(state == .failed ? .isButton : [])
+            .accessibilityHint(state == .failed ? "Not sent. Tap to try again" : "")
+    }
+
     var body: some View {
-        Button(action: retry) {
-            Text(words)
-                .padding(.horizontal, Metrics.Spacing.m).padding(.vertical, Metrics.Spacing.s)
-                .foregroundStyle(Palette.fg)
-                .background(
-                    Palette.tint,
-                    in: UnevenRoundedRectangle(
-                        topLeadingRadius: Metrics.Radius.block, bottomLeadingRadius: Metrics.Radius.block,
-                        bottomTrailingRadius: Metrics.Radius.control / 2, topTrailingRadius: Metrics.Radius.block)
-                )
-        }
-        .buttonStyle(.plain).disabled(state != .failed)
-        .overlay(alignment: .bottomLeading) {
-            if let reaction {
-                ReactionMark(reaction: reaction).frame(width: mark, height: mark)
-                    .background(Palette.card, in: .circle).offset(x: -Metrics.Spacing.s, y: mark / 2)
-            }
-        }
-        .accessibilityHint(state == .failed ? "Not sent. Tap to try again" : "")
-        // Half the mark hangs below the bubble: the rows under it start past it.
-        .padding(.bottom, reaction == nil ? 0 : mark / 2 + Metrics.Spacing.xs)
-        .frame(maxWidth: width, alignment: .trailing).frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.bottom, state == .waiting ? Metrics.Spacing.l : 0)
-        .overlay(alignment: .bottomTrailing) {
-            // Under the bubble, as the prototype's `.q`: a clock and when it goes.
+        VStack(spacing: Metrics.Spacing.xs) {
+            question(lines: nil)
+            if let reaction { ReactionMark(reaction: reaction).frame(width: mark, height: mark) }
             if state == .waiting {
+                // As the prototype's `.q`: a clock and when it goes.
                 HStack(spacing: Metrics.Spacing.xs) {
                     Glyph(.clock, size: 13)
                     Text("when you're back")
                 }
                 .font(.meta).foregroundStyle(Palette.muted)
+            }
+        }
+        .padding(.vertical, Metrics.Spacing.s)
+        .opacity(isPinned ? 0 : 1)
+        .overlay(alignment: .top) {
+            if isPinned {
+                question(lines: 2).padding(.vertical, Metrics.Spacing.s)
+                    // The answer passes under it: the thread's own fill, then a soft edge, the screen's width.
+                    .background {
+                        Palette.bg.padding(.horizontal, -Metrics.gutter)
+                            .overlay(alignment: .bottom) {
+                                LinearGradient(
+                                    colors: [Palette.bg, Palette.bg.opacity(0)], startPoint: .top, endPoint: .bottom
+                                )
+                                .frame(height: Metrics.Spacing.xl).offset(y: Metrics.Spacing.xl)
+                                .padding(.horizontal, -Metrics.gutter)
+                            }
+                    }
             }
         }
     }

@@ -116,8 +116,6 @@ line links there.
 
 - One endless conversation, opening at its bottom, with Show earlier and day separators; it grows only with what he
   and Life say (owner, 23 Nov 2026).
-- His messages are a quiet tinted bubble (the `tint` fill, cream text); the full cream bubble was too loud
-  (owner, 23 Nov 2026).
 - What Life says comes in progressively: text word by word, blocks one after another, each from blurred to sharp; his
   own words appear at once; under Reduce Motion everything appears whole (owner, 23 Nov 2026).
 - The thread follows Life's reveal in batches: the message is laid out first, then one smooth move when the revealed
@@ -125,6 +123,11 @@ line links there.
   (owner, 23 Nov 2026).
 - Small blocks stay as they are; a page-sized answer shows whole while it is the latest and collapses into its card
   when he next writes, never on its own (owner, 23 Nov 2026).
+- Turn by turn on the one thread: each turn (his question, Life's answer) is at least a screen tall, a short answer
+  centred under the question and a long one as long as it needs, never scrolled inside a card. His question heads its
+  turn, its size stepped down by length (short, medium, long), pinned at the top over a soft edge while its answer
+  scrolls under it, two lines at most there and whole back at its turn's top. A release near a turn's top settles
+  there; inside a turn the scroll is free (owner, 28 Nov 2026; his question replaces 23 Nov's tinted bubble).
 
 ### Items and asks
 
@@ -431,6 +434,9 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 ### 28 Nov 2026
 
+- Ask Life's thread goes turn by turn on the existing thread, so he tries it on his real data at once: his question a
+  pinned header with a soft edge under it, a turn at least a screen tall, a gentle snap to a turn's top, the question's
+  size by length ([The thread](#the-thread)).
 - Turn by turn review ([turn by turn][tbt]): variation A is the base: its idle, typing, hold to talk, Life works, slow
   ask, failed read and the "Hey Life" notification replaced in place are kept as they are; B's answer flow for "Did
   Jade answer?" wins. Earlier turns: a full-screen pager with magnetic snapping, not every turn shown at once. The

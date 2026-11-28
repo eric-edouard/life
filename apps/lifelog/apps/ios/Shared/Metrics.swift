@@ -34,8 +34,7 @@ enum Metrics {
     /// A switch: its track and its knob.
     static let switchTrack = CGSize(width: 51, height: 31)
     static let switchKnob: CGFloat = 27
-    /// A bubble's widest, and the catalog's phone width.
-    static let bubbleWidth: CGFloat = 300
+    /// The catalog's phone width.
     static let phoneWidth: CGFloat = 393
 
     /// How faded a thing goes: an outdated row, an answer beside a busy one, a draft redrafted past.
