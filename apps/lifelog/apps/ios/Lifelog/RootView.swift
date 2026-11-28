@@ -8,7 +8,6 @@ import UIKit
 struct RootView: View {
     @Environment(SyncStore.self) private var sync
     @AppStorage(Appearance.key) private var appearance = Appearance.auto
-    @AppStorage(AuraPreview.isOnKey) private var isAuraOn = false
     @Environment(LifeStore.self) private var life
     @Environment(CaptureStore.self) private var capture
     @Environment(\.scenePhase) private var scenePhase
@@ -105,7 +104,7 @@ struct RootView: View {
         .onChange(of: text) { if life.naming != nil { life.namingWords = text } }
         .onChange(of: life.naming) { if life.naming != nil { isAsking = true } else { text = "" } }
         // The ring is round the whole screen, a pushed profile too; a sheet covers it. Off until he turns it on.
-        .overlay { if isAuraOn { EdgeView(state: aura.state ?? edge, aura: aura.shown) } }
+        .overlay { if aura.isOn { EdgeView(state: aura.state ?? edge, aura: aura.shown) } }
         .sheet(
             item: $sheet,
             onDismiss: {

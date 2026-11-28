@@ -143,3 +143,23 @@ func aLinkComesBackFromTheURLItsTextCarries(link: ContextLink) throws {
     #expect(words(outer) == "Outer\ninner words")
     #expect(outer.contains { $0.isItalic && $0.text == "words" })
 }
+
+@Test func aListInAQuoteAndCodeInAListItemReadAsTheirWords() throws {
+    let blocks = ContextMarkdown.blocks(
+        """
+        > Before
+        > - first *one*
+        > - second
+
+        - Run this:
+          ```
+          make demo
+          ```
+        """)
+    guard case .quote(let quote, _) = blocks[0] else { Issue.record("a quote"); return }
+    #expect(words(quote) == "Before\n• first one\n• second")
+    #expect(quote.contains { $0.isItalic && $0.text == "one" })
+    guard case .list(let list) = blocks[1] else { Issue.record("a list"); return }
+    #expect(words(list[0].text) == "Run this:\nmake demo")
+    #expect(list[0].text.contains { $0.isCode && $0.text == "make demo" })
+}

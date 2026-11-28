@@ -184,7 +184,15 @@ public enum ContextMarkdown {
             }
         case let code as CodeBlock: return [Inline(code.code.trimmingCharacters(in: .newlines), isCode: true)]
         case let html as HTMLBlock: return [Inline(html.rawHTML.trimmingCharacters(in: .whitespacesAndNewlines))]
-        default: return [Inline(block.format())]
+        case let table as Table:
+            // A table's rows as lines, its cells joined by " · ".
+            let rows = [Array(table.head.cells)] + table.body.rows.map { Array($0.cells) }
+            return rows.enumerated().flatMap { index, cells in
+                (index > 0 ? [Inline("\n")] : [])
+                    + cells.enumerated().flatMap { at, cell in (at > 0 ? [Inline(" · ")] : []) + inlines(cell) }
+            }
+        // A break or any block still unknown: its children's words, never its source.
+        default: return lines(Array(block.children))
         }
     }
 
