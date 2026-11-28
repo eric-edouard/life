@@ -1,5 +1,5 @@
 /* The made-up scenario turn by turn v3 plays (no real people), following the real flow
-   (../2026-11-27-turn-by-turn-v2/2026-11-28-real-flow.md). Today is Wednesday 27 Nov, 9:41.
+   (2026-11-28-real-flow.md). Today is Wednesday 27 Nov, 9:41.
    Timings are the measured ones ÷ 2, so the prototype plays in half real time: `first` is the wait from his ask to the
    first step line (real median 5.7 s), each step's `ms` how long its line shows before the next replaces it; the whole
    answer arrives at once when the last step ends (real median 15 s for a plain question). Steps never say what they found.

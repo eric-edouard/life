@@ -20,7 +20,7 @@ Workflow); nothing else is put in front of an agent on its own.
 
 ## What the system really does
 
-6. [The real flow](2026-11-27-turn-by-turn-v2/2026-11-28-real-flow.md): what happens between an ask and its answer,
+6. [The real flow](2026-11-28-turn-by-turn-v3/2026-11-28-real-flow.md): what happens between an ask and its answer,
    its timings, and the data each step has.
 7. The data a screen can draw: a card's parts (`apps/server/src/memory/card-request.ts`, `needs.ts`, `draft.ts`) and an
    answer's blocks (`apps/server/src/records/answer-blocks.ts`). A design may propose more, marked "new block".
