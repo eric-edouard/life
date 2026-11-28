@@ -10,7 +10,7 @@ The aim: a result that looks and feels great (the approved preview), works with 
 ## Every wake
 
 - Your folder is the project's work folder, with its own git. Work there; nothing of yours goes elsewhere.
-- Packages missing (`package.json`, no `node_modules`: a restore leaves them out): run `bun install`.
+- After a restore (it leaves out `.git` and `node_modules`): no `.git`, run `git init`; `package.json` with no `node_modules`, run `bun install`.
 - Read `PLAN.md` first; tick a box only after its step is checked.
 - Never commit a secret (a key, token or password); a backup leaves out files starting `.env`.
 - One commit per checked step. No GitHub, no PR, no remote.
