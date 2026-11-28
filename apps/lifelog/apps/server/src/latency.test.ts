@@ -69,16 +69,12 @@ test("the phone is asked for its blocks while the Pendant records and heard-thro
 
 test("the owner is asked to open the app once per episode, at his delay", async () => {
   const alerts: unknown[] = [];
-  const nudge = phoneNudger(
-    env.db,
-    (request) => {
-      if (request.headers["apns-push-type"] === "alert") {
-        alerts.push(JSON.parse(request.body).aps.alert);
-      }
-      return Promise.resolve({ body: "", status: 200 });
-    },
-    "bundle"
-  );
+  const nudge = phoneNudger(env.db, (_token, push) => {
+    if (push.kind === "voice.waiting") {
+      alerts.push(push);
+    }
+    return Promise.resolve({ body: "", status: 200 });
+  });
   storePushToken(env.db, "ab".repeat(80));
   env.db
     .insert(heartbeats)
@@ -106,10 +102,7 @@ test("the owner is asked to open the app once per episode, at his delay", async 
   };
   expect(await tick(0, -14)).toBe(0);
   expect(await tick(0, -16)).toBe(1);
-  expect(alerts[0]).toEqual({
-    body: "Your Pendant has 16 minutes waiting to sync.",
-    title: "Open lifelog",
-  });
+  expect(alerts[0]).toEqual({ kind: "voice.waiting" });
   // Still behind at the next ticks: the same episode.
   expect(await tick(5, -16)).toBe(1);
   expect(await tick(10, -16)).toBe(1);

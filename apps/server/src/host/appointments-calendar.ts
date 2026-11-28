@@ -170,15 +170,13 @@ export async function drafted<A extends Planned>(
   return kept;
 }
 
-/** The push for an appointment's first event: an opaque id; the phone reads the event from the connector and writes the words. */
+/** The push for an appointment's first event: its kind and an opaque id; the phone reads the event from the connector and writes the words. */
 async function pushAdded(d: AppointmentDraft) {
   // Quiet: it tells him, never interrupts (Life's own work waits in the list, his yes of 25 Nov 2026).
   await notifyPhone({
-    body: "Added to your calendar",
     kind: "calendar.added",
     level: "passive",
     pushId: pushIdOf(d.of),
-    title: "Life",
   });
 }
 

@@ -3605,50 +3605,151 @@
     },
     "/notifications": {
       "post": {
-        "description": "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, so a missing one tells him at once it was not; its new cards: a count, a badge and one card's opaque id, `pushId`, 16 hex, which lets the phone rewrite it; an appointment it added to his calendar: `kind` `calendar.added` and its opaque `pushId`, category `life.calendar`, no badge). Words (`title` and `body` together) and/or a `badge`; `level` is Apple's interruption level (passive makes no sound). Or `removed` alone: the `pushId`s of cards that left Life's inbox, a background push, and the phone removes their notifications. Sent once, recorded as an `apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
+        "description": "A push to the phone that another app of the owner's asks for (Life: each card, the cards that left its inbox, an appointment it added, each voice ask it heard). Ids only, never a word, a name or a count: a `kind` from `core/push.ts` (Life's contract) and its `pushId`, 16 hex, which the phone routes on and rewrites the notification from; `level` is Apple's interruption level (`passive` makes no sound). Words and a badge are refused. Sent once, recorded as an `apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "badge": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
-                  "body": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 500
-                  },
-                  "kind": {
-                    "type": "string",
-                    "enum": ["calendar.added", "thread.reply"]
-                  },
-                  "level": {
-                    "type": "string",
-                    "enum": ["passive", "active", "time-sensitive"]
-                  },
-                  "pushId": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{16}$"
-                  },
-                  "removed": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "pattern": "^[0-9a-f]{16}$"
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["card.new"]
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": ["passive", "active", "time-sensitive"]
+                      },
+                      "pushId": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{16}$"
+                      }
                     },
-                    "minItems": 1,
-                    "maxItems": 100
+                    "required": ["kind", "pushId"],
+                    "additionalProperties": false
                   },
-                  "title": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 100
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["calendar.added"]
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": ["passive", "active", "time-sensitive"]
+                      },
+                      "pushId": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{16}$"
+                      }
+                    },
+                    "required": ["kind", "pushId"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["thread.heard"]
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": ["passive", "active", "time-sensitive"]
+                      },
+                      "pushId": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{16}$"
+                      }
+                    },
+                    "required": ["kind", "pushId"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["thread.answered"]
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": ["passive", "active", "time-sensitive"]
+                      },
+                      "pushId": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{16}$"
+                      }
+                    },
+                    "required": ["kind", "pushId"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["thread.failed"]
+                      },
+                      "level": {
+                        "type": "string",
+                        "enum": ["passive", "active", "time-sensitive"]
+                      },
+                      "pushId": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{16}$"
+                      }
+                    },
+                    "required": ["kind", "pushId"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["voice.waiting"]
+                      }
+                    },
+                    "required": ["kind"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["cards.removed"]
+                      },
+                      "removed": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{16}$"
+                        },
+                        "minItems": 1,
+                        "maxItems": 100
+                      }
+                    },
+                    "required": ["kind", "removed"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["voice.ready"]
+                      }
+                    },
+                    "required": ["kind"],
+                    "additionalProperties": false
                   }
-                }
+                ]
               }
             }
           }

@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { PUSH_ID } from "../../core/push";
 import { openAppointment, readsOnce } from "../../memory/find-refs";
 import { AppointmentId } from "../../records/appointment";
-import { PUSH_ID } from "../../sources/voice-server-push";
 import {
   removeAppointment,
   restoreAppointment,

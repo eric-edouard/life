@@ -1,8 +1,9 @@
 // Health: liveness, the phone's heartbeats, diagnostics and push token, the event trail, and
 // the status the owner's sessions read.
 import { createRoute, z } from "@hono/zod-openapi";
+import { Push } from "@life/server/src/core/push";
 import { diagnosticKinds } from "@lifelog/db/schema";
-import { NoticeRequest, storePushToken } from "../apns";
+import { storePushToken } from "../apns";
 import {
   Diagnostic,
   DiagnosticUpload,
@@ -134,12 +135,11 @@ export function healthRoutes(
     .openapi(
       createRoute({
         description:
-          "A push to the phone that another app of the owner's asks for (Life: each voice ask it heard, " +
-          "so a missing one tells him at once it was not; its new cards: a count, a badge and one card's " +
-          "opaque id, `pushId`, 16 hex, which lets the phone rewrite it; an appointment it added to his calendar: `kind` " +
-          "`calendar.added` and its opaque `pushId`, category `life.calendar`, no badge). Words (`title` and `body` together) " +
-          "and/or a `badge`; `level` is Apple's interruption level (passive makes no sound). Or `removed` alone: the " +
-          "`pushId`s of cards that left Life's inbox, a background push, and the phone removes their notifications. Sent once, recorded as an " +
+          "A push to the phone that another app of the owner's asks for (Life: each card, the cards " +
+          "that left its inbox, an appointment it added, each voice ask it heard). Ids only, never a word, " +
+          "a name or a count: a `kind` from `core/push.ts` (Life's contract) and its `pushId`, 16 hex, " +
+          "which the phone routes on and rewrites the notification from; `level` is Apple's interruption " +
+          "level (`passive` makes no sound). Words and a badge are refused. Sent once, recorded as an " +
           "`apns.*` event of kind `notice`; `stored` is true even when no push token or key is set.",
         method: "post",
         path: "/notifications",
@@ -147,7 +147,7 @@ export function healthRoutes(
           body: {
             content: {
               "application/json": {
-                schema: NoticeRequest,
+                schema: Push,
               },
             },
             required: true,

@@ -4,12 +4,12 @@ import { type QueueCache, queueCache } from "./naming-cache";
 
 import type { Db } from "@lifelog/db";
 import {
-  apnsFor,
   type Notice,
   type Nudge,
   type Pusher,
   phoneNotice,
   phoneNudger,
+  pusherFor,
 } from "./apns";
 import { type HealthWatch, healthWatch } from "./archive-health";
 import { type AudioStore, memoryAudioStore } from "./audio-store";
@@ -34,8 +34,8 @@ export function services(
   config: Config,
   db: Db,
   {
-    // Null when the key is not configured.
-    apns = apnsFor(config),
+    // The app's own key when this install holds it, the push relay otherwise.
+    apns = pusherFor(config),
     // Every job's audio: the bucket, which index.ts passes; in memory for tests.
     audio = memoryAudioStore(),
     mac = macSocket(db),
@@ -45,11 +45,11 @@ export function services(
     // Summaries run only on the Mac, on the owner's Max plan; never on a paid API.
     intelligence = macProvider(mac, () => !switches().ai),
     // Tells the phone a transcript or summary is ready (a silent push to the same app).
-    nudge = phoneNudger(db, apns, config.APNS_TOPIC),
+    nudge = phoneNudger(db, apns),
     // The voices to name.
     queue = queueCache(db),
-    // A visible push another app of the owner's asks for (Life: each voice ask it heard).
-    notice = phoneNotice(db, apns, config.APNS_TOPIC),
+    // A push another app of the owner's asks for (Life: each voice ask it heard, its cards).
+    notice = phoneNotice(db, apns),
     // The voices read, window by window as conversations go on, on the Mac.
     rolling = rollingVoices(db, { mac: intelligence, nudge }),
     // At Lifelog Host's embedder, which index.ts passes; none for tests, so none calls it.

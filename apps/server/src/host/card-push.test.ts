@@ -37,10 +37,9 @@ const card = (
 const cards = (n: number, kind?: "decision" | "voice" | "person" | "name") =>
   Array.from({ length: n }, (_, i) => card(i + 1, kind));
 const alone = (n: number) => ({
-  body: "1 new card",
+  kind: "card.new" as const,
   level: "active" as const,
   pushId: card(n).pushId,
-  title: "Life",
 });
 
 let open = cards(0);
@@ -62,13 +61,13 @@ afterEach(() => {
   push.mockRestore();
   clean();
 });
-test("the first run pushes nothing and sees every open card; a new one pushes with its id and the badge", async () => {
+test("the first run pushes nothing and sees every open card; a new one pushes with its kind and its id", async () => {
   open = cards(265);
   await pushNewCards();
   expect(push).not.toHaveBeenCalled();
   open = [...cards(265), card(266)];
   await pushNewCards();
-  expect(push.mock.calls).toEqual([[{ badge: 266, ...alone(266) }]]);
+  expect(push.mock.calls).toEqual([[alone(266)]]);
   await pushNewCards();
   expect(push).toHaveBeenCalledTimes(1);
 });
@@ -79,11 +78,11 @@ test("every new decision pushes alone, with its id", async () => {
   open = cards(9);
   await pushNewCards();
   expect(push.mock.calls.map(([p]) => p)).toEqual(
-    [3, 4, 5, 6, 7, 8, 9].map((n) => ({ badge: 9, ...alone(n) }))
+    [3, 4, 5, 6, 7, 8, 9].map(alone)
   );
 });
 
-test("Life's own checks push nothing: a new one moves only the badge", async () => {
+test("Life's own checks push nothing: a new one tells his phone no word at all", async () => {
   open = cards(2);
   await pushNewCards();
   // A name with no person blocks; a voice to name never does (his yes of 26 Nov 2026): neither pushes.
@@ -94,7 +93,7 @@ test("Life's own checks push nothing: a new one moves only the badge", async () 
     card(12, "voice"),
   ];
   await pushNewCards();
-  expect(push.mock.calls).toEqual([[{ badge: 3 }]]);
+  expect(push).not.toHaveBeenCalled();
 });
 
 test("a voice card whose question changes (a new suggested person, a grown group) is not pushed again; its old notification is removed (life#1011)", async () => {
@@ -113,6 +112,7 @@ test("a voice card whose question changes (a new suggested person, a grown group
   expect(push.mock.calls.slice(before)).toEqual([
     [
       {
+        kind: "cards.removed",
         removed: [
           voiceServerPush.pushIdOf("voice:g1~0a1b2c3d"),
           voiceServerPush.pushIdOf("voice:g2~0a1b2c3d"),
@@ -134,15 +134,14 @@ test("a delivered card's push: time-sensitive within 3 hours of its deadline, el
   expect(pushLevelOf({ deadline: null }, [], now)).toBe("active");
 });
 
-test("a card that left the inbox (answered, withdrawn, lapsed) is a badge-only push and its removal; nothing changed is none", async () => {
+test("a card that left the inbox (answered, withdrawn, lapsed) is removed from his phone; nothing changed is nothing", async () => {
   open = cards(3);
   await pushNewCards();
   open = cards(2);
   await pushNewCards();
   await pushNewCards();
   expect(push.mock.calls).toEqual([
-    [{ removed: [card(3).pushId] }],
-    [{ badge: 2 }],
+    [{ kind: "cards.removed", removed: [card(3).pushId] }],
   ]);
 });
 
@@ -154,7 +153,7 @@ test("a card gone for 31 days is new when it returns", async () => {
   open = cards(2);
   await pushNewCards(later(32));
   expect(push.mock.calls.at(-1)?.[0]).toMatchObject({
-    body: "1 new card",
+    kind: "card.new",
     pushId: card(2).pushId,
   });
 });
@@ -217,11 +216,9 @@ test("while a run holds the lock a new decision still pushes, from its own lines
   expect(push.mock.calls).toEqual([
     [
       {
-        badge: 3,
-        body: "1 new card",
+        kind: "card.new",
         level: "active",
         pushId: voiceServerPush.pushIdOf(id),
-        title: "Life",
       },
     ],
   ]);
@@ -251,7 +248,9 @@ test("a look while a run holds the lock removes nothing and keeps what the last 
   held.mockReturnValue(false);
   open = cards(2);
   await pushNewCardsIfChanged();
-  expect(push.mock.calls).toContainEqual([{ removed: [card(3).pushId] }]);
+  expect(push.mock.calls).toContainEqual([
+    { kind: "cards.removed", removed: [card(3).pushId] },
+  ]);
 });
 
 test("a new decision pushes on the seconds' look, once", async () => {
@@ -307,7 +306,7 @@ test("an agent's card pushes once the gate delivered it, never before, and never
   recordDelivered(a.id, { verdict: "deliver" });
   recordDelivered(b.id, { silent: true, verdict: "deliver" });
   await pushNewCards();
-  expect(push.mock.calls.map(([p]) => p.pushId)).toEqual([
-    voiceServerPush.pushIdOf(a.id),
-  ]);
+  expect(
+    push.mock.calls.map(([p]) => ("pushId" in p ? p.pushId : null))
+  ).toEqual([voiceServerPush.pushIdOf(a.id)]);
 });

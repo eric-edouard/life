@@ -8,6 +8,7 @@ import { log } from "../../core/log";
 import { OWNER_ASKER } from "../../core/names";
 import { isOn } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
+import { PUSH_ID } from "../../core/push";
 import {
   changeSetting,
   connector,
@@ -41,7 +42,6 @@ import type { LedgerEntry } from "../../records/ledger-entry";
 import { entryLine } from "../../records/ledger-entry";
 import { ObservationId } from "../../records/observation";
 import { Fix, FORWARD_KINDS, forward } from "../../sources/voice-server";
-import { PUSH_ID } from "../../sources/voice-server-push";
 import { openItemsNow, openOf, sectionsOf } from "../../todo-list/backend";
 import { Change } from "../../todo-list/contract";
 import { AFTER_ANSWER, afterAnswer, answerWithResult } from "../answer-result";

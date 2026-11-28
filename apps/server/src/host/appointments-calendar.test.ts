@@ -286,11 +286,9 @@ test("an appointment agreed in new lines is written once, pushed once by an opaq
   });
   expect(pushed).toHaveBeenCalledTimes(1);
   expect(pushed.mock.calls[0]?.[0]).toEqual({
-    body: "Added to your calendar",
     kind: "calendar.added",
     level: "passive",
     pushId: push.pushIdOf(id),
-    title: "Life",
   });
   // Written again (deleted by Life, back), never pushed again.
   events.clear();

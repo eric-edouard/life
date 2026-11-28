@@ -2,6 +2,7 @@ import { clock } from "@life/server/src/core/clock";
 import { HOUR_PRICES, priceOn } from "@life/server/src/core/prices";
 import { isTimeZone } from "@life/server/src/core/time-zone";
 import { z } from "zod";
+import { APP_TOPIC } from "./apns-request";
 
 // Seconds at Scribe's base rate that this audio will cost on `day`, add-ons included (prices: Life's `core/prices.ts`).
 export const billableSeconds = (
@@ -167,15 +168,17 @@ const Env = z.object({
   // domain verified there) to ALERT_EMAIL_TO. No alert email without both and RESEND_API_KEY.
   ALERT_EMAIL_FROM: z.string().min(1).optional(),
   ALERT_EMAIL_TO: z.email().optional(),
-  // Pushes to the phone (apns.ts), with a token-based .p8 key. Without the key nothing is
-  // pushed. The owner's builds are development-signed, so their tokens are sandbox tokens.
+  // Pushes to the phone (apns.ts), with a token-based .p8 key: only an install holding the app's own
+  // key (the developer's) sets these, and signs and sends its pushes itself, to APNS_ENVIRONMENT and
+  // with APNS_TOPIC. Every other install sends its pushes through the push relay, which holds that
+  // key. The owner's builds are development-signed, so their tokens are sandbox tokens.
   APNS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   APNS_KEY_ID: z.string().min(1).optional(),
   // The .p8 file's contents.
   APNS_PRIVATE_KEY: z.string().min(1).optional(),
   APNS_TEAM_ID: z.string().min(1).optional(),
-  // The app's bundle id (LIFELOG_BUNDLE_ID in apps/ios/project.yml).
-  APNS_TOPIC: z.string().min(1).default("com.ericedouard.lifelog"),
+  // The app's bundle id, for a development build under another one.
+  APNS_TOPIC: z.string().min(1).default(APP_TOPIC),
   // Where audio is kept without a bucket (audio-store.ts); the S3_* settings win when set.
   AUDIO_DIR: z.string().min(1).optional(),
   // The build's git commit, which Lifelog Host passes from its Info.plist; names the build in

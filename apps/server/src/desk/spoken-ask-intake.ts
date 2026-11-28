@@ -107,8 +107,9 @@ export const NOT_SURE =
 
 /**
  * Spoken ask `a`, asked of the main session unless this process waits on it: one push that Life heard him, which its
- * outcome replaces (the same `pushId`; never his words or Life's through Apple). Words heard with low confidence run no
- * turn, and one a restart cut (its turn begun) is not asked again: its acts would run twice. Each ends with a line.
+ * outcome replaces (the same `pushId`, a kind of `core/push.ts`; never a word of his or Life's through Apple). Words
+ * heard with low confidence run no turn, and one a restart cut (its turn begun) is not asked again: its acts would run
+ * twice. Each ends with a line.
  */
 function askSpoken(desk: Desk, a: LedgerEntry) {
   const { db } = desk;
@@ -116,13 +117,10 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
     return;
   }
   const outcome =
-    (title: string, body = "Open Life to read it.") =>
-    () =>
+    (kind: "thread.answered" | "thread.failed" | "thread.heard") => () =>
       notifyPhone({
-        body,
-        kind: "thread.reply",
+        kind,
         pushId: pushIdOf(`thread:${askEntryOf(db, a.id)?.id}`),
-        title,
       });
   const before = askEntryOf(db, a.id);
   const said = Date.parse(a.instruction?.at ?? a.at);
@@ -137,7 +135,7 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
       why,
       true
     );
-    outcome("Life couldn't do it")();
+    outcome("thread.failed")();
     return;
   }
   // Not waited for: a turn of minutes never holds the tick.
@@ -150,13 +148,11 @@ function askSpoken(desk: Desk, a: LedgerEntry) {
     },
     () => undefined
   );
-  const heard = before
-    ? Promise.resolve(true)
-    : outcome("Life heard you", "On it.")();
+  const heard = before ? Promise.resolve(true) : outcome("thread.heard")();
   // The outcome after the heard push, so his phone ends on it.
   Promise.all([answered, heard])
     .then(([x]) =>
-      outcome(x.kind === "error" ? "Life couldn't do it" : "Life answered")()
+      outcome(x.kind === "error" ? "thread.failed" : "thread.answered")()
     )
     .catch((error: unknown) =>
       log("desk.asks", { ...errorOf(error), ok: false, what: "main" })

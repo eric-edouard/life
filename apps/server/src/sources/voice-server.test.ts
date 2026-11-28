@@ -4,6 +4,7 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { Push } from "../core/push";
 import { AppleHealthPage } from "./apple-health";
 import { VoiceNoteWords } from "./chat-voice-notes";
 import {
@@ -33,7 +34,6 @@ import {
   writeMarks,
 } from "./voice-server";
 import { conversationsWith } from "./voice-server-conversations";
-import type { Push } from "./voice-server-push";
 import { Recorded } from "./voice-server-recorded";
 import { Hits, searchVoice } from "./voice-server-search";
 import { endedOnSilence, isConversationClosed } from "./voice-server-speech";
@@ -769,26 +769,22 @@ test("the name lifelog gave a person id is the newest one, and no name leaves th
   expect([...names]).toEqual([["p1", "Dana"]]);
 });
 
-test("a push Life asks lifelog for is shaped as `POST /notifications` takes it: the same fields, each of the type it holds", async () => {
-  const api = JSON.parse(await Bun.file(CONTRACT).text());
+/** What a push may never carry (SECURITY.md): words, or a badge. */
+const NOT_A_PUSH = /"(badge|body|title)"/;
+
+test("a push Life asks the voice server for is the contract's: every kind read, its ids, and no word at all", async () => {
+  const api = await Bun.file(CONTRACT).json();
   const theirs =
     api.paths["/notifications"].post.requestBody.content["application/json"]
-      .schema.properties;
-  // `Required<Push>` makes this list every field of `Push`: a field added there fails to compile until it is here.
-  const mine: Required<Push> = {
-    badge: 1,
-    body: "1 new card",
-    kind: "calendar.added",
-    level: "active",
-    pushId: "9f2c41d07ab35e68",
-    removed: ["9f2c41d07ab35e68"],
-    title: "Life",
-  };
-  expect(Object.keys(theirs).sort()).toEqual(Object.keys(mine).sort());
-  for (const [field, value] of Object.entries(mine)) {
-    const { type } = theirs[field];
-    expect(type === "integer" ? "number" : type).toBe(
-      Array.isArray(value) ? "array" : typeof value
-    );
-  }
+      .schema;
+  expect(
+    drift(
+      z.toJSONSchema(Push, { io: "input", unrepresentable: "any" }) as Json,
+      theirs,
+      api.components.schemas,
+      "push"
+    )
+  ).toEqual([]);
+  // It goes through Apple (SECURITY.md): a push is its kind, its ids and its level, never a word of his or Life's.
+  expect(JSON.stringify(theirs)).not.toMatch(NOT_A_PUSH);
 });

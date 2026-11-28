@@ -2,13 +2,13 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { HOUR } from "../core/clock";
 import { DESK_AGENT } from "../core/names";
+import { PUSH_ID } from "../core/push";
 import { setSettings } from "../core/settings";
 import { ask, asksFor } from "../host/asks";
 import { ASK_SPOKEN } from "../host/events";
 import { LEDGER } from "../memory/memory-files";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as push from "../sources/voice-server-push";
-import { PUSH_ID } from "../sources/voice-server-push";
 import {
   closeAssignmentRow,
   readSpokenAsksCursor,
@@ -117,18 +117,9 @@ test("a spoken ask is one ask of the main session: his words in his thread with 
     expect(JSON.parse(d.entryOf(id)?.reactions ?? "[]")).toMatchObject([
       { by: "life", with: "👀" },
     ]);
-    // Never his words through Apple.
+    // Never his words through Apple: the kind alone, until its answer replaces it.
     const pushId = expect.stringMatching(PUSH_ID);
-    expect(pushes.mock.calls).toEqual([
-      [
-        {
-          body: "On it.",
-          kind: "thread.reply",
-          pushId,
-          title: "Life heard you",
-        },
-      ],
-    ]);
+    expect(pushes.mock.calls).toEqual([[{ kind: "thread.heard", pushId }]]);
     // A tick while it runs (and a lost cursor) asks nothing again.
     saveSpokenAsksCursor(d.s.desk.db, {
       ...readSpokenAsksCursor(d.s.desk.db),
@@ -144,26 +135,13 @@ test("a spoken ask is one ask of the main session: his words in his thread with 
     expect(d.s.fake.said).toHaveLength(1);
     // Its answer replaces the heard push: the same id, still no words.
     expect(pushes.mock.calls).toEqual([
-      [
-        {
-          body: "On it.",
-          kind: "thread.reply",
-          pushId,
-          title: "Life heard you",
-        },
-      ],
-      [
-        {
-          body: "Open Life to read it.",
-          kind: "thread.reply",
-          pushId,
-          title: "Life answered",
-        },
-      ],
+      [{ kind: "thread.heard", pushId }],
+      [{ kind: "thread.answered", pushId }],
     ]);
-    expect(pushes.mock.calls[1]?.[0].pushId).toBe(
-      pushes.mock.calls[0]?.[0].pushId
+    const ids = pushes.mock.calls.map(([p]) =>
+      "pushId" in p ? p.pushId : null
     );
+    expect(ids[1]).toBe(ids[0]);
     // No agent was woken for it.
     expect(standingAgentOf(d.s.desk.db, "personal")).toBeUndefined();
   } finally {
@@ -209,10 +187,8 @@ test("every spoken ask ends with an answer or an error in his thread: a reply, n
     expect(pushes.mock.calls).toEqual([
       [
         {
-          body: "Open Life to read it.",
-          kind: "thread.reply",
+          kind: "thread.failed",
           pushId: expect.stringMatching(PUSH_ID),
-          title: "Life couldn't do it",
         },
       ],
     ]);

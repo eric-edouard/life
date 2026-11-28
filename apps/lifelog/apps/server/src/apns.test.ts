@@ -1,12 +1,15 @@
-import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, expect, spyOn, test } from "bun:test";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
+import type { Push } from "@life/server/src/core/push";
 import {
-  apnsFor,
   latestPushToken,
-  type PushRequest,
+  PUSH_RELAY,
+  type Pusher,
   phoneNudger,
+  pusherFor,
   storePushToken,
 } from "./apns";
+import { apnsRequestOf, type PushRequest } from "./apns-request";
 import { createApp } from "./app";
 import { sha256Hex } from "./config";
 import { services } from "./services";
@@ -14,12 +17,15 @@ import { OWNER_TOKEN, testConfig, testDb } from "./testing";
 
 const MAC_TOKEN = "mac-test-token";
 const PUSH_TOKEN = "ab".repeat(80);
+const TOPIC = "com.example.app";
+const PUSH_ID = "9f2c41d07ab35e68";
 const { privateKey, publicKey } = generateKeyPairSync("ec", {
   namedCurve: "P-256",
 });
 
 let env: Awaited<ReturnType<typeof testDb>>;
 let sent: { origin: string; request: PushRequest }[] = [];
+let posted: { origin: string; request: unknown }[] = [];
 
 const config = testConfig("http://localhost:1", {
   APNS_KEY_ID: "KEY1234567",
@@ -28,9 +34,16 @@ const config = testConfig("http://localhost:1", {
     type: "pkcs8",
   }) as string,
   APNS_TEAM_ID: "TEAM123456",
+  APNS_TOPIC: TOPIC,
   MAC_TOKEN_HASH: sha256Hex(MAC_TOKEN),
 });
-const appWith = (apns: ReturnType<typeof apnsFor>) =>
+// The direct path, its request kept instead of sent.
+const pusher = (status = 200, body = "") =>
+  pusherFor(config, (origin, request) => {
+    sent.push({ origin, request });
+    return Promise.resolve({ apnsId: "apns-1", body, status });
+  });
+const appWith = (apns: Pusher | null) =>
   createApp(
     services(config, env.db, {
       apns,
@@ -48,13 +61,8 @@ afterAll(() => {
 beforeEach(() => {
   env.reset();
   sent = [];
+  posted = [];
 });
-
-const pusher = () =>
-  apnsFor(config, (origin, request) => {
-    sent.push({ origin, request });
-    return Promise.resolve({ body: "", status: 200 });
-  });
 
 const putToken = (
   app: ReturnType<typeof createApp>,
@@ -70,9 +78,21 @@ const putToken = (
     method: "PUT",
   });
 
+const post = (app: ReturnType<typeof createApp>, push: unknown) =>
+  app.request("/notifications", {
+    body: JSON.stringify(push),
+    headers: {
+      Authorization: `Bearer ${OWNER_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+  });
+
+const sentBody = (index = -1) => JSON.parse(sent.at(index)?.request.body ?? "");
+
 test("the provider token is an ES256 JWT Apple can verify", async () => {
   storePushToken(env.db, PUSH_TOKEN);
-  await phoneNudger(env.db, pusher(), "com.example.app")("summary");
+  await phoneNudger(env.db, pusher())("summary");
   expect(sent[0]?.origin).toBe("https://api.sandbox.push.apple.com");
   const auth = sent[0]?.request.headers.authorization ?? "";
   const [header, claims, signature] = auth.replace("bearer ", "").split(".");
@@ -101,17 +121,10 @@ test("the provider token is an ES256 JWT Apple can verify", async () => {
 });
 
 test("a token APNs calls dead is dropped, so pushes wait for the phone's next one", async () => {
-  const push = apnsFor(config, (origin, request) => {
-    sent.push({ origin, request });
-    return Promise.resolve({
-      apnsId: "apns-1",
-      body: JSON.stringify({ reason: "BadDeviceToken" }),
-      status: 400,
-    });
-  });
+  const push = pusher(410, JSON.stringify({ reason: "Unregistered" }));
   const app = appWith(push);
   expect((await putToken(app, PUSH_TOKEN)).status).toBe(200);
-  await phoneNudger(env.db, push, "com.example.app")("transcript");
+  await phoneNudger(env.db, push)("transcript");
   expect(sent).toHaveLength(1);
   expect(latestPushToken(env.db)).toBeNull();
   const res = await app.request(
@@ -122,11 +135,51 @@ test("a token APNs calls dead is dropped, so pushes wait for the phone's next on
   expect(seen.find((e) => e.name === "apns.sent")?.fields).toMatchObject({
     apnsId: "apns-1",
     kind: "processing",
-    reason: "BadDeviceToken",
-    status: 400,
+    reason: "Unregistered",
+    status: 410,
     token: "abababab",
   });
   expect(seen.map((e) => e.name)).toContain("apns.token_dropped");
+});
+
+test("a relay's 429 or a failed answer never drops the phone's token", async () => {
+  const push = pusher(429, JSON.stringify({ reason: "TooManyRequests" }));
+  storePushToken(env.db, PUSH_TOKEN);
+  await phoneNudger(env.db, push)("transcript");
+  expect(latestPushToken(env.db)).toBe(PUSH_TOKEN);
+  sent = [];
+  await phoneNudger(env.db, pusher(500, ""))("transcript");
+  expect(latestPushToken(env.db)).toBe(PUSH_TOKEN);
+});
+
+test("an install without the app's own key posts its pushes to the push relay", async () => {
+  const relay = spyOn(globalThis, "fetch").mockImplementation(((
+    url: string | URL | Request,
+    init?: RequestInit
+  ) => {
+    posted.push({
+      origin: String(url),
+      request: JSON.parse(String(init?.body)),
+    });
+    return Promise.resolve(
+      Response.json(
+        { reason: "BadDeviceToken" },
+        { headers: { "apns-id": "relay-1" }, status: 410 }
+      )
+    );
+  }) as unknown as typeof fetch);
+  storePushToken(env.db, PUSH_TOKEN);
+  const direct = pusherFor(testConfig("http://localhost:1"));
+  expect(direct).toBeTypeOf("function");
+  await phoneNudger(env.db, direct)("summary", { job: "j1" });
+  expect(posted[0]?.origin).toBe(PUSH_RELAY);
+  expect(posted[0]?.request).toEqual({
+    push: { kind: "voice.ready" },
+    token: PUSH_TOKEN,
+  });
+  // APNs' own answer comes back through the relay: a dead token is dropped.
+  expect(latestPushToken(env.db)).toBeNull();
+  relay.mockRestore();
 });
 
 test("only the device token stores a push token, and only hex", async () => {
@@ -153,7 +206,7 @@ test("an event with content-sized fields is refused", async () => {
 });
 
 test("a ready transcript is a silent push to the app, which the phone recognizes", async () => {
-  const nudge = phoneNudger(env.db, pusher(), "com.example.app");
+  const nudge = phoneNudger(env.db, pusher());
   await nudge("transcript");
   expect(sent).toHaveLength(0);
   storePushToken(env.db, PUSH_TOKEN);
@@ -163,7 +216,7 @@ test("a ready transcript is a silent push to the app, which the phone recognizes
   expect(push?.request.headers).toMatchObject({
     "apns-priority": "5",
     "apns-push-type": "background",
-    "apns-topic": "com.example.app",
+    "apns-topic": TOPIC,
   });
   expect(JSON.parse(push?.request.body ?? "")).toEqual({
     aps: { "content-available": 1 },
@@ -171,108 +224,36 @@ test("a ready transcript is a silent push to the app, which the phone recognizes
   });
 });
 
-test("a notice another app asks for is one visible push; an empty or long title is refused", async () => {
-  storePushToken(env.db, PUSH_TOKEN);
-  const app = appWith(pusher());
-  const post = (body: unknown) =>
-    app.request("/notifications", {
-      body: JSON.stringify(body),
-      headers: {
-        Authorization: `Bearer ${OWNER_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
+test("every kind's push: the words, the category, and no id or word of ours beside it", () => {
+  const payload = (push: Push) => JSON.parse(apnsRequestOf(push, TOPIC).body);
+  const headers = (push: Push) => apnsRequestOf(push, TOPIC).headers;
+  // A card names its id, can be rewritten by the phone, and joins Life's thread.
   expect(
-    (await post({ body: "It reached its agent.", title: "Orbit heard you" }))
-      .status
-  ).toBe(200);
-  expect(sent).toHaveLength(1);
-  expect(sent[0]?.request.headers).toMatchObject({
-    "apns-priority": "10",
-    "apns-push-type": "alert",
-  });
-  expect(JSON.parse(sent[0]?.request.body ?? "")).toEqual({
+    payload({ kind: "card.new", level: "active", pushId: PUSH_ID })
+  ).toEqual({
     aps: {
-      alert: { body: "It reached its agent.", title: "Orbit heard you" },
-      sound: "default",
-    },
-  });
-  expect((await post({ body: "x", title: "" })).status).toBe(400);
-  expect((await post({ body: "x", title: "t".repeat(101) })).status).toBe(400);
-  expect(sent).toHaveLength(1);
-});
-
-test("Life's card pushes: one card names its id and can be rewritten, a badge alone is silent", async () => {
-  storePushToken(env.db, PUSH_TOKEN);
-  const app = appWith(pusher());
-  const post = (body: unknown) =>
-    app.request("/notifications", {
-      body: JSON.stringify(body),
-      headers: {
-        Authorization: `Bearer ${OWNER_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
-  const last = () => JSON.parse(sent.at(-1)?.request.body ?? "");
-  const pushId = "9f2c41d07ab35e68";
-  expect(
-    (
-      await post({
-        badge: 42,
-        body: "1 new card",
-        level: "time-sensitive",
-        pushId,
-        title: "Life",
-      })
-    ).status
-  ).toBe(200);
-  expect(last()).toEqual({
-    aps: {
-      alert: { body: "1 new card", title: "Life" },
-      badge: 42,
+      alert: { body: "New card", title: "Life" },
       category: "life.card",
-      "interruption-level": "time-sensitive",
+      "interruption-level": "active",
       "mutable-content": 1,
       sound: "default",
       "thread-id": "life-cards",
     },
-    pushId,
+    kind: "card.new",
+    pushId: PUSH_ID,
   });
-  expect(sent.at(-1)?.request.headers["apns-collapse-id"]).toBe(pushId);
-  await post({ badge: 41 });
-  expect(last()).toEqual({
-    aps: {
-      badge: 41,
-      "thread-id": "life-cards",
-    },
+  expect(
+    headers({ kind: "card.new", level: "time-sensitive", pushId: PUSH_ID })
+  ).toEqual({
+    "apns-collapse-id": PUSH_ID,
+    "apns-priority": "10",
+    "apns-push-type": "alert",
+    "apns-topic": TOPIC,
   });
-  expect(sent.at(-1)?.request.headers["apns-collapse-id"]).toBeUndefined();
-  await post({
-    badge: 41,
-    body: "3 more new cards",
-    level: "passive",
-    title: "Life",
-  });
-  expect(last()).toEqual({
-    aps: {
-      alert: { body: "3 more new cards", title: "Life" },
-      badge: 41,
-      "interruption-level": "passive",
-      "thread-id": "life-cards",
-    },
-  });
-  expect(sent).toHaveLength(3);
-  // An appointment Life added: its own category, no badge, its kind beside `aps`.
-  await post({
-    body: "Added to your calendar",
-    kind: "calendar.added",
-    level: "passive",
-    pushId,
-    title: "Life",
-  });
-  expect(last()).toEqual({
+  // An appointment: its own category, and quiet when Life says so.
+  expect(
+    payload({ kind: "calendar.added", level: "passive", pushId: PUSH_ID })
+  ).toEqual({
     aps: {
       alert: { body: "Added to your calendar", title: "Life" },
       category: "life.calendar",
@@ -280,39 +261,86 @@ test("Life's card pushes: one card names its id and can be rewritten, a badge al
       "mutable-content": 1,
     },
     kind: "calendar.added",
-    pushId,
+    pushId: PUSH_ID,
   });
+  // A spoken ask: heard, then answered or not, the same id replacing the one before.
+  expect(payload({ kind: "thread.heard", pushId: PUSH_ID })).toEqual({
+    aps: {
+      alert: { body: "On it.", title: "Life heard you" },
+      sound: "default",
+    },
+    kind: "thread.heard",
+    pushId: PUSH_ID,
+  });
+  expect(payload({ kind: "thread.answered", pushId: PUSH_ID })).toEqual({
+    aps: {
+      alert: { body: "Open Life to read it.", title: "Life answered" },
+      sound: "default",
+    },
+    kind: "thread.answered",
+    pushId: PUSH_ID,
+  });
+  expect(payload({ kind: "thread.failed", pushId: PUSH_ID })).toEqual({
+    aps: {
+      alert: { body: "Open Life to read it.", title: "Life couldn't do it" },
+      sound: "default",
+    },
+    kind: "thread.failed",
+    pushId: PUSH_ID,
+  });
+  // An alert about nothing to name: no id, no kind for the phone to route on.
+  expect(payload({ kind: "voice.waiting" })).toEqual({
+    aps: {
+      alert: {
+        body: "Your Pendant has audio waiting to sync.",
+        title: "Open lifelog",
+      },
+      sound: "default",
+    },
+  });
+  expect(headers({ kind: "voice.waiting" })).toEqual({
+    "apns-priority": "10",
+    "apns-push-type": "alert",
+    "apns-topic": TOPIC,
+  });
+  // Background: the ids of what left his inbox, or that what waits is ready.
+  expect(payload({ kind: "cards.removed", removed: [PUSH_ID] })).toEqual({
+    aps: { "content-available": 1 },
+    removed: [PUSH_ID],
+  });
+  expect(payload({ kind: "voice.ready" })).toEqual({
+    aps: { "content-available": 1 },
+    lifelog: "processing",
+  });
+  for (const background of [
+    { kind: "cards.removed", removed: [PUSH_ID] },
+    { kind: "voice.ready" },
+  ] as Push[]) {
+    expect(headers(background)).toEqual({
+      "apns-priority": "5",
+      "apns-push-type": "background",
+      "apns-topic": TOPIC,
+    });
+  }
+});
+
+test("the route takes a kind and its id, and refuses any word or a badge", async () => {
+  storePushToken(env.db, PUSH_TOKEN);
+  const app = appWith(pusher());
+  const taken = await post(app, { kind: "card.new", pushId: PUSH_ID });
+  expect(taken.status).toBe(200);
+  expect(sentBody()).toMatchObject({ kind: "card.new", pushId: PUSH_ID });
   const refused = await Promise.all(
     [
-      { title: "Life" },
-      { body: "x" },
-      { badge: -1 },
-      { badge: 1, pushId: "Kit's card" },
-      { badge: 1, level: "critical" },
-      { badge: 1, kind: "card.added" },
-      { badge: 0, kind: "calendar.added" },
-      { body: "x", kind: "calendar.added", title: "Life" },
-    ].map(async (bad) => (await post(bad)).status)
+      { body: "It reached its agent.", title: "Orbit heard you" },
+      { badge: 1 },
+      { kind: "card.new", pushId: PUSH_ID, title: "Life" },
+      { kind: "card.new", pushId: "Kit's card" },
+      { kind: "card.added", pushId: PUSH_ID },
+      { kind: "voice.waiting", level: "active" },
+      { kind: "cards.removed", removed: [] },
+    ].map(async (bad) => (await post(app, bad)).status)
   );
-  expect(refused).toEqual([400, 400, 400, 400, 400, 400, 400, 400]);
-  expect(sent).toHaveLength(4);
-  // Cards that left his inbox: alone, a background push the phone removes their notifications on.
-  expect((await post({ removed: [pushId] })).status).toBe(200);
-  expect(last()).toEqual({
-    aps: { "content-available": 1 },
-    removed: [pushId],
-  });
-  expect(sent.at(-1)?.request.headers).toMatchObject({
-    "apns-priority": "5",
-    "apns-push-type": "background",
-  });
-  const mixed = await Promise.all(
-    [
-      { badge: 1, removed: [pushId] },
-      { removed: [] },
-      { removed: ["Kit's card"] },
-    ].map(async (bad) => (await post(bad)).status)
-  );
-  expect(mixed).toEqual([400, 400, 400]);
-  expect(sent).toHaveLength(5);
+  expect(refused).toEqual([400, 400, 400, 400, 400, 400, 400]);
+  expect(sent).toHaveLength(1);
 });
