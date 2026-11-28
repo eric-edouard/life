@@ -290,7 +290,7 @@ test("a night with no source runs clean", () => {
   });
   const env = {
     ...process.env,
-    // No cloud folder in this home: `init` sets no backup.
+    // A home of its own: nothing of the Mac running the test is read.
     HOME: folder,
     LIFE_MACHINE_DIR: join(folder, "machine"),
     LIFE_OWNER_DATA_DIR: join(folder, "data"),
