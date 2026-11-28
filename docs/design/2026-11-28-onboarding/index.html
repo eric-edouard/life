@@ -155,7 +155,7 @@ h3.grp{margin:8px 0 -4px;font-size:var(--text-heading);font-weight:650;color:var
 <script src="integrations.js" charset="utf-8"></script>
 <script>
 /* --- state: one setup, its answers, and the integrations' live state (made up); fail: "Things go wrong" in the side panel --- */
-var S={plat:'mac',reinstall:false,intel:false,fail:false,shown:false,step:0,scene:'setup',ai:null,flows:{},sheet:null,fda:'',fdaTried:false,langs:{English:true},picked:{},far:'year',backup:0,phone:'waiting',broken:false};
+var S={plat:'mac',diag:true,reinstall:false,intel:false,fail:false,shown:false,step:0,scene:'setup',ai:null,flows:{},sheet:null,fda:'',fdaTried:false,langs:{English:true},picked:{},far:'year',backup:0,phone:'waiting',broken:false};
 var LANGS=['English','French','German','Spanish','Thai','Italian','Portuguese'];
 var LOCAL=['English','French','German','Spanish','Italian','Portuguese'];// local speech's set (made up for the drawing)
 var timers=[];function later(f,ms){timers.push(setTimeout(f,ms));}
@@ -172,7 +172,10 @@ var STEPS=[
  {id:'computer',label:'Your computer',bundle:'M',draw:function(){var capable=!win()&&!S.intel;
    return '<div class="mark">L</div><h2 class="q">Welcome to Life</h2><p class="lead">Life keeps your memory on this '+here()+'. Nothing of yours goes anywhere you don’t choose.</p>'+
    '<div class="tile"><div class="kv"><span>This '+here()+'</span><b>'+(win()?'Lenovo ThinkPad · 16 GB · 410 GB free':S.intel?'MacBook Pro · Intel i7 · 16 GB · 180 GB free':'MacBook Air · M2 · 16 GB · 212 GB free')+'</b></div>'+
-   '<div class="say">'+(capable?'It can hear your voice itself.':'Your voice will be heard by ElevenLabs: this '+here()+' can’t do it itself yet.')+'</div></div>';},
+   '<div class="say">'+(capable?'It can hear your voice itself.':'Your voice will be heard by ElevenLabs: this '+here()+' can’t do it itself yet.')+'</div></div>'+
+   /* anonymous diagnostics, ticked by default (his ask of 28 Nov; what may leave is scoped in issue #1599) */
+   '<button type="button" class="irow" role="checkbox" data-diag aria-checked="'+S.diag+'"><span class="tk"></span><span class="tx"><b>Send anonymous reports to Life’s developer</b>'+
+   '<span class="priv">When something breaks: which step, what kind of error, your app version. Never your words, names, messages or files. Turn it off any time.</span></span></button>';},
   go:'Start'},
  {id:'you',label:'You',bundle:'M',skip:function(){return S.reinstall&&'your name is known';},draw:function(){
    return '<h2 class="q">Is this you?</h2><p class="lead">Read from this '+here()+'. Life calls you by your first name.</p>'+
@@ -348,6 +351,7 @@ function wire(){var b=document.getElementById('box');
   function each(sel,f){b.querySelectorAll(sel).forEach(function(e){e.onclick=function(ev){ev.stopPropagation();f(e);};});}
   each('[data-ai]',function(e){S.ai=e.dataset.ai;startFlow('ai',aiFlow(S.ai));});
   each('[data-retry]',function(e){var f=S.flows[e.dataset.retry];f.failed=false;f.steps[f.at].seen=false;stepFlow(e.dataset.retry);});
+  each('[data-diag]',function(){S.diag=!S.diag;render();});
   each('[data-eleven]',function(){startFlow('voice',voiceFlow());});
   each('[data-lang]',function(e){S.langs[e.dataset.lang]=!S.langs[e.dataset.lang];render();});
   each('[data-src]',function(e){var x=integration(e.dataset.src);if(x.state!=='off')return;S.picked[x.id]=!on(x.id);render();});
