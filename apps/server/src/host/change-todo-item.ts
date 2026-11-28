@@ -267,7 +267,7 @@ export function autoAddRefusal(g: {
     return "only his importance-3 to-dos and promises";
   }
   if (kindOf(g.o.source.channel) !== "voice" || !g.mine) {
-    return "only from a turn lifelog credits to his voice";
+    return "only from a turn the voice server credits to his voice";
   }
   const today = localDate(g.now);
   if (made.filter((a) => localDate(a.at) === today).length >= AUTO_ADD_DAILY) {

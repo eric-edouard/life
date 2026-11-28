@@ -119,7 +119,7 @@ async function located(
       ...(stays.length > 0
         ? [
             "",
-            "Where he was (lifelog):",
+            "Where he was (voice server):",
             ...stays.map(
               (s) =>
                 `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} ${googleMapsUrlOf(stayPlaceOf(s)) ?? ""}`

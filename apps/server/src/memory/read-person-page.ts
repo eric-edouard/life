@@ -685,7 +685,7 @@ export function heardEvidence(o: PartInputs) {
 
 /** `heard`: the voice server's speakers a name on no page nor directory entry was found among. */
 const recordedTitle = (heard: { name: string }[]) =>
-  `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
+  `Recorded conversations${heard.length > 0 ? ` with the voice server's speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
 
 export const orNone = (lines: string[]) =>
   lines.length > 0 ? lines : ["(none)"];

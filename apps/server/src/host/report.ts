@@ -205,7 +205,7 @@ export function successReport(day: string, ms: number, n: Night) {
             .map((s) => s.label)
             .join(", ") || "none (turn one on to start)"
         }`,
-        `Lifelog: ${watcherLine()}`,
+        `Voice server: ${watcherLine()}`,
         `Read ${when(n.from).date}–${date}: ${n.episodes.units} units, ${count(n.episodes.episodes, "episode")} on ${count(n.episodes.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.episodes.people.length} people inferred`,
         ...(n.files
           ? [
