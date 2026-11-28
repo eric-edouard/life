@@ -33,7 +33,8 @@ Promised: a packaged system "in a few days" (21 Nov) and a public, auditable rep
   - very aggressive batching: the fewest PRs;
   - the audit test: any agent auditing the public repo must answer that no data can leak;
   - pushes through the relay, ids only;
-  - one GitHub Actions workflow for attested releases only.
+  - one GitHub Actions workflow for attested releases only;
+  - Windows setup is a local page in the browser (loopback, local key), no Electron.
 
 ## The backbone: integrations
 
@@ -127,6 +128,5 @@ cut after A2, G, M and a rehearsal on a fresh Mac account. W follows for the Win
 
 ## Open
 
-- The owner's ruling on the Windows setup screen: a loopback page behind the local key, or a native window (W).
 - The Mac pilot's machine specs; both pilots' languages (asked by the setup window anyway).
 - One pilot's ask to organise about 10,000 photos: outside packaging, kept for later.
