@@ -4,12 +4,13 @@
      composed, never bespoke; the owner's yes of 28 Nov 2026). Every scene plays on two very different projects, a photo
      library cleanup and a child's party invites: switch them in the side panel (or #ex=party). A screen that only works for
      one of them is bespoke, and wrong. The components and the data each gets (scene 0 shows them with their shapes):
-       status line   {doing, eta, done}            the agent's `doing` and `eta` (AgentNow, its under-way item)
+       status line   {doing, eta, done}              the agent's `doing` and `eta` (AgentNow, its under-way item)
        checklist     {steps[{text, why, state: done|missing|refused, mustHave}]}   an `access` need, worked out live
        question      {q, examples[thumb|text], choices[], pick, multi}            a card's ask (card-request.ts, needs.ts)
-       preview link  {title, line, cover[thumb|text], versions, at}              waits on the artifact system
-       plan          {steps[{text, done}], time, cost{est, cap}, budget{cap, spent, room, waitsForRoom}}, Build it
-       batch list    {what, count, sample[thumb|text], restore}; or drafts[] (Decision.drafts, each a StoredDraft:
+       preview link  {title, line, cover[thumb|text], versions}                  waits on the artifact system
+       plan          {steps[text], done (how many), time, cost{est, cap}, budget{cap, spent, room}}, Build it; it waits
+                     for room when room < cost.est
+       batch list    {t, why, count, sample[thumb|text], undo, restore}; or drafts[] (Decision.drafts, each a StoredDraft:
                      chat, app, text, editable) with one "Send all"
        result        {done[], before, after, where, undo, cost}                  waits on the artifact system
      Reused from App v4 (card-blocks.js, the turn by turn v3 shell): the row and its unfolding, the still ring, the check,
@@ -173,7 +174,7 @@ function checklist(c){return '<div class="m-box">'+isNew()+stepsList(c.steps.map
   return {ok:s.state==='done',no:s.state==='refused',html:esc(s.text)+'<span class="m-tag'+(s.mustHave?' need':'')+'">'+(s.mustHave?'needed':'helps')+'</span><small>'+esc(s.state==='refused'?'You said no: I go on another way':s.why)+'</small>'};}))+'</div>';}
 
 /* question {q, examples[], choices[], pick, multi}: its examples, then its choices, Life's pick marked (new component: the examples) */
-function question(x,i){var at=x.at==null?(x.multi?x.choices.map(function(_,j){return j===x.pick||(x.picks||[]).indexOf(j)>=0;}):x.pick):x.at;
+function question(x,i){var at=x.at==null?(x.multi?x.choices.map(function(_,j){return j===x.pick;}):x.pick):x.at;
   var on=function(j){return x.multi?!!at[j]:j===at;};
   return '<div class="m-qn"><b>'+esc(x.q)+'</b>'+(x.examples&&x.examples.length?thumbs(x.examples):'')+'<div class="m-vals">'+x.choices.map(function(v,j){
     return '<button type="button" class="m-val" data-q="'+i+'" data-v="'+j+'" aria-pressed="'+on(j)+'">'+esc(v)+'</button>';}).join('')+
@@ -181,23 +182,23 @@ function question(x,i){var at=x.at==null?(x.multi?x.choices.map(function(_,j){re
     (!x.multi&&at===x.pick?'<span class="m-pick">Life’s pick</span>':x.multi?'<span class="m-pick">Life’s ideas, picked for you</span>':'')+'</div>';}
 function questions(list){return '<div class="m-box" style="padding-top:2px;padding-bottom:4px">'+isNew()+list.map(question).join('')+'</div>';}
 function wireQuestions(list){return function(e,c){e.querySelectorAll('[data-q]').forEach(function(b){b.onclick=function(){var x=list[+b.dataset.q],j=+b.dataset.v;
-    if(x.multi){if(x.at==null)x.at=x.choices.map(function(_,k){return k===x.pick||(x.picks||[]).indexOf(k)>=0;});x.at[j]=!x.at[j];}else x.at=j;paint(c,e);};});
+    if(x.multi){if(x.at==null)x.at=x.choices.map(function(_,k){return k===x.pick;});x.at[j]=!x.at[j];}else x.at=j;paint(c,e);};});
   e.querySelectorAll('[data-other]').forEach(function(b){b.onclick=function(){c.field.input.value=list[+b.dataset.other].q+': ';c.field.sync();c.field.input.focus();};});};}
 function resetQuestions(list){list.forEach(function(x){delete x.at;});}
 
-/* preview link {title, line, cover[], versions, at}: opens Life's page of it (waits on the artifact system) (new component) */
+/* preview link {title, line, cover[], versions}: opens Life's page of it (waits on the artifact system) (new component) */
 function preview(p,v){v=v||1;return '<button type="button" class="m-pv" data-open-preview>'+isNew()+'<span class="m-cover">'+p.cover.map(thumb).join('')+'</span><span><b>'+esc(p.title)+'</b><small>'+esc(v>1&&p.changed?p.changed:p.line)+'</small><span class="m-open">Open the preview ↗</span></span></button>'+
   (v>1?'<div class="m-vers"><span>Versions</span>'+Array.from({length:v},function(_,i){return '<button type="button" aria-pressed="'+(i+1===v)+'">'+(i+1)+'</button>';}).join('')+'</div>':'');}
 function wirePreview(e){var b=e.querySelector('[data-open-preview]');if(b)b.onclick=function(){b.querySelector('.m-open').textContent='Opens the preview page (artifact system, not designed here) ↗';};}
 
-/* plan {steps[{text, done}], time, cost{est, cap}, budget{cap, spent, room}}: the plan he builds with one tap (new component) */
+/* plan {steps[text], done, time, cost{est, cap}, budget{cap, spent, room}}: the plan he builds with one tap (new component) */
 function plan(p,now){return '<div class="m-box">'+isNew()+stepsList(p.steps.map(function(s,i){return {ok:now!=null&&i<now,html:esc(s)};}))+
   (p.time?'<div class="m-kv" style="margin-top:6px"><span>Time</span><b>'+esc(p.time)+'</b></div>':'')+
   '<div class="m-kv"><span>Cost</span><b>About '+eur(p.cost.est)+' · I stop at '+eur(p.cost.cap)+' and ask</b></div>'+
   '<div class="m-kv"><span>This month</span><b>'+eur(p.budget.room)+' left of your '+eur(p.budget.cap)+'</b></div></div>';}
 function eur(n){return String(Number.isInteger(n)?n:n.toFixed(2)).replace('.',',')+' €';}
 
-/* batch {what, count, sample[], restore}: one yes for many changes (new component) */
+/* batch {t, why, count, sample[], undo, restore}: one yes for many changes (new component) */
 function batch(b){return '<div class="m-box">'+isNew()+thumbs(b.sample)+
   '<div class="m-kv"><span>How many</span><b>'+esc(b.count)+'</b></div>'+
   (b.undo?'<div class="m-kv"><span>Undo</span><b>'+esc(b.undo)+'</b></div>':'')+
@@ -223,7 +224,7 @@ var EX={
   status:[{doing:'Counting your photos',eta:'about 40 min',done:.1},{doing:'Checking your iCloud',eta:'about 25 min',done:.3},{doing:'Checking your Mac',eta:'about 15 min',done:.5}],
   working:[{doing:'Trying it on March 2024',eta:'about 10 min',done:.05},{doing:'Sorting 2023',eta:'about 2 h left',done:.25},{doing:'Sorting 2022',eta:'about 1 h 30 left',done:.45}],
   firstPart:'March 2024 is done for real: 41 duplicates gone, 3 trip albums. Have a look in Photos; I’m going on with the rest.',
-  access:{t:'Let Life see your photos',steps:[
+  access:{t:'Let Life see your photos',where:'mac',why:'All on your Mac. Each ticks itself as soon as I see it done.',act:'I’m at my Mac',doing:'Opening on your Mac…',ok:'Opened',wait:'No rush: this waits here until you’re at your Mac.',steps:[
     {text:'Allow Life to see your Photos',why:'Your Mac shows the prompt: tap Allow',state:'missing',mustHave:true},
     {text:'Turn on Download Originals in iCloud Photos',why:'So I can spot blurry and duplicate shots',state:'missing'},
     {text:'Free 12 GB on your Mac',why:'Empty the Bin; I go slower without it',state:'missing'}],
@@ -263,7 +264,7 @@ var EX={
   status:[{doing:'Reading Maya’s class chat',eta:'about 20 min',done:.1},{doing:'Finding the parents’ numbers',eta:'about 12 min',done:.35},{doing:'Checking your calendar for the 14th',eta:'about 5 min',done:.6}],
   working:[{doing:'Sending you a test invite',eta:'about 2 min',done:.05},{doing:'Waiting for answers',eta:'7 of 9 to go',done:.3},{doing:'Waiting for answers',eta:'3 of 9 to go',done:.7}],
   firstPart:'Your test invite is in your WhatsApp: tap it to see what parents see. I’m sending the other 8 once you say yes.',
-  access:{t:'Let Life reach the parents',steps:[
+  access:{t:'Let Life reach the parents',where:'mac',why:'On your Mac and your phone. Each ticks itself as soon as I see it done.',act:'Show me the prompts',doing:'Opening the prompts…',ok:'Opened',wait:'No rush: this waits here until you have a minute.',steps:[
     {text:'Allow Life to read your Contacts',why:'To find each parent’s number',state:'missing',mustHave:true},
     {text:'Link your WhatsApp to Life',why:'So the invites come from you',state:'done',mustHave:true},
     {text:'Send me the class list in this chat',why:'A photo of it is enough',state:'missing'}],
@@ -352,11 +353,10 @@ function projectPage(){var p=P();return projectRow('under',statusLine(p.working[
   pills:[{t:'Park it',then:async function(c,e){settle(c,e,'parked','Parked · say “go on” when you want');}},
          {t:'Drop it',then:async function(c,e){settle(c,e,'dropped','Dropped by you · what’s done stays');}}]});}
 
-function accessCard(){var a=P().access;a.steps.forEach(function(s){s.state=s.was||(s.was=s.state);});
-  return {icon:'mac',t:a.t,line:due('today'),state:'needs',why:'All on your Mac. Each ticks itself as soon as I see it done.',
+function accessCard(){var a=Object.assign({},P().access,{steps:P().access.steps.map(function(x){return Object.assign({},x);})});
+  return {icon:a.where,t:a.t,line:due('today'),state:'needs',why:a.why,
   body:function(){return checklist(a)+'<div class="m-foot">'+esc(a.privacy)+'</div>';},
-  foot:'No rush: this waits here until you’re at your Mac.',
-  act:'I’m at my Mac',doing:'Opening on your Mac…',ok:'Opened',pills:[{t:'Later'}],
+  foot:a.wait,act:a.act,doing:a.doing,ok:a.ok,pills:[{t:'Later'}],
   then:async function(c,e){e.querySelector('.m-ans').style.display='none';
     for(var i=0;i<a.steps.length;i++){if(a.steps[i].state==='done'||!a.steps[i].mustHave)continue;await c.wait(1600);a.steps[i].state='done';e.querySelector('.m-steps').parentNode.outerHTML=checklist(a);}
     await c.wait(2000);settle(c,e,'done',ok('Done')+' · without what only helps');say(c,a.after);landed(c);}};}
@@ -410,11 +410,11 @@ async function round(c,text){if(!live||c.cancelled())return;var old=live;me(c,te
 /* scene 0: every component, filled by this project, its data shape under it */
 var SHAPES=[
   ['Status line','{ doing, eta, done }','The agent’s doing and eta (AgentNow, its under-way item). App v4’s row and still ring.',function(p){return '<div class="m-row">'+disc(p)+'<span class="m-tx"><b>'+esc(p.name)+'</b><small class="m-l">'+statusLine(p.working[1])+'</small></span></div>';}],
-  ['Checklist','{ steps: [{ text, why, state: done | missing | refused, mustHave }] }','An access need, worked out live; each step ticks itself.',function(p){return checklist(p.access);}],
+  ['Checklist','{ steps: [{ text, why, state: done | missing | refused, mustHave }] }','An access need, worked out live; each step ticks itself.',function(p){return checklist({steps:p.access.steps.map(function(x,i){return Object.assign({},x,i===p.access.steps.length-1?{state:'refused'}:{});})});}],
   ['Question','{ q, examples: [thumb | text], choices, pick, multi }','A card’s ask (card-request.ts, needs.ts); examples are any image or text Life read.',function(p){return questions(p.q.list.slice(0,1));}],
   ['Preview link','{ title, line, cover: [thumb | text], versions }','Waits on the artifact system.',function(p){return preview(p.preview,2);}],
-  ['Plan','{ steps, time, cost: { est, cap }, budget: { cap, spent, room, waitsForRoom } }','The project’s budget; over the cap or no room is asked again.',function(p){return plan(p.plan);}],
-  ['Batch list','{ what, count, sample: [thumb | text], undo, restore }','One yes for many changes.',function(p){return batch(p.batch);}],
+  ['Plan','{ steps: [text], done, time, cost: { est, cap }, budget: { cap, spent, room } }','The project’s budget; it waits for room when room < cost.est; over the cap is asked again.',function(p){return plan(p.plan);}],
+  ['Batch list','{ t, why, count, sample: [thumb | text], undo?, restore }','One yes for many changes.',function(p){return batch(p.batch);}],
   ['Many drafts','drafts: [StoredDraft { chat, app, text }], one Send all','Decision.drafts[]; each App v4’s chat and draft.',function(p){return drafts(p.send.list.slice(0,1));}],
   ['Result','{ done, before, after, where, undo?, cost }','Waits on the artifact system.',function(p){return result(p.result);}]];
 function catalog(c){var p=P();SHAPES.forEach(function(s){var e=el('m-cat','<h3>'+s[0]+'</h3>'+s[3](p)+'<div class="m-shape">'+esc(s[1])+'</div><div class="m-src">'+esc(s[2])+'</div>');c.stage.appendChild(e);});
@@ -424,7 +424,7 @@ Shell.mount({title:'Mini projects',
   onAsk:function(text){if(cur==='preview'&&live)round(lastCtx,text);else Shell.run('ask');},
   scenes:[
   {id:'idle',label:'Idle',run:async function(c){begin(c,'idle');}},
-  {id:'parts',label:'0. The components and their data',run:async function(c){cur='parts';catalog(c);}},
+  {id:'parts',label:'0. The components and their data',run:async function(c){begin(c,'parts');catalog(c);}},
   {id:'ask',label:'1. You ask; the project appears',run:async function(c){var p=P();begin(c,'ask');lastCtx=c;
     await asks(c,p.goal);await works(c,['Looking at <b>'+esc(p.look)+'</b>']);say(c,p.bigger);
     var r=item(c,projectRow('under',statusLine(p.status[0])));landed(c);

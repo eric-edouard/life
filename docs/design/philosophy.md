@@ -455,7 +455,7 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 - The turn by turn prototypes play the real flow ([real flow][realflow]): one quiet step line while Life works
   ([product][product-rules]); a question about a message an agent already drafted a reply to brings that card, Send one
-  tap away; new answer blocks may be proposed, marked "new block"; Life never speaks aloud.
+  tap away; new answer blocks may be proposed, marked "new component" (once "new block"); Life never speaks aloud.
 
 ### 27 Nov 2026
 
