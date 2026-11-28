@@ -552,7 +552,7 @@ export async function runNight(
     const repos = await steps.step("repos", () => mapRepos());
     // Who his Contacts name among the senders Life cannot: before the sources are read, so tonight's units and
     // counts already go by them (derived from Contacts; a failure is logged and the people kept still read).
-    writeContactPeople();
+    await writeContactPeople();
     // Every source is read once and handed to each step.
     steps.at = "gather";
     const evidence = await gather(window, await readPeople());

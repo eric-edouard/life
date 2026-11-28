@@ -15,6 +15,8 @@ const GOG = /"gog"/;
 const GH = /"gh"/;
 const GOG_TASKS = /gogCall\(\s*"tasks"/;
 const GOG_GMAIL = /gogCall\(\s*"gmail"/;
+const GOG_AUTH = /gogCall\(\s*"auth"/;
+const GOG_CONTACTS = /gogCall\(\s*"contacts"/;
 const MONEY = /\["money",/;
 const MESSAGES_APP = /tell application "Messages"/;
 const MATRIX_SEND = /\/send\/|\/media\/v3\/upload/;
@@ -130,6 +132,15 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
   // His mail is sent only by Gmail through gog, in one file.
   expect(running(GOG_GMAIL)).toEqual(["apps/server/src/sources/gmail.ts"]);
+  // His sign-in and who is signed in: the one read in `core/gog.ts`, and the sign-in itself.
+  expect(running(GOG_AUTH)).toEqual([
+    "apps/server/src/host/connect-google.ts",
+    "apps/server/src/core/gog.ts",
+  ]);
+  // Google Contacts: read in one file.
+  expect(running(GOG_CONTACTS)).toEqual([
+    "apps/server/src/sources/google-contacts.ts",
+  ]);
   // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
   expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
   // GitHub is read and written through `gh` in one file.

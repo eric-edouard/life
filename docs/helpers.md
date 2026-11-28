@@ -88,7 +88,7 @@ Reference: the existing helper for each need in the server. Before adding a help
 | A text's vector for search by meaning (model, prompts, dimensions, the key it is kept under) | `apps/server/src/core/embedder.ts`, the voice server's search and Life's alike |
 | Merging two rankings (by meaning, by words) | `fuse` (`apps/server/src/core/fusion.ts`) |
 | A memory text's vector, the query's | `memory/vectors.ts` (`embedQuery`, `readNearest`; the watcher's `embedNew`); Life reaches Lifelog Host's embedder at `EMBEDDER_URL` (loopback, one constant for the voice server and Life), the one call into the voice server's side that is not its REST contract |
-| Running gog (Google Calendar, Google Tasks, Gmail send) | `gogCall` (`core/gog.ts`): nothing else spawns it |
+| Running gog (his Google accounts, Calendar, Google Contacts, Gmail send, Google Tasks) | `gogCall` (`core/gog.ts`): nothing else spawns it; who is signed in is `readGoogleAccounts` there, and `connectGoogle` (`host/connect-google.ts`) signs one in |
 | Running gh (GitHub issues: the `github` source's copy and send; the GitHub activity a wait names) | `sources/github.ts`: nothing else spawns it; the copy and the send ask only the repos in `githubRepos`, the activity reader (`githubActivityReader`) only the repos the open waits name |
 | Running another program | `apps/server/src/core/proc.ts` |
 | Calls that must not overlap (a file's writer, the appointments sync, voice answers) | `oneAtATime` (`core/lock.ts`), one chain per resource within one process; `oneAtATimeAcross` when other processes call it too (the appointments, the owner's directory); the services and the memory, their locks |

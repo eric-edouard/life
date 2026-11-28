@@ -47,6 +47,7 @@ import {
   setAutoAdd,
 } from "./change-todo-item";
 import { memoryCommand, step } from "./command";
+import { connectGoogle } from "./connect-google";
 import { stage } from "./export";
 import { LOCAL_PORT } from "./http/http";
 import { localKey } from "./http/local-key";
@@ -228,6 +229,25 @@ const commands: Record<string, () => number | Promise<number>> = {
     const origin = await connect(process.argv.includes("--public"));
     console.log(`Life: ${origin}/mcp`);
     return 0;
+  },
+  /**
+   * Signs one of his Google accounts in through gog (`connectGoogle`, host/connect-google.ts): `connect-google
+   * <address>` opens Google's consent in his own browser, then gog keeps the token on this Mac.
+   */
+  async "connect-google"() {
+    const [address] = process.argv.slice(3);
+    if (!address) {
+      console.error("usage: bun life connect-google <address>");
+      return 2;
+    }
+    try {
+      await connectGoogle(address);
+      console.log(`Google: ${address} is signed in.`);
+      return 0;
+    } catch (e) {
+      console.error((e as Error).message);
+      return 1;
+    }
   },
   /**
    * The connector's reads over stdio, none of its writes (`buildServer(true)`): an agent of his own Life on pi reaches

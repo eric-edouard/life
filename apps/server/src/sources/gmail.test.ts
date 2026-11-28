@@ -125,7 +125,7 @@ test("refused: an address that isn't his, a bad address, a search miss, an accou
   ).toContain("has no message");
   const nogmail = gog(FOUND, undefined, "no token for me@example.com");
   expect(await nogmail.path.refusal(mail)).toContain(
-    "gog auth add me@example.com --services=gmail"
+    "Sign in with Google again: `bun life connect-google me@example.com`"
   );
 });
 
@@ -143,7 +143,7 @@ test("a failure after gog started may have gone; a missing gog or a scope error 
     stderr: "insufficient authentication scopes",
   });
   await expect(scope.path.send(mail, "t")).rejects.toThrow(
-    "not sent: gog can't use me@example.com"
+    "not sent: Sign in with Google again: `bun life connect-google me@example.com`"
   );
 });
 

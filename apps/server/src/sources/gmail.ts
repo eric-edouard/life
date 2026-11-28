@@ -2,7 +2,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { MIN } from "../core/clock";
-import { gogCall } from "../core/gog";
+import { gogCall, latestGoogleAccounts } from "../core/gog";
+import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { exec } from "../core/proc";
 import { takesProblemOf } from "./chat-takes";
 import type { ChatTakes, Outgoing, SendPath } from "./contract";
@@ -54,9 +56,27 @@ const addressesIn = (list: string) => list.split(",").map((a) => a.trim());
 const isAddresses = (list: string) =>
   addressesIn(list).every((a) => ADDRESS.test(a));
 
-/** What he does when gog can't act as `account` for Gmail: one step, gog's own. */
+/**
+ * His own mail addresses: Apple Mail's, and the Google accounts gog holds whose token still works, as
+ * `readGoogleAccounts` last read them (this is called where gog can't be awaited: the send guard's facts at each
+ * spawn). Mail unreadable leaves his Google accounts' alone.
+ */
+export function readOwnMailAddresses(): string[] {
+  let mail: string[] = [];
+  try {
+    mail = readMailAddresses();
+  } catch (e) {
+    log("source.read", { ...errorOf(e), ok: false, source: "gmail" });
+  }
+  const google = latestGoogleAccounts()
+    .filter((a) => a.valid)
+    .map((a) => a.address);
+  return [...new Set([...mail, ...google])];
+}
+
+/** What he does when gog can't act as `account` for Gmail: sign in again, the one way Life signs in (`connectGoogle`). */
 const reauthorize = (account: string) =>
-  `gog can't use ${account} for Gmail: run \`gog auth add ${account} --services=gmail --force-consent\` and sign in`;
+  `Sign in with Google again: \`bun life connect-google ${account}\``;
 
 /** gog's answer to the send: the sent id, or `not sent` (gog didn't start, or can't act for the account) or `may have gone`. */
 function answerOf(r: Run, from: string) {
@@ -89,7 +109,7 @@ function answerOf(r: Run, from: string) {
  * gives it, not Life's `mail:<Message-ID>` (gog's answer holds no RFC id; Mail's copy has its own id later).
  */
 export function gmailSend({
-  addresses = readMailAddresses,
+  addresses = readOwnMailAddresses,
   run = (cmd, o) => exec(cmd, o),
   staging = tmpdir(),
 }: Options = {}): SendPath {

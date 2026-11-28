@@ -30,7 +30,8 @@ agents that act for him. This page says what it protects and what it does not.
   (`derived/memory/vectors.sqlite`), kept out of exports.
 - Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are
   named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup. One is gog's keyring
-  password (`bun life gog-keyring`), a file and not a Keychain item: the app blocks on the prompt a new item raises.
+  password, a file and not a Keychain item: the app blocks on the prompt a new item raises. Life makes it at the first
+  Connect Google (`bun life connect-google`), or keeps one from a shell with `bun life gog-keyring`.
 
 ## Models
 
@@ -124,6 +125,10 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   read only, Life's own left out) that overlap it: each guest it offers as a possible speaker (a name, or an address no
   one is known by), with the event's title and time in their brief (his yes of 22 Nov 2026: that provider already gets his
   messages).
+- To Google's APIs, from this computer with the owner's own sign-in, under Life's OAuth client or one of their own
+  (`connectGoogle`, `host/connect-google.ts`): the sign-in itself, between this computer and Google; the mail Life reads
+  with Gmail read access; their calendars' events; and their Google Contacts' names and handles. gog's tokens stay in
+  its file keyring on this computer; nothing goes to Life's developer.
 - With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
   minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another

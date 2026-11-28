@@ -31,6 +31,10 @@ bun scripts/release.ts
 
 Set `LIFELOG_HOST_APP` to also put Lifelog Host in the DMG.
 
+A build that reads Google also needs its OAuth client: 1Password's document "Life Google OAuth client
+(life-oauth-261128)" in the Agents vault, fetched with `op document get … --out-file` into a temporary file and passed
+as `LIFE_GOOGLE_CLIENT`; never commit it. A build without one says "no Google client in this build".
+
 A release whose voice server contract changed (`apps/lifelog/apps/server/openapi.json`) updates Lifelog Host first, then
 Life: Life reads the voice server only through that contract, and an older Host refuses the new calls.
 

@@ -14,12 +14,13 @@ import {
 
 // The integration read's own rules, on made-up data: no network call, no read of this Mac.
 
-/** Made-up reads: Telegram on, nothing read, nothing failing, no permission given, no bridge checked. */
+/** Made-up reads: Telegram on, nothing read, nobody signed in to Google, nothing failing, no permission given. */
 const reads = (over: Partial<IntegrationReads> = {}): IntegrationReads => ({
   access: {},
   bridges: new Map(),
   failingStores: new Map(),
   fullDiskAccess: "missing",
+  google: [],
   life: { error: "lifelog not set up", ok: false as const },
   missing: new Map(),
   newest: new Map(),
@@ -126,4 +127,41 @@ test("Telegram with no keys yet waits on him, with the key's words; signed in wi
   });
   const [key] = requirementsOf(telegram);
   expect(key && isDoneOf(key, "telegram", reads())).toBe(true);
+});
+
+test("Google's sign-in is done only once one of his accounts still works", () => {
+  const signIn = { kind: "sign_in", with: "google" } as const;
+  expect(isDoneOf(signIn, "google", reads())).toBe(false);
+  expect(
+    isDoneOf(
+      signIn,
+      "google",
+      reads({
+        google: [
+          {
+            address: "ana@example.test",
+            scopes: [],
+            services: ["gmail"],
+            valid: false,
+          },
+        ],
+      })
+    )
+  ).toBe(false);
+  expect(
+    isDoneOf(
+      signIn,
+      "google",
+      reads({
+        google: [
+          {
+            address: "ana@example.test",
+            scopes: [],
+            services: ["gmail"],
+            valid: true,
+          },
+        ],
+      })
+    )
+  ).toBe(true);
 });

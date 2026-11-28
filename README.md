@@ -225,6 +225,7 @@ Use Life:
 - [Set up voice](docs/use/voice.md)
 - [Set up bridges](docs/use/bridges.md)
 - [Your agents](docs/use/agent.md)
+- [Use your own Google client](docs/use/google.md)
 - [Settings with no screen yet](docs/use/settings.md): email, code, Screen Time devices, older months, add-ons, past
   assistant chats
 - [Back up and restore](docs/use/backup.md)
