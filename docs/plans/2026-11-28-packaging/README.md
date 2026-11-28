@@ -34,7 +34,9 @@ Promised: a packaged system "in a few days" (21 Nov) and a public, auditable rep
   - the audit test: any agent auditing the public repo must answer that no data can leak;
   - pushes through the relay, ids only;
   - one GitHub Actions workflow for attested releases only;
-  - Windows setup is a local page in the browser (loopback, local key), no Electron.
+  - Windows setup is a local page in the browser (loopback, local key), no Electron;
+  - the Mac setup window is Swift;
+  - history imports are code, no agent; a parser that fails sends its shape to the developer, the fix ships by update.
 
 ## The backbone: integrations
 
@@ -52,7 +54,9 @@ Details: [spec.md](spec.md), section 1.
    2. Languages, then local voice or ElevenLabs, asked only when needed.
    3. The AI: Claude, OpenRouter or both.
    4. Sources, each with its value line and connect flow.
-   5. A QR code to the phone.
+   5. How far back: what each source holds ("48,000 messages since 2014"), then 3 months, a year or everything, with
+      the cost; the import runs in the background.
+   6. A QR code to the phone.
 3. **Onboarding on the phone.**
    1. Name.
    2. Permissions, each asked in context with its value line.
@@ -109,14 +113,15 @@ One PR each. Strict paths keep the full workflow; the rest is fast mode. Scope a
 | **A1. The integration read** (strict) | the shape, one health rule, `/status/integrations`, `read_integrations`, the duplicates deleted | #1561 | 1 |
 | **A2. Core with nothing of the owner's** | engine chosen at `init`, the name at `init`, summaries through the chosen engine, backups to the user's cloud folder, language mode (#216), a clean zero-source night | A1; R for voice files | 1 |
 | **G. Connect Google** (strict) | Life's OAuth client through gog, Gmail reader, Contacts, Calendar (#1377) | A1 | 1 |
+| **H. History imports** | counts per source, the cost estimate, one catch-up job from a chosen day, a WhatsApp export parser; parsers mended upstream | A1, A2; G for Gmail | 1 |
 | **T. Trust** | the audit test: privacy lines checked, README "Security and privacy", SECURITY.md, attested releases | A1 | 1 |
 | **M. Mac app** | the setup window and the minimal menu bar | A1, one-Mac-app bundle 4 | 1 |
 | **I. iPhone onboarding, day one** | permissions, pendant, messaging apps | A1, voice rename B2/B3 | 1 |
 | **I2. Getting to know you** | the spoken interview and the first task (#1383) | I | 2 |
 | **W. Windows host** | compiled Life and voice, a tray supervisor, Velopack, ElevenLabs voice | A1, A2, G | 2 |
 
-Order: D and R start now; A1 next (it unblocks the rest); then A2, G, T, M and I side by side. The pilots' release is
-cut after A2, G, M and a rehearsal on a fresh Mac account. W follows for the Windows pilot.
+Order: D and R start now; A1 next (it unblocks the rest); then A2, G, H, T, M and I side by side. The pilots' release is
+cut after A2, G, H, M and a rehearsal on a fresh Mac account. W follows for the Windows pilot.
 
 ## How it is run
 
