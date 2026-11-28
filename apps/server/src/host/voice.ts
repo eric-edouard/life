@@ -10,7 +10,7 @@ import {
   LIFE_STATE_DIR,
   OWNER_DATA_DIR,
 } from "../core/paths";
-import { APP_DATA, CODEX, HOME, isOwnLife } from "../core/platform";
+import { APP_DATA, CODEX, isOwnLife } from "../core/platform";
 import { exec, execOk } from "../core/proc";
 import { SECRETS, writeSecret } from "../core/secret";
 import {
@@ -29,6 +29,7 @@ import {
   secretOf,
   VOICE_URL,
 } from "../sources/voice-server-call";
+import { readBackupTarget } from "./backup";
 import { connector, connectorOrigin } from "./http/http";
 import type { MacLinkAddress } from "./http/mac-link";
 
@@ -46,20 +47,13 @@ export const VOICE_CHILDREN = [
   "embedder",
 ] as const;
 export type VoiceChild = (typeof VOICE_CHILDREN)[number];
-/** The secrets voice mints when missing: the phone's token, the helper's, a reader's with corrections (Lifelog Host's "Copy Life's lifelog settings" until it goes), the backup's password and speaker recognition's. */
-const MINTED = [
-  "deviceToken",
-  "macToken",
-  "readerToken",
-  "resticPassword",
-  "identitySecret",
-];
+/** The secrets voice mints when missing: the phone's token, the helper's, a reader's with corrections (Lifelog Host's "Copy Life's lifelog settings" until it goes), and speaker recognition's. */
+const MINTED = ["deviceToken", "macToken", "readerToken", "identitySecret"];
 /** What a child is given of the environment it is started in; the rest is its own (`CLI.environment`). */
 const PASSED = ["HOME", "USER", "LOGNAME", "PATH", "TMPDIR", "LANG", "LC_ALL"];
 
 /** Where voice's files are: its programs in Life.app (beside the helper), its data and logs on the Mac. */
 export interface VoicePaths {
-  backups: string;
   codex: string;
   helpers: string;
   resources: string;
@@ -72,10 +66,6 @@ export function voicePathsHere(): VoicePaths {
   const helpers = dirname(process.execPath);
   const support = join(APP_DATA, "lifelog");
   return {
-    backups: join(
-      HOME,
-      "Library/Mobile Documents/com~apple~CloudDocs/lifelog backup/restic"
-    ),
     codex: join(LIFE_CODE_DIR, CODEX),
     helpers,
     resources: resolve(helpers, "..", "Resources"),
@@ -87,6 +77,8 @@ export function voicePathsHere(): VoicePaths {
 /** What a child's launch is worked out from. */
 export interface VoiceInputs {
   at: VoicePaths;
+  /** Life's backup target (`backup`), read only when `backups` is on: voice snapshots into the same repository. */
+  backup?: { password: string; repository: string };
   backups: boolean;
   /** Which Life.app build this is (`buildOf`), naming the server's error reports. */
   build: string;
@@ -123,9 +115,10 @@ export const recordingsEnvOf = (support: string) => ({
 
 /**
  * The server's environment: its recordings, the token hashes (never the tokens), the owner's keys, the address the phone
- * reaches, restic when backups are on, speaker recognition when it is on, the build, and `server.env` under them:
- * restic's and speaker recognition's keys are voice's, set or unset, so turning either off can't be undone by it. Without a
- * tunnel no one can call its ElevenLabs webhook, so `server.env`'s is dropped: each send waits for its transcript.
+ * reaches, restic when backups are on (Life's own target, `backup`), speaker recognition when it is on, the build, and
+ * `server.env` under them: restic's and speaker recognition's keys are voice's, set or unset, so turning either off
+ * can't be undone by it. Without a tunnel no one can call its ElevenLabs webhook, so `server.env`'s is dropped: each send
+ * waits for its transcript.
  */
 export function serverEnvOf(v: VoiceInputs): Record<string, string> {
   const s = (key: string) => secretOf(v.secrets, key);
@@ -144,9 +137,9 @@ export function serverEnvOf(v: VoiceInputs): Record<string, string> {
     MAC_TOKEN_HASH: hash("macToken"),
     PORT: new URL(VOICE_URL).port,
     PUBLIC_BASE_URL: v.publicUrl,
-    RESTIC_BINARY: v.backups ? join(v.at.helpers, "restic") : undefined,
-    RESTIC_PASSWORD: v.backups ? s("resticPassword") : undefined,
-    RESTIC_REPOSITORY: v.backups ? v.at.backups : undefined,
+    RESTIC_BINARY: v.backup ? join(v.at.helpers, "restic") : undefined,
+    RESTIC_PASSWORD: v.backup?.password,
+    RESTIC_REPOSITORY: v.backup?.repository,
   });
   const extra = Object.fromEntries(
     Object.entries(v.extra).filter(
@@ -249,7 +242,9 @@ export async function readVoiceInputs(
   at: VoicePaths,
   secrets = readVoiceSecrets(),
   /** The build, worked out from the helper's binary: the status poll skips it. */
-  build = buildOf
+  build = buildOf,
+  /** Life's backup target: the status poll passes none, so a poll never runs its password command. */
+  readBackup = readBackupTarget
 ): Promise<VoiceInputs> {
   // The same refusal as the secrets': a server.env others can read stops the run.
   const extra = parseEnv(readOwnerOnly(at.serverEnv) ?? "") as Record<
@@ -257,9 +252,11 @@ export async function readVoiceInputs(
     string
   >;
   const origin = connectorOrigin();
+  const backups = settings().voice?.backups === true;
   return {
     at,
-    backups: settings().voice?.backups === true,
+    backup: backups ? await readBackup() : undefined,
+    backups,
     build: await build(),
     extra,
     hasTunnel: origin !== undefined && connector().hasTunnel,
@@ -271,7 +268,7 @@ export async function readVoiceInputs(
 
 /**
  * The secrets with what they lack minted (32 random bytes, base64url), written back only when something was: any
- * already there is kept (a new backup password would lock out every snapshot made with the old one), and so is every
+ * already there is kept (a new phone token would unpair the phone), and so is every
  * key voice doesn't own (the Mac helper's Claude sign-in). With `setVoiceKey`, Life's only writes of the file (`SECRETS.voiceSecrets`).
  */
 export function mintVoiceSecrets() {
@@ -512,8 +509,11 @@ export async function voiceStatus(
 ) {
   let inputs: VoiceInputs;
   try {
-    inputs = await readVoiceInputs(at, readVoiceSecrets(), () =>
-      Promise.resolve("")
+    inputs = await readVoiceInputs(
+      at,
+      readVoiceSecrets(),
+      () => Promise.resolve(""),
+      async () => undefined
     );
   } catch (e) {
     return { line: (e as Error).message };
@@ -537,11 +537,12 @@ export async function voiceStatus(
   );
   return {
     answering,
+    /** Whether Life's own backup is set: voice's backups go there. */
+    backupSet: settings().backup !== undefined,
     backups: inputs.backups,
     chatgpt: existsSync(join(CODEX_HOME, "auth.json")),
     claudeToken: secretOf(inputs.secrets, "claudeToken") !== undefined,
     elevenLabsKey: secretOf(inputs.secrets, "elevenLabsKey") !== undefined,
-    iCloud: existsSync(dirname(dirname(at.backups))),
     line: voiceLineOf(children, answering),
     logs: Object.fromEntries(VOICE_CHILDREN.map((c) => [c, logOf(jobOf(c))])),
     recorded: existsSync(recordingsEnvOf(at.support).DATABASE_PATH),
@@ -622,7 +623,12 @@ export async function voiceCommand(args: string[]) {
     return 0;
   }
   if (verb === "backup-password") {
-    console.log(secretOf(mintVoiceSecrets(), "resticPassword"));
+    const target = await readBackupTarget();
+    if (!target) {
+      console.error("no backup set: bun life settings set '{\"backup\": …}'");
+      return 1;
+    }
+    console.log(target.password);
     return 0;
   }
   if (verb === "sign-in-chatgpt") {

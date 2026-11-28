@@ -6,6 +6,7 @@ import { LOG_DIR, logEvents, logFileOf } from "../core/log";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { MACHINE_DIR, MODEL_ENV } from "../core/platform";
 import { repoFiles } from "../core/proc";
+import type { Settings } from "../core/settings";
 import {
   askOnce,
   callCharsOf,
@@ -18,9 +19,15 @@ import {
   llmSpec,
   quota,
   quotaOf,
+  readEngine,
 } from "./llm";
 import { type CallReads, extractJson, TIERS, type Tools } from "./model-call";
 import { routesOf } from "./routers";
+
+test("the engine is the one chosen; a Life set up before the choice keeps claude", () => {
+  expect(readEngine({ engine: "openrouter" } as Settings)).toBe("openrouter");
+  expect(readEngine({} as Settings)).toBe("claude");
+});
 
 test("a model reply: bare or fenced JSON, and a self-correction's last object wins", () => {
   expect(extractJson('{"a": 1}')).toEqual({ a: 1 });
