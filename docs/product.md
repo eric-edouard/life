@@ -33,8 +33,9 @@ that safe.
    it when missing it costs something that can't be undone; otherwise Life handles it or stays silent.
 2. Silence must be trustworthy. Silence means "all handled" only if Life reliably says when something is broken.
    So what is wrong and needs the person comes before anything else (the Mac unreachable, the pendant not recording, a
-   login expired, the budget about to be passed), and Life shows it is present without reporting (the edge, "Life is
-   working on it"). What Life can fix itself it fixes, unseen. What is degraded but works shows nothing.
+   login expired, the budget about to be passed), and Life shows it is present without reporting (the edge, once he
+   turns it on; "Life is working on it"). What Life can fix itself it fixes, unseen. What is degraded but works
+   shows nothing.
 3. Acting without asking is a ladder. Which rung an act takes depends on whether it can be undone and whether it
    is in the person's name or spends their money:
 
