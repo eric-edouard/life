@@ -32,8 +32,10 @@ import {
   readProjectSituationNow,
   situationBlock,
 } from "./situation-parts";
+import { readStepAsk } from "./step-readings";
 import { nameKey } from "./units";
 import { meant, type People, readPeople } from "./who";
+import { isMoveHiddenOf } from "./your-move";
 import { dayNow } from "./zones";
 
 // The connector's reads of matters (`read_matters`, `read_matter`): the matters as `matterOf` reads them now, as data
@@ -497,6 +499,11 @@ export async function readHandOutMatters(
       (v) => handsOff.has("all") || handsOff.has(`project:${shown(v)?.id}`)
     )
   );
+  const isHidden = isMoveHiddenOf({
+    ...readStepAsk(ranked),
+    today: dayNow(),
+  });
+  const elsewhere = ids(ranked.filter(isHidden));
   return {
     facts: {
       decisions,
@@ -505,6 +512,7 @@ export async function readHandOutMatters(
         readDismissedMatterPins()
       ),
       isDue: directionDueOf(book, records, dayNow()),
+      isHandledElsewhere: (id: string) => elsewhere.has(id),
       isHandsOff: (id: string) => offIds.has(id),
       isHis: (id: string) => his.has(id),
       isParked: (id: string) => parked.has(id),

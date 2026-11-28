@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { daysBefore } from "../core/clock";
 import type { CheckGroup, Level } from "../core/names";
 import { dayNow, localDate } from "./zones";
@@ -37,12 +38,17 @@ export const urgencyOf = (c: Rankable): Urgency =>
     ? "blocks"
     : "improves";
 
+/** Who does a step: `owner` (him, asked here), `owner_elsewhere` (his own work done elsewhere), `someone_else` (he asked an AI, Life or a person, or it is another's move). */
+export const HandledBy = z.enum(["owner", "owner_elsewhere", "someone_else"]);
+/** Money in a step: `due_on_receipt` (owed for something delivered, no due day said), `some` (any other), `none`. */
+export const StepMoney = z.enum(["none", "some", "due_on_receipt"]);
+
 /** What `askOfStep` reads of a step's readings (`step-readings.ts`): the model's, never a verdict. */
 export interface StepAskReadings {
   /** The `what-to-ask` instruction the reading cites as deciding, by id; null: none. */
   by: string | null;
-  handledBy: "owner" | "owner_elsewhere" | "someone_else";
-  money: "none" | "some" | "due_on_receipt";
+  handledBy: z.infer<typeof HandledBy>;
+  money: z.infer<typeof StepMoney>;
   urgency: Level;
 }
 

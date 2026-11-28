@@ -92,6 +92,12 @@ export function yourMoveOf<S extends MoveStep>(
   return first && since ? { ...first, since } : undefined;
 }
 
+/** Whether matter `v`'s card shows a hidden step (`yourMoveOf`: every step he owes on it is hidden): the hand-out's `handled_elsewhere`. Pure. */
+export const isMoveHiddenOf =
+  (c: StepAskInputs) =>
+  (v: { id: string; openSteps: readonly (Step & MoveStep)[] }) =>
+    Boolean(yourMoveOf(v, askOf(c, v.id))?.isHidden);
+
 /** The steps the open matters' cards show (`yourMoveOf`): whose sentences the checks read. Pure. */
 export const yourMoveStepsOf = (
   matters: readonly {

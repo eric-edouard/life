@@ -30,6 +30,7 @@ export const EFFECTS = [
   "style",
   "sensitive",
   "budget",
+  "what-to-ask",
 ] as const;
 type Effect = (typeof EFFECTS)[number];
 
