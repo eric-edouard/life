@@ -34,12 +34,7 @@ import {
   readGithub,
 } from "../sources/github";
 import { gmailSend } from "../sources/gmail";
-import {
-  copyGmail,
-  incomingGmail,
-  newestGmail,
-  readGmail,
-} from "../sources/gmail-archive";
+import { copyGmail, newestGmail, readGmail } from "../sources/gmail-archive";
 import {
   DB,
   handleOf,
@@ -285,7 +280,7 @@ const LISTED: Descriptor[] = [
     capturesOnItsOwn: true,
     chatLinkOf: (handle) =>
       handle.includes("@") ? `mailto:${handle}` : undefined,
-    incoming: incomingGmail,
+    incoming: (from?: number) => incomingArchived("gmail", "eventId", from),
     integration: {
       privacy:
         "Read from Gmail by this computer with your own Google sign-in; Google Contacts' names come with it; what Life reads goes to the AI you chose, and turning the source off stops both.",

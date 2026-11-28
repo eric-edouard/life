@@ -3,12 +3,10 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { MIN } from "../core/clock";
 import { gogCall, latestGoogleAccounts } from "../core/gog";
-import { log } from "../core/log";
-import { errorOf } from "../core/log-line";
 import { exec } from "../core/proc";
 import { takesProblemOf } from "./chat-takes";
 import type { ChatTakes, Outgoing, SendPath } from "./contract";
-import { messageIdOfMail, readMailAddresses } from "./mail";
+import { messageIdOfMail, readMailAddressesOrNone } from "./mail";
 
 // The one mail send: gog's Gmail does it, from an account gog holds (the only place Life names `gogCall("gmail"`,
 // `scripts/imports.test.ts`; the archive's copy reads, `--readonly`, in `gmail-archive.ts`). A new mail, or a reply in
@@ -62,12 +60,7 @@ const isAddresses = (list: string) =>
  * spawn). Mail unreadable leaves his Google accounts' alone.
  */
 export function readOwnMailAddresses(): string[] {
-  let mail: string[] = [];
-  try {
-    mail = readMailAddresses();
-  } catch (e) {
-    log("source.read", { ...errorOf(e), ok: false, source: "gmail" });
-  }
+  const mail = readMailAddressesOrNone();
   const google = latestGoogleAccounts()
     .filter((a) => a.valid)
     .map((a) => a.address);

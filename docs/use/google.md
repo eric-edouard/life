@@ -16,5 +16,8 @@ bun life connect-google you@example.com
 `connect-google` opens Google's consent page in your browser and asks for Gmail (read and send), Calendar, Tasks and
 Contacts (read only). The token gog keeps stays on this Mac. Run it again for each account Life should read.
 
+An install that used gog before Life did signs each account in again with `bun life connect-google <address>`: Life's
+gog calls now use the `life` client, and gog keeps each client's tokens apart.
+
 A build that carries a client of its own stores that one instead, and a client you stored under `life` stays as it
 is. Neither is ever printed.

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { rmSync } from "node:fs";
-import { gogCall, googleAccountsOf } from "./gog";
+import { gogCall, gogJson, googleAccountsOf } from "./gog";
 import { SECRETS, writeSecret } from "./secret";
 
 const VAR = "GOG_KEYRING_PASSWORD";
@@ -82,20 +82,18 @@ test("a call that names no account leaves it out; the sign-in keeps its prompts"
 
 test("an account is what gog reports: its address, its check, its services and scopes", () => {
   expect(
-    googleAccountsOf(
-      JSON.stringify({
-        accounts: [
-          {
-            email: "ana@example.test",
-            scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
-            services: ["gmail", "calendar"],
-            valid: true,
-          },
-          { email: "bo@example.test", error: "invalid_grant", valid: false },
-          { services: ["gmail"] },
-        ],
-      })
-    )
+    googleAccountsOf({
+      accounts: [
+        {
+          email: "ana@example.test",
+          scopes: ["https://www.googleapis.com/auth/gmail.readonly"],
+          services: ["gmail", "calendar"],
+          valid: true,
+        },
+        { email: "bo@example.test", valid: false },
+        { services: ["gmail"] },
+      ],
+    })
   ).toEqual([
     {
       address: "ana@example.test",
@@ -110,5 +108,33 @@ test("an account is what gog reports: its address, its check, its services and s
       valid: false,
     },
   ]);
-  expect(googleAccountsOf("{}")).toEqual([]);
+  expect(googleAccountsOf({})).toEqual([]);
+});
+
+test("a gog call's answer is parsed; a failure or a kill is gog's own words", async () => {
+  const run = (answer: object) =>
+    (() =>
+      Promise.resolve({ code: 0, stderr: "", stdout: "", ...answer })) as never;
+  expect(
+    await gogJson("auth", undefined, ["list"], run({ stdout: '{"a":1}' }))
+  ).toEqual({ a: 1 });
+  // gog says nothing: an empty answer, not a crash.
+  expect(await gogJson("auth", undefined, ["list"], run({}))).toEqual({});
+  await expect(
+    gogJson(
+      "auth",
+      undefined,
+      ["list"],
+      run({ code: 1, stderr: " invalid_grant " })
+    )
+  ).rejects.toThrow("invalid_grant");
+  // A call killed before it answered is a failure too: its stdout is the words when stderr says nothing.
+  await expect(
+    gogJson(
+      "auth",
+      undefined,
+      ["list"],
+      run({ killed: "SIGTERM", stdout: "too slow" })
+    )
+  ).rejects.toThrow("too slow");
 });

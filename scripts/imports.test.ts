@@ -13,10 +13,13 @@ const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
 const GH = /"gh"/;
-const GOG_TASKS = /gogCall\(\s*"tasks"/;
-const GOG_GMAIL = /gogCall\(\s*"gmail"/;
-const GOG_AUTH = /gogCall\(\s*"auth"/;
-const GOG_CONTACTS = /gogCall\(\s*"contacts"/;
+// A read's answer is parsed by `gogJson`, which runs `gogCall`: both name the kind first.
+const GOG_KIND = (kind: string) =>
+  new RegExp(`gog(?:Call|Json)(?:<\\w+>)?\\(\\s*"${kind}"`);
+const GOG_TASKS = GOG_KIND("tasks");
+const GOG_GMAIL = GOG_KIND("gmail");
+const GOG_AUTH = GOG_KIND("auth");
+const GOG_CONTACTS = GOG_KIND("contacts");
 const MONEY = /\["money",/;
 const MESSAGES_APP = /tell application "Messages"/;
 const MATRIX_SEND = /\/send\/|\/media\/v3\/upload/;

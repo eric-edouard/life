@@ -9,6 +9,17 @@ import { SECRETS } from "./secret";
 /** What Life runs gog for: his accounts (the sign-in), the calendar, Gmail send, Google Tasks, Google Contacts. */
 export type GogKind = "auth" | "calendar" | "contacts" | "gmail" | "tasks";
 
+/** What running one `gog` command line gave, as `exec` answers it; a test passes its own. */
+export type GogRunner = (
+  cmd: string[],
+  o: { env: Record<string, string | undefined>; timeout: number }
+) => Promise<{
+  code: number;
+  killed?: unknown;
+  stderr: string;
+  stdout: string;
+}>;
+
 /**
  * gog's keyring password: this process's own `GOG_KEYRING_PASSWORD`, else the one `connectGoogle` made and Life keeps
  * in `SECRETS.gogKeyring`, else none. Found here alone, so a keyring never gets a second password (`connect-google.ts`).
@@ -60,7 +71,25 @@ export function gogCall(
     { env },
   ];
 }
-
+/**
+ * Runs one `gog` call (`gogCall`'s own kind, account and arguments) and parses its JSON answer, `{}` when it says
+ * nothing: the one place a call's output is decoded. A kill or a non-zero code throws gog's own words, the last 300
+ * characters of its stderr (else its stdout).
+ */
+export async function gogJson<T>(
+  kind: GogKind,
+  account: string | undefined,
+  args: string[],
+  run: GogRunner = (cmd, o) => exec(cmd, o),
+  timeout = MIN
+): Promise<T> {
+  const [cmd, { env }] = gogCall(kind, account, args);
+  const r = await run(cmd, { env, timeout });
+  if (r.killed || r.code !== 0) {
+    throw new Error((r.stderr || r.stdout).trim().slice(-300));
+  }
+  return JSON.parse(r.stdout.trim() || "{}") as T;
+}
 /** An account gog holds under Life's OAuth client, as `gog auth list --check --json` gives it. */
 export interface GoogleAccount {
   /** Its address, as gog reports it. */
@@ -73,16 +102,22 @@ export interface GoogleAccount {
   valid: boolean;
 }
 
-/** The accounts in `gog auth list --check --json`'s answer, one per address it holds. */
-export function googleAccountsOf(text: string): GoogleAccount[] {
-  const answer = JSON.parse(text.trim() || "{}") as {
-    accounts?: {
-      email?: string;
-      scopes?: string[];
-      services?: string[];
-      valid?: boolean;
-    }[];
-  };
+/** Whether an account's grant covers `scope`: a token that still works, and a granted scope URL starting with it. */
+export const hasGrant = (account: GoogleAccount, scope: string) =>
+  account.valid && account.scopes.some((s) => s.startsWith(scope));
+
+/** `gog auth list --check --json`'s answer, as gog writes it. */
+interface AccountsAnswer {
+  accounts?: {
+    email?: string;
+    scopes?: string[];
+    services?: string[];
+    valid?: boolean;
+  }[];
+}
+
+/** The accounts in that answer, one per address it holds. */
+export function googleAccountsOf(answer: AccountsAnswer): GoogleAccount[] {
   return (answer.accounts ?? []).flatMap((a) =>
     a.email
       ? [
@@ -120,11 +155,11 @@ async function readAccountsNow() {
     return [];
   }
   try {
-    const r = await exec(...gogCall("auth", undefined, ["list", "--check"]));
-    if (r.code !== 0) {
-      throw new Error((r.stderr || r.stdout).trim().slice(-300));
-    }
-    return googleAccountsOf(r.stdout);
+    const answer: AccountsAnswer = await gogJson("auth", undefined, [
+      "list",
+      "--check",
+    ]);
+    return googleAccountsOf(answer);
   } catch (e) {
     log("source.read", {
       ...errorOf(e),

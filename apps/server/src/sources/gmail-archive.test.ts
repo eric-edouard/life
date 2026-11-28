@@ -2,12 +2,9 @@ import { afterAll, expect, setSystemTime, test } from "bun:test";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  gmailAccountsRead,
-  gmailCopier,
-  incomingGmail,
-  readGmail,
-} from "./gmail-archive";
+import { openReadOnly } from "../core/sqlite";
+import { archiveDb, incomingArchived } from "./archived";
+import { gmailCopier, readGmail, readGmailAccounts } from "./gmail-archive";
 
 afterAll(() => setSystemTime());
 
@@ -61,6 +58,8 @@ function got(id: string, over: Answer = {}) {
 function fakeGog() {
   const calls: string[][] = [];
   const live = new Map<string, string[]>();
+  /** A live search's pages by token, for a test whose gap takes more than one page. */
+  const livePages = new Map<string, { ids: string[]; next?: string }>();
   const pages = new Map<string, { ids: string[]; next?: string }>();
   const messages = new Map<string, unknown>();
   const dangling = new Set<string>();
@@ -84,7 +83,10 @@ function fakeGog() {
     }
     const page = (args.find((a) => a.startsWith("--page=")) ?? "").slice(7);
     const asked = LIVE_SEARCH.test(args[2] ?? "")
-      ? { ids: live.get(account) ?? [], next: undefined }
+      ? (livePages.get(`${account}|${page}`) ?? {
+          ids: live.get(account) ?? [],
+          next: undefined,
+        })
       : (pages.get(`${account}|${page}`) ?? { ids: [], next: undefined });
     return Promise.resolve({
       ...ok,
@@ -100,6 +102,7 @@ function fakeGog() {
     failing,
     gets: () => calls.filter((c) => c[2] === "get"),
     live,
+    livePages,
     messages,
     pages,
     run: run as never,
@@ -298,30 +301,149 @@ test("bulk mail is the list header's, and a mail he sent only to himself is mark
 
 test("an account Apple Mail already reads is left out, and none is when Mail can't be read", () => {
   expect(
-    gmailAccountsRead([ME, "Ana@Example.com"], () => ["ME@example.com"])
+    readGmailAccounts([ME, "Ana@Example.com"], () => ["ME@example.com"])
   ).toEqual(["ana@example.com"]);
-  expect(gmailAccountsRead([ME], () => ["ana@example.com"])).toEqual([ME]);
-  expect(
-    gmailAccountsRead([ME], () => {
-      throw new Error("no Mail here");
-    })
-  ).toEqual([ME]);
+  expect(readGmailAccounts([ME], () => ["ana@example.com"])).toEqual([ME]);
+  // Mail unreadable: its reader gives none (and logs it once, where it reads it).
+  expect(readGmailAccounts([ME], () => [])).toEqual([ME]);
 });
 
-test("a mail backfilled from years ago is no arrival; one from the last day is", async () => {
+test("a gap bigger than one page is copied whole in one pass", async () => {
   const g = fakeGog();
+  const first = Array.from({ length: 100 }, (_, i) => `m${i}`);
+  g.livePages.set(`${ME}|`, { ids: first, next: "p2" });
+  g.livePages.set(`${ME}|p2`, { ids: ["late"] });
+  for (const id of [...first, "late"]) {
+    g.messages.set(id, got(id));
+  }
+  const archive = dir();
+  at(0);
+  expect(
+    await gmailCopier({ accounts: () => [ME], archive, run: g.run })()
+  ).toBe(101);
+  expect(g.searches().some((c) => c.includes("--page=p2"))).toBe(true);
+});
+
+test("a mail the live step copies 30 hours late is an arrival; a backfilled one is not", async () => {
+  const g = fakeGog();
+  const incoming = () => incomingArchived("gmail", "eventId", 0, archive).rows;
   g.live.set(ME, ["g1"]);
   g.messages.set("g1", got("g1"));
   g.pages.set(`${ME}|`, { ids: ["old"] });
   g.messages.set("old", got("old", { internalDate: T0 - 3 * 24 * HOUR_MS }));
   const archive = dir();
+  const copy = gmailCopier({ accounts: () => [ME], archive, run: g.run });
+  at(0);
+  expect(await copy()).toBe(2);
+  // An account's first pass and the backfill write export rows: nothing they copy arrived.
+  expect(incoming()).toEqual([]);
+  // 30 hours old, copied by the newer-mail step: a new arrival all the same.
+  g.live.set(ME, ["g1", "g2"]);
+  g.messages.set("g2", got("g2", { internalDate: T0 - 30 * HOUR_MS }));
+  at(120);
+  expect(await copy()).toBe(1);
+  expect(incoming().map((r) => r.id)).toEqual([
+    "gmail:th-g2/g2.mid@mail.example.com",
+  ]);
+});
+
+/** What the archive stores of each message, as the copy wrote it. */
+function storedRows(archive: string) {
+  const db = openReadOnly(archiveDb("gmail", archive));
+  try {
+    return db
+      .query<
+        {
+          fromMe: number;
+          recipients: string | null;
+          senderName: string | null;
+        },
+        []
+      >("select fromMe, recipients, senderName from messages order by rowid")
+      .all();
+  } finally {
+    db.close();
+  }
+}
+
+const OTHER = "other@example.com";
+
+test("a mail from his other address reads as his, not as the account it was copied under", async () => {
+  const g = fakeGog();
+  g.live.set(ME, ["g1"]);
+  g.live.set(OTHER, ["g0"]);
+  g.messages.set("g1", got("g1", { headers: { from: `Me <${OTHER}>` } }));
+  g.messages.set("g0", got("g0"));
+  const archive = dir();
+  at(0);
+  await gmailCopier({ accounts: () => [ME, OTHER], archive, run: g.run })();
+  expect(
+    readGmail(EPOCH, archive)
+      .map((e) => [e.id, e.fromMe, e.sender])
+      .sort()
+  ).toEqual([
+    ["gmail:th-g0/g0.mid@mail.example.com", false, "ana@example.com"],
+    ["gmail:th-g1/g1.mid@mail.example.com", true, "me"],
+  ]);
+});
+
+test("recipients are To, Cc and Bcc one a line; a self-mail with someone else on it is no note to himself", async () => {
+  const g = fakeGog();
+  g.live.set(ME, ["g1", "g2"]);
+  g.messages.set(
+    "g1",
+    got("g1", {
+      headers: {
+        bcc: "Bo <bo@example.com>",
+        cc: "Ana <ana@example.com>",
+        from: `Me <${ME}>`,
+        to: `Me <${ME}>`,
+      },
+    })
+  );
+  // From the first account's own address, sent to itself alone: his words to Life.
+  g.messages.set("g2", got("g2", { headers: { from: ME, to: ME } }));
+  const archive = dir();
   at(0);
   await gmailCopier({ accounts: () => [ME], archive, run: g.run })();
+  expect(readGmail(EPOCH, archive).map((e) => e.marked)).toEqual([
+    undefined,
+    true,
+  ]);
+  expect(storedRows(archive)).toEqual([
+    {
+      fromMe: 0,
+      recipients: `${ME}\nana@example.com\nbo@example.com`,
+      senderName: "Me",
+    },
+    { fromMe: 0, recipients: ME, senderName: null },
+  ]);
+});
+
+test("a mail two accounts hold is read once", async () => {
+  const g = fakeGog();
+  g.live.set(ME, ["g1"]);
+  g.live.set(OTHER, ["g0"]);
+  g.messages.set("g1", got("g1"));
+  g.messages.set("g0", got("g0"));
+  const archive = dir();
+  const copy = gmailCopier({
+    accounts: () => [ME, OTHER],
+    archive,
+    run: g.run,
+  });
+  at(0);
+  expect(await copy()).toBe(2);
+  // The other account now sees the same message as newer mail: a second row, read once.
+  g.live.set(OTHER, ["g0", "g1"]);
   at(120);
-  await gmailCopier({ accounts: () => [ME], archive, run: g.run })();
-  // The old one is copied, and is no arrival.
-  expect(readGmail(EPOCH, archive).length).toBe(2);
-  expect(incomingGmail(0, archive).rows.map((r) => r.id)).toEqual([
+  expect(await copy()).toBe(1);
+  expect(
+    readGmail(EPOCH, archive)
+      .map((e) => e.id)
+      .sort()
+  ).toEqual([
+    "gmail:th-g0/g0.mid@mail.example.com",
     "gmail:th-g1/g1.mid@mail.example.com",
   ]);
 });

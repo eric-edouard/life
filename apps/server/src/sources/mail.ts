@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { htmlTextOf } from "../core/html-text";
+import { log } from "../core/log";
+import { errorOf } from "../core/log-line";
 import { HOME } from "../core/platform";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
@@ -103,6 +105,19 @@ export const readMailAddresses = (
   root = mailRoot(),
   accountsDb = ACCOUNTS_DB
 ) => mailAccounts(root, accountsDb).flatMap((a) => a.addresses);
+
+/**
+ * Apple Mail's addresses, or none when Mail can't be read: the one place a reader of his own addresses goes, logged
+ * here alone, so a Mac without Mail never throws one.
+ */
+export function readMailAddressesOrNone(): string[] {
+  try {
+    return readMailAddresses();
+  } catch (e) {
+    log("source.read", { ...errorOf(e), ok: false, source: "mail" });
+    return [];
+  }
+}
 
 /** Accounts with mail in the store: display name and the owner's addresses (account login + Sent senders). */
 export function mailAccounts(

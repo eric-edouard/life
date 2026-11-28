@@ -1,15 +1,18 @@
 import type { Database, SQLQueryBindings } from "bun:sqlite";
-import { clock, DAY, HOUR, iso, MIN } from "../core/clock";
-import { type GoogleAccount, gogCall, readGoogleAccounts } from "../core/gog";
+import { clock, DAY, iso, MIN } from "../core/clock";
+import {
+  type GogRunner,
+  gogJson,
+  hasGrant,
+  readGoogleAccounts,
+} from "../core/gog";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { exec } from "../core/proc";
 import { openReadOnly } from "../core/sqlite";
 import type { SourceEvent, SourceFile } from "../records/source";
 import {
   ARCHIVE,
   archiveDb,
-  incomingArchived,
   insertAll,
   matrixArchive,
   newestArchived,
@@ -17,7 +20,8 @@ import {
   type Row,
   readArchived,
 } from "./archived";
-import { isToSelf, ownWordsOf, readMailAddresses } from "./mail";
+import { readOwnMailAddresses } from "./gmail";
+import { isToSelf, ownWordsOf, readMailAddressesOrNone } from "./mail";
 
 // The Gmail source: every account he signed in with Google (`readGoogleAccounts`) copied into `archive/gmail.sqlite` and
 // read from there, never from Google. One row a message (Gmail's never change): its Message-ID is its id, so a reply
@@ -35,25 +39,25 @@ const BACKFILL_QUERY = "-in:drafts -in:spam";
 /** His newer mail: from a day before the newest message kept (Gmail's `after:` takes seconds), else the last 2 days. */
 const liveQueryOf = (newest: string | undefined) =>
   `${newest ? `after:${Math.floor((Date.parse(newest) - DAY) / 1000)}` : "newer_than:2d"} ${BACKFILL_QUERY}`;
-/** Pages of newer mail a pass reads at most, after a long sleep; the backlog left waits for the next pass. */
-const LIVE_PAGES = 10;
 /** gog's words for a message gone between its search and its get: skipped, never a failure. */
 const GONE = /not found|404/i;
 /** Ids a pass: a full page of the live step, a smaller one of the backfill so a backlog drains without flooding. */
 const LIVE_MAX = 100;
 const BACKFILL_MAX = 50;
-/** A message older than this was backfilled, not received: no arrival (`incomingGmail`). */
-const ARRIVAL_FOR = 24 * HOUR;
+/** The Gmail scope `connectGoogle` asks for (read and send): a grant carrying it is a mailbox Gmail copies. */
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail";
 
 const SCHEMA = `${matrixArchive("account text not null, bulk integer not null default 0, recipients text,")};
   create table if not exists cursors (account text primary key, page text, done integer not null);
-  create index if not exists messages_event on messages (eventId)`;
+  create index if not exists messages_event on messages (eventId);
+  create index if not exists messages_at on messages (at);
+  create index if not exists messages_id on messages (id)`;
 
 /** The archive's Gmail store, its tables made. */
-export const openGmail = (dir = ARCHIVE) => openArchive(dir, "gmail", SCHEMA);
+const openGmail = (dir = ARCHIVE) => openArchive(dir, "gmail", SCHEMA);
 
 interface Part {
-  body?: { attachmentId?: string; size?: number };
+  body?: { attachmentId?: string };
   filename?: string;
   mimeType?: string;
   partId?: string;
@@ -64,15 +68,13 @@ interface Header {
   value: string;
 }
 interface Message {
-  historyId?: string;
   id: string;
   internalDate?: string | number;
-  labelIds?: string[];
   payload?: { headers?: Header[]; mimeType?: string; parts?: Part[] };
   threadId: string;
 }
 /** `gog gmail get`'s answer: the decoded body, the headers it names, and the message itself. */
-interface Got {
+interface GmailMessage {
   body?: string;
   headers?: Record<string, string | undefined>;
   message: Message;
@@ -82,42 +84,26 @@ interface Page {
   messages?: { id: string; threadId?: string }[];
   nextPageToken?: string;
 }
-interface Run {
-  code: number;
-  killed: unknown;
-  stderr: string;
-  stdout: string;
-}
 
 /**
- * The accounts Gmail reads: those given, less the ones Apple Mail already reads while Mail is readable, so a mailbox
+ * The accounts Gmail reads, of those given: less the ones Apple Mail already reads while Mail is readable, so a mailbox
  * both see is never counted twice. Mail unreadable leaves them all.
  */
-export function gmailAccountsRead(
+export function readGmailAccounts(
   accounts: readonly string[],
-  mailOf: () => string[] = readMailAddresses
+  mailOf: () => string[] = readMailAddressesOrNone
 ): string[] {
-  let mail: string[] = [];
-  try {
-    mail = mailOf();
-  } catch (e) {
-    log("source.read", { ...errorOf(e), ok: false, source: "gmail" });
-  }
-  const inMail = new Set(mail.map((a) => a.toLowerCase()));
+  const inMail = new Set(mailOf().map((a) => a.toLowerCase()));
   return [...new Set(accounts.map((a) => a.toLowerCase()))].filter(
     (a) => !inMail.has(a)
   );
 }
 
-/** Whether an account's grant carries Gmail: gog's own service name, or a full scope URL. */
-const canRead = (a: GoogleAccount) =>
-  a.services.includes("gmail") || a.scopes.some((s) => s.includes("gmail"));
-
-/** The accounts Gmail copies: the ones gog still holds a working Gmail grant for, less those Apple Mail reads. */
-const gmailAccounts = async () =>
-  gmailAccountsRead(
+/** The accounts the copier copies: those gog holds a working Gmail grant for, less those Apple Mail reads. */
+const signedInGmailAccounts = async () =>
+  readGmailAccounts(
     (await readGoogleAccounts())
-      .filter((a) => a.valid && canRead(a))
+      .filter((a) => hasGrant(a, GMAIL_SCOPE))
       .map((a) => a.address)
   );
 
@@ -130,10 +116,10 @@ const headersOf = (m: Message) =>
 /** The address between a display name's angle brackets (`Ana <ana@example.com>`). */
 const IN_BRACKETS = /<([^>]+)>/;
 
-/** The addresses a To, Cc or Bcc header holds, lower-cased, one a line (as Mail keeps its `recipients`). */
-const addressesIn = (value: string | undefined) =>
-  (value ?? "")
-    .split(",")
+/** The addresses To, Cc and Bcc hold, lower-cased, one a line (as Mail keeps its `recipients`). */
+const recipientsOf = (...headers: (string | undefined)[]) =>
+  headers
+    .flatMap((value) => (value ?? "").split(","))
     .map((a) => (IN_BRACKETS.exec(a)?.[1] ?? a).trim().toLowerCase())
     .filter(Boolean)
     .join("\n");
@@ -141,6 +127,14 @@ const addressesIn = (value: string | undefined) =>
 /** The one address a From header holds, lower-cased. */
 const addressOf = (value: string) =>
   (IN_BRACKETS.exec(value)?.[1] ?? value).trim().toLowerCase();
+
+/** The display name a From header gives (`Ana <ana@example.com>` is Ana), unquoted; none for a bare address. */
+const displayNameOf = (value: string) => {
+  const at = value.search(IN_BRACKETS);
+  return (
+    (at > 0 ? value.slice(0, at) : "").trim().replace(/^"|"$/g, "") || null
+  );
+};
 
 /** When Gmail says the message is, else its Date header; none when neither is a time. */
 function atOf(m: Message, date: string | undefined) {
@@ -174,61 +168,73 @@ const INSERT = `insert or ignore into messages
 const FILE_INSERT =
   "insert or ignore into files (chat, eventId, files) values (?, ?, ?)";
 
-/** A message's row in the archive and its files; none for a message whose date Life can't read. */
-function madeOf(account: string, got: Got, seenAt: string) {
+/**
+ * A message's row in the archive and its files; none for a message whose date Life can't read. `isExport` writes it as
+ * an export row (an old mail a backfill copied, or one an account's first pass copied), which is no arrival.
+ * `fromMe` is stored 0, the column being required: the read decides it from his own addresses.
+ */
+function archivedRowOf(
+  account: string,
+  got: GmailMessage,
+  seenAt: string,
+  isExport: boolean
+) {
   const m = got.message;
   const h = headersOf(m);
   const header = (name: string) => got.headers?.[name] ?? h.get(name);
   const subject = header("subject") ?? "";
-  const sender = addressOf(header("from") ?? "");
+  const from = header("from") ?? "";
   const at = atOf(m, header("date"));
   if (!at) {
     return;
   }
+  const eventId = isExport ? `export:${m.id}` : m.id;
   const files = filesOf(m.payload?.parts, m.id);
   return {
     files: files.length
-      ? [[m.threadId, m.id, JSON.stringify(files)] as SQLQueryBindings[]]
+      ? [[m.threadId, eventId, JSON.stringify(files)] as SQLQueryBindings[]]
       : [],
     row: [
       (header("message_id") ?? "").trim().replace(/^<|>$/g, "") || m.id,
-      m.id,
+      eventId,
       m.threadId,
       subject,
-      sender,
-      null,
-      sender === account ? 1 : 0,
+      addressOf(from),
+      displayNameOf(from),
+      0,
       at,
       `${subject}\n${ownWordsOf(got.body ?? "")}`.trim(),
       seenAt,
       account,
       h.has("list-id") || h.has("list-unsubscribe") ? 1 : 0,
-      addressesIn(header("to")),
+      recipientsOf(header("to"), header("cc"), header("bcc")),
     ],
   };
 }
 
 /**
- * Stores each of `ids` the archive doesn't hold yet (`get` reads one message): how many were new. A message gone between
- * the search and its get is skipped; any other failure throws, so a revoked token pauses the account before its
- * backfill cursor moves past mail it never stored.
+ * Stores each of `ids` the archive doesn't hold yet for `account` (`get` reads one message): how many were new. A
+ * message gone between the search and its get is skipped; any other failure throws, so a revoked token pauses the
+ * account before its backfill cursor moves past mail it never stored. `isExport` writes them as export rows.
  */
 async function insertNew(
   db: Database,
   account: string,
   ids: string[],
-  get: (id: string) => Promise<Got>
+  get: (id: string) => Promise<GmailMessage>,
+  isExport: boolean
 ) {
-  const isStored = db.prepare<{ x: number }, [string, string]>(
-    "select 1 as x from messages where eventId = ? and account = ? limit 1"
+  // A message may be stored as an arrival or as an export row: already stored is either.
+  const isStored = db.prepare<{ x: number }, [string, string, string]>(
+    "select 1 as x from messages where eventId in (?, ?) and account = ? limit 1"
   );
   const seenAt = iso(clock().getTime());
   let added = 0;
   for (const id of new Set(ids)) {
-    if (isStored.get(id, account)) {
+    if (isStored.get(id, `export:${id}`, account)) {
       continue;
     }
-    let got: Got;
+    let got: GmailMessage;
     try {
       // biome-ignore lint/performance/noAwaitInLoops: one get a message, one gog at a time
       got = await get(id);
@@ -239,7 +245,7 @@ async function insertNew(
       log("source.read", { ...errorOf(e), ok: false, source: "gmail" });
       continue;
     }
-    const made = madeOf(account, got, seenAt);
+    const made = archivedRowOf(account, got, seenAt, isExport);
     if (made) {
       added += insertAll(db, INSERT, [made.row]);
       insertAll(db, FILE_INSERT, made.files);
@@ -249,14 +255,11 @@ async function insertNew(
 }
 
 interface Options {
-  /** The accounts Gmail copies, as `gmailAccountsRead` keeps them. */
+  /** The accounts Gmail copies, as `readGmailAccounts` keeps them. */
   accounts?: () => string[] | Promise<string[]>;
   archive?: string;
-  /** Runs gog (`gogCall`'s command line and environment); a test passes its own. */
-  run?: (
-    cmd: string[],
-    o: { env: Record<string, string | undefined>; timeout: number }
-  ) => Promise<Run>;
+  /** How gog is run; a test passes its own (`gogJson`'s own default runs it for real). */
+  run?: GogRunner;
 }
 
 /**
@@ -269,26 +272,15 @@ interface Options {
  */
 export function gmailCopier({
   archive = ARCHIVE,
-  accounts = gmailAccounts,
-  run = (cmd, o) => exec(cmd, o),
+  accounts = signedInGmailAccounts,
+  run,
 }: Options = {}) {
   let next = 0;
   /** Per account: when it may be asked again, how long its pause is, and the error its passes throw meanwhile. */
   const states = new Map<string, { at: number; error?: Error; wait: number }>();
   /** gog's answer to a Gmail read, never a write (`--readonly`). */
-  const read = async <T = Page>(
-    account: string,
-    args: string[]
-  ): Promise<T> => {
-    const [cmd, { env }] = gogCall("gmail", account, [...args, "--readonly"]);
-    const r = await run(cmd, { env, timeout: CALL_MS });
-    if (r.killed || r.code !== 0) {
-      throw new Error(
-        `gog gmail ${r.killed ? "didn't answer" : `failed: ${r.stderr.trim().slice(-200)}`}`
-      );
-    }
-    return JSON.parse(r.stdout.trim() || "{}") as T;
-  };
+  const read = <T = Page>(account: string, args: string[]) =>
+    gogJson<T>("gmail", account, [...args, "--readonly"], run, CALL_MS);
   /** One page of a search's ids: `page` the token to start from (none: the first). */
   const searchIds = async (
     account: string,
@@ -309,11 +301,15 @@ export function gmailCopier({
       next: r.nextPageToken ?? "",
     };
   };
-  /** One account's newer mail, newest first, page after page until a page holds nothing new: a gap (a Mac asleep) is caught up. */
+  /**
+   * One account's newer mail, newest first, page after page until a page holds nothing new or there is no next page:
+   * a gap (a Mac asleep, a long pause) is caught up in one pass.
+   */
   const copyNewer = async (
     db: Database,
     account: string,
-    get: (id: string) => Promise<Got>
+    get: (id: string) => Promise<GmailMessage>,
+    isExport: boolean
   ) => {
     const newest = db
       .query<{ at: string | null }, [string]>(
@@ -323,22 +319,26 @@ export function gmailCopier({
     const query = liveQueryOf(newest ?? undefined);
     let added = 0;
     let page = "";
-    for (let n = 0; n < LIVE_PAGES; n += 1) {
+    let fresh: number;
+    do {
       // biome-ignore lint/performance/noAwaitInLoops: each page follows the one before
       const found = await searchIds(account, query, LIVE_MAX, page);
-      const fresh = await insertNew(db, account, found.ids, get);
+      fresh = await insertNew(db, account, found.ids, get, isExport);
       added += fresh;
       page = found.next;
-      if (!(fresh && page)) {
-        break;
-      }
-    }
+    } while (fresh && page);
     return added;
   };
   /** One account's newer mail, then its next page of backfill: how many messages were new. */
   const copyAccount = async (db: Database, account: string) => {
-    const get = (id: string) => read<Got>(account, ["get", id]);
-    let added = await copyNewer(db, account, get);
+    const get = (id: string) => read<GmailMessage>(account, ["get", id]);
+    // An account the archive holds no row of is being backfilled: nothing this pass writes arrived.
+    const isFirstPass = !db
+      .query<{ x: number }, [string]>(
+        "select 1 as x from messages where account = ? limit 1"
+      )
+      .get(account);
+    let added = await copyNewer(db, account, get, isFirstPass);
     const cursor = db
       .query<{ done: number; page: string | null }, [string]>(
         "select page, done from cursors where account = ?"
@@ -349,7 +349,7 @@ export function gmailCopier({
     }
     const page = cursor?.page ?? "";
     const back = await searchIds(account, BACKFILL_QUERY, BACKFILL_MAX, page);
-    added += await insertNew(db, account, back.ids, get);
+    added += await insertNew(db, account, back.ids, get, true);
     const token = back.next;
     // A page token that doesn't move would walk the same page forever: the mailbox is done.
     const done = !token || token === page ? 1 : 0;
@@ -436,13 +436,22 @@ interface GmailRow extends Row {
   recipients: string | null;
 }
 
-/** One row per message (Gmail's never change), with its files, its account and what marks it. */
-const ROWS = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.type, m.text, m.deleted,
-    m.account, m.bulk, m.recipients, f.files
+/** Addresses as SQL text literals, escaped. */
+const sqlTextOf = (values: string[]) =>
+  values.map((v) => `'${v.replaceAll("'", "''")}'`).join(",");
+
+/**
+ * One row per message (Gmail's never change), with its files, its account and what marks it: `fromMe` from whether the
+ * sender is one of `mine`, and of a message two accounts hold, its first row alone.
+ */
+const rowsSql = (mine: string[]) => `select m.id, m.chat, m.chatName, m.sender,
+    coalesce(m.sender in (${sqlTextOf(mine)}), 0) as fromMe,
+    m.at, m.type, m.text, m.deleted, m.account, m.bulk, m.recipients, f.files
   from messages m
   left join files f on f.rowid = (select max(rowid) from files x
     where x.chat = m.chat and x.eventId = m.eventId)
-  where m.at >= ?`;
+  where m.at >= ?
+    and m.rowid = (select min(x.rowid) from messages x where x.id = m.id)`;
 
 /** The accounts the archive holds a message of. */
 function accountsIn(archive: string) {
@@ -458,8 +467,9 @@ function accountsIn(archive: string) {
 }
 
 /**
- * Its mail since `since`, from the archive's copy, for the accounts Gmail reads (`gmailAccountsRead`): `bulk` from a
- * list header, his own mail to himself marked as his words to Life.
+ * Its mail since `since`, from the archive's copy, for the accounts Gmail reads (`readGmailAccounts`): `bulk` from a
+ * list header, his own mail to himself marked as his words to Life. Whether he wrote a message is his own addresses'
+ * (Mail's, gog's, and the accounts the copy holds), not the account it was copied under.
  */
 export function readGmail(
   since: Date,
@@ -467,15 +477,17 @@ export function readGmail(
   before?: Date
 ): SourceEvent[] {
   const accounts = accountsIn(archive);
-  const kept = gmailAccountsRead(accounts);
+  const kept = readGmailAccounts(accounts);
   if (!kept.length) {
     return [];
   }
-  const mine = new Set(accounts.map((a) => a.toLowerCase()));
-  const only = kept.map((a) => `'${a.replaceAll("'", "''")}'`).join(",");
+  const mine = new Set(
+    [...readOwnMailAddresses(), ...accounts].map((a) => a.toLowerCase())
+  );
+  const only = sqlTextOf(kept);
   return readArchived<GmailRow>(
     "gmail",
-    `${ROWS} and m.account in (${only})`,
+    `${rowsSql([...mine])} and m.account in (${only})`,
     since,
     archive,
     (raw) => raw,
@@ -496,10 +508,3 @@ export const newestGmail = () =>
     "gmail",
     "select m.at, m.chatName || ': ' || m.text as words from messages m order by m.at desc limit 1"
   );
-
-/** The rows first written from `from` on that arrived today: a backfilled old mail is no arrival. */
-export function incomingGmail(from?: number, archive = ARCHIVE) {
-  const { end, rows } = incomingArchived("gmail", "eventId", from, archive);
-  const since = iso(clock().getTime() - ARRIVAL_FOR);
-  return { end, rows: rows.filter((r) => r.at >= since) };
-}
