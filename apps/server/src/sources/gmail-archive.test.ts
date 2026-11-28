@@ -472,3 +472,18 @@ test("a get that fails for any reason but a gone message pauses the account befo
   expect(await copy()).toBe(1);
   expect(g.searches().some((c) => c.includes("--page=p2"))).toBe(false);
 });
+
+test("a page of newer mail that is all gone never hides the older mail behind it", async () => {
+  const g = fakeGog();
+  g.livePages.set(`${ME}|`, { ids: ["gone1", "gone2"], next: "p2" });
+  g.livePages.set(`${ME}|p2`, { ids: ["older"] });
+  g.dangling.add("gone1");
+  g.dangling.add("gone2");
+  g.messages.set("older", got("older"));
+  const archive = dir();
+  at(0);
+  await gmailCopier({ accounts: () => [ME], archive, run: g.run })();
+  expect(readGmail(EPOCH, archive).map((e) => e.id)).toEqual([
+    "gmail:th-older/older.mid@mail.example.com",
+  ]);
+});

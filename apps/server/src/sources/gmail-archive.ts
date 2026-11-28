@@ -302,7 +302,7 @@ export function gmailCopier({
     };
   };
   /**
-   * One account's newer mail, newest first, page after page until a page holds nothing new or there is no next page:
+   * One account's newer mail, newest first, every page of the window until there is no next page:
    * a gap (a Mac asleep, a long pause) is caught up in one pass.
    */
   const copyNewer = async (
@@ -319,14 +319,13 @@ export function gmailCopier({
     const query = liveQueryOf(newest ?? undefined);
     let added = 0;
     let page = "";
-    let fresh: number;
+    // Every page of the window, stored or not: a page of gone or undated mail must not hide the older mail behind it.
+    let ids: string[];
     do {
       // biome-ignore lint/performance/noAwaitInLoops: each page follows the one before
-      const found = await searchIds(account, query, LIVE_MAX, page);
-      fresh = await insertNew(db, account, found.ids, get, isExport);
-      added += fresh;
-      page = found.next;
-    } while (fresh && page);
+      ({ ids, next: page } = await searchIds(account, query, LIVE_MAX, page));
+      added += await insertNew(db, account, ids, get, isExport);
+    } while (ids.length && page);
     return added;
   };
   /** One account's newer mail, then its next page of backfill: how many messages were new. */
