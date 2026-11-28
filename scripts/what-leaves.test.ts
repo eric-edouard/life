@@ -6,25 +6,29 @@ import { repoFiles } from "@life/server/src/core/proc";
 
 // The audit test (AGENTS.md "The audit test"): every host Life talks to is named in SECURITY.md's "What leaves the Mac",
 // with what leaves, to whom and how to turn it off. A NOT_CALLED host is a name the code carries and never sends to;
-// each integration's own privacy line is checked in apps/server/src/host/integrations.test.ts.
+// each integration's own privacy line is checked in apps/server/src/host/integrations.test.ts. Not scanned: JSON, CSS,
+// HTML and JS (fixtures, designs, a vendored plotly); tokens.css's Google Fonts import is named by hand.
 
-const URL_HOST = /https?:\/\/([a-zA-Z0-9.-]+)/g;
+const URL_HOST = /(?:https?|wss?):\/\/([a-zA-Z0-9.-]+)/g;
 const LOOPBACK = new Set(["localhost", "127.0.0.1"]);
 // The names meant never to resolve, which no run reaches.
 const RESERVED = [".test", ".example", ".invalid", ".localhost"];
 
 // Hosts the code names but sends nothing to, each with its reason.
 const NOT_CALLED: Record<string, string> = {
+  "brave.com": "a price's source, cited",
   "claude.ai": "a to-do item's link he opens in his browser",
   "code.claude.com": "a help link",
   "designs.ericedouard.com": "the designs app, a developer's tool",
-  "docs.perplexity.ai": "a price's source, in a comment",
-  "docs.tavily.com": "a price's source, in a comment",
+  "docs.perplexity.ai": "a price's source, cited",
+  "docs.tavily.com": "a price's source, cited",
+  "elevenlabs.io": "where he makes his ElevenLabs key, and a price's source",
   "maps.apple.com": "a link to a place, opened by him",
   "matrix.to": "a link inside a message, parsed",
   "my.telegram.org": "where he makes his Telegram app keys, shown to him",
-  "openai.com": "a price's source, in a comment",
-  "platform.claude.com": "a price's source, in a comment",
+  "openai.com": "a price's source, cited",
+  "platform.claude.com": "a price's source, cited",
+  "serper.dev": "a price's source, cited",
   "t.me": "a Telegram link, parsed or shown",
   "tailscale.com": "a help link",
   "wa.me": "a WhatsApp link, parsed or shown",
@@ -39,6 +43,12 @@ const isTestFile = (path: string) =>
   path.includes("/Tests/") ||
   path.includes("/E2E/") ||
   basename(path).startsWith("test_");
+
+/** Whether the section names `host` whole: `api.push.apple.com` named does not name `apple.com`. */
+const isNamed = (host: string) =>
+  new RegExp(`(?<![\\w.-])${host.replaceAll(".", "\\.")}(?![\\w-])`).test(
+    section
+  );
 
 const isReserved = (host: string) =>
   RESERVED.some((end) => host.endsWith(end)) ||
@@ -63,7 +73,7 @@ const hosts = new Map<string, Set<string>>();
 for (const file of repoFiles(
   LIFE_CODE_DIR,
   ["apps", "scripts", "packages", "tools"],
-  [".ts", ".tsx", ".swift", ".py", ".kt"]
+  [".ts", ".tsx", ".swift", ".py", ".kt", ".sh", ".yml"]
 ).filter((f) => !isTestFile(f))) {
   for (const match of readFileSync(join(LIFE_CODE_DIR, file), "utf8").matchAll(
     URL_HOST
@@ -78,7 +88,7 @@ for (const file of repoFiles(
 
 test('every host the code names is in SECURITY.md "What leaves the Mac", or in NOT_CALLED', () => {
   const missing = [...hosts]
-    .filter(([host]) => !(host in NOT_CALLED || section.includes(host)))
+    .filter(([host]) => !(host in NOT_CALLED || isNamed(host)))
     .map(([host, files]) => `  ${host}\n    ${[...files].join("\n    ")}`);
   expect(
     missing.length === 0
