@@ -586,8 +586,8 @@ Reversed later:
 [v5]: 2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md
 [heylife]: 2026-11-23-chat-first/2026-11-27-hey-life-turns.html
 [turns]: ../handoff/2026-11-27-turn-by-turn.md
-[realflow]: 2026-11-27-turn-by-turn-v2/2026-11-28-real-flow.md
-[tbt]: 2026-11-27-turn-by-turn-v2/index.html
+[realflow]: 2026-11-28-turn-by-turn-v3/2026-11-28-real-flow.md
+[tbt]: https://github.com/eric-edouard/life/blob/040db13018a0272148422c3a6de4d35aea305fa7/docs/design/2026-11-27-turn-by-turn-v2/index.html
 [spec]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md
 [log]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-design-decisions.md
 [inventory]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-component-inventory.md

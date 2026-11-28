@@ -1,5 +1,6 @@
-/* The turn by turn prototypes' shared shell (needs edge.js, data.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
-   draws the phone and the side panel; Shell.run(id) plays a scene (also on postMessage({scene:id}) and on #scene=id).
+/* Turn by turn v3's shell, (needs edge.js, this folder's data.js, card-blocks.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
+   draws the phone and the side panel; Shell.run(id) plays a scene (also on postMessage({scene:id}) and on #scene=id); postMessage({vary:{topic:value}})
+   hands the variations to opts.onVary, then plays the current scene again, with no reload.
    A scene is run(ctx), async, with ctx = {phone, stage, field, edge, wait, type, speak, cancelled, lock, notify}. Starting a scene
    cancels the running one: its pending ctx.wait rejects, the stage is emptied, the field and the edge are reset.
    Use only ctx.wait for time (never setTimeout), so a cancelled scene stops cleanly.
@@ -9,31 +10,33 @@
    the pendant (a tap opens its page over whatever shows, ctx.pendant()). The count is worked out, never set: what waits
    on him (DATA.waiting) and every card drawn since, less what he settled.
    ctx.cards(items) makes the cards: one per item, side by side, swiped sideways. What a card holds is drawn here only
-   (cardHtml), so it changes in one place; a variant places the row and may set --s-pad, --s-card-bg,
-   --s-card-radius, --s-card-shadow. */
+   (cardHtml; a draft's head and chat by card-blocks.js (CB.chat)), so it changes in one place; the scene places the row. */
 window.Shell=(function(){
   var MIC='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>';
   var UP='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/><path d="M12 8v10"/></svg>';
   var BACK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>';
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var CANCEL={cancelled:true},run=0,scenes=[],opts,phone,stage,field,lock,count,pend,buttons={},kept=new WeakMap(),open=new Set();
-  function esc(t){return String(t).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+  var CANCEL={cancelled:true},run=0,last='idle',scenes=[],opts,phone,stage,field,lock,count,pend,buttons={},kept=new WeakMap(),open=new Set();
+  var esc=CB.esc;
 
-  /* a card, as App v4 draws it: who (face or initial), what, its line; a matter's one sentence of why; a draft's message
-     it answers and the draft, dashed until sent; one wide action, then its outcome (a draft's with Undo) */
-  function cardHtml(k){var draft=k.draft!=null,who=k.to||k.who;
-    return '<article class="s-card"><div class="s-hd"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(who.charAt(0)))+'</span>'+
-      '<span class="s-tx"><b>'+esc(k.t)+'</b><small>'+esc(draft?k.app+' · '+k.made:k.sub+' · '+k.when)+'</small></span></div>'+
-      (k.why?'<p class="s-why">'+esc(k.why)+'</p>':'')+
-      (draft?'<div class="s-chat">'+(k.context?'<div class="s-in">'+esc(k.context.t)+'<span>'+esc(k.context.at)+'</span></div>':'')+'<div class="s-draft">'+esc(k.draft)+'</div></div>':'')+
+  /* a card, as App v4 draws it: who (face or initial), what, its line, its one sentence of why, one wide action, then
+     its outcome; a draft is its chat (CB.chat: the head, the messages that matter, the draft), its quick edits, Later
+     and Send side by side, Send on the right */
+  function cardHtml(k){var draft=k.draft!=null;
+    return '<article class="s-card">'+(draft?CB.chat(k):'<div class="s-hd"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(k.who.charAt(0)))+'</span>'+
+      '<span class="s-tx"><b>'+esc(k.t)+'</b><small>'+esc(k.sub+' · '+k.when)+'</small></span></div>'+(k.why?'<p class="s-why">'+esc(k.why)+'</p>':''))+
       (k.edits?'<div class="s-edits">'+k.edits.map(function(x){return '<button type="button">'+esc(x)+'</button>';}).join('')+'</div>':'')+
       '<div class="s-act" aria-live="polite"></div></article>';}
   /* its action's state is kept per item for the scene, so a card drawn again shows what he did */
   function paint(e,k,token){var act=e.querySelector('.s-act'),st=kept.get(k);e.classList.toggle('sent',st==='done');e.classList.toggle('undone',st==='undone');
-    if(!st){act.innerHTML='<button type="button" class="s-go">'+esc(k.send||k.act)+'</button>';var b=act.firstChild;
-      b.onclick=function(){if(b.disabled)return;b.disabled=true;b.textContent=k.sending||k.doing;
+    if(!st){act.innerHTML=(k.later?'<button type="button" class="s-later">'+esc(k.later)+'</button>':'')+'<button type="button" class="s-go">'+esc(k.send||k.act)+'</button>';
+      var b=act.querySelector('.s-go'),l=act.querySelector('.s-later');
+      if(l)l.onclick=function(){kept.set(k,'later');paint(e,k,token);};
+      b.onclick=function(){if(b.disabled)return;b.disabled=true;b.textContent=k.sending||k.doing;if(l)l.disabled=true;
         setTimeout(function(){if(token!==run)return;kept.set(k,'done');open.delete(k);showCount();paint(e,k,token);Edge.set('landed');},k.sendMs);};return;}
-    act.innerHTML='<div class="s-done"><span>'+esc(st==='undone'?'Deleted for everyone':k.sent||k.ok)+'</span>'+(st==='done'&&k.undo?'<button type="button">'+esc(k.undo)+'</button>':'')+'</div>';
+    if(st==='later'){act.innerHTML='<div class="s-done s-off"><span>Later · tomorrow morning</span><button type="button">Undo</button></div>';
+      act.querySelector('button').onclick=function(){kept.delete(k);paint(e,k,token);};return;}
+    act.innerHTML='<div class="s-done"><span>'+esc(st==='undone'?'Deleted for both of you':k.sent||k.ok)+'</span>'+(st==='done'&&k.undo?'<button type="button">'+esc(k.undo)+'</button>':'')+'</div>';
     var u=act.querySelector('button');if(u)u.onclick=function(){kept.set(k,'undone');paint(e,k,token);};}
   function cards(items,token){var row=document.createElement('div'),list=document.createElement('div');row.className='s-cards';list.className='s-row';row.appendChild(list);
     items.forEach(function(k){if(!kept.has(k))open.add(k);var w=document.createElement('div');w.innerHTML=cardHtml(k);var e=w.firstChild;list.appendChild(e);paint(e,k,token);});
@@ -43,7 +46,7 @@ window.Shell=(function(){
       list.addEventListener('scroll',at,{passive:true});at();}
     showCount();
     /* a mouse drag pages by one card: a mouse has no sideways scroll, and the designs are mostly viewed with one (touch and
-       trackpads scroll natively). Its pointerdown stays in the row, so variant A's reel never takes a card swipe as a shot's */
+       trackpads scroll natively). Its pointerdown stays in the row, so the reel never takes a card swipe as a shot's */
     var x0=null;
     list.addEventListener('pointerdown',function(e){e.stopPropagation();if(e.pointerType==='mouse')x0=e.clientX;});
     list.addEventListener('pointerup',function(e){if(x0===null)return;var dx=e.clientX-x0;x0=null;
@@ -94,7 +97,7 @@ window.Shell=(function(){
     lock.hidden=true;lock.querySelector('.lk-n').hidden=true;stage.innerHTML='';field.clear();field.live(false);Edge.set('rest');Edge.level(1);}
 
   function start(id){var s=scenes.find(function(x){return x.id===id;});if(!s)return Promise.resolve();
-    var token=++run;reset();Object.keys(buttons).forEach(function(k){buttons[k].setAttribute('aria-pressed',String(k===id));});
+    var token=++run;last=id;reset();Object.keys(buttons).forEach(function(k){buttons[k].setAttribute('aria-pressed',String(k===id));});
     return Promise.resolve().then(function(){return s.run(ctxFor(token));}).catch(function(e){if(e!==CANCEL)throw e;});}
 
   /* every scene in order; any other scene started meanwhile stops it */
@@ -106,7 +109,7 @@ window.Shell=(function(){
       sync:function(){snd.disabled=!input.value.trim();},
       clear:function(){input.value='';heard.textContent='';f.sync();},
       live:function(on){el.classList.toggle('live',on);mic.setAttribute('aria-pressed',String(on));}};
-    function ask(text,how){if(!text)return;f.clear();(opts.onAsk||function(t,h){start(h==='voice'?'voice-send':'type-send');})(text,how);}
+    function ask(text,how){if(!text)return;f.clear();opts.onAsk(text,how);}
     input.addEventListener('keydown',function(e){if(e.key==='Enter')ask(input.value.trim(),'typed');});
     input.addEventListener('input',f.sync);
     snd.addEventListener('click',function(){ask(input.value.trim(),'typed');});
@@ -124,7 +127,7 @@ window.Shell=(function(){
     phone.style.transform='scale('+k+')';box.style.width=390*k+'px';box.style.height=844*k+'px';}
 
   return {
-    mount:function(o){opts=o;scenes=o.scenes;if(window.self!==window.top)document.documentElement.classList.add('embedded');
+    mount:function(o){opts=o;scenes=o.scenes;/* only a comparison page hides the side panel (it brings its own pickers): it asks with #embed */if(/[#&]embed\b/.test(location.hash))document.documentElement.classList.add('embedded');
       document.title=o.title;
       document.body.innerHTML='<main class="shell"><div class="fit"><div class="ph">'+
         '<div class="sbar"><span>9:41</span><span>●●● ▮</span></div>'+
@@ -137,7 +140,7 @@ window.Shell=(function(){
       document.querySelector('.side h1').textContent=o.title;Edge.mount(phone);
       var side=document.querySelector('.side');scenes.forEach(function(s){var b=document.createElement('button');b.type='button';b.textContent=s.label;b.setAttribute('aria-pressed','false');b.onclick=function(){start(s.id);};buttons[s.id]=b;side.appendChild(b);});
       side.querySelector('.play').onclick=playAll;
-      addEventListener('message',function(e){if(e.data&&e.data.scene)start(e.data.scene);});
+      addEventListener('message',function(e){var d=e.data||{};if(d.vary&&opts.onVary){opts.onVary(d.vary);if(!d.scene)start(last);}if(d.scene)start(d.scene);});
       addEventListener('resize',fit);fit();
       var h=/scene=([\w-]+)/.exec(location.hash);start(h?h[1]:'idle');},
     run:start,

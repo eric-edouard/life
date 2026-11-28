@@ -157,9 +157,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one
   macOS grant is Automation, Life → Messages, asked at the first send): a card's
   draft, its exact text and the one file he approved (it leaves the Mac for the network, through its bridge), once, on
-  his answer to its outgoing option (his decision of 18 Nov 2026; AGENTS.md); a batch card's drafts, each into its own
-  chat, each exactly as shown and checked on its own, on his one answer (the owner's decision of 28 Nov 2026; refused
-  until his app shows every draft). Asking a
+  his answer to its outgoing option (his decision of 18 Nov 2026; .claude/rules/acts-and-sends.md); a batch card's
+  drafts, each into its own chat, each exactly as shown and checked on its own, on his one answer (the owner's decision
+  of 28 Nov 2026; refused until his app shows every draft). Asking a
   card for a new WhatsApp chat sends the number to WhatsApp, through its bridge, to ask whether it has an account.
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
