@@ -8,10 +8,10 @@ Status: ⏳ waiting · 🔄 in progress · 👀 in review · ✅ merged.
 | D. Distribution and bundling | #1572 | #1594 | – | R, A1 | ✅ |
 | R. Reach and push (re-cut on iroh) | #1573 | – | #1604 | A1 | 🔄 |
 | A1. The integration read | #1574 | #1613 | – | R | ✅ |
-| A2. Core with nothing of the owner's | #1575 | – | A1; R for voice files | G, T, M, I | 🔄 |
-| G. Connect Google | #1576 | – | A1 | A2, T, M, I | 🔄 |
-| H. History imports | #1583 | – | A1, A2; G for Gmail | G, T, M, I | ⏳ |
-| T. Trust | #1577 | – | A1 | A2, G, M, I | ⏳ |
+| A2. Core with nothing of the owner's | #1575 | #1633, #1639 | A1; R for voice files | G, T, M, I | ✅ |
+| G. Connect Google | #1576 | #1640 | A1 | A2, T, M, I | 🔄 review fixes |
+| H. History imports | #1583 | – | A1, A2; G for Gmail | G, T, M, I | 🔄 planning |
+| T. Trust | #1577 | #1637 | A1 | A2, G, M, I | ✅ |
 | M. Mac app | #1578 | – | A1, one-Mac-app bundle 4, onboarding design | A2, G, T, I | ⏳ |
 | I. iPhone onboarding, day one | #1579 | – | A1, voice rename B2/B3, onboarding design | A2, G, T, M | ⏳ |
 | D2. D's follow-up: uv on PATH, one tag table, signed and notarized release | #1596 | #1614 | D | R | ✅ |
@@ -20,10 +20,11 @@ Status: ⏳ waiting · 🔄 in progress · 👀 in review · ✅ merged.
 | I2. Getting to know you | #1580 | – | I, onboarding design | W | ⏳ |
 | W. Windows host | #1581 | – | A1, A2, G, onboarding design | I2 | ⏳ |
 
-Progress: 🟩🟩🟩⬜⬜⬜⬜⬜⬜⬜ 25% (3 of 12) — 🔄 R on iroh, A2, G · ⏳ T, H, M, I
+Progress: 🟩🟩🟩🟩⬜⬜⬜⬜⬜⬜ 42% (5 of 12) — 🔄 R on iroh, G, H · ⏳ M, I (designs), #1597, I2, W
 
 ## Log
 
+- 28 Nov: A2 (#1633), its backup offer (#1639: off unless picked) and T (#1637: the audit agent answered "safe") merged. G #1640 is in review fixes; Gmail is a full copy in archive/gmail.sqlite (owner's OK). Google project life-oauth-261128 with a Desktop client (1Password); the home and privacy pages are live; domain verification and Publish wait on an unlocked Mac. Leftovers: #1642 (Gmail), #1643 (backup password home).
 - 28 Nov: A1 merged (#1613) and D2 merged (#1614). A2 and G started; A1's verdict fixes go in their own PR.
 - 28 Nov: the Lander session lands every packaging PR. A1 #1613 "debt reduced"; D2 #1614 "no debt added", the notarized dry release passed spctl and stapler, and the Sparkle key is in 1Password (release.ts change noted on #1582). The relay was parked (#1604, #1610): R is re-cut on iroh, the Mac accepts only paired phones, and an ids-only push service `life-push` deploys on the owner's yes.
 - 28 Nov: Apple side set up: Developer ID certificate in its own keychain (password in 1Password), notary profile `life-notary`, Paid Apps agreement accepted (owner's yes), App Store Connect record "Life: Your Memory" on com.ericedouard.life ("Life" is taken). D2 started (#1596). A1 waits on #1561 (access card: conflicting, "debt added"); its session asked.
