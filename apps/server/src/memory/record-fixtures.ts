@@ -23,7 +23,7 @@ export const unit = (over: Partial<Unit> = {}): Unit => ({
   people: [],
   refs: ["conv-1#0-2"],
   schemaVersion: 1,
-  source: "lifelog",
+  source: "voice",
   start: "2026-10-09T10:00:00.000Z",
   stats: { chars: 10, fromMe: 0, items: 3 },
   title: "Shop repairs",

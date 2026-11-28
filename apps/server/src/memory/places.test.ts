@@ -16,7 +16,7 @@ test("places: a conversation's label names who spoke as the directory does, not 
   const before = readFileSync(file, "utf8");
   appendFileSync(
     file,
-    "  - id: test-bea\n    name: Test Bea\n    handles: { lifelog: 00000000-0000-8000-8000-0000000000b1 }\n"
+    "  - id: test-bea\n    name: Test Bea\n    handles: { voice: 00000000-0000-8000-8000-0000000000b1 }\n"
   );
   try {
     const open = () => {

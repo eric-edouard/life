@@ -85,7 +85,7 @@ if (import.meta.main) {
           fromMe: l.speaker === OWNER,
           id: l.ref,
           sender: l.speaker,
-          source: "lifelog",
+          source: "voice",
           text: l.text,
         }) as unknown as SourceEvent
     );

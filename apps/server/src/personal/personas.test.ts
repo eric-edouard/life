@@ -216,7 +216,7 @@ test("his recordings with someone: the voice units they spoke in, a chapter weig
       people,
       refs: [],
       schemaVersion: 1,
-      source: "lifelog",
+      source: "voice",
       start: "2026-11-01T12:00:00.000Z",
       stats: { chars: 0, fromMe: 2, items: 5 },
       title: "Lunch",

@@ -33,7 +33,7 @@ searchable within minutes; its episodes and facts come after the night's run.
 `settings set` replaces the whole `sources` list, so name every source you want on, the ones already on included:
 
 ```sh
-bun life settings set '{"lifelog":{"url":"https://lifelog.your-tailnet.ts.net"},"sources":["lifelog","imessage","mail","notes"]}'
+bun life settings set '{"lifelog":{"url":"https://lifelog.your-tailnet.ts.net"},"sources":["voice","imessage","mail","notes"]}'
 echo 'LIFELOG_TOKEN=<the token>' >> .env
 ```
 

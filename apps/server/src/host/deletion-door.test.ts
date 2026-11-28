@@ -122,7 +122,7 @@ const fact = (id: string, unitHash: string) => ({
   madeBy: { engine: ENGINE, model: "m", prompt: "p", run: "r", unitHash },
   quote: "the pier",
   schemaVersion: 1 as const,
-  source: { channel: "lifelog" as const, ref: TURN },
+  source: { channel: "voice" as const, ref: TURN },
   speaker: "person:me",
   subjects: [],
   text: "He meets someone at the pier at noon.",
@@ -158,7 +158,7 @@ afterAll(() => {
 test("a voice turn's words cut, then a message gone: gone from every read, the source's copy still there", async () => {
   const before = settings().sources;
   const server = fakeVoiceServer();
-  setSettings({ sources: ["lifelog", "whatsapp"] });
+  setSettings({ sources: ["voice", "whatsapp"] });
   try {
     recorded();
     // His data: the day's conversation-day, the persona, history and situation of the person it is with, and one fact
@@ -174,7 +174,7 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
           key: "c1",
           people: [KIT],
           refs: [TURN],
-          source: "lifelog",
+          source: "voice",
           start: AT,
           title: "Conversation at 11:00",
         }),
@@ -422,7 +422,7 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
 test("a chapter unit is never read again: a deletion names its turn, never its hash", async () => {
   const before = settings().sources;
   const server = fakeVoiceServer();
-  setSettings({ sources: ["lifelog"] });
+  setSettings({ sources: ["voice"] });
   try {
     recorded();
     // A chapter as the voice server stored it before conversation-days: its own summary, and a hash no read ever rebuilds.
@@ -438,7 +438,7 @@ test("a chapter unit is never read again: a deletion names its turn, never its h
           id: chapter,
           key: "c1",
           refs: [TURN],
-          source: "lifelog",
+          source: "voice",
           start: AT,
           summary: "A chapter about the pier.",
           title: "Chapter 1",

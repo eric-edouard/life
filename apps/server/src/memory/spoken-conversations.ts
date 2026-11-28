@@ -137,7 +137,7 @@ export async function spokenPartsOf(
               "c",
               conversationKeyOf({
                 key: conversation[0].conversation,
-                source: "lifelog",
+                source: "voice",
               }),
             ],
           ]

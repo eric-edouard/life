@@ -89,7 +89,7 @@ const fact = (id: string): Observation =>
     madeBy: { ...madeBy, unitHash: "h" },
     quote: "q",
     schemaVersion: 1,
-    source: { channel: "lifelog", ref: "j:0@x" },
+    source: { channel: "voice", ref: "j:0@x" },
     speaker: "person:me",
     subjects: [],
     text: "t",
