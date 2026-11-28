@@ -24,9 +24,16 @@ const SIGNING_KEYCHAIN = join(
   "Keychains",
   "life-signing.keychain-db"
 );
+// The Developer ID certificate the release keychain holds (its name is the owner's, so it is read, never written here).
 const identity =
   process.env.LIFE_SIGN_IDENTITY ??
-  "Developer ID Application: Eric Amilhat (FA22AU429R)";
+  (
+    await execOk([
+      ...["security", "find-identity", "-v", "-p", "codesigning"],
+      SIGNING_KEYCHAIN,
+    ])
+  ).match(/"(Developer ID Application: [^"]+)"/)?.[1] ??
+  "";
 const profile = process.env.LIFE_NOTARY_PROFILE ?? "life-notary";
 const version = process.env.LIFE_VERSION;
 const repo = process.env.LIFE_RELEASES_REPO;
