@@ -129,7 +129,7 @@ b{font-weight:650}
 .a-old b{display:block;font-size:var(--text-body);font-weight:600;line-height:1.35}.a-old small{display:block;color:var(--muted);font-size:var(--text-line)}
 .a-can{display:flex;flex-direction:column;gap:8px;margin-top:22px}
 .a-can button{height:48px;padding:0 18px;border-radius:24px;background:var(--tile);text-align:left;font-size:var(--text-body);font-weight:600}
-.a-hint{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:var(--text-meta);font-weight:600}
+.a-hint{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:var(--text-meta);font-weight:600}.a-hint button{color:inherit}
 .fix-hint .a-hi.up{top:44px}
 .fix-head .a-hi.up{top:-41px}.fix-head .a-hi.up h2{display:none}.fix-head .a-hi.up p{margin:0;color:var(--fg);font-size:15px;font-weight:650}
 .fix-head .a-home{top:0;bottom:auto}.fix-head.fix-hint .a-home{top:44px}.fix-head .a-home .a-k{font-size:var(--text-header);font-weight:650;color:var(--fg)}
@@ -151,10 +151,10 @@ var D=DATA,R=matchMedia('(prefers-reduced-motion: reduce)').matches,asked=null;
    them (postMessage({vary})), or #day=…&pager=… */
 var V={day:'rows',pager:'snap',fix:''};
 (location.hash.match(/(day|pager|fix)=[\w-]*/g)||[]).forEach(function(x){x=x.split('=');V[x[0]]=x[1];});
-/* the judge's fixes on (V.fix, names joined by "-"), each also a class fix-<name> on the page for its CSS */
-var FIXES=['lead','which','old','head','raw','fail','hint','stack'];
+/* the judge's fixes on (V.fix, names joined by "-"; the comparison page lists them), each also a class fix-<name> on
+   the page for its CSS */
 function on(k){return V.fix.split('-').indexOf(k)>=0;}
-function fixClasses(){FIXES.forEach(function(k){document.documentElement.classList.toggle('fix-'+k,on(k));});}
+function fixClasses(){var h=document.documentElement;h.className=h.className.replace(/\s*fix-\S+/g,'');V.fix.split('-').forEach(function(k){if(k)h.classList.add('fix-'+k);});}
 fixClasses();
 var SPRING='cubic-bezier(.2,1.15,.32,1)',SOFT='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
 function el(p,cls,html){var e=document.createElement('div');e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
@@ -275,10 +275,10 @@ function jadeShots(c){var a=D.asks.jade.answer,o=a.older;return [{top:true,html:
    first "Which Ben?" with their two faces, the draft once he picks (which) */
 function tellShots(c){var a=D.asks.tell.answer,card=on('lead')||on('which')?a.named:a.card,head=function(t){return '<h3 class="a-h">'+esc(t)+'</h3>';};
   if(!on('which'))return [{top:true,html:on('lead')?head(a.lead):'',init:withCards(c,[card])}];
-  return [{top:true,html:head(a.which)+'<div class="a-jfaces">'+a.bens.map(function(b){return '<button type="button"'+(b.pick?' data-pick':'')+'><span class="s-disc">'+b.f+'</span><b>'+esc(b.t)+'</b><small>'+esc(b.s)+'</small></button>';}).join('')+'</div>',
-    init:function(e){var f=e.querySelector('.a-jfaces');f.querySelectorAll('button').forEach(function(b){b.onclick=function(){if(f.classList.contains('picked'))return;
+  return [{top:true,html:head(a.which)+'<div class="a-jfaces">'+a.bens.map(function(b){return '<button type="button"><span class="s-disc">'+b.f+'</span><b>'+esc(b.t)+'</b><small>'+esc(b.s)+'</small></button>';}).join('')+'</div>',
+    init:function(e){var f=e.querySelector('.a-jfaces'),b=f.firstChild;b.onclick=function(){if(f.classList.contains('picked'))return; /* only the first Ben has a draft here */
       f.classList.add('picked');b.classList.add('on');if(on('lead'))e.firstChild.textContent=a.lead;
-      e.appendChild(c.cards([card]));};});}}];} /* the shot's own entrance animates the card in */
+      e.appendChild(c.cards([card]));};}}];} /* the shot's own entrance animates the card in */
 /* a read fails; the judge's fix: the useful line first, then what Life can still do, a tap putting it in the field */
 function failShots(c){var a=D.failure;if(!on('fail'))return oneShot(a.error.t,'. ','','a-h');var x=a.fixed;
   return [{top:true,html:'<h3 class="a-h">'+esc(x.lead)+'</h3><p class="a-big">'+esc(x.line)+'</p><div class="a-can">'+x.can.map(function(t){return '<button type="button">'+esc(t)+'</button>';}).join('')+'</div>',
@@ -292,7 +292,7 @@ async function ask(c,r,a){var mine=asked;asked=null;var text=mine?mine.text:a.as
 async function turn(c,a,shots){var r=root(c),t=await ask(c,r,a),s=await work(c,r,t,a);await land(c,r,t,s,shots);}
 /* the judge's fix: a hint at the top that earlier turns are there; a tap, a pull down or a wheel up opens them */
 function hint(r){var h=el(r,'a-hint','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>');
-  var b=document.createElement('button');b.type='button';b.textContent='Pull down for earlier turns';b.style.color='inherit';h.appendChild(b);
+  var b=document.createElement('button');b.type='button';b.textContent='Pull down for earlier turns';h.appendChild(b);
   function open(){Shell.run('history');}b.onclick=open;
   var y0=null;r.addEventListener('pointerdown',function(e){if(!e.target.closest('button,a,.s-cards'))y0=e.clientY;});
   r.addEventListener('pointerup',function(e){if(y0!==null&&e.clientY-y0>50)open();y0=null;});

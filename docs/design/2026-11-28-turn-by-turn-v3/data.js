@@ -20,6 +20,10 @@ window.DATA=(function(){
     draft:'Yes please, four at 8. See you Saturday!',send:'Send to Jade',sent:'Sent to Jade · 9:42'},1100);
   var bill=item({who:'€',t:'Pay the electricity bill',sub:'€84',when:'Fri',why:'The bill came by mail this morning.',act:'I paid it',doing:'Recording…',ok:'Recorded'},900);
   var bank=item({who:'B',t:'Call the bank',sub:'Confirm your new card',when:'this week',why:'The card came yesterday; they confirm it by phone only.',act:'Done',doing:'Recording…',ok:'Recorded'},900);
+  /* "Tell Ben…"'s draft, to the Ben named as given */
+  function ben(name){return item({t:'Tell '+name,to:name,app:'wa',edits:['Warmer','Shorter'],
+    chat:[{who:name,t:'I’ll be downstairs at 17:30 for the viewing',at:'8:50'}],
+    draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to '+name+' · 9:42'},1100);}
   var lease=item({who:'N',t:'Sign the lease renewal',sub:'Nest Homes',when:'Mon',why:'They need it back signed by Monday.',act:'Signed',doing:'Recording…',ok:'Recorded'},900);
   return {
     now:{day:'Wednesday 27 Nov',time:'9:41'},
@@ -44,15 +48,10 @@ window.DATA=(function(){
          never sent on his words alone */
       tell:{ask:'Tell Ben I’ll be 10 minutes late',how:'typed',first:3000,
         steps:[{t:'Looking up Ben',ms:1300},{t:'Reading Ben’s chat',ms:1500},{t:'Preparing an ask',ms:2400}],
-        answer:{card:item({t:'Tell Ben',to:'Ben',app:'wa',edits:['Warmer','Shorter'],
-          chat:[{who:'Ben',t:'I’ll be downstairs at 17:30 for the viewing',at:'8:50'}],
-          draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to Ben · 9:42'},1100),
+        answer:{card:ben('Ben'),
           /* the judge's fixes (index.html, "Judge's fixes"): a headline naming which Ben, and first the choice of two Bens */
           lead:'Here’s your message to Ben Carter.',which:'Which Ben?',
-          bens:[{t:'Ben Carter',f:'BC',s:'WhatsApp · the viewing',pick:1},{t:'Ben Okafor',f:'BO',s:'LINE · last week'}],
-          named:item({t:'Tell Ben Carter',to:'Ben Carter',app:'wa',edits:['Warmer','Shorter'],
-            chat:[{who:'Ben Carter',t:'I’ll be downstairs at 17:30 for the viewing',at:'8:50'}],
-            draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to Ben Carter · 9:42'},1100)}}},
+          bens:[{t:'Ben Carter',f:'BC',s:'WhatsApp · the viewing'},{t:'Ben Okafor',f:'BO',s:'LINE · last week'}],named:ben('Ben Carter')}}},
     /* while he is in the app, idle: an agent's card, delivered by the gate, comes into the thread from the inbox,
        quietly (no sound, no sheet), led by one line of why; `arriveMs` is when it shows in the scene */
     arrives:{arriveMs:3000,why:'Sam just texted that Café Dalon is closed today. Here’s your draft.',

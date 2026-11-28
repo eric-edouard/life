@@ -40,13 +40,14 @@ var PICKS={
   pager:[['snap','Snap'],['depth','Depth'],['peek','Peek']]},
   /* the scenes each topic shows in: a variation replays the current one if it is among them, else goes to the first */
   SHOWN={day:['answer-day','follow-up','history','working'],pager:['history']};
-/* a design judge's fixes: Before (none, the default: what he already saw), After (all but the last, which goes against
-   his ask of 28 Nov for cards swiped sideways), or each on its own; [name, label, the scenes it shows in] */
-var FIXES=[['lead','Headline first',['tell']],['which','Which Ben? first',['tell']],['old','Replaced draft kept',['answer-jade']],
-  ['head','Smaller home header',['home-waiting']],['raw','No raw labels',['answer-day','follow-up','history','working']],
-  ['fail','Failed read fills the screen',['failure']],['hint','Earlier turns hint',['idle','home-waiting']],
-  ['stack','Stack instead of swipe (judge)',['home-waiting','waiting-list']]],
-  AFTER=FIXES.slice(0,-1).map(function(f){return f[0];}).join('-');
+/* a design judge's fixes, the one list (turn.html reads only the names): Before (none, the default: what he already
+   saw), After (each marked so), or each on its own; [name, label, the scenes it shows in, in After] */
+var FIXES=[['lead','Headline first',['tell'],1],['which','Which Ben? first',['tell'],1],['old','Replaced draft kept',['answer-jade'],1],
+  ['head','Smaller home header',['home-waiting'],1],['raw','No raw labels',['answer-day','follow-up','history','working'],1],
+  ['fail','Failed read fills the screen',['failure'],1],['hint','Earlier turns hint',['idle','home-waiting'],1],
+  /* off in After: it goes against his ask of 28 Nov for cards swiped sideways */
+  ['stack','Stack instead of swipe (judge)',['home-waiting','waiting-list'],0]],
+  AFTER=FIXES.filter(function(f){return f[3];}).map(function(f){return f[0];}).join('-');
 var state={scene:'idle',day:'rows',pager:'snap',fix:''},frame=document.getElementById('frame');
 (location.hash.match(/(scene|day|pager|fix)=[\w-]*/g)||[]).forEach(function(x){x=x.split('=');state[x[0]]=x[1];});
 function fixes(){return state.fix?state.fix.split('-'):[];}
