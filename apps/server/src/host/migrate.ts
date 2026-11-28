@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { clock } from "../core/clock";
 import { linesOf, writeWhole } from "../core/files";
 import { take } from "../core/lock";
-import { logFileOf } from "../core/log";
+import { log, logFileOf } from "../core/log";
 import { LIFE_CODE_DIR, LIFE_STATE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { isAppState, isOwnLife } from "../core/platform";
 import { Settings, writeSettings } from "../core/settings";
@@ -200,27 +200,26 @@ const VOICE_RULES: [string, (r: Row) => Row][] = [
 /** One line of `file` (a name of `VOICE_RULES`) with its source names new; any other line comes back byte for byte. */
 function voiceSourceLineOf(file: string, line: string) {
   const rule = VOICE_RULES.find(([f]) => f === file)?.[1];
-  if (!(rule && line.includes(OLD_VOICE))) {
-    return line;
-  }
-  const row = JSON.parse(line) as Row;
-  const out = rule(row);
+  const row = rule && line.includes(OLD_VOICE) ? rowOf(line) : null;
+  const out = row && rule ? rule(row) : row;
   return out === row ? line : JSON.stringify(out);
+}
+
+/** A line's row; null for a line that does not parse (a torn last line), which then stays as it is. */
+function rowOf(line: string) {
+  try {
+    const row: unknown = JSON.parse(line);
+    return isRow(row) ? row : null;
+  } catch {
+    return null;
+  }
 }
 
 /** A logged line's `reads` (what a model call read, by source) with the voice source's count under its new name; a line that does not parse stays. */
 export function voiceLogLineOf(line: string) {
-  if (!line.includes(`"${OLD_VOICE}":`)) {
-    return line;
-  }
-  let row: Row;
-  try {
-    row = JSON.parse(line) as Row;
-  } catch {
-    return line;
-  }
-  const { reads } = row;
-  if (!(isRow(reads) && OLD_VOICE in reads)) {
+  const row = line.includes(`"${OLD_VOICE}":`) ? rowOf(line) : null;
+  const reads = row?.reads;
+  if (!(row && isRow(reads) && OLD_VOICE in reads)) {
     return line;
   }
   const { [OLD_VOICE]: n, ...rest } = reads;
@@ -317,5 +316,8 @@ export function migrateVoiceSource(
 export function migrateSettings(state = LIFE_STATE_DIR, dir = OWNER_DATA_DIR) {
   migrateSettingsFile(state);
   migrateCorrections(dir);
-  migrateVoiceSource(dir, state);
+  const counts = migrateVoiceSource(dir, state);
+  if (counts) {
+    log("run.end", { counts, step: `memory.migrate.${VOICE_STEP}` });
+  }
 }

@@ -32,7 +32,9 @@ import { listRow } from "./init";
 // words, through the connector's `change_directory_entry`, his card's tap (`addDirectoryEntryByHisWord`,
 // `addOrganizationPersonByHisWord`) or `bun life
 // change-directory-entry`: the one place code writes truth/ for him. It edits text, never reserializes a
-// file: a person, an organization or an area is one entry of its list (added at the end, or that one entry replaced), a project is its
+// file: a person, an organization or an area is one entry of its list (added at the end, or that one entry edited in
+// place: only its fields that change are set, through the `yaml` package's Document, so his comments and spacing stay;
+// Bun.YAML only parses and prints, with no document to edit), a project is its
 // own file (new, or its frontmatter lines that change; the notes below are never touched), a goal is one numbered line
 // of me.md, and what Life may keep is that one section. The result is checked by the same `integrity` as
 // `bun life validate` on a copy of truth/ first; if it fails, nothing is written. Left out on purpose: deleting

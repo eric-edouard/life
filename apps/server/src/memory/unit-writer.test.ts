@@ -1,9 +1,25 @@
 import { expect, spyOn, test } from "bun:test";
 import { existsSync, rmSync } from "node:fs";
+import { linesOf } from "../core/files";
+import { readSettings, setSettings } from "../core/settings";
+import { Published } from "../records/publication";
 import type { Unit } from "../records/unit";
-import { readUnits, UNITS } from "./memory-files";
+import {
+  conversation as feedConversation,
+  pageFixture,
+  voiceServer,
+} from "../sources/store-fixtures";
+import { apply, openStore, WATCH } from "../sources/voice-server";
+import { gather } from "./gather";
+import { PUBLICATIONS, readUnits, UNITS } from "./memory-files";
 import { showFiles } from "./message-files";
-import { diffUnits, publishTodayUnits, writeUnits } from "./unit-writer";
+import { loadTruth } from "./read-truth";
+import {
+  diffUnits,
+  publishTodayUnits,
+  publishUnits,
+  writeUnits,
+} from "./unit-writer";
 import { type Built, sourceUnitsOf } from "./units";
 
 /** The sources of the units in memory/units/, by day. */
@@ -142,5 +158,30 @@ test("today's tick after a file was described writes the unit once with it, then
   } finally {
     prepared.mockRestore();
     rmSync(UNITS, { force: true, recursive: true });
+  }
+});
+
+test("a gather with the voice source on counts it under its name, and its publication line parses", async () => {
+  const before = readSettings().sources;
+  const server = voiceServer({});
+  const store = openStore();
+  apply(store, pageFixture({ conversations: [feedConversation("conv-1")] }));
+  store.db.close();
+  try {
+    setSettings({ sources: ["voice"] });
+    const e = await gather(
+      { from: "2026-10-20", to: "2026-10-21" },
+      { resolve: () => null, truth: await loadTruth() }
+    );
+    expect(e.read).toEqual({ voice: 0 });
+    await publishUnits(e);
+    const line = JSON.parse(linesOf(PUBLICATIONS).at(-1) ?? "");
+    expect(Published.parse(line).sources).toEqual(["voice"]);
+  } finally {
+    server.close();
+    setSettings({ sources: before });
+    rmSync(PUBLICATIONS, { force: true });
+    rmSync(UNITS, { force: true, recursive: true });
+    rmSync(WATCH, { force: true, recursive: true });
   }
 });

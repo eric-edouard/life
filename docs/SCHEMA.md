@@ -726,6 +726,12 @@ pull request: `statements.jsonl`, `ratings.jsonl` and `told.jsonl` became `fact-
 `after.link` `after.deepLinkId`; a page's History `Earlier` and `bond` `between_us`; five prompts' names in each `madeBy`;
 the settings' keys and the log's `run.phase` as `run.entered`. "Memory: before the names' rename" and
 "Memory: stored names renamed (names-2026-11)" hold both sides.
+`voice-source-2026-12` (`apps/server/src/host/migrate.ts`): the voice source's name `lifelog` became `voice` in the
+typed fields that hold a source (a unit's `source`, an observation's `source.channel`, a fact check's `source`, a
+publication's `sources`) and as the `<source>|` prefix of the message keys (read replies' and appointment events'
+`messages`, a correction's `inConversation`), plus the settings' `sources` and the past days' logged `reads`; never in
+text, nor the project `lifelog`; a voice unit's id keeps its recipe. "Memory: before the voice source's rename" and
+"Memory: the voice source renamed (voice-source-2026-12)" hold both sides.
 
 ## The search index (not in memory/)
 

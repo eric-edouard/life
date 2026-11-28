@@ -1,6 +1,6 @@
 import { clock, daysBefore } from "../core/clock";
 import { log } from "../core/log";
-import type { Engine } from "../core/names";
+import type { Engine, SourceName } from "../core/names";
 import { ownerIn } from "../records/truth";
 import type { Unit } from "../records/unit";
 import { repoMap } from "../sources/git";
@@ -133,6 +133,14 @@ export async function gather(
   ]
     .filter((b) => b.unit.date >= window.from && b.unit.date <= window.to)
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
+  // By source, what this gather read (a source it did not read has no key: its units stay as they were).
+  const counts: Partial<Record<SourceName, number>> = {};
+  if (voiceSource) {
+    counts[voiceSource.name] = voiceConversations.length;
+  }
+  for (const { events, s } of shown) {
+    counts[s.name] = events.length;
+  }
   return {
     built,
     conversations: voiceConversations,
@@ -144,15 +152,7 @@ export async function gather(
     /** `files.jsonl` as the lines above were shown with it: the arrival reader's one snapshot of what waits for a file. */
     fileLines: known,
     files,
-    // By source, what this gather read (a source it did not read has no key: its units stay as they were).
-    read: {
-      ...(sources.some((s) => s.kind === "voice") && {
-        lifelog: voiceConversations.length,
-      }),
-      ...Object.fromEntries(
-        shown.map(({ events, s }) => [s.name, events.length])
-      ),
-    },
+    read: counts,
     repos,
     /** Sources he turned on that can't be read now: their units stay as they were. */
     skipped: (options.voice === false

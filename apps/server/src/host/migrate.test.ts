@@ -105,6 +105,7 @@ const VOICE_FILES = {
   "corrections.jsonl": [
     '{"inConversation":"lifelog|call-bloom","kind":"this-is","nameOrHandle":"David","note":"lifelog said so"}',
     '{"inConversation":"whatsapp|chat-1","kind":"this-is","nameOrHandle":"Ana"}',
+    '{"inConversation":"lifelog|torn',
   ],
   "fact-checks.jsonl": [
     '{"source":"lifelog","text":"Ana said lifelog works"}',
@@ -161,7 +162,7 @@ test("the voice source step renames typed fields only, line for line: text, proj
   }
   const rows = (file: string) =>
     read(file)
-      .filter(Boolean)
+      .filter((l) => l.endsWith("}"))
       .map((l) => JSON.parse(l));
   expect(
     rows("units/2026-10-09.jsonl").map((u) => [u.source, u.key, u.title])
@@ -193,6 +194,10 @@ test("the voice source step renames typed fields only, line for line: text, proj
     "voice|job1:2@2026-11-01T08:00:00.000Z",
     "whatsapp|m1",
   ]);
+  // A torn last line stays as it is.
+  expect(read("corrections.jsonl").at(-2)).toBe(
+    '{"inConversation":"lifelog|torn'
+  );
   expect(rows("corrections.jsonl").map((c) => c.inConversation)).toEqual([
     "voice|call-bloom",
     "whatsapp|chat-1",
