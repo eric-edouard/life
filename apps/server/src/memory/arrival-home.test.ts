@@ -2,7 +2,7 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { clock, HOUR, iso } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelog from "../sources/voice-server";
+import * as voiceServer from "../sources/voice-server";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as voiceServerCall from "../sources/voice-server-call";
 import { isHomeLaterOf, recordArrivalHome } from "./arrival-home";
@@ -36,8 +36,8 @@ test("a Later that waits for home ends when read once he arrived home, not elsew
   const start = clock();
   const later = (h: number) => new Date(start.getTime() + h * HOUR);
   spyOn(voiceServerCall, "voiceServerMissing").mockReturnValue(undefined);
-  spyOn(lifelog, "whereAt").mockResolvedValue([stay(home, iso(0))]);
-  const seen = spyOn(lifelog, "visits");
+  spyOn(voiceServer, "whereAt").mockResolvedValue([stay(home, iso(0))]);
+  const seen = spyOn(voiceServer, "visits");
   await recordCorrection({
     home: true,
     kind: "deferred",

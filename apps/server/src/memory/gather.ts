@@ -92,7 +92,7 @@ export async function gather(
   // The voice units the watcher writes, composed the same way (`voiceUnits`).
   let chapters: Unit[] = [];
   let voice: Built[] = [];
-  const lifelog = sources.some((s) => s.kind === "voice")
+  const voiceConversations = sources.some((s) => s.kind === "voice")
     ? await safely(
         "lifelog",
         () =>
@@ -134,7 +134,7 @@ export async function gather(
     .toSorted((a, b) => a.unit.start.localeCompare(b.unit.start));
   return {
     built,
-    conversations: lifelog,
+    conversations: voiceConversations,
     engine: options.engine,
     events: shown.flatMap(({ events }) => events),
     failed,
@@ -146,7 +146,7 @@ export async function gather(
     // By source, what this gather read (a source it did not read has no key: its units stay as they were).
     read: {
       ...(sources.some((s) => s.kind === "voice") && {
-        lifelog: lifelog.length,
+        lifelog: voiceConversations.length,
       }),
       ...Object.fromEntries(
         shown.map(({ events, s }) => [s.name, events.length])

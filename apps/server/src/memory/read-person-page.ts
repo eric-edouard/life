@@ -257,7 +257,7 @@ export async function person(
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
   const mapped = truth.people.find((p) => p.id === id);
-  const lifelog = mapped?.handles.lifelog;
+  const voicePersonId = mapped?.handles.lifelog;
   const episodes = await readEpisodesWith(ref, refOf);
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;
@@ -302,7 +302,7 @@ export async function person(
         store,
         ref,
         episodes,
-        lifelog ? [lifelog] : heard.map((s) => s.id),
+        voicePersonId ? [voicePersonId] : heard.map((s) => s.id),
         voiceNames(truth)
       );
       const page = () => pageBlock(db, found?.text ?? null, "in the evidence");

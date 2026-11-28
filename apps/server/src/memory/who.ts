@@ -369,13 +369,13 @@ export function voiceSuggestionOf(
       .map((g) => people.refOf(g))
       .filter((r) => people.names.has(r))
   );
-  const lifelog = voicePersonOf(
+  const voicePerson = voicePersonOf(
     people.resolve,
     item.personId,
     item.names?.[item.personId ?? ""] ?? item.name
   );
   const [one] = guessed;
-  return guessed.size === 1 && (lifelog === null || lifelog === one)
+  return guessed.size === 1 && (voicePerson === null || voicePerson === one)
     ? (one as string)
     : null;
 }

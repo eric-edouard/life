@@ -707,16 +707,18 @@ test("someone else, named as a person lifelog knows by an id the card does not l
 test("a voice named him is assigned to lifelog's owner, and refused before lifelog has heard him", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
   const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
-  const lifelog = await import("../sources/voice-speakers");
-  const queue = spyOn(lifelog, "readNamingQueueNow").mockResolvedValue([item]);
-  const owner = spyOn(lifelog, "readOwnerVoiceId").mockResolvedValue(
+  const voiceSpeakers = await import("../sources/voice-speakers");
+  const queue = spyOn(voiceSpeakers, "readNamingQueueNow").mockResolvedValue([
+    item,
+  ]);
+  const owner = spyOn(voiceSpeakers, "readOwnerVoiceId").mockResolvedValue(
     "owner-id"
   );
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: () => "Test Owner",
     ...whoOf(resolve),
   } as never);
-  const send = spyOn(lifelog, "answerNamingQueue").mockResolvedValue({
+  const send = spyOn(voiceSpeakers, "answerNamingQueue").mockResolvedValue({
     personId: "owner-id",
   });
   try {

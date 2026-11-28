@@ -80,7 +80,7 @@ const TIMED = [
   [5500, 6500, 5],
 ];
 
-const lifelog = () =>
+const fakeVoiceServer = () =>
   voiceServer({
     [`/transcription-jobs/${JOB}/transcript`]: () => ({
       turns: [said(WORDS), said("Bring the drawings.")],
@@ -157,7 +157,7 @@ afterAll(() => {
 
 test("a voice turn's words cut, then a message gone: gone from every read, the source's copy still there", async () => {
   const before = settings().sources;
-  const server = lifelog();
+  const server = fakeVoiceServer();
   setSettings({ sources: ["lifelog", "whatsapp"] });
   try {
     recorded();
@@ -421,7 +421,7 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
 
 test("a chapter unit is never read again: a deletion names its turn, never its hash", async () => {
   const before = settings().sources;
-  const server = lifelog();
+  const server = fakeVoiceServer();
   setSettings({ sources: ["lifelog"] });
   try {
     recorded();
