@@ -28,6 +28,9 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 - **Organization** (`truth/organizations.yaml`, optional): `id`, `name`, `aliases`, `relation`, `handles` (as a
   person's), `domains` (host names: an address in `handles.email` is it, another at a domain stays a person), `people`
   (`[{ id, role, until? }]`, `until` a year or a `YYYY-MM-DD` once they left; none: there now) and `projects`.
+- **Project** (`truth/projects/<id>.md`, frontmatter then his notes): `id`, `name`, `area`, `status` (`active`, `waiting`,
+  `parked`, `done`, `dropped`), `people`, `chats`, `repos`, `deadlines`, and `goal` on a one-off project only: his ask,
+  word for word (within the `said` that wrote it). `done`: its goal reached; `dropped`: not, the reason in its notes.
 - **Picture pick**: a person or an organization may carry `pictureFrom`, the source whose picture shows (`contacts`, a
   source's name, or `none`: no picture); unset, or a source no longer showing one: the first they show. Only someone
   of his directory has a pick; his app's picture sheet writes it through `change_directory_entry`.
@@ -278,7 +281,8 @@ outside the lock, schemaVersion 3, by `kind`:
   (redacted; a mail's: the one message it replies to, its first body line, since Mail's thread key can mix threads; empty for a new chat or mail; cards asked
   before 21 Nov 2026 have none, which is true of them); `people`, how many people a group chat holds, him included, as its
   network keeps them (absent for a 1:1 chat, one its network can't count, and cards asked before 21 Nov 2026). A mail draft has no `chat`: `from`, `to`, `cc` and `subject` as given are what it sends. Life sends exactly
-  what is stored), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
+  what is stored), `drafts` (a batch, since 28 Nov 2026: 2 or more drafts, each as `draft` is stored, each into its own
+  chat; never with `draft`, which a one-draft card keeps; read together as `drafts` by `draftsOf`), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
   recommended one first; `outgoing: true` when it acts outside Life (sends, pays, books, deletes or changes something);
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
@@ -293,10 +297,11 @@ outside the lock, schemaVersion 3, by `kind`:
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
   key for one tap, kept on every repeat of it; lines before it have none). The first answer stands, unless its send
   ended `not sent:`.
-- `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone): `id`, `at`, and the
+- `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone; one per draft, a batch's
+  past the first with its `draftIndex`, its place in `drafts`, since 28 Nov 2026): `id`, `at`, and the
   `eventId` (the sent message's id: Life's own event id where it knows it, else the network's) once its network took it,
   or the `error` (which says whether it may have gone, or began `not sent:`: nothing went), and `canRetry: false` when the same draft
-  can never go (the file gone or changed, no chat, the channel off). A `not sent:` line voids the answer before it: the
+  can never go (the file gone or changed, no chat, the channel off). A `not sent:` line (on a batch, once every draft's line is in and all are `not sent:`) voids the answer before it: the
   decision is open again and the next answer is the first (`notSent` holds it, `voided` every answer one voided, each with its outcome, so a repeat of any of those taps by its `answerKey` finds its own); any other
   outcome belongs to the answer it follows. With no outcome 5 minutes after his answer, the send never ended (worked out
   when read). A lapse a late `not sent:` voided settles at that line's `at`.
@@ -459,7 +464,7 @@ Sections, in order:
 
 - **What I hold**: quoted read-only from `truth/` (the owner's; on the owner's own page all of `truth/me.md`, the owner's goals included),
   or for an inferred person what Life guesses; never generated. An area's hold quotes its underway projects in full (each
-  capped) and only counts the parked or done ones.
+  capped) and only counts the parked, done or dropped ones.
 - **Views, values and habits** (the owner's own page only): what the owner believes and values, their philosophy, the priorities they state,
   habits and tastes, `- <text> [obs_…]`, from what the owner said in their own words (the prompt's rule: `speaker` is not yet reliable
   enough for code to check it); never ages: a line leaves when it is done, replaced, or rewritten by the owner.
@@ -701,7 +706,7 @@ new units only, every stored id kept (conversation-days beside the stored chapte
 
 The renames of stored names Life has written into this data, one line each, append-only: `{schemaVersion: 1, name,
 at}`. `stored-names-2026-10-22` (`apps/server/src/host/migrate.ts`, since removed: see git history): the names of docs/glossary.md, written once by
-the app at its next start (AGENTS.md, "A rename backfills"); before it, the ledger was `actions.jsonl`, ids were `u_`,
+the app at its next start (.claude/rules/memory.md, "A rename or a new field backfills"); before it, the ledger was `actions.jsonl`, ids were `u_`,
 `act_` and `inf-`, the types `todo`, `waiting` and `person`, `importance` was `salience`, a ledger entry's `via` was
 `madeBy`, a statement's and a rating's `ref` was `claim`, a task update's `taken` was `claim`, `waiting-owner` was
 `waiting-eric`, and the agent's word was `atlas`. `observation-choice-2026-10-29` (the same file, since removed): the
@@ -743,7 +748,7 @@ episodes' day files (`readEpisodesWith`, `memory/person-episodes.ts`). Delete it
 `LIFE_STATE_DIR/desk/desk.sqlite` (WAL; backed up whole with Life's state) is the desk's one state, written only by the
 desk (`apps/server/src/desk/`: its helper, and `life desk report-line`; `desk-store.ts` holds its schema), read only
 through `host/desk-read.ts` (host's reads read-only): table `agent` (a registered agent: `agt_…`, its
-brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
+brief, runtime, folder (named at its start, else its matter's or project's repo on the Mac, from `repos:` in his directory, else its own `desk/agents/<agt_…>` under Life's state; a one-off project's agent's is its project work folder, `projects/<id>/` under Life's state), `project` (its subject when a project), `model` and `effort` (null: the desk's default for its
 runtime), current session and link, `status` `active`, `stopped`, `handed_over` (a stopped agent whose project or matter an agent was started on after: `ended_at` set, `outcome` "replaced by <id>"), or `ended`; `stopped_at` (when he stopped it; null unless stopped), `name` (his name for it; null until set), `role` (`personal`, `caretaker` or `main`: code's list, `AgentRole`, the store checks none; one active or stopped at most of each; null for every other agent; the Personal flag `is_personal` until `stepRoles`), its end (`ended_at`, `outcome`: its last assignment's)), `assignment` (one subject given to an agent, `asg_…`:
 `agent_id`, `opened_at`, `opened_by` (`owner` or `desk`, the hand-out), `said` (his words, when he gave it), its agent
 wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store refuses an open assignment with no
@@ -753,7 +758,7 @@ wait (`wait_events`, `wait_until`, `wait_reason`, `wait_is_default`; the store r
 matters; null on rows before `stepMatterIds` and for an agent's own);
 its cards are `card`'s), `session` (every session it had, with its link, `context_at_first_call`, the context its first turn's usage reported, and `rules_digest`; append-only), `event` (an assignment's
 queued events, one row per assignment and event id, an event id queued once per agent (`queue`), `name` `message.received`, `decision.answered`, `decision.lapsed`, `decision.withdrawn`, `draft.contested` (`{id, asker, channel, chat, held, until}`, event id `<card>.draft.contested`) and `draft.kept` (`{id, held}`), `complaint.received` (his complaint for the caretaker, its ask's id as `event_id` and `{ask}` as payload: the complaint's receipt), `ask.spoken` (his spoken ask for one agent, its ask's id as `event_id`, `{ask, ref, conversation, at, until, confidence, by}` as payload: the ask's receipt) or `matter.related` (the wide net: a message's id, or a recording's `<unit id>@<its last line's instant>`), its facts as `payload`, `handed`, `consumed_at`, `dropped_at`), `turn` (each agent turn, on one assignment: its
-cause, its end, its outcome (`cut` when the desk helper was stopped under it, closed at its next start, its wake owed again), its tokens, `context_used`: the context at its last usage update, `model`: what it ran on as `<runtime>:<model>`, `default` for the runtime's own, snapshotted at its start; null before `stepTurnModel`; `cost_usd`: the dollars its provider billed for its models (pi on OpenRouter, summed over its runs), null on a plan's runtime or a run without its cost; `search_usd`: what its web searches cost (pi, summed over its runs, 0 with none), null on a plan's runtime, once a search came without its price, or before `stepTurnSearchCost`), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written in one transaction with the card's line, `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `main_question` (the main session's question to an assignment while answerable: its words, the thread entry it was asked from, when its agent read it; the main session's wait for its reply is the helper's memory only, so a reply after a restart follows his ask as a late one), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `agent_change` (each of his asks
+cause, its end, its outcome (`cut` when the desk helper was stopped under it, closed at its next start, its wake owed again), its tokens, `context_used`: the context at its last usage update, `model`: what it ran on as `<runtime>:<model>`, `default` for the runtime's own, snapshotted at its start; null before `stepTurnModel`; `cost_usd`: the dollars its provider billed for its models (pi on OpenRouter, summed over its runs), null on a plan's runtime or a run without its cost; `search_usd`: what its web searches cost (pi, summed over its runs, 0 with none), null on a plan's runtime, once a search came without its price, or before `stepTurnSearchCost`), `anchor` (an assignment's matter steps, in order, and its cards' subjects; none for an agent's own), `card` (which assignment asked each card, `decision_id`, `assignment_id`: written in one transaction with the card's line, `assignmentOfCard`; with no row, the assignment the line names; a card asked before either is its asker's one assignment then), `main_question` (the main session's question to an assignment while answerable: its words, the thread entry it was asked from, when its agent read it; the main session's wait for its reply is the helper's memory only, so a reply after a restart follows his ask as a late one), `handed_step` (the matter steps an assignment was shown by a turn that ended unfailed, `keepHanded`: what its next record leaves out; emptied on a re-point), `project_handoff` (a one-off project's handoff, one per project made of an ask: `project` (the claim on its id: no other ask attaches to it), `ask` (the ask's id, or the main session's act's ref), `entry_id` (his thread entry), `notes` (the asking agent's, read live by the project's agent), `agent_id` (the agent its entry was handed to, set in one transaction with that `handed_work` row; null while it waits)), `agent_change` (each of his asks
 of the desk it applied: the agent it touched or why not, once), `report_line` (one per source per day, `posted_at`) and
 `cursor` (where the message, answer, ask and complaint reads stopped; `complaints`: a count of ledger lines; `spoken-asks`: JSON `{line, waiting}`, the ledger lines read and the spoken asks still waiting for a place), `move` (his
 move, decision 78, keyed by his ask: the agent it moves from or switches, the matter's `assignment_id` (none: a runtime

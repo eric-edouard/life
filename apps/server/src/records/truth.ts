@@ -146,18 +146,20 @@ export const Project = z
     deadlines: z
       .array(z.object({ date: isoDate, what: z.string() }).strict())
       .default([]),
+    // A one-off project's goal: his ask, word for word; it ends done (reached) or dropped (not). An ongoing project has none.
+    goal: z.string().min(1).optional(),
     id: slug,
     name: z.string(),
     people: z.array(slug).default([]),
     // Code repos: a folder name under ~/Work (its main worktree), or owner/name for one that is only on GitHub. The first is the project's main entry point.
     repos: z.array(z.string().min(1)).default([]),
     schemaVersion: z.literal(1),
-    status: z.enum(["active", "waiting", "parked", "done"]),
+    status: z.enum(["active", "waiting", "parked", "done", "dropped"]),
   })
   .strict();
 
 export type Project = z.infer<typeof Project>;
 
-/** A project he is still on (active, or waiting on someone); a parked or done one is not. */
+/** A project he is still on (active, or waiting on someone); a parked, done or dropped one is not. */
 export const isUnderway = (p: Project) =>
   p.status === "active" || p.status === "waiting";

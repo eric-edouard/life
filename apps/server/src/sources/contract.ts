@@ -59,7 +59,7 @@ export interface ChatTakes {
   reply: boolean;
 }
 
-/** How one source sends a card's draft (AGENTS.md, "Life sends only…"): asked when the card is, run on his answer. */
+/** How one source sends a card's draft (.claude/rules/acts-and-sends.md, "Life sends only…"): asked when the card is, run on his answer. */
 export interface SendPath {
   /** Why it can't send now (a bridge not added, not linked, not answering); none when it can. */
   block: () => Promise<string | undefined>;

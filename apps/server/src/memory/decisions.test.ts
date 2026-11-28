@@ -145,7 +145,7 @@ test("a request is one card: one-line title and question, a draft only with its 
     readChat
   );
   // His card names the chat Life resolved; the stored chat is what is sent to.
-  expect(decisionsNow(NOW)[0]?.draft).toEqual({
+  expect(decisionsNow(NOW)[0]?.drafts[0]).toEqual({
     channel: "whatsapp",
     chat: "155@s.whatsapp.net",
     text: draft.text,
@@ -206,7 +206,7 @@ test("his answer to a draft's outgoing option alone sends its exact text once, i
     })
   ).rejects.toThrow("answered");
   expect(sent).toHaveLength(1);
-  expect(decisionsNow(later(HOUR))[0]?.send).toMatchObject({
+  expect(decisionsNow(later(HOUR))[0]?.sends[0]).toMatchObject({
     eventId: "$event1",
   });
 });
@@ -252,7 +252,9 @@ test("nothing is sent for another option, his words added, the command line, a l
     now: NOW,
     via: "connector",
   });
-  expect(decisionsNow(later(DAY)).filter((d) => d.send)).toEqual([]);
+  expect(decisionsNow(later(DAY)).filter((d) => d.sends.length > 0)).toEqual(
+    []
+  );
 });
 
 test("a failed send is recorded, never retried; the asker hears of an answer that sends only once its outcome is in", async () => {
@@ -273,7 +275,7 @@ test("a failed send is recorded, never retried; the asker hears of an answer tha
   release("$event2");
   await pending;
   expect(settledBetween(decisionsNow(), NOW, later(DAY))).toMatchObject([
-    { id, send: { eventId: "$event2" } },
+    { id, sends: [{ eventId: "$event2" }] },
   ]);
   const failed = await draftCard();
   await answerDecision(failed.id, ["send"], undefined, {
@@ -281,7 +283,9 @@ test("a failed send is recorded, never retried; the asker hears of an answer tha
     now: answered,
     via: "connector",
   });
-  expect(decisionsNow().find((d) => d.id === failed.id)?.send).toMatchObject({
+  expect(
+    decisionsNow().find((d) => d.id === failed.id)?.sends[0]
+  ).toMatchObject({
     error: "may have gone: no answer",
     kind: "send-failed",
   });
@@ -309,7 +313,7 @@ test("a not-sent outcome voids its answer: the card is open again, only his next
     voided: [{ answer: { answerKey: "tap-1" } }],
   });
   expect(open?.answer).toBeUndefined();
-  expect(open?.send).toBeUndefined();
+  expect(open?.sends[0]).toBeUndefined();
   // Nothing settled for its asker yet.
   expect(
     settledBetween(decisionsNow(later(2 * HOUR)), NOW, later(DAY))
@@ -335,7 +339,7 @@ test("a not-sent outcome voids its answer: the card is open again, only his next
   ]);
   expect(sent).toHaveLength(1);
   expect(decisionsNow(later(2 * HOUR))[0]).toMatchObject({
-    send: { eventId: "$ev9" },
+    sends: [{ eventId: "$ev9" }],
     state: "answered",
   });
   // The send's own words: since his last attempt that went nowhere.
@@ -442,11 +446,11 @@ test("a send that never ended (a crash) is told as such a minute past its path's
     DECISIONS,
     `${JSON.stringify({ at: later(HOUR).toISOString(), id, kind: "answered", options: ["send"], schemaVersion: 3, via: "connector" })}\n`
   );
-  expect(decisionsNow(later(HOUR + 5 * MIN))[0]?.send).toBeUndefined();
-  expect(decisionsNow(later(HOUR + 6 * MIN - 1))[0]?.send).toBeUndefined();
+  expect(decisionsNow(later(HOUR + 5 * MIN))[0]?.sends[0]).toBeUndefined();
+  expect(decisionsNow(later(HOUR + 6 * MIN - 1))[0]?.sends[0]).toBeUndefined();
   const [d] = decisionsNow(later(HOUR + 6 * MIN));
   limit.mockRestore();
-  expect(d?.send).toMatchObject({
+  expect(d?.sends[0]).toMatchObject({
     error: expect.stringContaining("never ended"),
   });
   expect(

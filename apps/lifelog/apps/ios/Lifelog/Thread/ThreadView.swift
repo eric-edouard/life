@@ -330,7 +330,7 @@ private struct EntryView: View {
         case .booking: .calendar
         case .lookup, .research: .pin
         case .reply, .redraft: .bubble
-        case .other, .unknown: .doc
+        case .other, .project, .unknown: .doc
         }
     }
 

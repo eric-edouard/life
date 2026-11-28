@@ -15,6 +15,7 @@ const DECISION = {
   at: "2026-11-18T09:00:00.000Z",
   context: "",
   deadline: "2026-11-30T09:00:00.000Z",
+  drafts: [],
   id: "dec_00000000000c",
   kind: "asked" as const,
   links: [],
@@ -22,6 +23,7 @@ const DECISION = {
   options: [{ id: "yes", label: "Yes" }],
   question: "Go ahead?",
   schemaVersion: 3 as const,
+  sends: [],
   state: "open" as const,
   title: "It is due.",
 };

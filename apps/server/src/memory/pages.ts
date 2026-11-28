@@ -133,7 +133,7 @@ export function areaHold(a: Area, projects: Truth["projects"]) {
       .join("\n\n")
   );
   if (rest > 0) {
-    each.push(`${rest} parked or done (truth/projects/).`);
+    each.push(`${rest} parked, done or dropped (truth/projects/).`);
   }
   const files = underway.map((p) => `truth/projects/${p.id}.md`).join(", ");
   return `${quote(each.join("\n\n"))}\n\n_From ${files || "truth/projects/"} (area ${a.name}): yours. Life never edits it._`;

@@ -35,7 +35,7 @@ import {
   SCHEMA,
 } from "./desk-store";
 
-// The desk's store steps (AGENTS.md, "A rename or a new field backfills"), each with its own check and its own dated
+// The desk's store steps (.claude/rules/memory.md, "A rename or a new field backfills"), each with its own check and its own dated
 // copy. `stepStore`, of the agents and matters plan (PR 1): an agent becomes an identity and a session, and its subject,
 // wait, notes and end become its one assignment; anchors, turns and events are keyed by it. `stepRoles`, of the
 // caretaker: the Personal agent's flag becomes a role (`personal`, `caretaker`). `stepTurnModel`, of model spending: a

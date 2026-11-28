@@ -36,3 +36,5 @@ Decided with the owner on 28 Nov 2026, from the research note (the asset).
 - **osxphotos** stays on its latest release and is updated after each macOS update.
 - **Public origin:** a page or live app is reached at the install's `hostedbyme.app` address (the private relay,
   `docs/plans/2026-11-27-private-relay.md`; the Mac serves it with its own certificate).
+
+Built: https://github.com/eric-edouard/life/pull/1588

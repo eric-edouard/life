@@ -1,0 +1,406 @@
+<!doctype html>
+<!-- Mini projects: a result to shape that he sees before it's done (a photo library cleanup, a bakery site, a party's
+     invites). The flow decided with the owner on 28 Nov 2026 (the Mini-Projects plan, .plan/mini-projects): ask, the
+     project appears with one quiet line, the access card, the questions card, the preview and its plan with Build it,
+     the work in batches (a yes for a delete, one card to send many), the done page; dropped, parked, over its cap,
+     waiting for room in the month. Drawn in App v4's thread (rows, an item unfolded in place, one cream answer and
+     quiet pills: the unfolding is this page's proposal) on the turn by turn shell (its phone, edge, field and top controls). Everything is made up.
+     Parts marked "new block" are proposals: App v4 has no such part yet. Also proposals, unmarked: the quiet line with its
+     pie, the versions switcher, the "Earlier version" state, the parked and dropped rows, "Waits for room" with its raise,
+     and the Undo on the done page. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mini projects</title>
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<link rel="stylesheet" href="../2026-11-28-turn-by-turn-v3/edge.css">
+<link rel="stylesheet" href="../2026-11-28-turn-by-turn-v3/shell.css">
+<style>
+@keyframes rise{from{opacity:0;transform:translateY(6px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stage>*{flex:none}
+.m-sp{margin-top:auto!important}
+.m-me{align-self:flex-end;max-width:300px;margin-top:14px;padding:9px 14px;border-radius:20px;background:var(--tint);font-weight:600;animation:rise .3s ease-out}
+.m-bt{margin-top:14px;font-size:15.5px;line-height:1.45;animation:rise .4s ease-out}
+.m-bt b{font-weight:650}
+.m-step{margin-top:14px;display:flex;align-items:center;gap:9px;color:var(--muted);animation:rise .3s ease-out}
+.m-step b{color:var(--fg);font-weight:600}
+.m-spin{width:14px;height:14px;border-radius:7px;border:1.8px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;flex:none}
+.m-line{align-self:center;margin-top:10px;font-size:13px;color:var(--muted);animation:rise .3s ease-out}
+/* a row (App v4's): who or what in a disc, the title, one line; an unfolded item: the same header larger, its body */
+.m-item{margin-top:12px;animation:rise .35s ease-out}
+.m-row{display:flex;align-items:center;gap:14px;cursor:pointer}
+.m-row .m-tx{flex:1;min-width:0}
+.m-row b{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}
+.m-row small,.m-hl{display:block;font-size:var(--text-line);color:var(--muted);line-height:1.35}
+.m-disc{width:44px;height:44px;border-radius:22px;background:var(--glass);display:flex;align-items:center;justify-content:center;font-weight:650;font-size:16px;flex:none}
+.m-disc svg{width:20px;height:20px}
+.is-earlier,.is-dropped,.is-parked{opacity:.45}.is-done .m-row,.is-dropped .m-row,.is-parked .m-row,.is-earlier .m-row{cursor:default}
+i.m-due{font-style:normal;color:var(--flag)}
+.m-ok{color:var(--ok);font-weight:600}
+.m-pie{width:13px;height:13px;vertical-align:-2px;margin-right:5px}
+.m-row small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-q{display:block;transition:opacity .25s,filter .25s}.m-q.out{opacity:0;filter:blur(4px)}
+.m-ip{position:relative;margin:14px -20px 4px;padding:10px 20px 14px;background:radial-gradient(farthest-side at 35% 40%,var(--wash),transparent)}
+.m-ip>*:not(.m-fold){animation:rise .38s ease-out both}
+.m-hero{display:flex;align-items:center;gap:14px;margin-bottom:12px;padding-right:40px}
+.m-hero .m-disc{width:48px;height:48px;border-radius:24px}
+.m-ht{font-size:var(--text-header);font-weight:650;line-height:1.2;letter-spacing:-.01em}
+.m-hl{margin-top:3px;font-size:14px}
+.m-fold{position:absolute;top:14px;right:16px;width:32px;height:32px;border-radius:16px;background:var(--tint);color:var(--muted);display:flex;align-items:center;justify-content:center}
+.m-why{margin:0 0 12px;font-size:14.5px;line-height:1.45;color:color-mix(in srgb,var(--fg) 74%,transparent)}
+.m-sec{margin:14px 0 6px;font-size:var(--text-heading);font-weight:600;color:var(--muted)}
+.m-box{position:relative;background:var(--tile);border-radius:var(--block-radius);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.m-kv{display:flex;justify-content:space-between;gap:12px;font-size:14.5px}
+.m-kv span{color:var(--muted);flex:none}.m-kv b{font-weight:600;text-align:right}
+.m-foot{margin-top:12px;font-size:13px;line-height:1.4;color:var(--muted)}
+.m-new{position:absolute;top:-8px;right:10px;padding:1px 7px;border-radius:8px;background:var(--bg);font-style:normal;font-size:10.5px;font-weight:650;color:var(--flag)}
+.m-goal{font-size:15px;line-height:1.45}
+.m-goal small{display:block;margin-top:2px;font-size:12.5px;color:var(--muted)}
+/* answers: one cream button saying what it does, quiet equal pills under it */
+.m-ans{display:flex;flex-direction:column;gap:8px;margin-top:16px}
+.m-prim{height:50px;border-radius:25px;background:var(--fg);color:var(--on);font-weight:650;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .25s,color .25s}
+.m-prim.busy{background:var(--tint);color:var(--fg)}
+.m-prim.okd{background:var(--ok);color:var(--on)}
+.m-two{display:flex;gap:8px}
+.m-pill{flex:1;height:44px;border-radius:22px;background:var(--tint);font-size:14.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px}
+.m-two.quiet{margin-top:14px}
+/* steps: numbered, each ticks itself when Life sees it done */
+.m-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:s}
+.m-steps li{display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.4;counter-increment:s;transition:color .4s}
+.m-steps li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:12px;background:var(--glass);font-size:12.5px;font-weight:650;display:flex;align-items:center;justify-content:center;transition:background .4s,color .4s}
+.m-steps li.ok{color:var(--muted)}
+.m-steps li.ok::before{content:'✓';background:var(--ok);color:var(--on)}
+.m-steps li.now::before{background:var(--fg);color:var(--on)}
+.m-steps li small{display:block;font-size:13px;color:var(--muted)}
+.m-tag{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:var(--tint);font-size:11.5px;font-weight:650;color:var(--muted);vertical-align:1px}
+.m-tag.need{color:var(--fg)}
+/* made-up photos: a sky, a sun and a horizon; a screenshot; a receipt */
+.m-pics{display:flex;gap:6px;flex-wrap:wrap}
+.m-pic{width:54px;height:54px;border-radius:10px;flex:none;position:relative;overflow:hidden;display:block}
+.m-pic.bl{filter:blur(2px) brightness(.7)}
+.m-pic.sm{width:40px;height:40px;border-radius:8px}
+.m-box .m-pill{flex:none}
+.m-grps{display:flex;flex-wrap:wrap;gap:10px 18px}.m-grps .m-pics{gap:4px}
+.m-pic.gone{opacity:.35}
+.m-pic.kept::after{content:'✓';position:absolute;right:3px;bottom:3px;width:16px;height:16px;border-radius:8px;background:var(--ok);color:var(--on);font-size:10px;font-weight:650;display:flex;align-items:center;justify-content:center}
+/* the questions: each its examples, then its answers as equal round pills; Life's pick in blue */
+.m-qn{padding:14px 0;display:flex;flex-direction:column;gap:9px}
+.m-qn+.m-qn{padding-top:4px}
+.m-qn>b{font-size:15.5px;font-weight:650}
+.m-qn>small{font-size:13px;color:var(--muted);margin-top:-6px}
+.m-vals{display:flex;gap:6px;flex-wrap:wrap}
+.m-val{height:36px;padding:0 14px;border-radius:18px;background:var(--tint);font-size:14px;font-weight:600;transition:background .2s,color .2s}
+.m-val[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+.m-val.other{color:var(--muted)}
+.m-pick{font-size:12px;font-weight:650;color:var(--ai)}
+.m-chk{display:flex;gap:12px;align-items:flex-start;width:100%;text-align:left;padding:12px 14px;border-radius:var(--block-radius);background:var(--tile);font-size:15px;line-height:1.4}
+.m-chk+.m-chk{margin-top:8px}
+.m-chk i{flex:none;width:20px;height:20px;border-radius:6px;background:var(--tint);margin-top:1px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:650;color:var(--on);transition:background .2s}
+.m-chk[aria-checked="true"] i{background:var(--fg)}
+.m-chk[aria-checked="true"] i::after{content:'✓'}
+.m-chk small{display:block;font-size:13px;color:var(--muted)}
+.m-chk em{font-style:normal;color:var(--ai);font-size:12px;font-weight:650}
+/* the preview's entry: what the page shows, a mark that it is a preview, and where it opens */
+.m-pv{display:flex;gap:14px;align-items:center;width:100%;text-align:left;padding:12px;border-radius:var(--block-radius);background:var(--tile);position:relative}
+.m-pv .m-mini{flex:none;width:92px;height:92px;border-radius:12px;background:var(--bg);padding:7px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;align-content:start}
+.m-pv .m-mini .m-pic{width:100%;height:22px;border-radius:4px}
+.m-pv .m-mini span{grid-column:1/4;font-size:8px;font-weight:650;color:var(--muted);line-height:1}
+.m-pv b{display:block;font-size:15.5px;font-weight:650}
+.m-pv small{display:block;font-size:13px;color:var(--muted);line-height:1.35}
+.m-pv .m-open{margin-top:6px;font-size:13.5px;font-weight:650}
+.m-vers{display:flex;gap:6px;margin-top:8px;align-items:center}
+.m-vers span{font-size:12.5px;color:var(--muted);margin-right:2px}
+.m-vers button{width:30px;height:30px;border-radius:15px;background:var(--tint);font-size:13px;font-weight:650}
+.m-vers button[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+/* before and after */
+.m-ba{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m-ba>div{background:var(--tile);border-radius:var(--block-radius);padding:12px;display:flex;flex-direction:column;gap:8px}
+.m-ba small{font-size:12px;color:var(--muted);font-weight:600}
+.m-ba b{font-size:15px;font-weight:650;line-height:1.3}
+.m-ba .m-pics{gap:3px}.m-ba .m-pic{width:calc((100% - 9px)/4);height:auto;aspect-ratio:1;border-radius:5px}
+.m-lk{align-self:flex-start;font-size:13.5px;font-weight:650;color:var(--fg);text-decoration:none;opacity:.85}
+/* sending many: each draft in its own chat, editable; the app's colours on the draft */
+.m-drafts{display:flex;flex-direction:column;gap:14px;max-height:330px;overflow-y:auto;scrollbar-width:none;margin:0 -4px;padding:2px 4px}
+.m-dr{display:flex;flex-direction:column;gap:6px}
+.m-dh{display:flex;align-items:center;gap:8px;font-size:13.5px}
+.m-dh .m-av{width:26px;height:26px;border-radius:13px;background:var(--glass);font-size:11.5px;font-weight:650;display:flex;align-items:center;justify-content:center}
+.m-dh b{font-weight:650}.m-dh span{color:var(--muted)}
+.m-dh .m-st{margin-left:auto;font-size:12px;font-weight:650;color:var(--ok);opacity:0;transition:opacity .3s}
+.m-dr.sent .m-st{opacity:1}
+.m-bub{align-self:flex-end;max-width:92%;padding:8px 12px;border-radius:16px;font-size:14.5px;line-height:1.4;outline:1.5px dashed var(--c);outline-offset:-1.5px;background:var(--b);transition:outline-color .6s,background .6s}
+.m-bub:focus{outline-style:solid}
+.m-dr.sent .m-bub{outline-color:transparent;background:var(--s)}
+.wa{--c:rgba(37,211,102,.55);--b:rgba(37,211,102,.08);--s:rgba(37,211,102,.18)}
+.im{--c:rgba(10,132,255,.6);--b:rgba(10,132,255,.1);--s:rgba(10,132,255,.24)}
+.m-hint{font-size:12px;color:var(--muted);text-align:right}
+</style>
+</head>
+<body>
+<script src="../2026-11-28-turn-by-turn-v3/edge.js"></script>
+<script src="../2026-11-28-turn-by-turn-v3/data.js"></script>
+<script src="../2026-11-23-chat-first/2026-11-26-design-lab/card-blocks.js" charset="utf-8"></script>
+<script>document.head.insertAdjacentHTML("beforeend","<style>"+CB.css.cards+"</style>");</script>
+<script src="../2026-11-28-turn-by-turn-v3/shell.js"></script>
+<script>
+DATA.waiting=[];
+var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+var I={
+  photos:'<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/>',
+  mac:'<rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 19h20"/>',
+  cake:'<path d="M4 20h16v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2Z"/><path d="M4 16c2 1.4 4 1.4 6 0s4-1.4 6 0 3 1 4 .4"/><path d="M12 12V8"/><path d="M12 6c-.9-.9-.9-2 0-3 .9 1 .9 2.1 0 3Z"/>',
+  party:'<path d="M12 3c3.3 0 6 2.6 6 6 0 3.9-3.4 7-6 7s-6-3.1-6-7c0-3.4 2.7-6 6-6Z"/><path d="m11 16-1 2h4l-1-2"/><path d="M12 18c0 2-2 2-2 4"/>',
+  notes:'<path d="M7 3h7l5 5v13H7Z"/><path d="M14 3v5h5"/><path d="M10 13h6M10 17h6"/>'};
+function icon(k){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+I[k]+'</svg>';}
+function pie(f){return '<svg class="m-pie" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-width="1.6"/><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="'+(f*39)+' 40" transform="rotate(-90 8 8)"/></svg>';}
+function newBlock(kind){return '<i class="m-new">new block · '+kind+'</i>';}
+/* made-up photos, drawn: never anyone's real pictures */
+var SKY=[['#86c5f0','#e3c48f'],['#f2ad5b','#a3345e'],['#6cd0c4','#126e66'],['#a7cf96','#3f6b35'],['#c59bf0','#33468f'],['#ee8fb1','#f2ad5b'],['#e3c48f','#7a5a24'],['#9aa8ec','#1f5f8b']];
+function pic(n,cls,kind){var s=SKY[n%SKY.length],bg;
+  if(kind==='shot')bg='repeating-linear-gradient(180deg,#2a2b31 0 4px,#1a1b1f 4px 9px)';
+  else if(kind==='doc')bg='repeating-linear-gradient(180deg,#e9e2d2 0 3px,#cfc7b5 3px 4px,#e9e2d2 4px 8px)';
+  else bg='radial-gradient(circle at '+(55+n*7%30)+'% 30%,rgba(255,248,234,.85) 0 9%,transparent 10%),linear-gradient(170deg,'+s[0]+','+s[1]+' 62%,rgba(0,0,0,.5) 63%)';
+  return '<i class="m-pic'+(cls?' '+cls:'')+'" style="background:'+bg+'"></i>';}
+/* a tickable idea; its state is o.on[i] (kept across repaints), a tap toggles it in place */
+function chk(o,i,t,small){var on=!o.on||o.on[i]!==false;return '<button type="button" class="m-chk" role="checkbox" data-chk="'+i+'" aria-checked="'+on+'"><i></i><span>'+t+'<small>'+small+'</small><em>Life’s idea</em></span></button>';}
+function wireChk(e){var o=e._o;e.querySelectorAll('[data-chk]').forEach(function(k){k.onclick=function(){var on=k.getAttribute('aria-checked')!=='true';(o.on=o.on||{})[+k.dataset.chk]=on;k.setAttribute('aria-checked',String(on));};});}
+function pics(list){return '<div class="m-pics">'+list.join('')+'</div>';}
+
+/* --- the made-up projects. Each: Life's short name, the goal in his words, verbatim --- */
+var P={
+  photos:{icon:'photos',name:'Photo library cleanup',goal:'Clean up my photo library, it’s a mess',asked:'You asked, Tue'},
+  bakery:{icon:'cake',name:'Bakery site for Lou',goal:'Make a simple website for Lou’s bakery, with the menu and the opening hours',asked:'You asked, Mon'},
+  party:{icon:'party',name:'Maya’s 8th birthday',goal:'Set up the invites for Maya’s birthday on the 14th, and tell me who’s coming',asked:'You asked, today'},
+  notes:{icon:'notes',name:'Notes into Notion',goal:'Move all my notes into Notion',asked:'You asked, Sun'}};
+
+/* --- the stage: the thread's pieces --- */
+var cur=null,lastCtx=null;
+function add(c,e){c.stage.appendChild(e);if(!c.cancelled())c.stage.scrollTo({top:c.stage.scrollHeight,behavior:reduce?'auto':'smooth'});return e;}
+function el(cls,html,tag){var e=document.createElement(tag||'div');e.className=cls;e.innerHTML=html;return e;}
+function begin(c,id){cur=id;c.field.input.placeholder='Ask Life or hold to talk';c.stage.appendChild(el('m-sp',''));count(c);}
+/* the count is what still needs him on the stage, worked out after every paint */
+function count(c){var n=c.stage.querySelectorAll('.is-needs').length,k=c.phone.querySelector('.s-count');k.textContent=n;k.setAttribute('aria-label',n+' waiting on you');k.style.visibility=n?'visible':'hidden';}
+function me(c,t){var e=el('m-me','');e.textContent=t;return add(c,e);}
+function say(c,html){return add(c,el('m-bt',html));}
+function line(c,t){return add(c,el('m-line',t));}
+async function asks(c,t){await c.type(c.field.input,t);await c.wait(300);c.field.clear();me(c,t);}
+/* Life works: one quiet step line, a verb and what it acts on, each replacing the last */
+async function works(c,steps){c.edge.set('work');var s=add(c,el('m-step','<span class="m-spin"></span><span>Thinking…</span>'));await c.wait(1400);
+  for(var i=0;i<steps.length;i++){s.lastChild.innerHTML=steps[i];await c.wait(1500);}s.remove();}
+function landed(c){c.edge.set('landed');}
+
+/* --- an item: a row, or unfolded in place. o = {icon|who, t, line, state, why, body, foot, act, doing, ok, pills, then}
+   state: needs, under, queued, done, dropped, parked, earlier. Answers only while it needs him. --- */
+function item(c,o){var e=el('m-item','');e._o=o;o.fresh=o.open;paint(c,e);return add(c,e);}
+function disc(o){return '<span class="m-disc">'+(o.icon?icon(o.icon):o.who)+'</span>';}
+function paint(c,e){var o=e._o;e.className='m-item is-'+o.state+(o.open&&o.fresh?' m-ip':'');o.fresh=false;
+  if(!o.open){e.innerHTML='<div class="m-row">'+disc(o)+'<span class="m-tx"><b>'+o.t+'</b><small class="m-l">'+o.line+'</small></span></div>';
+    e.firstChild.onclick=function(){if(/needs|under|queued/.test(o.state)&&o.body!==undefined){o.open=o.fresh=true;paint(c,e);}};count(c);return;}
+  var body=typeof o.body==='function'?o.body(o):(o.body||'');
+  e.innerHTML='<button type="button" class="m-fold" aria-label="Fold">⌃</button><div class="m-hero">'+disc(o)+'<div><div class="m-ht">'+o.t+'</div><div class="m-hl m-l">'+o.line+'</div></div></div>'+
+    (o.why?'<p class="m-why">'+o.why+'</p>':'')+body+(o.foot?'<div class="m-foot">'+o.foot+'</div>':'')+answers(o);
+  e.querySelector('.m-fold').onclick=function(){o.open=false;paint(c,e);};
+  if(o.wire)o.wire(e,c);
+  var p=e.querySelector('.m-prim');if(p)p.onclick=function(){act(c,e,p);};
+  e.querySelectorAll('[data-pill]').forEach(function(b){b.onclick=function(){var f=o.pills[+b.dataset.pill];if(f.then)f.then(c,e,b);else if(f.field){c.field.input.value=f.field;c.field.sync();c.field.input.focus();}
+      else{b.textContent='It stays here';b.disabled=true;}};});count(c);}
+function answers(o){if(o.state!=='needs'&&!o.quiet)return '';
+  var pills=(o.pills||[]).map(function(p,i){return '<button type="button" class="m-pill" data-pill="'+i+'">'+p.t+'</button>';}).join('');
+  if(o.state!=='needs')return pills?'<div class="m-two quiet">'+pills+'</div>':'';
+  return '<div class="m-ans">'+(o.act?'<button type="button" class="m-prim">'+o.act+'</button>':'')+(pills?'<div class="m-two">'+pills+'</div>':'')+'</div>';}
+/* every tap shows its result: doing, then done in green for a second, then the item's new state */
+async function act(c,e,p){var o=e._o;if(p.disabled)return;p.disabled=true;p.classList.add('busy');p.innerHTML='<span class="m-spin"></span>'+o.doing;
+  try{if(o.during)await o.during(c,e);else await c.wait(1300);p.classList.remove('busy');p.classList.add('okd');p.textContent='✓ '+o.ok;await c.wait(1000);
+    if(o.then)await o.then(c,e);}catch(x){if(!x||!x.cancelled)throw x;}}
+function settle(c,e,state,ln){var o=e._o;o.state=state;o.open=false;o.line=ln;paint(c,e);}
+/* the quiet line changes in place: the old blurs out, the new inks in */
+async function quiet(c,e,ln){var l=e.querySelector('.m-l');if(!l)return;l.classList.add('m-q','out');await c.wait(260);e._o.line=ln;l.innerHTML=ln;l.classList.remove('out');}
+
+/* --- the project, as a row and as its page --- */
+function projectRow(p,state,ln,extra){return Object.assign({icon:p.icon,t:p.name,state:state,line:ln},extra||{});}
+function goalHTML(p){return '<div class="m-goal">“'+p.goal+'”<small>'+p.asked+'</small></div>';}
+var PHOTO_PLAN=['Try it on one month first, and show you','Group near-duplicates and keep the sharpest','Move old screenshots and receipts into albums','Make an album for each trip','Put what goes in Recently Deleted, where it stays 30 days'];
+function planList(done,now){return '<ol class="m-steps">'+PHOTO_PLAN.map(function(s,i){return '<li class="'+(i<done?'ok':i===now?'now':'')+'"><span>'+s+'</span></li>';}).join('')+'</ol>';}
+function photosPage(){return projectRow(P.photos,'under',pie(.45)+'Sorting 2023 · about 2 h left',{open:true,quiet:true,
+  body:goalHTML(P.photos)+'<div class="m-sec">The plan</div><div class="m-box">'+newBlock('plan')+planList(1,1)+'</div>'+
+    '<div class="m-sec">So far</div><div class="m-box"><div class="m-kv"><span>Spent</span><b>1,80 € of 6 €</b></div><div class="m-kv"><span>Read</span><b>Your Photos library, iCloud settings</b></div></div>'+
+    '<div class="m-sec">Preview</div>'+previewEntry(2),
+  pills:[{t:'Park it',then:async function(c,e){settle(c,e,'parked','Parked · say “go on” when you want');}},
+         {t:'Drop it',then:async function(c,e){settle(c,e,'dropped','Dropped by you · what’s done stays');}}]});}
+
+/* --- the cards --- */
+function accessCard(){return {icon:'mac',t:'Let Life see your photos',line:'Photo library cleanup · <i class="m-due">today</i>',state:'needs',
+  why:'All on your Mac. Each ticks itself as soon as I see it done.',
+  body:'<div class="m-box">'+newBlock('access')+'<ol class="m-steps">'+
+    '<li><span>Allow Life to see your Photos<span class="m-tag need">needed</span><small>Your Mac shows the prompt: tap Allow</small></span></li>'+
+    '<li><span>Turn on Download Originals in iCloud Photos<span class="m-tag">helps</span><small>So I can spot blurry and duplicate shots</small></span></li>'+
+    '<li><span>Free 12 GB on your Mac<span class="m-tag">helps</span><small>Empty the Bin; I go slower without it</small></span></li></ol></div>'+
+    '<div class="m-foot">I look at your photos and their dates; what I look at goes to Life’s model. Nothing is shared or changed.</div>',
+  foot:'No rush: this waits here until you’re at your Mac.',
+  act:'I’m at my Mac',doing:'Opening on your Mac…',ok:'Opened',pills:[{t:'Later'}],
+  during:async function(c){await c.wait(1300);},
+  then:async function(c,e){var li=e.querySelectorAll('.m-steps li');e.querySelector('.m-ans').style.display='none';
+    await c.wait(1400);li[0].classList.add('ok');await c.wait(1800);li[1].classList.add('ok');await c.wait(2200);
+    settle(c,e,'done','<span class="m-ok">Done</span> · without the extra space');
+    say(c,'Your Photos are open to me. I’ll go on without the extra space: it takes a little longer, nothing else changes.');landed(c);}};}
+
+var Q=[
+  {q:'Bursts and near-duplicates',ex:[pic(0),pic(0,'bl'),pic(0)],vals:['Keep the sharpest','Keep them all'],pick:0},
+  {q:'Screenshots older than a year',ex:[pic(1,'','shot'),pic(2,'','shot'),pic(3,'','shot')],vals:['Move to an album','Delete','Keep'],pick:0},
+  {q:'Blurry and dark shots',ex:[pic(4,'bl'),pic(5,'bl'),pic(6,'bl')],vals:['Album to check','Delete','Keep'],pick:0},
+  {q:'Receipts and documents',ex:[pic(0,'','doc'),pic(1,'','doc')],vals:['Move to an album','Keep'],pick:0}];
+function questionsCard(){return {icon:'photos',t:'Choose how to tidy your photos',line:'Photo library cleanup · <i class="m-due">today</i>',state:'needs',
+  why:'These four change the result. I’ll decide the rest and show you in the preview.',
+  body:function(o){return '<div class="m-box" style="padding-top:2px;padding-bottom:4px">'+newBlock('questions')+Q.map(function(x,i){var at=x.at==null?x.pick:x.at;
+      return '<div class="m-qn"><b>'+x.q+'</b>'+pics(x.ex)+'<div class="m-vals">'+x.vals.map(function(v,j){return '<button type="button" class="m-val" data-q="'+i+'" data-v="'+j+'" aria-pressed="'+(j===at)+'">'+v+'</button>';}).join('')+
+        '<button type="button" class="m-val other" data-other="'+i+'">Other…</button></div>'+(at===x.pick?'<span class="m-pick">Life’s pick</span>':'')+'</div>';}).join('')+'</div>'+
+    '<div class="m-sec">I’d also</div>'+chk(o,0,'Make an album for each trip','Lisbon, Kyoto and Lyon, from where and when they were taken');},
+  wire:function(e,c){var o=e._o;e.querySelectorAll('[data-q]').forEach(function(b){b.onclick=function(){Q[+b.dataset.q].at=+b.dataset.v;paint(c,e);};});
+    e.querySelectorAll('[data-other]').forEach(function(b){b.onclick=function(){c.field.input.value=Q[+b.dataset.other].q+': ';c.field.sync();c.field.input.focus();};});
+    wireChk(e);},
+  foot:'No answer by tomorrow 10:00: I go with my picks and tell you.',
+  act:'Use these',doing:'Saving…',ok:'Saved',pills:[{t:'Later'}],
+  then:async function(c,e){settle(c,e,'done','<span class="m-ok">Done</span> · your choices · today');say(c,'Thanks. I’ll have a preview for you in about 20 minutes.');landed(c);}};}
+
+function previewEntry(v){var mini='<span>Lisbon</span>'+pic(0)+pic(1)+pic(5)+'<span>Kyoto</span>'+pic(4)+pic(7)+pic(2);
+  return '<button type="button" class="m-pv" data-open-preview>'+newBlock('preview entry')+'<span class="m-mini">'+mini+'</span><span><b>Your library, tidied</b><small>'+(v>1?'Trips by country, as you asked':'A preview: nothing of yours is touched')+'</small><span class="m-open">Open the preview ↗</span></span></button>';}
+function versions(v){var b='';for(var i=1;i<=v;i++)b+='<button type="button" aria-pressed="'+(i===v)+'">'+i+'</button>';return '<div class="m-vers"><span>Versions</span>'+b+'</div>';}
+function previewCard(v){return {icon:'photos',t:'Look at the preview, then build it',line:'Photo library cleanup · <i class="m-due">today</i>',state:'needs',
+  body:previewEntry(v)+(v>1?versions(v):'')+
+    '<div class="m-sec">The plan</div><div class="m-box">'+newBlock('plan')+planList(0,-1)+
+    '<div class="m-kv" style="margin-top:6px"><span>Time</span><b>About 3 hours, most of it tonight</b></div>'+
+    '<div class="m-kv"><span>Cost</span><b>About 4 € · I stop at 6 € and ask</b></div>'+
+    '<div class="m-kv"><span>This month</span><b>8 € left of your 50 €</b></div></div>',
+  foot:'Nothing of yours changes until you tap Build it. Each change you ask for makes a new version.',
+  act:'Build it',doing:'Starting…',ok:'Started',pills:[{t:'Later'},{t:'Change something',field:'Change the preview: '}],
+  wire:function(e){var b=e.querySelector('[data-open-preview]');b.onclick=function(){b.querySelector('.m-open').textContent='Opens the preview page (not designed here) ↗';};},
+  then:async function(c,e){live=null;settle(c,e,'under',pie(.05)+'Trying it on March 2024 · about 10 min');landed(c);}};}
+
+function batchYesCard(){return {icon:'photos',t:'Remove 1,212 near-duplicates',line:'Photo library cleanup · <i class="m-due">today</i>',state:'needs',
+  why:'Of each group of near-identical shots, I keep the sharpest. A few of them:',
+  body:'<div class="m-box">'+newBlock('batch')+
+    '<div class="m-grps">'+[0,5,3,7].map(function(g){return pics([pic(g,'sm kept'),pic(g,'sm gone bl'),pic(g,'sm gone')]);}).join('')+'</div>'+
+    '<div class="m-kv"><span>How many</span><b>1,212 photos · 3,1 GB</b></div>'+
+    '<div class="m-kv"><span>Undo</span><b>Recently Deleted keeps them 30 days</b></div>'+
+    '<div class="m-kv"><span>Restore point</span><b>A list to put each back</b></div></div>',
+  foot:'Until you answer, I go on with the rest and leave these where they are.',
+  act:'Remove 1,212',doing:'Moving…',ok:'Moved',pills:[{t:'Later'},{t:'Keep them',then:async function(c,e){settle(c,e,'done','Kept · nothing removed');}}],
+  then:async function(c,e){settle(c,e,'done','<span class="m-ok">Removed 1,212</span> · back from Recently Deleted until 28 Dec');landed(c);}};}
+
+var GUESTS=[['C','Claire','Léa’s mum','wa','Hi Claire! Maya turns 8 and would love Léa to come: Saturday 14 Dec, 15:00 to 18:00 at ours. Say yes or no here: maya8.hostedbyme.app/lea'],
+  ['T','Tom','Hugo’s dad','im','Hi Tom, Maya’s party is Saturday 14 Dec, 15:00 to 18:00, and she really hopes Hugo can make it. One tap to answer: maya8.hostedbyme.app/hugo'],
+  ['N','Nadia','Inès’s mum','wa','Hello Nadia! Inès is invited to Maya’s 8th, Saturday 14 Dec from 15:00 at ours. Answer here: maya8.hostedbyme.app/ines'],
+  ['P','Paul','Noa’s dad','wa','Hi Paul, Maya would love Noa at her birthday: Saturday 14 Dec, 15:00 to 18:00. maya8.hostedbyme.app/noa'],
+  ['S','Sofia','Jules’s mum','im','Hi Sofia! Jules is invited to Maya’s 8th on Saturday 14 Dec, 15:00 to 18:00 at ours. maya8.hostedbyme.app/jules'],
+  ['A','Amir','Zoé’s dad','wa','Hi Amir, Maya’s turning 8! Party Saturday 14 Dec, 15:00 to 18:00, Zoé very welcome: maya8.hostedbyme.app/zoe']];
+function batchSendCard(){return {icon:'party',t:'Send Maya’s invites',line:'Maya’s 8th birthday · <i class="m-due">tonight</i>',state:'needs',
+  why:'One per guest, in the chat you use with each parent. Tap any text to change it.',
+  body:function(o){return '<div class="m-box">'+newBlock('batch send')+'<div class="m-drafts">'+GUESTS.map(function(g,i){return '<div class="m-dr"><div class="m-dh"><span class="m-av">'+g[0]+'</span><b>'+g[1]+'</b><span>'+g[2]+' · '+(g[3]==='wa'?'WhatsApp':'Messages')+'</span><span class="m-st">Sent</span></div>'+
+    '<div class="m-bub '+g[3]+'" contenteditable="true" spellcheck="false" data-ed="'+i+'">'+((o.ed||{})[i]||g[4])+'</div></div>';}).join('')+'</div></div>';},
+  wire:function(e){var o=e._o;e.querySelectorAll('[data-ed]').forEach(function(b){b.oninput=function(){(o.ed=o.ed||{})[+b.dataset.ed]=b.textContent;};});},
+  foot:'Nothing goes until you tap. Each is sent on its own, only if nobody wrote in that chat since.',
+  act:'Send all 6',doing:'Sending…',ok:'Sent to all 6',pills:[{t:'Later'}],
+  during:async function(c,e){var d=e.querySelectorAll('.m-dr');for(var i=0;i<d.length;i++){d[i].querySelector('.m-bub').contentEditable='false';await c.wait(380);d[i].classList.add('sent');}await c.wait(300);},
+  then:async function(c,e){settle(c,e,'done','<span class="m-ok">Sent to all 6</span> · today');landed(c);}};}
+
+function overCapCard(){return {icon:'photos',t:'Keep going on the photo cleanup?',line:'Photo library cleanup · <i class="m-due">today</i>',state:'needs',
+  why:'Your videos took longer to sort than I planned. Finishing needs about 3 € more than the 6 € you set.',
+  body:'<div class="m-hl" style="font-size:13px">About 3 € more · 6 € so far · fits your monthly 50 €</div>',
+  foot:'Until you answer I’ve paused here. Everything done so far stays.',
+  act:'Raise to 9 €',doing:'Saving…',ok:'Raised',pills:[{t:'Later'},{t:'Stop here',then:async function(c,e){settle(c,e,'done','Stopped at 6 € · the rest is left as it was');}}],
+  then:async function(c,e){settle(c,e,'under',pie(.8)+'Sorting your videos · about 40 min left');landed(c);}};}
+
+function budgetWait(open,noGoal){return projectRow(P.party,'queued','Waits for room this month · starts 1 Dec',{open:open,quiet:true,
+  body:(noGoal?'':goalHTML(P.party))+'<p class="m-why" style="margin-top:12px">Your other projects use what’s left of this month’s 50 €. This one needs about 5 €, so it starts on 1 Dec, still in time for the 14th.</p>',
+  pills:[{t:'Raise to 55 €',then:async function(c,e){settle(c,e,'under',pie(0)+'Looking at Maya’s friends · about 30 min');landed(c);}}]});}
+
+function donePage(){return projectRow(P.photos,'done','<span class="m-ok">Done</span> · today',{open:true,
+  body:goalHTML(P.photos)+
+    '<div class="m-sec">Before and after</div><div class="m-ba" style="position:relative">'+newBlock('done page')+
+      '<div><small>Before</small><b>18,240 photos<br>96 GB</b>'+pics([pic(1),pic(1,'','shot'),pic(4,'bl'),pic(1),pic(0,'','doc'),pic(6),pic(6,'bl'),pic(2,'','shot')])+'</div>'+
+      '<div><small>After</small><b>17,028 photos<br>93 GB · 13 albums</b>'+pics([pic(1),pic(6),pic(0),pic(3),pic(5),pic(7),pic(2),pic(4)])+'</div></div>'+
+    '<div class="m-sec">What I did</div><ol class="m-steps"><li class="ok">Removed 1,212 near-duplicates, kept the sharpest</li><li class="ok">Moved 1,904 screenshots and 310 receipts into albums</li><li class="ok">Made an album for each of 11 trips</li></ol>'+
+    '<div class="m-sec">Where it is</div><div class="m-box"><span>In Photos, under Albums: Trips, Screenshots and Receipts</span><a class="m-lk" href="#" onclick="return false">Open Photos ↗</a></div>'+
+    '<div class="m-sec">Undo</div><div class="m-box"><span>Everything removed stays in Recently Deleted until 28 Dec.</span><button type="button" class="m-pill" data-undo>Put everything back</button></div>'+
+    '<div class="m-sec">Cost</div><div class="m-box"><div class="m-kv"><span>Spent</span><b>4,60 € of the 6 € you set</b></div></div>',
+  wire:function(e,c){var u=e.querySelector('[data-undo]');u.onclick=async function(){u.innerHTML='<span class="m-spin"></span>Undoing…';await c.wait(1500);u.textContent='Undone · all back in your library';u.disabled=true;};}});}
+function followUps(){return {icon:'photos',t:'Go on with your photos?',line:'Photo library cleanup · ideas',state:'needs',
+  body:function(o){return chk(o,0,'A best-of album for each year','About 1 € · ready tomorrow')+chk(o,1,'Tidy new photos on the 1st of each month','Under 1 € a month');},
+  wire:wireChk,
+  foot:'If you don’t answer, nothing starts.',act:'Start these',doing:'Starting…',ok:'Started',pills:[{t:'Not now'}],
+  then:async function(c,e){settle(c,e,'under',pie(0)+'Picking your best of 2024 · about 1 h');landed(c);}};}
+
+/* --- a feedback round on the preview: the version he sees folds to an earlier version, the next lands --- */
+var live=null;
+async function round(c,text){if(!live||c.cancelled())return;var old=live;me(c,text);await works(c,['Changing <b>the preview</b>','Making <b>version '+(old._v+1)+'</b>']);
+  settle(c,old,'earlier','Earlier version '+old._v);var v=old._v+1;say(c,'Here it is, with the trips grouped by country:');live=item(c,Object.assign(previewCard(v),{open:true}));live._v=v;landed(c);}
+
+Shell.mount({title:'Mini projects',
+  onAsk:function(text){if(cur==='preview'&&live)round(lastCtx,text);else Shell.run('ask');},
+  scenes:[
+  {id:'idle',label:'Idle',run:async function(c){begin(c,'idle');}},
+  {id:'ask',label:'1. You ask; the project appears',run:async function(c){begin(c,'ask');lastCtx=c;
+    await asks(c,'Clean up my photo library, it’s a mess');
+    await works(c,['Looking at <b>your photo library</b>']);
+    say(c,'That’s a bigger job. I’m on it, and I’ll come back within the hour if I need anything from you.');
+    var r=item(c,projectRow(P.photos,'under',pie(.1)+'Counting your photos · about 40 min'));landed(c);
+    await c.wait(3500);await quiet(c,r,pie(.3)+'Checking your iCloud · about 25 min');
+    await c.wait(3500);await quiet(c,r,pie(.5)+'Checking your Mac · about 15 min');}},
+  {id:'page',label:'2. The project, unfolded',run:async function(c){begin(c,'page');
+    me(c,'How’s the photo cleanup going?');await works(c,['Looking at <b>Photo library cleanup</b>']);
+    say(c,'It’s going well: March 2024 is done, and I’m on 2023.');item(c,photosPage());landed(c);}},
+  {id:'access',label:'3. Access: steps that tick themselves',run:async function(c){begin(c,'access');
+    item(c,projectRow(P.photos,'under',pie(.6)+'Checking your Mac · about 15 min'));await c.wait(900);
+    say(c,'To go further I need your help with a few things:');item(c,Object.assign(accessCard(),{open:true}));landed(c);}},
+  {id:'questions',label:'4. Questions about what you want',run:async function(c){Q.forEach(function(x){delete x.at;});begin(c,'questions');
+    say(c,'Your library holds 18,240 photos, many of them screenshots and bursts.');
+    item(c,Object.assign(questionsCard(),{open:true}));landed(c);}},
+  {id:'preview',label:'5. Preview and plan: Build it',run:async function(c){begin(c,'preview');lastCtx=c;
+    say(c,'Here’s how your library would look, and how I’d get there:');live=item(c,Object.assign(previewCard(1),{open:true}));live._v=1;landed(c);
+    c.field.input.placeholder='Say what to change';}},
+  {id:'preview-round',label:'5b. A change: version 2',run:async function(c){begin(c,'preview');lastCtx=c;
+    say(c,'Here’s how your library would look, and how I’d get there:');live=item(c,Object.assign(previewCard(1),{open:true}));live._v=1;landed(c);
+    await c.wait(1800);await c.type(c.field.input,'Group the trips by country instead');await c.wait(300);c.field.clear();await round(c,'Group the trips by country instead');}},
+  {id:'lapsed',label:'5c. No answer after a day',run:async function(c){begin(c,'preview');lastCtx=c;
+    item(c,{icon:'photos',t:'Choose how to tidy your photos',line:'Went with Life’s picks · Thu',state:'done'});
+    say(c,'You didn’t get to the choices yesterday, so I went with my picks. Here’s the preview; change anything by saying it.');
+    live=item(c,Object.assign(previewCard(1),{open:true}));live._v=1;landed(c);}},
+  {id:'working',label:'6. The work: a small part first',run:async function(c){begin(c,'working');
+    var r=item(c,projectRow(P.photos,'under',pie(.05)+'Trying it on March 2024 · about 10 min'));await c.wait(3000);
+    say(c,'March 2024 is done for real: 41 duplicates gone, 3 trip albums. Have a look in Photos; I’m going on with the rest.');landed(c);
+    await c.wait(1500);await quiet(c,r,pie(.25)+'Sorting 2023 · about 2 h left');await c.wait(3000);await quiet(c,r,pie(.45)+'Sorting 2022 · about 1 h 30 left');}},
+  {id:'batch-yes',label:'7. A batch that deletes: your yes',run:async function(c){begin(c,'batch-yes');
+    say(c,'The near-duplicates are ready to go:');item(c,Object.assign(batchYesCard(),{open:true}));landed(c);}},
+  {id:'batch-send',label:'8. Sending many: one card',run:async function(c){begin(c,'batch-send');
+    say(c,'The invites are written. Read them over:');item(c,Object.assign(batchSendCard(),{open:true}));landed(c);}},
+  {id:'over-cap',label:'9. Over its cap: asked again',run:async function(c){begin(c,'over-cap');
+    item(c,projectRow(P.photos,'under',pie(.8)+'Sorting your videos'));await c.wait(700);
+    say(c,'The photo cleanup needs your word:');item(c,Object.assign(overCapCard(),{open:true}));landed(c);}},
+  {id:'budget',label:'10. Waiting for room in the month',run:async function(c){begin(c,'budget');
+    await asks(c,'Set up the invites for Maya’s birthday on the 14th, and tell me who’s coming');
+    await works(c,['Looking at <b>this month’s spending</b>']);
+    say(c,'I’ll do it, from 1 Dec:');item(c,budgetWait(true,true));landed(c);}},
+  {id:'done',label:'11. Done: one push, the done page',run:async function(c){begin(c,'done');c.lock('18:20');c.edge.set('still');await c.wait(900);
+    var n=c.notify({title:'Your photo library is tidy',body:'17,028 photos in 13 albums, 3,1 GB freed. You can undo until 28 Dec.'});
+    await Promise.race([n,c.wait(4000)]);c.lock(false);c.edge.set('rest');
+    say(c,'Here’s what changed:');item(c,donePage());await c.wait(1200);
+    say(c,'While I was in there, two ideas:');item(c,Object.assign(followUps(),{open:true}));landed(c);}},
+  {id:'dropped',label:'12. Dropped and parked',run:async function(c){begin(c,'dropped');
+    me(c,'What happened with my notes and the bakery site?');await works(c,['Looking at <b>Notes into Notion</b>']);
+    say(c,'I stopped moving your notes into Notion: Notion only lets me in through a work account, and you said you don’t want one. Nothing of yours changed. The bakery site is parked, as you asked; say “go on” any time.');
+    item(c,projectRow(P.notes,'dropped','Dropped · Notion needs a work account'));
+    item(c,projectRow(P.bakery,'parked','Parked by you · Sat'));landed(c);}},
+  {id:'several',label:'13. Several projects at once',run:async function(c){begin(c,'several');
+    me(c,'What are you working on for me?');await works(c,['Looking at <b>your projects</b>']);
+    say(c,'Three projects. Lou’s bakery site needs your choices.');
+    item(c,projectRow(P.bakery,'needs','Needs your choices · <i class="m-due">today</i>'));
+    item(c,projectRow(P.photos,'under',pie(.45)+'Sorting 2023 · about 2 h left'));
+    item(c,budgetWait(false));landed(c);}},
+  {id:'waiting-list',label:'Waiting on you (the count)',run:async function(c){begin(c,'waiting-list');
+    me(c,'What’s waiting on me?');
+    say(c,'Three things for your projects:');
+    [accessCard(),questionsCard(),batchSendCard()].forEach(function(o){Q.forEach(function(x){delete x.at;});item(c,o);});landed(c);}}]});
+</script>
+</body>
+</html>

@@ -14,3 +14,5 @@ A project may send many messages (personal invites to twenty friends). Life send
 Decided with the owner on 28 Nov 2026. One batch card: every exact text shown, each editable, and one "Send all" tap
 sends each through the same send path, with all of its checks per message. This changes Life's send rules (one card,
 one draft, one chat today): a strict path, built in its own PR with the `AGENTS.md` invariant updated.
+
+Built: https://github.com/eric-edouard/life/pull/1568

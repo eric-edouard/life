@@ -9,6 +9,7 @@ import {
 } from "../records/communication-style";
 import type { SourceEvent } from "../records/source";
 import { directChats, pagedNow, type WithPeople } from "./closeness";
+import { sendOf } from "./decision-fold";
 import type { Decision } from "./decision-lines";
 import { decisionsNow } from "./decisions";
 import { communicationStylePath } from "./memory-files";
@@ -90,9 +91,11 @@ const draftKeyOf = (source: string, chat: string, text: string) =>
 export const sentDraftsOf = (list: Decision[]) =>
   new Set(
     list.flatMap((d) =>
-      d.send && d.draft?.chat && d.draft.channel && d.draft.text
-        ? [draftKeyOf(d.draft.channel, d.draft.chat, d.draft.text)]
-        : []
+      d.drafts.flatMap((x, i) =>
+        sendOf(d.sends, i) && x.chat && x.channel && x.text
+          ? [draftKeyOf(x.channel, x.chat, x.text)]
+          : []
+      )
     )
   );
 

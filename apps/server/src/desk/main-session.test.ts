@@ -467,7 +467,7 @@ test("on his words the main session acts through its door: each act's `said` mus
   const told = readLedger().find((a) => a.after.to === own);
   expect(told?.instruction?.quote).toBe("book the dentist");
   await receiveSpokenAsks(t.desk);
-  expect(readSpokenAsk(t.desk, { id: own }, told?.id ?? "")).toEqual({
+  expect(readSpokenAsk(t.desk, { id: own }, told?.id ?? "")).toMatchObject({
     at: told?.instruction?.at ?? "",
     words: "book the dentist",
   });

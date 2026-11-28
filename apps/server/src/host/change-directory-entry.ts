@@ -24,7 +24,7 @@ import {
 import { recordToldLife } from "../memory/told-life";
 import { PERSON } from "../memory/units";
 import { slug } from "../records/fields";
-import { OrganizationPerson, PictureFrom } from "../records/truth";
+import { OrganizationPerson, PictureFrom, Project } from "../records/truth";
 import { listRow } from "./init";
 
 // Changes his directory (docs/glossary.md: his people, organizations, projects, areas and goals, in truth/) by his own
@@ -44,6 +44,8 @@ export const DirectoryEntryChange = z.object({
   aliases: Strings,
   area: z.string().optional(),
   domains: Strings,
+  /** A one-off project's goal: his ask, word for word, so within `said`. */
+  goal: z.string().min(1).optional(),
   handles: z
     .object({
       email: Strings,
@@ -72,7 +74,7 @@ export const DirectoryEntryChange = z.object({
   relation: z.string().optional(),
   repos: Strings,
   said: z.string().min(1).max(8000),
-  status: z.enum(["active", "waiting", "parked", "done"]).optional(),
+  status: Project.shape.status.optional(),
   text: z.string().min(1).optional(),
 });
 export type DirectoryEntryChange = z.infer<typeof DirectoryEntryChange>;
@@ -113,6 +115,10 @@ function idOf(id: string | undefined, name: string) {
   const made = id ?? slugOf(name);
   return made ? slug.parse(made) : refuse("give an `id`.");
 }
+
+/** The id an entry added by change `a` takes (`idOf`): a caller that acts on it once written (a one-off project's agent). */
+export const addedIdOf = (a: Pick<Change, "id" | "name">) =>
+  idOf(a.id, need(a.name, "`name`"));
 
 /** The list each kind of entry is in, its file `<list>.yaml`. */
 const LISTS = {
@@ -245,13 +251,16 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
   const people = peopleOf(a, isId, "ids");
   const id = isAdd ? idOf(a.id, need(a.name, "`name`")) : need(a.id, "`id`");
   const path = `projects/${id}.md`;
+  if (a.goal && !a.said.includes(a.goal)) {
+    refuse("a project's `goal` is his ask, word for word: in `said`.");
+  }
   if (isAdd) {
     if (existsSync(join(OWNER_DATA_DIR, "truth", path))) {
       refuse(`project ${id} exists: edit it.`);
     }
     return [
       path,
-      `---\nschemaVersion: 1\nid: ${id}\nname: ${JSON.stringify(need(a.name, "`name`"))}\narea: ${JSON.stringify(need(a.area, "`area`"))}\nstatus: ${a.status ?? "active"}\npeople: ${JSON.stringify(people ?? [])}\nchats: []\nrepos: ${JSON.stringify(a.repos ?? [])}\n---\n`,
+      `---\nschemaVersion: 1\nid: ${id}\nname: ${JSON.stringify(need(a.name, "`name`"))}\narea: ${JSON.stringify(need(a.area, "`area`"))}\n${a.goal ? `goal: ${JSON.stringify(a.goal)}\n` : ""}status: ${a.status ?? "active"}\npeople: ${JSON.stringify(people ?? [])}\nchats: []\nrepos: ${JSON.stringify(a.repos ?? [])}\n---\n`,
     ] as const;
   }
   const text = read(path);
@@ -264,6 +273,7 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
     withFrontmatter(text, {
       ...(a.name && { name: a.name }),
       ...(a.area && { area: a.area }),
+      ...(a.goal && { goal: a.goal }),
       ...(a.status && { status: a.status }),
       ...(people && { people: union(old.people, people) }),
       ...(a.repos && { repos: union(old.repos, a.repos) }),
