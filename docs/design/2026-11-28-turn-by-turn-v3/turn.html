@@ -1,0 +1,319 @@
+<!doctype html>
+<!-- Turn by turn v3: variation A "Cinema" of v2, kept as it was for idle, typing, hold to talk, Life works, the slow
+     ask, the failed read and "Hey Life", with the owner's review of 28 Nov (philosophy.md, "Answers to his questions",
+     "Drafts", Decisions log): an answer comes whole and at once, as one shot; a day is one format (its events as a vertical
+     list, then "You also have N decisions to make" and their rows, a tap unfolding one in place); "Did Jade answer?"
+     says when and what, then her chat and the ready draft; "Tell Ben" goes straight to the draft; a card that arrives
+     says why first; earlier turns are a full-screen vertical pager that snaps from turn to turn. Where his review left a
+     real choice, the variations are per topic (V below), switched by the comparison page with no reload. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Turn by turn v3</title>
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<link rel="stylesheet" href="edge.css">
+<link rel="stylesheet" href="shell.css">
+<link rel="stylesheet" href="chat.css">
+<style>
+/* the title card may rise from under the field and the pager covers the phone, so the stage lets them out */
+.stage:has(> .a){overflow:visible}
+.a{position:absolute;inset:0;--spring:cubic-bezier(.2,1.15,.32,1);--soft:cubic-bezier(.2,.8,.2,1)}
+b{font-weight:650}
+.a-m{color:var(--muted)}
+/* the title card: his words */
+.a-ttl{position:absolute;left:20px;right:20px;margin:0;text-align:center;font-size:34px;line-height:1.14;font-weight:650;letter-spacing:-.025em;text-wrap:balance;transform-origin:50% 0;will-change:transform}
+.a-ttl .w{display:inline-block;transition:opacity .35s,filter .35s,transform .45s var(--spring)}
+.a-ttl .w:not(.on){opacity:0;filter:blur(8px);transform:translateY(6px)}
+/* the subtitle: what Life is doing now */
+.a-sub{position:absolute;left:24px;right:24px;height:64px;text-align:center}
+.a-line{position:absolute;left:0;right:0;top:0;font-size:var(--text-title);font-weight:600;line-height:1.35}
+.a-line .v{color:var(--muted);font-weight:450}
+.a-line.note{font-size:var(--text-line);font-weight:450;color:var(--muted)}
+/* idle */
+.a-hi{position:absolute;left:0;right:0;top:38%;text-align:center}
+.a-hi h2{margin:0;font-size:64px;font-weight:600;letter-spacing:-.04em;line-height:1}
+.a-hi p{margin:14px 0 0;color:var(--muted);font-size:var(--text-body)}
+/* the reel: ticks, then one shot at a time */
+.a-reel{position:absolute;left:0;right:0;bottom:0;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.a-ticks{position:absolute;top:0;left:20px;right:20px;display:flex;gap:4px;height:2px}
+.a-ticks i{flex:1;border-radius:1px;background:var(--tint);overflow:hidden;transform-origin:0 50%}
+.a-ticks b{display:block;height:100%;background:var(--fg);transform:scaleX(0);transform-origin:0 50%}
+.a-ticks .done b{transform:scaleX(1)}
+.a-ticks .now b{animation:a-fill var(--d) linear forwards}
+.a-ticks .held b{transform:scaleX(1);opacity:.5}
+@keyframes a-fill{to{transform:scaleX(1)}}
+.a-shot{position:absolute;inset:18px 0 0;padding:0 20px;display:flex;flex-direction:column;justify-content:center;opacity:0;pointer-events:none}
+.a-shot.on{pointer-events:auto}
+.a-shot.top{justify-content:flex-start;padding-top:16px}
+.a-shot.on>*{animation:a-in .62s var(--spring) both;animation-delay:calc(var(--i,0) * 80ms + 120ms)}
+@keyframes a-in{from{opacity:0;transform:translateY(16px);filter:blur(6px)}}
+.a-k{margin:0;color:var(--muted);font-size:var(--text-body)}
+.a-hero{font-size:88px;line-height:.95;font-weight:600;letter-spacing:-.05em;font-variant-numeric:tabular-nums;margin:6px 0 18px}
+.a-hero.mid{font-size:44px;letter-spacing:-.035em;line-height:1.04;text-wrap:balance;margin-bottom:0}
+.a-h{font-size:var(--text-profile);font-weight:650;letter-spacing:-.015em;line-height:1.15;margin:0;text-wrap:balance}
+.a-p{margin:6px 0 0;color:var(--muted);font-size:var(--text-body)}
+.a-big{font-size:var(--text-header);font-weight:600;line-height:1.35;margin:14px 0 0}
+/* a proposed block, still to build: a quiet tag under it */
+.a-new{display:block;margin-top:6px;font-style:normal;font-size:11px;font-weight:600;color:var(--faint)}
+.a-new::before{content:"";display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:3px;background:var(--flag);vertical-align:1px;opacity:.8}
+/* a place: a tap opens Maps */
+.a-place{margin-top:14px;padding:14px 16px;border-radius:var(--block-radius);background:var(--tile);color:var(--fg);text-decoration:none;display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px}
+.a-place b{font-size:var(--text-title)}
+.a-place small{grid-column:1;color:var(--muted);font-size:var(--text-line)}
+.a-place em{grid-column:2;grid-row:1/3;font-style:normal;font-size:var(--text-line);font-weight:650;color:var(--muted)}
+.a-shot>.s-cards{margin-top:18px}
+.a-shot>.s-cards:first-child{margin-top:0}
+/* a card brought in while he is idle: it rises above the field, the greeting steps back */
+.a-arr{position:absolute;left:0;right:0;bottom:0;padding:0 20px}
+/* the home with matters waiting: the greeting up top, the top 3 cards above the field */
+.a-hi.up{top:1%}
+.a-home{position:absolute;left:0;right:0;bottom:4px;padding:0 20px}
+.a-home .a-k{margin-bottom:10px}
+/* a shot taller than the screen scrolls */
+.a-shot.top{overflow-y:auto;scrollbar-width:none;padding-bottom:24px}
+.a-shot>*{flex-shrink:0}
+.a-shot.top::-webkit-scrollbar{display:none}
+/* a day, the one format: its events as a vertical list (V.day: rows, timeline, large times), then the decisions */
+.a-day{margin-top:18px;text-align:left}
+.a-ev{display:grid;grid-template-columns:58px 1fr;align-items:baseline;padding:9px 0}
+.a-ev .at{font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums}
+.a-ev b{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}
+.a-ev small{display:block;color:var(--muted);font-size:var(--text-line);line-height:1.35}
+.v-line .a-ev{grid-template-columns:54px 22px 1fr;padding:0}
+.v-line .a-ev i{align-self:stretch;position:relative}
+.v-line .a-ev i::before{content:"";position:absolute;left:4px;top:7px;width:10px;height:10px;border-radius:5px;background:var(--faint)}
+.v-line .a-ev i::after{content:"";position:absolute;left:8px;top:21px;bottom:-5px;width:2px;border-radius:1px;background:var(--tint)}
+.v-line .a-ev:first-child i::before{background:var(--fg)}
+.v-line .a-ev:last-child i::after{display:none}
+.v-line .a-ev span{padding-bottom:20px}
+.v-big .a-ev{grid-template-columns:1fr;padding:0 0 18px}
+.v-big .a-ev .at{font-size:var(--text-profile);letter-spacing:-.02em;line-height:1.1}
+.a-also{margin:22px 0 4px;font-size:var(--text-header);font-weight:650;letter-spacing:-.01em;line-height:1.25;text-align:left}
+.a-dec{width:100%;display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;padding:9px 0;text-align:left}
+.a-dec .s-disc{width:40px;height:40px}
+.a-dec b{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}
+.a-dec small{display:block;color:var(--muted);font-size:var(--text-line);line-height:1.35}
+.a-dec em{font-style:normal;color:var(--flag)}
+.a-dec .fold{color:var(--muted);transition:transform .3s}
+.a-dec[aria-expanded="true"] .fold{transform:rotate(180deg)}
+.a-unf{overflow:hidden}
+.a-unf .s-card{background:var(--wash)}
+/* a card that arrives: one line of why, then the card */
+.a-why{margin:0 4px 12px;font-size:var(--text-title);font-weight:600;line-height:1.4}
+/* earlier turns: a full-screen pager (over the whole phone, under the top controls and the field), one turn a page,
+   snapping magnetically; V.pager: snap (plain), depth (the turn leaving shrinks and fades), peek (the turns around show) */
+.a-pager{position:absolute;left:0;right:0;top:-110px;bottom:-110px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;
+  -webkit-mask:linear-gradient(transparent 100px,#000 160px,#000 calc(100% - 130px),transparent calc(100% - 90px));mask:linear-gradient(transparent 100px,#000 160px,#000 calc(100% - 130px),transparent calc(100% - 90px))}
+.a-pager::-webkit-scrollbar{display:none}
+/* a turn taller than its page scrolls inside it, then hands the scroll on to the pager */
+.a-pg{height:100%;scroll-snap-align:start;scroll-snap-stop:always;display:flex;flex-direction:column;justify-content:safe center;padding:120px 24px 130px;text-align:left;overflow-y:auto;scrollbar-width:none}
+.a-pg::-webkit-scrollbar{display:none}
+.a-pg>div{flex-shrink:0}
+.a-pg>div{will-change:transform,opacity}
+.a-pg small{display:block;color:var(--faint);font-size:var(--text-meta)}
+.a-pg .q{display:block;margin-top:6px;font-size:var(--text-profile);font-weight:650;letter-spacing:-.015em;line-height:1.2;text-wrap:balance}
+.a-pg .r{display:block;margin-top:14px;font-size:var(--text-header);line-height:1.4;color:var(--muted)}
+.a-pg .a-day{margin-top:8px}
+.a-pg .a-h{margin-top:14px;font-size:var(--text-header)}
+.v-peek{padding:130px 0}
+.v-peek .a-pg{height:auto;min-height:56%;max-height:calc(100% - 260px);scroll-snap-align:center;padding:24px;transition:opacity .3s}
+.v-peek .a-pg:not(.at){opacity:.32}
+/* the waveform the field becomes while he speaks */
+.field .heard .a-wv{display:flex;align-items:center;justify-content:space-between;height:36px;padding-right:4px}
+.field .heard .a-wv i{width:2.5px;height:28px;border-radius:2px;background:var(--fg);transform:scaleY(.1);transition:transform 80ms linear}
+@media (prefers-reduced-motion:reduce){.a-ticks .now b{transform:scaleX(1);opacity:.5}}
+</style>
+</head>
+<body>
+<script src="edge.js"></script>
+<script src="data.js"></script>
+<script src="chat.js"></script>
+<script src="shell.js"></script>
+<script>
+var D=DATA,R=matchMedia('(prefers-reduced-motion: reduce)').matches,asked=null;
+/* the variations, per topic: how a day's events look, how the pager of earlier turns feels; the comparison page sets
+   them (postMessage({vary})), or #day=…&pager=… */
+var V={day:'rows',pager:'snap'};
+(location.hash.match(/(day|pager)=\w+/g)||[]).forEach(function(x){x=x.split('=');V[x[0]]=x[1];});
+var SPRING='cubic-bezier(.2,1.15,.32,1)',SOFT='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
+function el(p,cls,html){var e=document.createElement('div');e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
+function esc(s){return s.replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+function cap(s){return s.replace(/^./,function(ch){return ch.toUpperCase();});}
+/* animates from one state to another and leaves the element in the second; under Reduce Motion, a cross-fade only */
+function mv(e,from,to,ms,ease,delay){var fin=to;
+  if(R){var gone=to.opacity===0;from={opacity:gone?1:0};to={opacity:gone?0:1};ms=300;ease='linear';}
+  var a=e.animate([from,to],{duration:ms,easing:ease||SOFT,delay:delay||0,fill:'backwards'});
+  for(var k in fin)e.style[k]=fin[k];return a;}
+function gone(e,ms){var a=mv(e,{opacity:1,transform:'none',filter:'none'},{opacity:0,transform:'translateY(-10px)',filter:'blur(8px)'},ms||260,OUT);a.onfinish=function(){e.remove();};}
+function root(c){return el(c.stage,'a');}
+function split(s,at){var i=s.indexOf(at);return i<0?[s,'']:[s.slice(0,i+(at==='. '?1:0)),s.slice(i+at.length)];}
+/* a proposed block, still to build */
+function nb(kind,html){return '<div class="a-nb">'+html+'<i class="a-new">new block · '+kind+'</i></div>';}
+
+/* the title card: his words, centred a little above the middle */
+function title(r,text,hidden){var t=el(r,'a-ttl','');
+  text.split(' ').forEach(function(w,i){var s=document.createElement('span');s.className='w'+(hidden?'':' on');s.textContent=w;if(i)t.appendChild(document.createTextNode(' '));t.appendChild(s);});
+  var top=Math.round(r.clientHeight*.4-t.offsetHeight/2);t.style.top=top+'px';t.dataset.top=top;return t;}
+function scaleOf(c){return c.phone.getBoundingClientRect().width/390;}
+
+/* typed: the words leave the field and rise to the centre, growing into the title card */
+async function typed(c,r,text,already){
+  if(!already){await c.type(c.field.input,text);await c.wait(380);mv(c.field.send,{transform:'scale(.8)'},{transform:'scale(1)'},420,SPRING);}
+  var k=scaleOf(c),s=r.getBoundingClientRect(),f=c.field.el.getBoundingClientRect(),t=title(r,text),tr=t.getBoundingClientRect(),rg=document.createRange();
+  rg.selectNodeContents(t);var w=rg.getBoundingClientRect().width/k,S=16/34;
+  var dx=(f.left-s.left)/k+18+w*S/2-((tr.left+tr.width/2)-s.left)/k,dy=(f.top+f.height/2-s.top)/k-((tr.top+tr.height/2)-s.top)/k;
+  c.field.clear();
+  mv(t,{transform:'translate('+dx+'px,'+dy+'px) scale('+S+')',opacity:.5},{transform:'none',opacity:1},760,SPRING);
+  await c.wait(780);return t;}
+
+/* held to talk: the field becomes a waveform, his words write themselves in low on the screen as heard, then lift
+   into the title card */
+async function spoken(c,r,text,already){
+  var t=title(r,text,!already),top=+t.dataset.top,h=t.offsetHeight,low=r.clientHeight-28-h*.9-top;
+  if(already){c.field.clear();mv(t,{transform:'translateY('+low+'px) scale(.8)',opacity:0},{transform:'none',opacity:1},760,SPRING);await c.wait(780);return t;}
+  t.style.transform='translateY('+low+'px) scale(.8)';
+  c.field.live(true);c.edge.set('listen');var heard=c.field.heard,n=46,bars='';for(var i=0;i<n;i++)bars+='<i></i>';
+  heard.innerHTML='<span class="a-wv" aria-hidden="true">'+bars+'</span>';var bs=heard.querySelectorAll('i'),words=t.querySelectorAll('.w'),ph=0;
+  heard.setAttribute('aria-label',text);
+  for(var j=0;j<words.length;j++){words[j].classList.add('on');
+    for(var q=0;q<6;q++){var lv=.45+.55*Math.random();c.edge.level(lv);ph+=.55;
+      for(var b=0;b<n;b++){var env=Math.sin(Math.PI*(b+.5)/n),v=.12+.88*env*lv*(.45+.55*Math.abs(Math.sin(b*.7+ph)*Math.cos(b*.31-ph*.6)));bs[b].style.transform='scaleY('+Math.max(.08,v).toFixed(3)+')';}
+      await c.wait(55);}}
+  bs.forEach(function(x){x.style.transform='scaleY(.08)';});c.edge.level(1);await c.wait(320);
+  c.field.live(false);c.field.clear();heard.removeAttribute('aria-label');
+  mv(t,{transform:'translateY('+low+'px) scale(.8)'},{transform:'none'},820,SPRING);await c.wait(840);return t;}
+
+/* the subtitle under the title card: one quiet line, each new one inks in where the last blurred away; a second,
+   quieter line when a turn runs long */
+function subtitle(r,t){var s=el(r,'a-sub',''),cur=null;s.style.top=(+t.dataset.top+t.offsetHeight+22)+'px';s.setAttribute('aria-live','polite');
+  function line(html,cls){var l=el(s,'a-line'+(cls?' '+cls:''),html);mv(l,{opacity:0,transform:'translateY(8px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},480,SOFT,cur?140:0);return l;}
+  return {set:function(html){if(cur)gone(cur);cur=line(html);},
+    note:function(text){var n=line(esc(text),'note');n.style.top='34px';},
+    out:function(){gone(s,300);}};}
+function stepHtml(t){var i=t.indexOf(' ');return '<span class="v">'+t.slice(0,i)+'</span>'+esc(t.slice(i));}
+
+/* Life works: "Thinking…", then the step line, replaced at each read; it never says what a read found */
+async function work(c,r,t,a){c.edge.set('work');var s=subtitle(r,t),spent=0,noted=false;s.set('<span class="v">Thinking…</span>');
+  async function hold(ms){if(a.stillAfter&&!noted&&spent+ms>a.stillAfter){var d=a.stillAfter-spent;await c.wait(d);s.note(a.still);noted=true;ms-=d;spent+=d;}
+    await c.wait(ms);spent+=ms;}
+  await hold(a.first);for(var st of a.steps){s.set(stepHtml(st.t));await hold(st.ms);}
+  return s;}
+
+/* the whole answer lands at once: the step line goes, his words shrink to a caption, the edge pulses, the reel's ticks
+   draw in and the first shot's parts arrive one after another (about 1.2 s in all) */
+async function land(c,r,t,s,shots){if(s)s.out();var top=+t.dataset.top,h=t.offsetHeight;
+  mv(t,{transform:'none',opacity:1},{transform:'translateY('+(4-top)+'px) scale(.46)',opacity:.6},640,SPRING,s?100:0);
+  c.edge.set('landed');await c.wait(220);return reel(c,r,Math.round(4+h*.46+20),shots).play();}
+function captionNow(r,text){var t=title(r,text);t.style.transform='translateY('+(4-t.dataset.top)+'px) scale(.46)';t.style.opacity=.6;return Math.round(4+t.offsetHeight*.46+20);}
+
+/* the reel: shots that advance on their own with a soft cut; swipe, or tap left and right, to move; a row of the
+   closing shot jumps back to its shot */
+function reel(c,r,top,shots,instant){var w=el(r,'a-reel',''),i=-1,user=false,n=shots.length,ticks=null,els=[];w.style.top=top+'px';
+  if(n>1){ticks=el(w,'a-ticks',shots.map(function(){return '<i><b></b></i>';}).join(''));
+    if(!instant)[].forEach.call(ticks.children,function(x,j){mv(x,{transform:'scaleX(0)',opacity:0},{transform:'none',opacity:1},520,SOFT,j*60);});}
+  shots.forEach(function(sh){var e=el(w,'a-shot'+(sh.top?' top':''),sh.html);[].forEach.call(e.children,function(ch,j){ch.style.setProperty('--i',j);});els.push(e);if(sh.init)sh.init(e,go);});
+  function marks(ms){if(!ticks)return;[].forEach.call(ticks.children,function(t,x){t.className=x<i?'done':x===i&&x<n-1?(user||!ms?'held':'now'):x===i?'done':'';if(ms)t.style.setProperty('--d',ms+'ms');});}
+  function go(x,byHim,ms){x=Math.max(0,Math.min(n-1,x));if(byHim)user=true;if(x===i)return;var dir=x>i?1:-1,old=els[i];i=x;
+    if(old){old.classList.remove('on');mv(old,{opacity:1,transform:'none',filter:'none'},{opacity:0,transform:'translateX('+(-dir*18)+'px) scale(.98)',filter:'blur(6px)'},220,OUT);}
+    var e=els[x];e.classList.add('on');
+    if(instant&&!old){e.style.opacity=1;[].forEach.call(e.children,function(ch){ch.style.animation='none';});}
+    else mv(e,{opacity:0,transform:'translateX('+(dir*28)+'px) scale(.985)',filter:'blur(4px)'},{opacity:1,transform:'none',filter:'none'},520,SPRING,old?110:0);
+    marks(ms);}
+  var x0=null;w.addEventListener('pointerdown',function(e){x0=e.clientX;});
+  w.addEventListener('pointerup',function(e){if(x0===null)return;var dx=(e.clientX-x0)/scaleOf(c);x0=null;
+    if(Math.abs(dx)>40){go(i+(dx<0?1:-1),true);return;}
+    if(e.target.closest('button,a')||i===n-1)return;var b=w.getBoundingClientRect();go(e.clientX-b.left<b.width/3?i-1:i+1,true);});
+  return {go:go,play:async function(){for(var x=0;x<n;x++){if(user)return;var ms=shots[x].ms||0;go(x,false,ms);if(x<n-1)await c.wait(ms);}}};}
+
+/* the shell's cards (one per item, swiped sideways), put at the end of a shot */
+function withCards(c,items){return function(e){e.appendChild(c.cards(items));};}
+function placeHtml(p){return '<a class="a-place" href="https://maps.apple.com/?q='+encodeURIComponent(p.name+', '+p.address)+'" target="_blank" rel="noopener"><b>'+p.name+'</b><small>'+p.address+'</small><em>Maps</em></a>';}
+
+/* a day, the one format wherever it shows (owner, 28 Nov): one line, its events as a vertical list, then the decisions
+   waiting on him as rows; a tap unfolds one in place, its card under its row */
+var CHEV='<svg class="fold" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+function dayHtml(d){var n=d.decisions.length;
+  return '<h3 class="a-h">'+esc(d.lead)+'</h3>'+nb('event','<div class="a-day v-'+V.day+'">'+d.events.map(function(e){
+      return '<div class="a-ev"><span class="at">'+e.at+'</span>'+(V.day==='line'?'<i></i>':'')+'<span><b>'+esc(e.t)+'</b><small>'+esc(e.where)+'</small></span></div>';}).join('')+'</div>')+
+    (n?'<p class="a-also">You also have '+['','one decision','2 decisions','3 decisions'][n]+' to make</p>'+d.decisions.map(function(k,i){var line=k.draft!=null?k.app+' · '+k.sub:k.sub;
+      return '<button type="button" class="a-dec" data-dec="'+i+'" aria-expanded="false"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(k.who||k.to.charAt(0)))+'</span>'+
+        '<span><b>'+esc(k.t)+'</b><small>'+esc(line)+' · '+(k.when==='today'?'<em>today</em>':esc(k.when))+'</small></span>'+CHEV+'</button>';}).join(''):'');}
+function unfolds(c,d){return function(e){e.querySelectorAll('[data-dec]').forEach(function(b){var box=null;
+  b.onclick=function(){var on=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(on));
+    if(on){box=document.createElement('div');box.className='a-unf';box.appendChild(c.cards([d.decisions[+b.dataset.dec]]));b.after(box);
+      var h=box.offsetHeight;mv(box,{height:'0px',opacity:0},{height:h+'px',opacity:1},400,SOFT).onfinish=function(){box.style.height='';};
+      var sh=b.closest('.a-shot'),bt=box.offsetTop+h-sh.clientHeight;if(sh.scrollTop<bt)sh.scrollTo({top:Math.min(bt,b.offsetTop-8),behavior:R?'auto':'smooth'});}
+    else{var x=box;box=null;mv(x,{height:x.offsetHeight+'px',opacity:1},{height:'0px',opacity:0},300,SOFT).onfinish=function(){x.remove();};}};});};}
+function dayShots(c,key){var d=D.days[key];return [{top:true,html:dayHtml(d),init:unfolds(c,d)}];}
+
+/* "Did Jade answer?": when and that she wrote, then her chat with the ready draft and its options (B's flow) */
+function jadeShots(c){var a=D.asks.jade.answer;return [{top:true,html:'<h3 class="a-h">'+esc(a.lead)+'</h3>',init:withCards(c,[a.card])}];}
+/* "Tell Ben…": no lead line, straight to the draft card */
+function tellShots(c){return [{top:true,html:'',init:withCards(c,[D.asks.tell.answer.card])}];}
+
+/* one idea answers: the key part large, the rest under it */
+function oneShot(text,sep,extra,cls){var p=split(text,sep);return [{html:'<div class="'+(cls||'a-hero mid')+'">'+p[0]+'</div>'+(p[1]?'<p class="a-big">'+cap(p[1])+'</p>':'')+(extra||'')}];}
+
+async function ask(c,r,a){var mine=asked;asked=null;var text=mine?mine.text:a.ask;
+  return (mine?mine.how:a.how)==='voice'?spoken(c,r,text,!!mine):typed(c,r,text,!!mine);}
+async function turn(c,a,shots){var r=root(c),t=await ask(c,r,a),s=await work(c,r,t,a);await land(c,r,t,s,shots);}
+function hi(r){var h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
+  mv(h.firstChild,{opacity:0,transform:'translateY(16px)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);
+  mv(h.lastChild,{opacity:0},{opacity:1},600,SOFT,250);return h;}
+function shown(r,text){var t=title(r,text);mv(t,{opacity:0},{opacity:1},400);return t;}
+
+/* earlier turns: a full-screen vertical pager, one turn a page, oldest first, opening on the latest; it snaps
+   magnetically from turn to turn (a wheel, a finger, or a mouse drag pages by one) */
+function pager(c,r){var pg=el(r,'a-pager'+(V.pager==='peek'?' v-peek':''),''),pages=[];
+  D.history.forEach(function(h){var p=el(pg,'a-pg',''),d=h.day&&D.days[h.day];
+    var inner=el(p,'','<small>'+h.at+'</small><span class="q">'+esc(h.ask)+'</span>'+(d?dayHtml(d):'<span class="r">'+esc(h.answer)+'</span>'));
+    if(d)unfolds(c,d)(inner);pages.push(p);});
+  function look(){var mid=pg.scrollTop+pg.clientHeight/2,ats=pages.map(function(p){return (p.offsetTop+p.offsetHeight/2-mid)/p.offsetHeight;}),
+      near=ats.reduce(function(b,x,i){return Math.abs(x)<Math.abs(ats[b])?i:b;},0);
+    pages.forEach(function(p,i){var at=ats[i];p.classList.toggle('at',i===near);
+      if(V.pager==='depth'&&!R){var d=Math.min(1,Math.abs(at));p.firstChild.style.transform='translateY('+(at*-60).toFixed(1)+'px) scale('+(1-.1*d).toFixed(3)+')';p.firstChild.style.opacity=(1-.75*d).toFixed(3);p.firstChild.style.filter='blur('+(d*6).toFixed(1)+'px)';}});}
+  pg.addEventListener('scroll',look,{passive:true});
+  var y0=null;pg.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse'&&!e.target.closest('button,a'))y0=e.clientY;});
+  pg.addEventListener('pointerup',function(e){if(y0===null)return;var dy=(e.clientY-y0)/scaleOf(c);y0=null;
+    if(Math.abs(dy)>30)pg.scrollBy({top:(dy<0?1:-1)*pages[0].offsetHeight,behavior:R?'auto':'smooth'});});
+  pg.scrollTop=pg.scrollHeight;look();return pg;}
+
+Shell.mount({title:'Turn by turn v3',
+  onVary:function(v){for(var k in v)V[k]=v[k];},
+  onAsk:function(text,how){asked={text:text,how:how};Shell.run(how==='voice'?'voice-send':'type-send');},
+  scenes:[
+  {id:'idle',label:'Idle',run:function(c){hi(root(c));}},
+  {id:'home-waiting',label:'Opens with matters waiting',run:function(c){var r=root(c);hi(r).classList.add('up');
+    var w=el(r,'a-home','<p class="a-k">Waiting on you</p>');w.appendChild(c.cards(D.waiting.slice(0,3)));
+    mv(w,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},800,SPRING,350);}},
+  {id:'waiting-list',label:'Waiting on you',run:async function(c){var r=root(c),t=shown(r,D.waitingAsk);await c.wait(400);
+    await land(c,r,t,null,[{top:true,html:'<h3 class="a-h">'+D.waitingLead+'</h3>',init:withCards(c,D.waiting)}]);}},
+  {id:'pendant',label:'Pendant status',run:function(c){hi(root(c));c.pendant();}},
+  {id:'type-send',label:'He types an ask',run:async function(c){if(asked)return turn(c,D.asks.day,dayShots(c,'today'));
+    var r=root(c),t=await ask(c,r,D.asks.day);c.edge.set('work');subtitle(r,t).set('<span class="v">Thinking…</span>');}},
+  {id:'voice-send',label:'He holds to talk',run:async function(c){if(asked)return turn(c,D.asks.jade,jadeShots(c));
+    var r=root(c),t=await ask(c,r,D.asks.jade);c.edge.set('work');subtitle(r,t).set('<span class="v">Thinking…</span>');}},
+  {id:'working',label:'Life works',run:async function(c){var r=root(c),t=shown(r,D.asks.day.ask),s=await work(c,r,t,D.asks.day);await land(c,r,t,s,dayShots(c,'today'));}},
+  {id:'answer-day',label:'What’s on today',run:function(c){return turn(c,D.asks.day,dayShots(c,'today'));}},
+  {id:'answer-jade',label:'Did Jade answer?',run:function(c){return turn(c,D.asks.jade,jadeShots(c));}},
+  {id:'tell',label:'Tell Ben',run:function(c){return turn(c,D.asks.tell,tellShots(c));}},
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var r=root(c),h=hi(r);
+    await c.wait(D.arrives.arriveMs);
+    var p=el(r,'a-arr','<p class="a-why">'+esc(D.arrives.why)+'</p>');p.appendChild(c.cards([D.arrives.card]));mv(h,{transform:'none'},{transform:'translateY(-120px)',opacity:.5},900,SOFT);
+    mv(p,{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1},900,SPRING);}},
+  {id:'slow',label:'A slow ask',run:function(c){var a=D.slow;return turn(c,a,oneShot(a.answer.lead,'. ',placeHtml(a.answer.place)));}},
+  {id:'failure',label:'A read fails',run:function(c){var a=D.failure;return turn(c,a,oneShot(a.error.t,'. ','','a-h'));}},
+  {id:'history',label:'Earlier turns',run:function(c){var r=root(c),p=pager(c,r);mv(p.lastChild.firstChild,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);}},
+  {id:'follow-up',label:'And tomorrow?',run:async function(c){var r=root(c),top=captionNow(r,D.asks.day.ask);reel(c,r,top,dayShots(c,'today'),true).go(0);
+    mv(r,{opacity:0},{opacity:1},400);await c.wait(1500);
+    await c.type(c.field.input,D.followUp.ask);await c.wait(380);mv(c.field.send,{transform:'scale(.8)'},{transform:'scale(1)'},420,SPRING);
+    var r2=root(c);[].forEach.call(r.children,function(x){gone(x,260);});
+    var t=await typed(c,r2,D.followUp.ask,true),s=await work(c,r2,t,D.followUp);r.remove();await land(c,r2,t,s,dayShots(c,'tomorrow'));}},
+  {id:'hey-life',label:'Hey Life, from the pendant',run:async function(c){var h=D.heyLife;c.lock();c.edge.set('still');
+    await c.wait(h.heardMs);c.lock(h.heardAt);c.notify(h.heard);await c.wait(h.answerMs);
+    await Promise.race([c.notify(h.done),c.wait(4000)]); /* his tap, or on its own for Play all */
+    c.lock(false);c.edge.set('rest');var r=root(c),t=shown(r,h.ask);await c.wait(500);await land(c,r,t,null,oneShot(h.answer.lead,', '));}}]});
+</script>
+</body>
+</html>
