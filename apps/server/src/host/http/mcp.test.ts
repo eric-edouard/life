@@ -12,13 +12,13 @@ import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decision-lines";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
-import { apply, type Stay } from "../../sources/lifelog";
 import {
   conversation,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../../sources/store-fixtures";
+import { apply, type Stay } from "../../sources/voice-server";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,
@@ -442,7 +442,7 @@ test("the server is named Life, carries its icons, and its instructions fit in 5
 
 test("places: each stay lists the conversations recorded during it", async () => {
   const open = () => {
-    const store = lifelogStore();
+    const store = voiceStore();
     apply(
       store,
       pageFixture({

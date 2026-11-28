@@ -13,7 +13,7 @@ import { decisionsNow, requestDecision } from "../memory/decisions";
 import type { Check } from "../memory/life-checks";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { voiceCardRefOf } from "../memory/who";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import { answerWithResult } from "./answer-result";
 import { expectWire } from "./http/wire-fixture";
 
@@ -449,11 +449,11 @@ test("each kind says what changed: an ending, a person (two parallel calls write
     asCheck({ group: "voice", ref: voiceRef }),
   ];
   const queue = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const send = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p1" });
   try {
@@ -710,11 +710,11 @@ test("a voice card's tap: refused with no write once its group grew, accepted wh
     ],
   };
   const queue = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "readNamingQueueNow"
   ).mockResolvedValue([grown]);
   const send = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p1" });
   try {

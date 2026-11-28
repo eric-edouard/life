@@ -16,7 +16,7 @@ import { stayOf } from "@life/server/src/memory/places";
 import { readPeople } from "@life/server/src/memory/who";
 import { dayRange } from "@life/server/src/memory/zones";
 import { type Episode, LocalTime } from "@life/server/src/records/episode";
-import { type Stay, visits } from "@life/server/src/sources/lifelog";
+import { type Stay, visits } from "@life/server/src/sources/voice-server";
 import { z } from "zod";
 
 export const TruthSet = z.object({

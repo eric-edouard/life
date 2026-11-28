@@ -25,7 +25,7 @@ The user message is one JSON object:
   spread across the years). Each day: `day`, `kind`, `source`, `with`, `lines`: "HH:MM him: …" for {{owner}}'s or "HH:MM <name>: …". `kind` says where:
   - `direct`: their 1:1 chat or mail thread;
   - `group`: a group chat both are in (`with` is its name), only {{owner}}'s and their messages;
-  - `spoken`: one of {{owner}}'s recorded conversations where they spoke (source `lifelog`), only {{owner}}'s and their turns,
+  - `spoken`: one of {{owner}}'s recorded conversations where they spoke (source `voice`), only {{owner}}'s and their turns,
     transcribed: a word may be misheard; `(over the phone)` marks a voice heard over a call. How they are face to face;
   - `own_writing` (only for `person:me`): what {{owner}} wrote alone, {{owner}}'s notes' changes (source `notes`) or {{owner}}'s chats
     with an assistant (`claude`, `chatgpt`): {{owner}}'s words, to no one. How {{owner}} thinks when no one is reading.

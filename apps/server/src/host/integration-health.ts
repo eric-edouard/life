@@ -57,7 +57,7 @@ export function wokeAt(d: Date, tz: string | undefined) {
   return dayStart(hms < "01" ? daysBefore(day, 1) : day, tz, "08:00");
 }
 
-/** The phone reports at least every 6 h while its app runs: silent twice as long, the app or its way to lifelog is down. */
+/** The phone reports at least every 6 h while its app runs: silent twice as long, the app or its way to the voice server is down. */
 export const PHONE_SILENT_MS = 12 * HOUR;
 
 export type IntegrationState =

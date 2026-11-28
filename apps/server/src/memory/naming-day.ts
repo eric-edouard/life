@@ -5,6 +5,7 @@ import { settings } from "../core/settings";
 import { readCalendarEvents } from "../sources/google-calendar-events";
 import { observationStatusOf, readUnitsOf } from "./memory-files";
 import { type DayEvent, scheduledOf } from "./naming-context";
+import { kindOf } from "./sources";
 import { observationsNow, type People } from "./who";
 import { dayStart } from "./zones";
 
@@ -72,7 +73,7 @@ export async function readNamingDays(dates: string[], people: People) {
   const { observations, statusInputs } = await observationsNow(people);
   const active = observations.filter(
     (o) =>
-      o.source.channel !== "lifelog" &&
+      kindOf(o.source.channel) !== "voice" &&
       observationStatusOf(o, statusInputs).state === "active"
   );
   for (const o of active.filter((x) => dates.includes(x.date))) {

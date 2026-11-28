@@ -225,7 +225,7 @@ const pendantFacts = (
 ): Fact[] => [
   {
     at: p?.recordingKnownAt,
-    // lifelog's phone reports each change as it happens: the state stands since then.
+    // The voice server's phone reports each change as it happens: the state stands since then.
     label: "Recording state, since",
     value: p?.recording ?? "unknown",
   },
@@ -238,7 +238,7 @@ const pendantFacts = (
   { at: spokeAt, label: "Newest speech heard" },
 ];
 
-/** The Pendant, as lifelog last heard from the phone, and the newest speech the watcher folded in. */
+/** The Pendant, as the voice server last heard from the phone, and the newest speech the watcher folded in. */
 function pendantCard(r: Reads, d: Descriptor, h: IntegrationHealth): Card {
   const pendant = r.life.ok ? r.life.value.pendant : undefined;
   const spokeAt = r.turn.ok ? (r.turn.value ?? null) : null;
@@ -257,7 +257,7 @@ function pendantCard(r: Reads, d: Descriptor, h: IntegrationHealth): Card {
   };
 }
 
-/** What the lifelog card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
+/** What the voice server card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
 const polledHeadline = (r: Reads) => {
   if (r.status.watcher.state !== "ok") {
     return r.health?.lastError ?? "no poll for 15 minutes";
@@ -265,7 +265,7 @@ const polledHeadline = (r: Reads) => {
   return r.health?.lastOkAt ? "polling" : "never polled";
 };
 
-function lifelogCard(r: Reads): Card {
+function voiceServerCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
   const backlog = r.life.ok
     ? r.life.value.phoneHeartbeat?.backlog?.pages
@@ -375,7 +375,7 @@ function sourceCards(r: Reads): Card[] {
         return [unreadableCard(d, h)];
       }
       return d.kind === "voice"
-        ? [pendantCard(r, d, h), lifelogCard(r)]
+        ? [pendantCard(r, d, h), voiceServerCard(r)]
         : [sourceCard(r, d, h)];
     }),
     {
@@ -912,7 +912,7 @@ function todayOf(r: Reads): Tick[] {
         label: `${x.step.replace("memory.", "")} ${x.outcome}`,
         tone: toneOfRun(x.outcome),
       })),
-    // The watcher retries lifelog on its own: a timeout is a retry, not a failure.
+    // The watcher retries the voice server on its own: a timeout is a retry, not a failure.
     ...r.errorsToday.map((e) => ({
       at: e.at,
       label: `${e.step} ${e.step === "watch" ? "retried" : "failed"}`,

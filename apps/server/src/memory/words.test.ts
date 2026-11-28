@@ -5,19 +5,19 @@ import { EMBEDDER_MODEL } from "../core/embedder";
 import { setSettings, settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
 import { readImessage } from "../sources/imessage";
-import { apply, readConversations } from "../sources/lifelog";
 import { copyNotes, readNotes } from "../sources/notes";
 import {
   conversation,
   imessageFixture,
-  lifelogServer,
-  lifelogStore,
   noteData,
   notesFixture,
   pageFixture,
   turnFixture,
+  voiceServer,
+  voiceStore,
   whatsappFixture,
 } from "../sources/store-fixtures";
+import { apply, readConversations } from "../sources/voice-server";
 import { copyWhatsapp, readWhatsapp } from "../sources/whatsapp";
 import { LIFE_MAIL } from "./email";
 import { batchLines } from "./exchanges";
@@ -32,8 +32,8 @@ import {
   type Built,
   conversationLabel,
   lifeChat,
-  lifelogUnits,
   MARKED,
+  voiceUnitsOf,
 } from "./units";
 import { embedNew } from "./vectors";
 import {
@@ -84,11 +84,11 @@ const mailHits = (
   return storedMailHits(query, range, vector);
 };
 const words = ["Allo", "Salut", "", "Fin"];
-let server: ReturnType<typeof lifelogServer> | undefined;
+let server: ReturnType<typeof voiceServer> | undefined;
 afterAll(() => server?.close());
 
 const serverOf = () => {
-  server ??= lifelogServer({
+  server ??= voiceServer({
     "/transcription-jobs/job-0/transcript": () => ({
       turns: Array.from({ length: 8 }, (_, n) => ({
         speakerId: null,
@@ -105,7 +105,7 @@ const serverOf = () => {
 /** A fresh store: four turns of conversation c1 (one named, one with no words). */
 const open = () => {
   serverOf();
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
@@ -182,7 +182,7 @@ test("a conversation label: the local time, with who spoke when anybody but him 
 });
 
 test("a conversation-day read for its episodes: its title, then who said what and when, an ask marked; a chapter unit keeps its text", async () => {
-  const [day] = lifelogUnits(readConversations(open(), new Date(0)), new Set());
+  const [day] = voiceUnitsOf(readConversations(open(), new Date(0)), new Set());
   const store = open();
   const [b, chapter] = await voiceText(
     [
@@ -210,7 +210,7 @@ test("a conversation-day read for its episodes: its title, then who said what an
 test("a chapter unit's words while lifelog holds its turns, the ones in its span (the persona reads them); none past them", async () => {
   const store = open();
   const chapter = (start: string, end: string) =>
-    unit({ end, key: "c1", source: "lifelog", start, summary: "A summary" });
+    unit({ end, key: "c1", source: "voice", start, summary: "A summary" });
   const spoken = await spokenLines(
     [
       chapter("2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
@@ -672,14 +672,14 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
     voiceLines(
       [named("David")],
       jobs,
-      (_s, _from, c) => (c === "lifelog|call-a" ? "person:weinstock" : null),
+      (_s, _from, c) => (c === "voice|call-a" ? "person:weinstock" : null),
       undefined,
       undefined,
       call
     )[0]?.speaker;
-  expect(scoped("lifelog|call-a")).toBe("person:weinstock");
-  expect(scoped("lifelog|call-b")).toBe("unknown:David");
-  // How lifelog heard an unnamed voice prefixes its words: over the phone, or nearby but not talking with him.
+  expect(scoped("voice|call-a")).toBe("person:weinstock");
+  expect(scoped("voice|call-b")).toBe("unknown:David");
+  // How the voice server heard an unnamed voice prefixes its words: over the phone, or nearby but not talking with him.
   const heard = (kind: string, withOwner: boolean) =>
     voiceLines(
       [t(1, false)],

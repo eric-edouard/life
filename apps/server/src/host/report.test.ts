@@ -453,7 +453,7 @@ test("the subject counts the key observations it lists, not every new observatio
 });
 
 test("the success email says the window it read and counts the new observations", () => {
-  // lifelog set up: the night says how its watcher stands.
+  // The voice server set up: the night says how its watcher stands.
   const token = process.env.LIFELOG_TOKEN;
   process.env.LIFELOG_TOKEN = "test-token";
   try {
@@ -466,7 +466,7 @@ test("the success email says the window it read and counts the new observations"
     expect(text).toContain(
       "Files: 4 described, 2 read by code, 1 copied; 1 call failed (a file still not described stays a tag until the next night); not on PATH: pdftotext"
     );
-    // The night reads lifelog from the watcher's store as it stands: a stopped watcher is said here, judged as the
+    // The night reads the voice server from the watcher's store as it stands: a stopped watcher is said here, judged as the
     // report is written, however long the night took (29 Oct: a 20-minute night said a polling watcher was not).
     const health = (lastOkAt: string | null) =>
       writeJson(HEALTH, {

@@ -161,7 +161,7 @@ export type Descriptor = {
   /** The app store the archive keeps a copy of; its units are read from that copy. */
   store?: AppStore;
   name: SourceName;
-  /** Its newest item (the status snapshot's card); a voice source's is lifelog's to tell. */
+  /** Its newest item (the status snapshot's card); a voice source's is the voice server's to tell. */
   newest?: () => Newest | Promise<Newest>;
   /** Earliest stored instant, read from source metadata without reading message text. */
   earliest?: () => string | null;
@@ -195,7 +195,7 @@ export type Descriptor = {
         before?: Date
       ) => SourceEvent[];
     }
-  /** Recorded conversations: their units come from the watcher's store, their words from lifelog. */
+  /** Recorded conversations: their units come from the watcher's store, their words from the voice server. */
   | { kind: "voice" }
 );
 

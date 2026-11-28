@@ -14,9 +14,9 @@ import { providerOf, readEngine, readEngineCheck } from "../models/llm";
 import type { IntegrationTerms, Requirement } from "../records/integration";
 import { copierOf } from "../sources/bridged";
 import type { Descriptor, Newest } from "../sources/contract";
-import { lifelogStatus, newestTurn } from "../sources/lifelog";
 import { isBridgeAdded, isBridgeLinked, readBlock } from "../sources/matrix";
 import { NETWORKS, type Network } from "../sources/networks";
+import { newestTurn, readVoiceServerStatus } from "../sources/voice-server";
 import { needsAppKeys } from "./app-keys";
 import { archiveFailing } from "./archive";
 import {
@@ -162,7 +162,7 @@ export async function readIntegrationReads(now: Date) {
   const [failingStores, bridgeChecks, life, newest, turn] = await Promise.all([
     cached("failing", 15_000, async () => new Map(await archiveFailing())),
     latestBridgeChecks(),
-    cached("lifelog", 30_000, () => safe(lifelogStatus)),
+    cached("lifelog", 30_000, () => safe(readVoiceServerStatus)),
     newestOf(),
     cached("turn", 3000, () => safe(newestTurn)),
   ]);
@@ -277,7 +277,7 @@ export function integrationFactsOf(
   };
 }
 
-/** The Pendant, as lifelog last heard from the phone. */
+/** The Pendant, as the voice server last heard from the phone. */
 const pendantOf = (r: IntegrationReads) =>
   r.life.ok ? r.life.value.pendant : undefined;
 

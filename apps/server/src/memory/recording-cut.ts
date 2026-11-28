@@ -1,7 +1,7 @@
 import { iso } from "../core/clock";
 import type { Unit } from "../records/unit";
-import { type LifelogTurn, turnRef } from "../sources/lifelog";
-import { readTurnClip } from "../sources/lifelog-voices";
+import { turnRef, type VoiceTurn } from "../sources/voice-server";
+import { readTurnClip } from "../sources/voice-speakers";
 import { type Deletions, isCut, isGone } from "./deletions";
 
 // A recording read cut to a span of instants, such as a call's exact one (`fetch`'s `at` and `until`, life#875): the
@@ -58,19 +58,19 @@ export function spanOf(within: Within, unit?: Unit): Within {
 export const isEmptySpan = ({ at, until }: Within) =>
   Boolean(at && until && at >= until);
 
-/** Whether a turn crosses an edge of the span: begun before it, or ending after it or at an end lifelog never gave. */
-const isCrossing = (t: LifelogTurn, { at, until }: Within) =>
+/** Whether a turn crosses an edge of the span: begun before it, or ending after it or at an end the voice server never gave. */
+const isCrossing = (t: VoiceTurn, { at, until }: Within) =>
   Boolean((at && t.at < at) || (until && (!t.end || t.end > until)));
 
 /**
- * A recording cut to a span keeps, of a turn that crosses an edge, only its words wholly inside, by lifelog's word timings
+ * A recording cut to a span keeps, of a turn that crosses an edge, only its words wholly inside, by the voice server's word timings
  * (`readTurnClip`, a turn's first seconds as its cards play them): a turn with no timings is said to be left out, and one
  * whose timings stop before the span's part of it is said to go on unread (life#884). A read that failed throws, so it
- * never reads as silence. A clipped turn's words are lifelog's, cut at places of its own, so a line he deleted or cut in
+ * never reads as silence. A clipped turn's words are the voice server's, cut at places of its own, so a line he deleted or cut in
  * keeps no text at all. Rewrites `said` in place.
  */
 export async function clipEdges(
-  shown: LifelogTurn[],
+  shown: VoiceTurn[],
   said: Map<string, { speakerId: string | null; text: string }[]>,
   span: Within,
   deletions: Deletions
@@ -86,7 +86,7 @@ export async function clipEdges(
           const ref = turnRef(t.jobId, t.turnIndex, t.at);
           recording[t.turnIndex] = {
             ...words,
-            // The clip's words are lifelog's as they were, at places of its own: one of a line he deleted or cut keeps none.
+            // The clip's words are the voice server's as they were, at places of its own: one of a line he deleted or cut keeps none.
             text:
               isGone(ref, deletions) || isCut(ref, deletions)
                 ? ""
@@ -105,7 +105,7 @@ interface Timed {
 }
 
 /** A crossing turn's text: its words inside the span, and what of it was not read. */
-export function clippedOf(t: LifelogTurn, timed: Timed | null, span: Within) {
+export function clippedOf(t: VoiceTurn, timed: Timed | null, span: Within) {
   if (!timed?.at || timed.words.length === 0) {
     return NOT_TIMED;
   }

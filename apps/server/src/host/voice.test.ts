@@ -18,7 +18,7 @@ import * as platform from "../core/platform";
 import { SECRETS } from "../core/secret";
 import { plistOf } from "../core/service";
 import { setSettings, settings } from "../core/settings";
-import { call, readVoiceSecrets } from "../sources/lifelog-call";
+import { call, readVoiceSecrets } from "../sources/voice-server-call";
 import {
   embedderArgsOf,
   HOST_RUNS,

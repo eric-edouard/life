@@ -6,13 +6,13 @@ import type { SourceEvent } from "../records/source";
 import { readArchivedMessageAt } from "../sources/archived";
 import type { Descriptor } from "../sources/contract";
 import { githubCopier, readGithub } from "../sources/github";
-import { apply } from "../sources/lifelog";
 import {
   conversation,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply } from "../sources/voice-server";
 import { DECISIONS } from "./decision-lines";
 import { requestDecision } from "./decisions";
 import {
@@ -44,7 +44,7 @@ const reads: SharedReads = {
   people: readsOnce().people,
 };
 const open = () => {
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({

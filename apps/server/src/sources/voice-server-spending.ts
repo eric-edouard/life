@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { call } from "./lifelog-call";
+import { call } from "./voice-server-call";
 
 // What Voice spent (its `GET /spending`, at most 31 days a call): its transcription jobs, the chat voice notes it
 // heard and its model runs on the Mac. Read into spends by `spendsOfVoice` (memory/spends.ts).

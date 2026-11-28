@@ -29,4 +29,4 @@ Moved from the root `AGENTS.md`.
   words or a request.
 
 - lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
-  (`lifelog.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).
+  (`voice-server.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).

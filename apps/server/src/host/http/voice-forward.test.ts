@@ -1,7 +1,7 @@
 import { afterAll, expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
-import { VOICE_URL } from "../../sources/lifelog-call";
+import { VOICE_URL } from "../../sources/voice-server-call";
 import { publicPortRoutes, voiceAddressOf } from "./server";
 
 // A made-up voice server: echoes what reached it, a gzipped answer, a long wait, and its map page.

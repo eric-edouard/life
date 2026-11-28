@@ -1,7 +1,7 @@
 import { clock, DAY, iso } from "../core/clock";
 import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
-import { pushIdOf } from "../sources/lifelog-push";
+import { pushIdOf } from "../sources/voice-server-push";
 import { readAppointmentEvents, readAppointments } from "./appointments";
 import {
   ARRIVAL_APPOINTMENT_DAYS,

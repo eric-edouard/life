@@ -1,7 +1,7 @@
 import { HOUR_PRICES, listUsdOf, priceOn } from "../core/prices";
 import type { ReadCounts, Tokens } from "../models/model-call";
 import type { RouterSpent } from "../models/routers";
-import type { VoiceSpending } from "../sources/lifelog-spending";
+import type { VoiceSpending } from "../sources/voice-server-spending";
 
 // Model spending (decision 83): each record that used a paid or metered resource read as one spend, where it is
 // logged. A `model.run` line (every model call), a `model.local` line (the describer, Apple's model), a desk turn (an

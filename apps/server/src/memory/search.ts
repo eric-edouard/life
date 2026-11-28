@@ -3,8 +3,8 @@ import { CANDIDATES } from "../core/embedder";
 import { fuse } from "../core/fusion";
 import { redact } from "../core/redact";
 import { readOwnerName } from "../models/prompt-parts";
-import { turnPlace, withStore } from "../sources/lifelog";
-import { searchVoice } from "../sources/lifelog-search";
+import { turnPlace, withStore } from "../sources/voice-server";
+import { searchVoice } from "../sources/voice-server-search";
 import {
   currentSummaries,
   summaryLine,
@@ -42,7 +42,7 @@ import {
 } from "./zones";
 
 // `bun life memory search <words>` and the connector's `search`: episodes, observations and units matching the words
-// (from derived/memory/index.sqlite), the exact spoken words (lifelog's search), chats and mail, each ranked by meaning
+// (from derived/memory/index.sqlite), the exact spoken words (the voice server's search), chats and mail, each ranked by meaning
 // and by words, fused (`fuse`), opening with the situations they bear on.
 
 /** A section's first LIMIT lines (its last, `newest`), saying so when there were more. */
@@ -182,7 +182,7 @@ export function matches(
   ];
 }
 
-/** A passage of `search` as it shows: a turn of its span gone whole or cut in drops it, since its words are lifelog's as they were. */
+/** A passage of `search` as it shows: a turn of its span gone whole or cut in drops it, since its words are the voice server's as they were. */
 export const shownVoiceHitsOf = <
   H extends { firstTurn: number; jobId: string; lastTurn: number },
 >(
@@ -199,7 +199,7 @@ export const shownVoiceHitsOf = <
     return true;
   });
 
-/** The voice section of `search`: lifelog's best passages for the words, each with its place in its conversation. */
+/** The voice section of `search`: the voice server's best passages for the words, each with its place in its conversation. */
 async function voiceHits(words: string, range: DayRange) {
   if (!listening()) {
     return ["(no voice source)"];
@@ -249,7 +249,7 @@ function rankedOf(
 export async function search(words: string, o: DayRange = {}) {
   const range = dayRange(o.from, o.to);
   const { note, vector } = await embedQuery(words);
-  // lifelog's search is a network call: the chats are read meanwhile.
+  // The voice server's search is a network call: the chats are read meanwhile.
   const holds = holdsAll(words);
   const [voice, chats, mail, all, summaries] = await Promise.all([
     voiceHits(words, range),

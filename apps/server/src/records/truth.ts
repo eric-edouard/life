@@ -12,13 +12,20 @@ const Handles = z
       .string()
       .regex(/^[A-Za-z\d-]{1,39}$/)
       .optional(),
+    /** `voice`'s old name, until his directory moves it (PLAN.md: goes in the follow-up PR); read only by `voiceHandleOf`. */
     lifelog: z.uuid().optional(),
     phone: z.array(z.string().regex(/^\+\d{6,15}$/)).default([]),
     telegram: z.string().optional(),
+    /** Their person id on the voice server. */
+    voice: z.uuid().optional(),
     // Phone numbers in E.164.
     whatsapp: z.array(z.string().regex(/^\+\d{6,15}$/)).default([]),
   })
   .strict();
+
+/** Their person id on the voice server, under either name of the handle. */
+export const voiceHandleOf = (h?: { lifelog?: string; voice?: string }) =>
+  h?.voice ?? h?.lifelog;
 
 /** His picture pick: whose picture shows for a person or an organization, Contacts' or a source's; `none`: no picture. Absent: the first they show. */
 export const PictureFrom = z.enum(["contacts", ...SourceName.options, "none"]);
