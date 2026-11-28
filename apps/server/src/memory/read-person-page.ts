@@ -3,7 +3,6 @@ import { newestDays, within } from "../core/lists";
 import { readOwnerName } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
-import { voiceHandleOf } from "../records/truth";
 import { speakers, withStore } from "../sources/voice-server";
 import { conversationsWith } from "../sources/voice-server-conversations";
 import { noMatterChecksByPartyOf } from "./checks";
@@ -258,7 +257,7 @@ export async function person(
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
   const mapped = truth.people.find((p) => p.id === id);
-  const voicePersonId = voiceHandleOf(mapped?.handles);
+  const voicePersonId = mapped?.handles.voice;
   const episodes = await readEpisodesWith(ref, refOf);
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;
@@ -686,7 +685,7 @@ export function heardEvidence(o: PartInputs) {
 
 /** `heard`: the voice server's speakers a name on no page nor directory entry was found among. */
 const recordedTitle = (heard: { name: string }[]) =>
-  `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
+  `Recorded conversations${heard.length > 0 ? ` with the voice server's speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
 
 export const orNone = (lines: string[]) =>
   lines.length > 0 ? lines : ["(none)"];

@@ -295,7 +295,7 @@ async function textOf(ref: string): Promise<string> {
     if (line) {
       return line.text;
     }
-    throw new Error(`Not done: lifelog has no turn ${parsed.id}.`);
+    throw new Error(`Not done: the voice server has no turn ${parsed.id}.`);
   }
   throw new Error(
     `Not done: a cut names a message (msg:<source>|<id>) or a turn, never ${ref}.`

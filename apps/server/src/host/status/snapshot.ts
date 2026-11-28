@@ -275,7 +275,7 @@ function voiceServerCard(r: Reads): Card {
       [
         r.status.watcher.state !== "ok",
         {
-          ask: ASK("that the watcher has not polled lifelog for 15 minutes"),
+          ask: ASK("that the watcher has not polled it for 15 minutes"),
           tone: "bad",
           word: "not polling",
         },
@@ -300,7 +300,7 @@ function voiceServerCard(r: Reads): Card {
     group: "sources",
     headline: polledHeadline(r),
     id: "lifelog",
-    name: "lifelog server",
+    name: "voice server",
   };
 }
 

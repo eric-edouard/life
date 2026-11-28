@@ -476,7 +476,7 @@ test("the success email says the window it read and counts the new observations"
       });
     health(clock().toISOString());
     expect(successReport("2026-10-18", 1000, n).text).toContain(
-      "Lifelog: the watcher is polling"
+      "Voice server: the watcher is polling"
     );
     health(new Date(clock().getTime() - 20 * MIN).toISOString());
     expect(successReport("2026-10-18", 1000, n).text).toContain(

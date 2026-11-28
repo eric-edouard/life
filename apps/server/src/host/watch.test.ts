@@ -35,7 +35,7 @@ import {
 const LOCK_KEY = /^lock\//;
 const at = (m: number) => new Date(Date.UTC(2026, 9, 15, 10, m, 0));
 const ok = (cursor: string) => ({ cursor });
-const fail = { error: "lifelog GET /changes: 502" };
+const fail = { error: "voice server GET /changes: 502" };
 
 test("a successful poll resets the errors and the lag; a failed one keeps the last cursor", () => {
   let h: Health | null = null;

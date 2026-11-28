@@ -1,4 +1,8 @@
-import { blockingCountOf } from "../memory/check-urgency";
+import {
+  blockingCountOf,
+  type HOW_ASKED,
+  isInboxCheck,
+} from "../memory/check-urgency";
 import { checksOnMatterOf } from "../memory/checks";
 import type { Check } from "../memory/life-checks";
 import { needsYouOf, openMatters } from "../memory/read-matters";
@@ -8,18 +12,18 @@ import { openChecksAndKeyNow, versionOf } from "./inbox";
 // A matter row as every reader gives it (`read_matters`, `read_matter`, the desk's count, a person's read): the row with
 // how many of its open checks block him and whether it needs him, over his open checks read once (`openChecksNow`).
 
-/** Each row with `blockingChecks` (its open checks that block him, `checksOnMatterOf`) and `needsYou` (`needsYouOf`, the one rule). Pure. */
+/** Each row with `blockingChecks` (its inbox's checks that block him, `checksOnMatterOf`) and `needsYou` (`needsYouOf`, the one rule): a check on its page only (`isInboxCheck`) counts in neither. Pure. */
 export const matterRowsNowOf = <
   R extends { id: string; nextStep?: { kind: string }; status: string },
 >(
   rows: readonly R[],
   open: readonly Pick<
     Check,
-    "deadline" | "group" | "matter" | "ridesOn" | "subject"
+    "deadline" | "group" | typeof HOW_ASKED | "matter" | "ridesOn" | "subject"
   >[]
 ) =>
   rows.map((m) => {
-    const on = checksOnMatterOf(open, m.id);
+    const on = checksOnMatterOf(open.filter(isInboxCheck), m.id);
     const blockingChecks = blockingCountOf(on);
     const isYourMove = on.some((c) => c.group === "your move");
     return {
