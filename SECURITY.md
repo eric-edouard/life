@@ -102,8 +102,11 @@ A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his paymen
 
 The connector (`/mcp`) is served by the Mac, behind Life's own OAuth (pairing codes,
 PKCE). Its origin also forwards `/voice/…` to the voice server on loopback, as it came, behind the voice server's own tokens
-(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
-optionally a tunnel he controls.
+(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. The connector is
+on unless set off (`connector: false`); without a tunnel its origin is this Mac's loopback. Exposure is through the Mac
+link (`host/http/mac-link.ts`: an iroh endpoint by the Mac's own key, `LIFE_STATE_DIR/mac-link.key`, made at the first
+pairing, which starts the link; no public discovery; each stream piped to the connector's port, so the same tokens gate
+it as any caller; the pairing QR carries the Mac's id), his tailnet, optionally a tunnel he controls.
 
 Life's helper reads voice's `secrets.json` (owner-only; `host/voice.ts` its one writer): to start voice's launchd jobs
 with their keys and to read voice with the phone's device token. His own Life.app's "Pair an app" QR (never a checkout's or a second
@@ -116,6 +119,10 @@ key`, on stdin, never an argument).
 The one list; nothing else leaves. The voice server (`apps/lifelog`), its own process, keeps its own in
 [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
+- To n0's public iroh relay in Singapore, from the first phone pairing on, with the connector on: the Mac link's
+  metadata (both devices' IP addresses, their endpoint ids, when they connect and how much moves), never content,
+  encrypted end to end between the two keys. An install that never pairs a phone sends it nothing. Off with the
+  connector (`connector: false`).
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
   prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
   call lines do (who, when, how long; no content), so nothing new leaves the Mac. With the `apple-health` source on,
@@ -224,10 +231,10 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
-- The iroh relay (planned, `docs/plans/2026-11-27-private-relay.md`; Life doesn't use it yet) forwards the iPhone
-  app's traffic when a direct path fails. It is encrypted end to end between the Mac's and the phone's keys, so the
-  relay can't read it. It sees metadata: the devices' IP addresses, when they connect and how much data moves.
-  n0's public relays during development, Life's own before launch.
+- The Mac link's relay forwards the iPhone app's traffic when a direct path fails. It is encrypted end to end between
+  the Mac's and the phone's keys, so the relay can't read it. It sees metadata: the devices' IP addresses, when they
+  connect and how much data moves. n0's public relay during development, Life's own before launch. Anyone holding the
+  Mac's id reaches the connector's port as an internet caller reaches a tunnel: Life's tokens still gate every route.
 - Full Disk Access makes Life a high-value target on the Mac.
 - A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
   every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility

@@ -2,8 +2,10 @@
 // no referrer to other sites, fonts from Google Fonts only (Life's brand). Same-origin, not no-referrer: under no-referrer a browser posts a form with `Origin: null`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { off } from "../../core/outputs";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { isOwnLife } from "../../core/platform";
+import { settings } from "../../core/settings";
 
 /** Life's brand tokens (assets/brand/tokens.css), for the pages that inline their styles. */
 export const TOKENS = readFileSync(
@@ -47,6 +49,31 @@ export function portOf(set = process.env.LIFE_PORT, isOwn = isOwnLife()) {
  * two after it, for a second Life on this Mac (a demo, `scripts/demo.ts`).
  */
 export const PUBLIC_PORT = portOf();
+/** The connector's origin when no tunnel set one: this Mac's loopback. */
+const LOOPBACK_ORIGIN = `http://127.0.0.1:${PUBLIC_PORT}`;
+/** The connector's origin, worked out at read: the one a tunnel set, else this Mac's loopback, never written; none when off. */
+export function connectorOrigin() {
+  const set = settings().connector;
+  return set === false ? undefined : (set?.origin ?? LOOPBACK_ORIGIN);
+}
+/**
+ * The connector: its origin (`connectorOrigin`), whether a tunnel serves it (`hasTunnel`: without one, only this Mac and
+ * the Mac link reach it), and its issuer's resource and metadata. Off, it throws: only code behind it (server.ts checks
+ * it is on) asks.
+ */
+export function connector() {
+  const origin = connectorOrigin();
+  if (!origin) {
+    throw new Error(off("connector"));
+  }
+  return {
+    hasTunnel: origin !== LOOPBACK_ORIGIN,
+    /** The resource's OAuth metadata. */
+    metadata: `${origin}/.well-known/oauth-protected-resource/mcp`,
+    origin,
+    resource: `${origin}/mcp`,
+  };
+}
 /** The app's status reads alone, by its local key: no tunnel ever points here. */
 export const LOCAL_PORT = PUBLIC_PORT + 1;
 /** The desk's door (`desk/desk-door.ts`): its registered agents' MCP, on loopback only, one key per agent. */

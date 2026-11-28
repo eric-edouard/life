@@ -56,6 +56,7 @@ const inputs = (o: Partial<VoiceInputs> = {}): VoiceInputs => ({
   backups: false,
   build: "b1",
   extra: {},
+  hasTunnel: false,
   publicUrl: "http://127.0.0.1:47613",
   secrets: {},
   speakers: false,
@@ -89,6 +90,18 @@ test("the server gets hashes, never tokens, and listens on loopback", () => {
   expect(env.MAC_TOKEN_HASH).toBe(sha("mac-token"));
   expect(env.ELEVENLABS_API_KEY).toBe("el");
   expect(Object.values(env).some((v) => v.includes("token"))).toBe(false);
+});
+
+test("server.env's ElevenLabs webhook is kept behind a tunnel, dropped without one, where no one can call it", () => {
+  const extra = { ELEVENLABS_WEBHOOK_SECRET: "whsec", KEEP: "k" };
+  const on = serverEnvOf(
+    inputs({ extra, hasTunnel: true, publicUrl: "https://life.example/voice" })
+  );
+  const off = serverEnvOf(
+    inputs({ extra, publicUrl: "http://127.0.0.1:46200/voice" })
+  );
+  expect([on.ELEVENLABS_WEBHOOK_SECRET, on.KEEP]).toEqual(["whsec", "k"]);
+  expect([off.ELEVENLABS_WEBHOOK_SECRET, off.KEEP]).toEqual([undefined, "k"]);
 });
 
 test("the embedder listens where Life embeds, with inputs no longer than core/embedder.ts sends", () => {
@@ -336,6 +349,12 @@ test("only his own Life's helper reads voice's secrets: a checkout or a second L
     expect(pairLinkOf("https://life.example", "ABC234", "tok")).toContain(
       "token=tok&url=https%3A%2F%2Flife.example%2Fvoice"
     );
+    expect(
+      pairLinkOf("http://127.0.0.1:46200", "ABC234", undefined, {
+        mac: "ab12",
+        relay: "https://relay.example./",
+      })
+    ).toEndWith("&mac=ab12&relay=https%3A%2F%2Frelay.example.%2F");
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
     setSettings({ lifelog });
