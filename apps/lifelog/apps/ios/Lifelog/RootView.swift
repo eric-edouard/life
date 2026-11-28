@@ -103,8 +103,8 @@ struct RootView: View {
         // A voice being named takes the field's words; the field opens for them.
         .onChange(of: text) { if life.naming != nil { life.namingWords = text } }
         .onChange(of: life.naming) { if life.naming != nil { isAsking = true } else { text = "" } }
-        // The ring is round the whole screen, a pushed profile too; a sheet covers it.
-        .overlay { EdgeView(state: aura.state ?? edge, aura: aura.shown) }
+        // The ring is round the whole screen, a pushed profile too; a sheet covers it. Off until he turns it on.
+        .overlay { if aura.isOn { EdgeView(state: aura.state ?? edge, aura: aura.shown) } }
         .sheet(
             item: $sheet,
             onDismiss: {

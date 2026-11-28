@@ -66,19 +66,6 @@
 .quote{margin:12px 40px 0 0;padding:14px 16px;border-radius:6px 18px 18px 18px;background:var(--paper);font-size:var(--text-title);line-height:1.45}
 .quote small{display:block;margin-top:6px;color:var(--faint);font-size:var(--text-meta)}
 .pill{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;margin-top:12px;border-radius:22px;background:var(--tint);font-size:var(--text-line);font-weight:650}
-/* a draft card (existing items block): who made it, the exact words, Send; then Sent and Undo */
-.card .made{margin:0;color:var(--muted);font-size:var(--text-line)}
-.card .to{margin:2px 0 12px;color:var(--faint);font-size:var(--text-meta)}
-.draft{margin:0 0 0 40px;padding:14px 16px;border-radius:18px 18px 6px 18px;background:var(--paper);font-size:var(--text-title);line-height:1.45;outline:1.5px dashed color-mix(in srgb,var(--fg) 38%,transparent);outline-offset:-1.5px;transition:outline-color .6s}
-.card.sent .draft{outline-color:transparent}
-.edits{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-.edits .pill{margin:0;min-height:36px;padding:0 14px}
-.send{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin-top:14px;border-radius:26px;background:var(--fg);color:var(--on);font-size:var(--text-title);font-weight:650;transition:background-color .3s,color .3s}
-.send.busy{background:var(--tint);color:var(--muted)}
-.done{display:flex;align-items:center;justify-content:space-between;min-height:52px;margin-top:14px;color:var(--ok);font-weight:650}
-.done button{min-height:44px;padding:0 18px;border-radius:22px;background:var(--tint);color:var(--fg);font-size:var(--text-line)}
-/* the page is the card: Tell Ben */
-.card.big .draft{margin:0;font-size:var(--text-header);line-height:1.4;padding:18px 20px}
 /* new block, payment */
 .money{display:flex;align-items:center;gap:16px}
 .amt{font-size:var(--text-profile);font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
@@ -133,15 +120,8 @@ function payment(p){return blk('',p,'<div class="money"><div class="amt">'+p.amo
 function face(w,r){return blk('',w,'<div class="who"><img alt="" src="'+w.face+'"><div><h3>'+w.name+'</h3><p>'+r.app+', '+r.at+'</p></div></div>');}
 function quote(q,who){return blk('tight',q,'<div class="quote" style="margin-top:0">'+esc(q.t)+(who?'<small>'+who+', '+q.app+', '+q.at+'</small>':'')+'</div>');}
 
-/* a draft card: who made it and when, the exact words, Send; then Sent with Undo */
-function card(c,k,big){var b=blk('card'+(big?' big':''),k,'<p class="made">'+esc(k.made)+'</p><p class="to">To '+k.to+' on '+k.app+'</p><div class="draft">'+esc(k.draft)+'</div>'+
-  (k.edits?'<div class="edits">'+k.edits.map(function(e){return '<button type="button" class="pill">'+e+'</button>';}).join('')+'</div>':'')+'<div class="act"></div>');
-  var act=b.querySelector('.act');
-  function ready(){b.classList.remove('sent');act.innerHTML='<button type="button" class="send">'+esc(k.send)+'</button>';var s=act.firstChild;
-    s.onclick=function(){if(s.disabled)return;s.disabled=true;s.classList.add('busy');s.textContent=k.sending;
-      quiet(c.wait(k.sendMs).then(function(){b.classList.add('sent');act.innerHTML='<div class="done"><span></span><button type="button">'+k.undo+'</button></div>';
-        var t=act.querySelector('span');inkWords(t,k.sent,40);act.querySelector('button').onclick=ready;}));};}
-  ready();return b;}
+/* the cards: the shell's, one per item, swiped sideways, as one block of the page */
+function cards(c,items,label){var b=blk('',null,label?'<p class="hx" style="margin:0 0 12px">'+label+'</p>':'');b.appendChild(c.cards(items));return b;}
 
 /* ---- his turn ---- */
 /* typed: the words leave the field and land as the page's kicker; the page before leaves upward */
@@ -188,27 +168,31 @@ async function turn(c,a,text,blocks){var pg=await ask(c,a),now=await work(c,pg,a
 
 /* ---- the answers ---- */
 function dayBlocks(){var a=D.asks.day.answer;return [timeline(a.events),place(a.place,true),waiting(a.waiting),payment(a.payment)];}
-function jadeBlocks(c){var a=D.asks.jade.answer;return [face(a.who,a.reply),quote(a.reply),card(c,a.card)];}
+function jadeBlocks(c){var a=D.asks.jade.answer;return [face(a.who,a.reply),quote(a.reply),cards(c,[a.card])];}
 function dayPage(c){var pg=page(c),a=D.asks.day.answer;kicker(pg,D.asks.day.ask);h('h2','lead-t',esc(a.lead),pg);dayBlocks().forEach(function(b){pg.appendChild(b);});return pg;}
 
 /* a tap on an inline action that has a scene plays it */
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-go]');if(b)Shell.run(b.dataset.go);});
 function clean(c){c.phone.querySelectorAll('.fly').forEach(function(e){e.remove();});c.phone.classList.remove('b-mirror');}
 function scene(id,label,fn){return {id:id,label:label,run:function(c){clean(c);return fn(c);}};}
-function idle(c){var pg=page(c);pg.style.minHeight='100%';inkIn(kicker(pg,D.now.day));var hi=h('h2','hi','',pg);inkWords(hi,'Hi',0,200);
+function idle(c,waiting){var pg=page(c);pg.style.minHeight='100%';inkIn(kicker(pg,D.now.day));var hi=h('h2','hi','',pg);inkWords(hi,'Hi',0,200);
+  if(waiting){var w=cards(c,D.waiting.slice(0,3),'Waiting on you');pg.appendChild(w);settle(w,300);return pg;}
   var sg=h('div','sugg','',pg);[[D.asks.day.ask,'answer-day'],[D.asks.jade.ask,'answer-jade']].forEach(function(x,i){var b=h('button','pill','',sg);b.type='button';b.textContent=x[0];b.dataset.go=x[1];
     A(b,[{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'none'}],420,IN,300+i*90);});return pg;}
 
 Shell.mount({title:'Turn by turn v2: B, living page',scenes:[
   scene('idle','Idle',function(c){idle(c);}),
+  scene('home-waiting','Opens with matters waiting',function(c){idle(c,true);}),
+  scene('waiting-list','Waiting on you',function(c){var pg=page(c);inkIn(kicker(pg,D.waitingAsk));return compose(c,pg,null,D.waitingLead,[cards(c,D.waiting)]);}),
+  scene('pendant','Pendant status',function(c){idle(c);c.pendant();}),
   scene('type-send','He types an ask',async function(c){waitLine(c,await typed(c,D.asks.day));}),
   scene('voice-send','He holds to talk',async function(c){waitLine(c,await spoken(c,D.asks.jade));}),
   scene('working','Life works',async function(c){var pg=page(c);inkIn(kicker(pg,D.asks.day.ask));await work(c,pg,D.asks.day);}),
   scene('answer-day','Answer: the day',function(c){return turn(c,D.asks.day,D.asks.day.answer.lead,dayBlocks);}),
   scene('answer-jade','Answer: Jade, with her draft',function(c){return turn(c,D.asks.jade,D.asks.jade.answer.lead,jadeBlocks);}),
-  scene('tell','Tell Ben: a draft on his words',function(c){var a=D.asks.tell;return turn(c,a,a.answer.lead,function(c){return [card(c,a.answer.card,true)];});}),
-  scene('card-arrives','A card arrives',async function(c){var pg=idle(c);await c.wait(D.arrives.arriveMs);var k=D.arrives.card,f=h('div','foot','',pg);
-    var q=quote(k.context,k.context.who);q.classList.remove('tight');f.appendChild(q);f.appendChild(card(c,k));
+  scene('tell','Tell Ben: a draft on his words',function(c){var a=D.asks.tell;return turn(c,a,a.answer.lead,function(c){return [cards(c,[a.answer.card])];});}),
+  scene('card-arrives','A card arrives',async function(c){var pg=idle(c);await c.wait(D.arrives.arriveMs);var f=h('div','foot','',pg);
+    f.appendChild(cards(c,[D.arrives.card]));
     A(f,[{opacity:0,transform:'translateY(60px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'blur(0)'}],700,SETTLE);
     c.stage.scrollTo({top:c.stage.scrollHeight,behavior:R?'auto':'smooth'});}),
   scene('slow','A slow ask',function(c){var a=D.slow;return turn(c,a,a.answer.lead,function(){return [place(a.answer.place)];});}),

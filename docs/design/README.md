@@ -12,6 +12,12 @@ The pages share their parts instead of copying them. Life's brand is [`assets/br
 [`components.css`](components.css) imports it and holds the rules the app v4 pages had in common that no other page's markup could pick up.
 The turn by turn pages share [`2026-11-27-turns.css`](2026-11-23-chat-first/2026-11-27-turns.css). A rule only one page uses stays in that page.
 
+## Start here
+
+| Design | What it is |
+|---|---|
+| [Sources of truth](sources-of-truth.md) | What any person or agent reads before designing a screen or building a component, in order |
+
 ## Prototype
 
 The one approved design: the app is built to it (the owner's yes of 26 Nov 2026). Nothing else here is a target until it
@@ -54,7 +60,9 @@ Proposals: none is built until the owner bakes it into the prototype.
 
 | Design | What it is |
 |---|---|
-| [Turn by turn: five directions](2026-11-27-turn-by-turn-v2/index.html) | Five ways the turn by turn could look and move (cinema, living page, face to face, cards on the table, path of work), on App v4's edge glow; play the same moment in each |
+| [The chat, one component](2026-11-28-chat-component/index.html) | The one chat Life shows wherever a chat shows, three ways (as the app, as Life's thread, as a transcript), in every app and draft it takes; the two not chosen are deleted |
+| [Card shapes](2026-11-28-card-shapes/index.html) | What goes in a card, every card kind of App v4 three ways: one shared shape, a shape per kind, or spoken (Life says the card as a sentence, the thing itself under it); each folded in the turn by turn's sideways row, unfolding on a tap; pick a kind and a variation |
+| [Turn by turn: five directions](2026-11-27-turn-by-turn-v2/index.html) | Five ways the turn by turn could look and move (cinema, living page, face to face, cards on the table, path of work), on App v4's edge glow and top controls (tap the waiting count or the pendant); cards swipe sideways, one per item; play the same moment in each, the home with matters waiting included |
 | [Turn by turn: the real flow](2026-11-27-turn-by-turn-v2/2026-11-28-real-flow.md) | What really happens when you ask Life, with measured timings and your decisions of 28 Nov; the five directions follow it |
 | [Hey Life, turn by turn](2026-11-23-chat-first/2026-11-27-hey-life-turns.html) | “Hey Life” from your words to the answer: heard, the tap, Life working, the answer; not heard, offline, slow, couldn’t do it, heard late |
 | [v5 turn by turn](2026-11-23-chat-first/2026-11-27-v5-turns.html) | Turn by turn instead of a thread, chosen as the next direction on 27 Nov 2026; [the verdict](2026-11-23-chat-first/2026-11-27-v5-turns-proposal.md), [where it stands](../handoff/2026-11-27-turn-by-turn.md) |
