@@ -125,9 +125,8 @@ public enum ContextMarkdown {
         case let heading as Heading: [.heading(level: heading.level <= 2 ? 2 : 3, inlines(heading))]
         case let paragraph as Paragraph: [.paragraph(inlines(paragraph))]
         case let list as ListItemContainer: [.list(items(list, isNested: false))]
-        case let quote as BlockQuote: [quoteBlock(quoted(quote))]
-        case let code as CodeBlock: [.code(code.code.trimmingCharacters(in: .newlines))]
-        case let html as HTMLBlock: [.paragraph([Inline(html.rawHTML.trimmingCharacters(in: .whitespacesAndNewlines))])]
+        case let code as CodeBlock: [.code(codeText(code))]
+        case let html as HTMLBlock: [.paragraph(line(html))]
         case let table as Table:
             [
                 .table(
@@ -139,9 +138,7 @@ public enum ContextMarkdown {
         }
     }
 
-    private static func quoteBlock(_ quote: (text: [Inline], source: [Inline]?)) -> ContextBlock {
-        .quote(quote.text, source: quote.source)
-    }
+    private static func codeText(_ code: CodeBlock) -> String { code.code.trimmingCharacters(in: .newlines) }
 
     /// A quote's words, its paragraphs one per line; its source when its last line, after its words, is `*…*` alone.
     private static func quoted(_ quote: BlockQuote) -> (text: [Inline], source: [Inline]?) {
@@ -182,7 +179,7 @@ public enum ContextMarkdown {
             return items(list, isNested: true).enumerated().flatMap { index, item in
                 (index > 0 ? [Inline("\n")] : []) + [Inline(item.marker + " ")] + item.text
             }
-        case let code as CodeBlock: return [Inline(code.code.trimmingCharacters(in: .newlines), isCode: true)]
+        case let code as CodeBlock: return [Inline(codeText(code), isCode: true)]
         case let html as HTMLBlock: return [Inline(html.rawHTML.trimmingCharacters(in: .whitespacesAndNewlines))]
         case let table as Table:
             // A table's rows as lines, its cells joined by " · ".

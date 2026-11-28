@@ -163,3 +163,14 @@ func aLinkComesBackFromTheURLItsTextCarries(link: ContextLink) throws {
     #expect(words(list[0].text) == "Run this:\nmake demo")
     #expect(list[0].text.contains { $0.isCode && $0.text == "make demo" })
 }
+
+@Test func aTableInAQuoteReadsAsRowsOfCells() throws {
+    let blocks = ContextMarkdown.blocks(
+        """
+        > | Item | Amount |
+        > | --- | --- |
+        > | Rent | 900 € |
+        """)
+    guard case .quote(let quote, _) = blocks[0] else { Issue.record("a quote"); return }
+    #expect(words(quote) == "Item · Amount\nRent · 900 €")
+}
