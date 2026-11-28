@@ -145,13 +145,16 @@ import SwiftUI
 
         private var thread: some View {
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
-                section("His bubble: sent, with a reaction, waiting, not sent") {
+                section("His question: short, with a reaction, long, waiting, not sent") {
                     VStack(spacing: Metrics.Spacing.s) {
-                        HisBubble(words: "Book a physio near home")
-                        HisBubble(words: "Book a physio near home", reaction: .handedOn)
-                        HisBubble(words: "Lunch on Sunday at 10:00", reaction: .up)
-                        HisBubble(words: "Tell Lena I'm late", state: .waiting)
-                        HisBubble(words: "Tell Lena I'm late", state: .failed)
+                        ThreadTurnQuestion(words: "Book a physio near home", reaction: .handedOn)
+                        ThreadTurnQuestion(words: "Lunch on Sunday at 10:00", reaction: .up)
+                        ThreadTurnQuestion(
+                            words:
+                                "Can you look at what Jade and Ben said about the flat this week and tell me who still waits on me?",
+                            isPinned: true)
+                        ThreadTurnQuestion(words: "Tell Lena I'm late", state: .waiting)
+                        ThreadTurnQuestion(words: "Tell Lena I'm late", state: .failed)
                     }
                 }
                 section("Earlier draft") { EarlierDraftRow(words: "Hi Lena, I'll be late, sorry!") }

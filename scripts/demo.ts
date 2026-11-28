@@ -10,7 +10,6 @@ import {
   pathInside,
 } from "@life/server/src/core/platform";
 import { execOk } from "@life/server/src/core/proc";
-import { PUBLIC_PORT } from "@life/server/src/host/http/http";
 import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
 import { DIRECTIONS_PROMPT } from "@life/server/src/memory/matter-direction-due";
 import { MATTERS_PROMPT } from "@life/server/src/memory/matters";
@@ -80,7 +79,6 @@ const RUNTIME = process.env.LIFE_DEMO_RUNTIME ?? "claude";
 writeFileSync(
   join(state, "settings.json"),
   JSON.stringify({
-    connector: { origin: `http://127.0.0.1:${PUBLIC_PORT}` },
     desk: {
       defaultRuntime: RUNTIME,
       runtimes: { [RUNTIME]: RUNTIME === "claude" ? { model: "sonnet" } : {} },

@@ -49,10 +49,10 @@ struct VoiceSettings: View {
         .disabled(voice?.speakers == nil)
       Text("Names the voices you've named before, on this Mac; installs about 630 MB once. Off, voices stay unnamed.")
         .caption()
-      Toggle("Back up to iCloud Drive every day", isOn: saving($backups))
-        .disabled(voice?.iCloud != true || voice?.backups == nil)
-      if voice?.iCloud == false {
-        Text("Turn on iCloud Drive in System Settings first.").caption()
+      Toggle("Back up every day", isOn: saving($backups))
+        .disabled(voice?.backupSet != true || voice?.backups == nil)
+      if voice?.backupSet == false {
+        Text("Set up Life's backup first.").caption()
       } else if backups {
         Button("Copy the backup password") {
           Task {
@@ -64,7 +64,7 @@ struct VoiceSettings: View {
         }
         Text(
           "Keep it in your password manager: without it, nobody can read the backup, you included. It goes to "
-            + "iCloud Drive/lifelog backup, encrypted (restic)."
+            + "Life's backup folder, encrypted (restic)."
         ).font(Brand.serif(11))
       }
       HStack {
@@ -205,7 +205,8 @@ struct VoiceStatus: Decodable {
   let chatgpt: Bool?
   let claudeToken: Bool?
   let elevenLabsKey: Bool?
-  let iCloud: Bool?
+  /// Whether Life's own backup is set: voice's daily snapshot goes into it.
+  let backupSet: Bool?
   let logs: [String: String]?
   let recorded: Bool?
   let speakers: Bool?

@@ -188,7 +188,8 @@ someone else is capped at 0.6 confidence.
   an empty temp folder with no tools and no instruction files, so recorded content reaches the model with nothing but
   the prompt. (A developer's benchmark, the question cases, gives one Codex call Life's connector, reads only.)
 - The optional backup goes where the `backup` setting says (for example iCloud Drive), encrypted by restic.
-- The connector is reached through the owner's tailnet (or a tunnel the owner controls), behind Life's OAuth.
+- The connector is reached through the Mac link (the iPhone app, by the Mac's key over iroh, `mac-link.ts`), the
+  owner's tailnet or a tunnel the owner controls, behind Life's OAuth; without a tunnel its origin is this Mac's loopback.
   The owner's install is a bridge until #137: a Cloudflare Worker (`apps/edge/`) on every path of his public address passes
   each request as is to the Mac's Tailscale Funnel on port 8443 (HTTPS a VPN lets through, unlike the tunnel's 7844),
   so his connector's URL never changes. It decides nothing; the Mac's OAuth guards every path.
@@ -284,11 +285,15 @@ data before a token. Every route is a Hono app; `server.ts` mounts one app per p
 app and the legacy portrait (`/me`) were removed on 8 Nov 2026; the server version will build what it needs.
 
 His own apps (the iPhone app first) read Life as a client of the connector, never through a second API: paired like any
-app (`bun life pair`, OAuth with PKCE), they call `/mcp`'s tools at the connector's origin and read the same answers the
+app (`bun life pair`, OAuth with PKCE), they call `/mcp`'s tools at the connector's origin (the iPhone app through the
+Mac link) and read the same answers the
 models read. The reads an app shows (`read_matters`, `read_matter`, `read_inbox`, `read_registered_agents`) answer
 in JSON, sent once as text; it acts through the same tools (`answer_check`, `change_registered_agent`,
 `correct_memory`, `change_todo_item`).
 
+- **The Mac link** (`mac-link.ts`): the iPhone app dials the Mac's key over iroh with ALPN `life/1` and sends one HTTP
+  request per bi-stream, with `Connection: close`. The Mac pipes each stream's bytes to the public port and the answer
+  back until the port closes it.
 - **The voice server** (`voice-forward.ts`: `/voice/*`, with the `lifelog` setting): the phone's one origin. Each
   request goes to the voice server on loopback as it came, without the prefix, its body and answer streamed (up to
   65 MiB; Life's own routes keep 256 KiB) with no time limit for its long polls; the voice server's tokens are its only

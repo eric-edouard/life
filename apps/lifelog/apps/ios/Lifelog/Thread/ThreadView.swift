@@ -27,6 +27,10 @@ struct ThreadView: View {
     @State private var seenRows = 0
     /// When he opened the ask `life.opened`: while it still grows (its words, its answers), it is kept above the field.
     @State private var openedAt: Date?
+    /// The thread's visible height: the least a turn takes.
+    @State private var page: CGFloat = 0
+    /// Each turn's top, in the scroll's content: where a release near one settles.
+    @State private var turnTops = ThreadTurnTops()
     @Environment(\.calendar) private var calendar
     @Environment(\.scenePhase) private var scenePhase
     @Environment(LifeStore.self) private var life
@@ -130,9 +134,21 @@ struct ThreadView: View {
                 Motion.animate { proxy.scrollTo(origin.id, anchor: .top) }
             }
             .appears(Motion.arrives)
-        } else {
-            EntryView(entry: entry, live: thread.live[entry.id], thread: thread, screen: screen, actions: actions)
+        } else if entry.tap == true {
+            // A tapped quick edit changes its draft in place: no question, so no turn of its own.
+            EntryView(entry: entry, live: thread.live[entry.id], thread: thread, actions: actions)
                 .appears(Motion.arrives)
+        } else {
+            ThreadTurnSection(
+                entry: entry,
+                page: page,
+                top: { turnTops.place(entry.id, inView: Double($0)) }
+            ) {
+                thread.askAgain(entry.id, screen: screen)
+            } content: {
+                EntryView(entry: entry, live: thread.live[entry.id], thread: thread, actions: actions)
+                    .appears(Motion.arrives)
+            }
         }
     }
 
@@ -151,7 +167,8 @@ struct ThreadView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: Metrics.Spacing.m) {
+                // A turn's question pins at the top while its answer scrolls under it.
+                LazyVStack(alignment: .leading, spacing: Metrics.Spacing.m, pinnedViews: .sectionHeaders) {
                     let dates = thread.entries.map(\.at)
                     if opening.earlierDay(of: dates, calendar: calendar) != nil {
                         Button {
@@ -204,7 +221,20 @@ struct ThreadView: View {
                 .onChange(of: rows.count, initial: true) { seenRows = rows.count }
                 .padding(.horizontal, Metrics.Spacing.l).padding(.top, Metrics.Spacing.l).padding(
                     // The prototype leaves 52 pt between the last answer and the field.
-                    .bottom, Metrics.Spacing.xl + Metrics.Spacing.xs)
+                    .bottom, Metrics.Spacing.xl + Metrics.Spacing.xs
+                )
+            }
+            // A gentle snap: a release near a turn's top settles there; inside a turn the scroll is free.
+            .scrollTargetBehavior(ThreadTurnSnap(tops: turnTops, reach: page / 6))
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentOffset.y
+            } action: {
+                turnTops.offset = $1
+            }
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.containerSize.height - $0.contentInsets.top - $0.contentInsets.bottom
+            } action: {
+                page = $1
             }
             // A short thread rests just above the field: a safe-area padding, which the bottom anchor respects
             // (content margins are ignored for content shorter than the view).
@@ -228,8 +258,16 @@ struct ThreadView: View {
             }
             // His own ask goes to the end whatever he was reading; a late reply or a new card only when he is there.
             .onChange(of: thread.entries.count) {
-                if thread.entries.last?.phase == .sending { followsEnd = true }
-                if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) }
+                if let ask = thread.entries.last, ask.phase == .sending {
+                    // His ask opens its turn at the top, once the keyboard has gone: the answer comes in under it.
+                    followsEnd = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(400))
+                        Motion.animate { proxy.scrollTo(turnAnchor(ask.id), anchor: .top) }
+                    }
+                } else if followsEnd, isScrollable {
+                    proxy.scrollTo("end", anchor: .bottom)
+                }
             }
             // The keyboard or the field growing shrinks the view from below: at the end, it stays at the end.
             .onChange(of: fieldHeight) { if followsEnd, isScrollable { proxy.scrollTo("end", anchor: .bottom) } }
@@ -302,12 +340,11 @@ struct ThreadView: View {
     }
 }
 
-/// His words, and under them what Life does and says.
+/// What Life does and says for one of his asks.
 private struct EntryView: View {
     let entry: ThreadEntry
     let live: LiveAnswer?
     let thread: LifeThread
-    let screen: MainSessionScreen
     let actions: BlockActions
     private static let reactions = Reaction.rating.map(\.rawValue)
     @Environment(LifeStore.self) private var life
@@ -336,14 +373,6 @@ private struct EntryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            // A tapped quick edit changes its draft in place: no bubble of its own.
-            if entry.tap != true {
-                HisBubble(
-                    words: entry.words,
-                    state: entry.phase == .waiting ? .waiting : entry.phase == .failed ? .failed : .sent,
-                    reaction: entry.lifeReaction.flatMap(Reaction.init(rawValue:)),
-                    retry: { thread.askAgain(entry.id, screen: screen) })
-            }
             if let live {
                 VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
                     // The steps line blurs away where the words ink in.
@@ -409,3 +438,61 @@ private struct LateReplyView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+/// A turn (the owner's decision of 28 Nov 2026): his question as its pinned header, then what Life does and says, at
+/// least a page tall, a short answer centred in the room under the question.
+private struct ThreadTurnSection<Content: View>: View {
+    let entry: ThreadEntry
+    /// The least the turn takes, its question included.
+    let page: CGFloat
+    /// Its top in the thread's view, on every move, for the snap.
+    let top: (CGFloat) -> Void
+    let retry: () -> Void
+    @ViewBuilder let content: Content
+    @State private var isPinned = false
+    @State private var questionHeight: CGFloat = 0
+
+    /// The question and the stack's gap above the answer.
+    private var head: CGFloat { questionHeight + Metrics.Spacing.m }
+
+    var body: some View {
+        Section {
+            content
+                .frame(maxWidth: .infinity, minHeight: max(page - head, 0), alignment: .leading)
+                // Pinned once its own place has gone above the thread's top.
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.frame(in: .scrollView).minY
+                } action: {
+                    top($0 - head)
+                    let pinned = $0 < head - 1
+                    if pinned != isPinned { isPinned = pinned }
+                }
+        } header: {
+            ThreadTurnQuestion(
+                words: entry.words,
+                state: entry.phase == .waiting ? .waiting : entry.phase == .failed ? .failed : .sent,
+                reaction: entry.lifeReaction.flatMap(Reaction.init(rawValue:)), isPinned: isPinned, retry: retry
+            )
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height
+            } action: {
+                questionHeight = $0
+            }
+            .id(turnAnchor(entry.id))
+        }
+    }
+}
+
+/// A release near a turn's top settles there; inside a turn, where it was going (`ThreadTurns.settled`).
+private struct ThreadTurnSnap: ScrollTargetBehavior {
+    let tops: ThreadTurnTops
+    let reach: CGFloat
+
+    func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
+        target.rect.origin.y = ThreadTurns.settled(
+            target.rect.minY, tops: tops.contentTops, reach: reach)
+    }
+}
+
+/// What a scroll to a turn's top aims at: its question's place.
+private func turnAnchor(_ turn: UUID) -> String { "turn \(turn)" }
