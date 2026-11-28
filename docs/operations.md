@@ -84,7 +84,7 @@ records a ref and title once), the archive after its pass, and the app restarts 
 
 ## The check
 
-No CI: the pre-push hook runs `bun run check`. On Windows it runs by hand on the owner's PC over SSH (pending:
+No CI: the pre-push hook runs `bun run check`. Each step has a wall-clock limit (`scripts/check.ts`): past it, its processes are killed and the check fails, naming the stuck step and test file. On Windows it runs by hand on the owner's PC over SSH (pending:
 `docs/plans/2026-10-22-platforms.md`, "Verification").
 
 ## Demo stress tests
