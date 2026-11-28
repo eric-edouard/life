@@ -13,6 +13,7 @@ import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { CODEX, cliEnv, isOwnLife, MACHINE_DIR } from "../core/platform";
 import { exec, firstLine } from "../core/proc";
 import { settings } from "../core/settings";
+import type { IntegrationTerms } from "../records/integration";
 import {
   type Answer,
   add,
@@ -460,8 +461,12 @@ interface Provider {
   effort?: Record<Tier, string>;
   /** Where its calls go first: `isOnline` asks it. */
   host: string;
+  /** Its terms as an integration (`records/integration.ts`): what leaves the computer and what it takes. */
+  integration: IntegrationTerms;
   /** The keys it takes, one per router of its routes. */
   keys: string[];
+  /** What he calls it. */
+  label: string;
   models: Record<Tier, string>;
   quota?: () => Promise<Quota | undefined>;
   /** Whether a call of it may be given tools (`Tools`): Codex only, the question cases' agent. */
@@ -476,7 +481,9 @@ const CLI_CALLS_AT_ONCE = 4;
 function apiEngine(
   engine: Router,
   models: Record<Tier, string>,
-  contextTokens: number
+  contextTokens: number,
+  label: string,
+  integration: IntegrationTerms
 ): Provider {
   const routers = [
     ...new Set(
@@ -490,20 +497,42 @@ function apiEngine(
     callsAtOnce: API_CALLS_AT_ONCE,
     contextTokens,
     host: new URL(ROUTERS[engine].url).host,
+    integration,
     keys: routers.map((r) => ROUTERS[r].key),
+    label,
     models,
   };
 }
+/** What the AI is good for, the same whichever engine runs it: one example ask and the gist of Life's answer. */
+const AI_VALUE = {
+  answer: "Ana's invoice, the trip dates and the review you owe Sam.",
+  ask: "What matters this week?",
+};
 // Context sizes as each lists them (9 Nov 2026): DeepSeek V4.1 Flash 1017 on OpenRouter's hosts and allmodels'
 // abliterated one, 1,048,576; Claude Code's models, 200k; ponytail: Sol's 272k is a guess, read it if codex runs Life.
 const PROVIDERS: Record<Engine, Provider> = {
-  allmodels: apiEngine("allmodels", ALLMODELS_MODELS, 1_048_576),
+  allmodels: apiEngine("allmodels", ALLMODELS_MODELS, 1_048_576, "allmodels", {
+    privacy:
+      "What Life reads goes to allmodels.io, only to hosts that keep no data.",
+    requirements: [],
+    value: AI_VALUE,
+  }),
   claude: {
     ask: askClaude,
     callsAtOnce: CLI_CALLS_AT_ONCE,
     contextTokens: 200_000,
     host: "api.anthropic.com",
+    integration: {
+      privacy:
+        "What Life reads goes to Anthropic through your Claude subscription, by the Claude Code app on this computer.",
+      requirements: [
+        { kind: "install", what: "claude_code" },
+        { kind: "sign_in", with: "claude" },
+      ],
+      value: AI_VALUE,
+    },
     keys: [],
+    label: "Claude",
     models: CLAUDE_MODELS,
   },
   codex: {
@@ -512,16 +541,40 @@ const PROVIDERS: Record<Engine, Provider> = {
     contextTokens: 272_000,
     effort: CODEX_EFFORT,
     host: "chatgpt.com",
+    integration: {
+      privacy:
+        "What Life reads goes to OpenAI through your ChatGPT subscription, by the Codex app on this computer.",
+      requirements: [],
+      value: AI_VALUE,
+    },
     keys: [],
+    label: "Codex",
     models: SOL,
     quota: codexQuota,
     tools: true,
   },
-  openrouter: apiEngine("openrouter", OPENROUTER_MODELS, 1_048_576),
+  openrouter: apiEngine(
+    "openrouter",
+    OPENROUTER_MODELS,
+    1_048_576,
+    "OpenRouter",
+    {
+      privacy:
+        "What Life reads goes to OpenRouter, only to hosts that keep no data, paid from your OpenRouter credits.",
+      requirements: [{ kind: "credits", with: "openrouter" }],
+      value: AI_VALUE,
+    }
+  ),
 };
 
 /** How many calls of `llm`'s engine run at once. */
 export const callsAtOnceOf = (llm: Llm) => PROVIDERS[llm.engine].callsAtOnce;
+
+/** An engine's label and its terms as an integration, for the integration read. */
+export const providerOf = (engine: Engine) => {
+  const { integration, label } = PROVIDERS[engine];
+  return { integration, label };
+};
 
 /**
  * The fewest characters a token holds, a low bound on purpose: a text of n characters is at most n / CHARS_PER_TOKEN

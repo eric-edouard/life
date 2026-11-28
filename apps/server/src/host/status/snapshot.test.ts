@@ -3,67 +3,7 @@ import { DAY, HOUR, MIN } from "../../core/clock";
 import { lifelogServer } from "../../sources/store-fixtures";
 import { alertKeyOf, redCards } from "../report";
 import { crashCard } from "./crash-card";
-import {
-  processingStepsOf,
-  quietestAt,
-  snapshot,
-  toneOf,
-  waking,
-  wokeAt,
-} from "./snapshot";
-
-const now = Date.parse("2026-10-21T15:00:00.000Z");
-const ago = (ms: number) => new Date(now - ms).toISOString();
-
-test("a source is red only when Life can't read it; silence is quiet, then amber past its limit", () => {
-  expect(toneOf(ago(10 * MIN), DAY, now)).toEqual({
-    tone: "ok",
-    word: "receiving",
-  });
-  expect(toneOf(ago(5 * HOUR), DAY, now)).toEqual({
-    tone: "idle",
-    word: "quiet",
-  });
-  expect(toneOf(ago(25 * HOUR), DAY, now)).toEqual({
-    tone: "warn",
-    word: "silent",
-  });
-  expect(toneOf(ago(MIN), DAY, now, false)).toEqual({
-    tone: "bad",
-    word: "unreadable",
-  });
-  expect(toneOf(null, DAY, now)).toEqual({ tone: "idle", word: "nothing yet" });
-});
-
-test("audit-6-line-account-id: a source with parts goes amber when one part is silent, even while another is receiving", () => {
-  const parts = [
-    { at: ago(10 * MIN), label: "telegram" },
-    { at: ago(4 * DAY), label: "line" },
-  ];
-  expect(
-    toneOf(quietestAt({ at: ago(10 * MIN), parts }), 3 * DAY, now)
-  ).toEqual({ tone: "warn", word: "silent" });
-  expect(quietestAt({ at: ago(HOUR) })).toBe(ago(HOUR));
-});
-
-test("the Pendant is expected to hear him between 08:00 and 01:00 only, on the clock of the zone given", () => {
-  // Lagos is UTC+1 all year: 06:30Z is 07:30 there.
-  const at = (h: number) => new Date(Date.UTC(2026, 9, 21, h - 1, 30));
-  expect(
-    [7, 8, 13, 23, 24, 25, 28].map((h) => waking(at(h), "Africa/Lagos"))
-  ).toEqual([false, true, true, true, true, false, false]);
-  // The same instant in another zone: 07:30 in Lagos is 13:30 in Jakarta.
-  expect(waking(at(7), "Asia/Jakarta")).toBe(true);
-});
-
-test("his waking hours began at 08:00, the day before after midnight: a night is not silence", () => {
-  const lagos = (day: number, h: number) =>
-    new Date(Date.UTC(2026, 9, day, h - 1, 30));
-  const eight = new Date("2026-10-21T07:00:00.000Z");
-  expect(wokeAt(lagos(21, 9), "Africa/Lagos")).toEqual(eight);
-  expect(wokeAt(lagos(22, 0), "Africa/Lagos")).toEqual(eight);
-  expect(wokeAt(lagos(22, 4), "Africa/Lagos")).toBeNull();
-});
+import { processingStepsOf, snapshot } from "./snapshot";
 
 test("a processing run's steps are the steps it recorded: done, now, the one it failed at still to do, then the night's report", () => {
   const run = (processingSteps: string[], outcome: string, failedAt?: string) =>

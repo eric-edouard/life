@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import type { SourceName } from "../core/names";
+import type { IntegrationTerms } from "../records/integration";
 import type { InferredRepo } from "../records/observation";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { Person } from "../records/truth";
@@ -138,6 +139,8 @@ export type Descriptor = {
   isWorkTracker?: true;
   /** Imported from exports: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
+  /** Its terms as an integration (`records/integration.ts`); none for a source that needs nothing of him (Told Life, Agents) or one a network's entry holds (`NETWORKS`). */
+  integration?: IntegrationTerms;
   /**
    * Its app exists only on the Mac (`platform.ts`): elsewhere it is never read, or, with a `store`, read from the
    * archive's copy and never copied.
@@ -162,7 +165,7 @@ export type Descriptor = {
   newest?: () => Newest | Promise<Newest>;
   /** Earliest stored instant, read from source metadata without reading message text. */
   earliest?: () => string | null;
-  /** How long it may stay silent before its card turns amber (`toneOf`, snapshot.ts). */
+  /** How long it may stay silent before its card turns amber (`toneOf`, integration-health.ts). */
   silentAfter: number;
 } & (
   | {

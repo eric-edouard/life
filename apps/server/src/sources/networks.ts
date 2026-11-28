@@ -48,6 +48,15 @@ export const NETWORKS = [
       return { seconds, video: VIDEO.test(g.kind ?? "") };
     },
     cmd: "cmd/matrix-line",
+    integration: {
+      privacy:
+        "Signed in through Life's bridge on this computer: your LINE messages come straight to it, then what Life reads goes to the AI you chose.",
+      requirements: [],
+      value: {
+        answer: "Ana sent the times for Saturday's train in the group.",
+        ask: "What did Ana say about the trip?",
+      },
+    },
     label: "LINE",
     loginFlow: "dev.highest.matrix.line.email_login",
     name: "line",
@@ -56,6 +65,15 @@ export const NETWORKS = [
   {
     callOf: metaCallOf,
     cmd: "cmd/mautrix-instagram",
+    integration: {
+      privacy:
+        "Signed in through Life's bridge on this computer: your Instagram messages come straight to it, then what Life reads goes to the AI you chose.",
+      requirements: [],
+      value: {
+        answer: "Sam's post: boxes packed, moving on Sunday.",
+        ask: "What did Sam post about the move?",
+      },
+    },
     label: "Instagram",
     loginFlow: "instagram",
     name: "instagram",
@@ -65,6 +83,15 @@ export const NETWORKS = [
     // ponytail: Instagram's call notices assumed; a Messenger call in another wording stays a plain notice until seen.
     callOf: metaCallOf,
     cmd: "cmd/mautrix-meta",
+    integration: {
+      privacy:
+        "Signed in through Life's bridge on this computer: your Messenger messages come straight to it, then what Life reads goes to the AI you chose.",
+      requirements: [],
+      value: {
+        answer: "Ana wrote in the group: dinner at 8, her place.",
+        ask: "What did Ana plan for Friday?",
+      },
+    },
     label: "Messenger",
     loginFlow: "facebook",
     name: "messenger",
@@ -74,6 +101,7 @@ export const NETWORKS = [
     // Its bridge exits until its config holds his own keys from my.telegram.org (`bun life bridge link`).
     appKeys: {
       hint: "Get them at https://my.telegram.org → API development tools (log in with your phone number).",
+      opens: "https://my.telegram.org",
       paths: ["network.api_id", "network.api_hash"],
       secret: ["network.api_hash"],
     },
@@ -83,6 +111,15 @@ export const NETWORKS = [
         ? `https://t.me/${handle.replace("@", "")}`
         : undefined,
     cmd: "cmd/mautrix-telegram",
+    integration: {
+      privacy:
+        "Signed in through Life's bridge on this computer: your Telegram messages come straight to it, then what Life reads goes to the AI you chose.",
+      requirements: [],
+      value: {
+        answer: "Sam's message: the link to the new docs, on Tuesday.",
+        ask: "What did Sam send in the channel?",
+      },
+    },
     label: "Telegram",
     loginFlow: "phone",
     name: "telegram",
@@ -90,6 +127,15 @@ export const NETWORKS = [
   },
   {
     cmd: "cmd/mautrix-linkedin",
+    integration: {
+      privacy:
+        "Signed in through Life's bridge on this computer: your LinkedIn messages come straight to it, then what Life reads goes to the AI you chose.",
+      requirements: [],
+      value: {
+        answer: "Two people replied; Ana asked about the role you posted.",
+        ask: "Who replied to my post?",
+      },
+    },
     label: "LinkedIn",
     loginFlow: "cookies",
     name: "linkedin",
@@ -97,6 +143,15 @@ export const NETWORKS = [
   },
   {
     cmd: "cmd/mautrix-whatsapp",
+    integration: {
+      privacy:
+        "Read from the WhatsApp app on this Mac; its bridge on this computer only sends what you approve. What Life reads goes to the AI you chose.",
+      requirements: [{ check: "full_disk_access", kind: "permission" }],
+      value: {
+        answer: "Sam's message from Tuesday: dinner at 8, his place.",
+        ask: "What did Sam say about Saturday?",
+      },
+    },
     label: "WhatsApp",
     loginFlow: "phone",
     name: "whatsapp",
@@ -112,6 +167,8 @@ export const NETWORKS = [
 export type Network = (typeof NETWORKS)[number] & {
   appKeys?: {
     hint: string;
+    /** The page where the keys are made. */
+    opens: string;
     paths: readonly string[];
     secret: readonly string[];
   };

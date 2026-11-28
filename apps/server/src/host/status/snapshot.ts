@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { clock, DAY, daysBefore, HOUR, MIN } from "../../core/clock";
+import { cached, safe } from "../../core/cached";
+import { clock, DAY, HOUR, MIN } from "../../core/clock";
 import { filesIn, newestIn, readLineCount } from "../../core/files";
 import { type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
@@ -20,7 +21,6 @@ import { loadTruth, TRUTH } from "../../memory/read-truth";
 import { runs, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip } from "../../memory/units";
-import { dayStart, wall } from "../../memory/zones";
 import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
 import { isBookkeeping, TODO_CHANGE_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
@@ -31,6 +31,12 @@ import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { readHealth } from "../health";
 import { inboxChecksNow } from "../inbox";
+import {
+  PHONE_SILENT_MS,
+  quietestAt,
+  toneOf,
+  wokeAt,
+} from "../integration-health";
 import { connectorHealths, failingParts } from "../messaging-status";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { ASK, type Card, type Fact, firstOf, type Tone } from "./card";
@@ -53,55 +59,6 @@ export interface Tick {
   tone: Tone;
 }
 
-/** Received within this, a source reads as live. */
-const LIVE_MS = HOUR;
-
-/** A source's tone: unreadable is red; then live, quiet, or silent past its limit. */
-export function toneOf(
-  at: string | null | undefined,
-  limit: number,
-  now: number,
-  readable = true
-): { tone: Tone; word: string } {
-  if (!readable) {
-    return { tone: "bad", word: "unreadable" };
-  }
-  if (!at) {
-    return { tone: "idle", word: "nothing yet" };
-  }
-  const quiet = now - Date.parse(at);
-  if (quiet < LIVE_MS) {
-    return { tone: "ok", word: "receiving" };
-  }
-  return quiet < limit
-    ? { tone: "idle", word: "quiet" }
-    : { tone: "warn", word: "silent" };
-}
-
-/** When a source last heard anything, or for one with parts (the bridged networks) its quietest part: one quiet network shows. */
-export const quietestAt = (n: Newest) =>
-  n.parts?.length
-    ? n.parts.map((p) => p.at).reduce((a, b) => (a < b ? a : b))
-    : n.at;
-
-/**
- * Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (.claude/rules/one-way.md), in `tz` (the
- * Mac's zone read now, `systemZone`: a long-running process's own zone can be the one it started in).
- */
-export const waking = (d: Date, tz: string | undefined) => {
-  const hour = wall(d.toISOString(), tz).hms.slice(0, 2);
-  return hour >= "08" || hour < "01";
-};
-
-/** When the waking hours `d` falls in began (08:00, the day before after midnight); null outside them. */
-export function wokeAt(d: Date, tz: string | undefined) {
-  if (!waking(d, tz)) {
-    return null;
-  }
-  const { day, hms } = wall(d.toISOString(), tz);
-  return dayStart(hms < "01" ? daysBefore(day, 1) : day, tz, "08:00");
-}
-
 /** A run's outcome as a colour: the status snapshot and its details use this one. */
 const RUN_TONES: Record<string, Tone> = {
   ok: "ok",
@@ -111,27 +68,6 @@ const RUN_TONES: Record<string, Tone> = {
 export const toneOfRun = (outcome: string): Tone => RUN_TONES[outcome] ?? "bad";
 
 // --- reads: each redone at most every `ms` (the stream asks every few seconds, the push every minute) ---------------
-
-const memo = new Map<string, { at: number; value: Promise<unknown> }>();
-export function cached<T>(key: string, ms: number, read: () => Promise<T> | T) {
-  const now = performance.now();
-  const hit = memo.get(key);
-  if (hit && now - hit.at < ms) {
-    return hit.value as Promise<T>;
-  }
-  const value = Promise.resolve().then(read);
-  memo.set(key, { at: now, value });
-  return value;
-}
-
-/** A read that may fail: its error, never a throw (one broken store never blanks the status snapshot). */
-async function safe<T>(read: () => Promise<T> | T) {
-  try {
-    return { ok: true as const, value: await read() };
-  } catch (e) {
-    return { error: (e as Error).message, ok: false as const };
-  }
-}
 
 async function memoryCounts() {
   const answers = readFactCheckAnswers();
@@ -347,9 +283,6 @@ const pendantFacts = (
   { at: p?.knownAt, label: "Phone last reported" },
   { at: spokeAt, label: "Newest speech heard" },
 ];
-
-/** The phone reports at least every 6 h while its app runs: silent twice as long, the app or its way to lifelog is down. */
-const PHONE_SILENT_MS = 12 * HOUR;
 
 /** The Pendant, as lifelog last heard from the phone, and the newest speech the watcher folded in. */
 function pendantCard(r: Reads, d: Descriptor): Card {

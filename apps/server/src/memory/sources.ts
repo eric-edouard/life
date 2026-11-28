@@ -104,9 +104,21 @@ import {
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
 const LISTED: Descriptor[] = [
-  // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, snapshot.ts).
+  // The Pendant: expected to hear him between 08:00 and 01:00 only (`waking`, integration-health.ts).
   {
     capturesOnItsOwn: true,
+    integration: {
+      privacy:
+        "What the pendant hears goes to this computer through your phone; speech is turned into text here (a language outside the local set goes to ElevenLabs), then the text to the AI you chose.",
+      requirements: [
+        { kind: "device", what: "phone" },
+        { kind: "device", what: "pendant" },
+      ],
+      value: {
+        answer: "Sam said he'd send the quote by Friday.",
+        ask: "What did Sam and I agree on yesterday?",
+      },
+    },
     kind: "voice",
     label: "Pendant",
     missing: lifelogMissing,
@@ -122,6 +134,15 @@ const LISTED: Descriptor[] = [
     handleOf,
     hasPhoneHandles: true,
     incoming: incomingImessage,
+    integration: {
+      privacy:
+        "Read on this computer from the Messages app's store; what Life reads goes to the AI you chose, and turning the source off stops it.",
+      requirements: [{ check: "full_disk_access", kind: "permission" }],
+      value: {
+        answer: "Sam's message from Tuesday: dinner at 8, his place.",
+        ask: "What did Sam say about Saturday?",
+      },
+    },
     kind: "chat",
     label: "iMessage",
     macOnly: true,
@@ -174,6 +195,15 @@ const LISTED: Descriptor[] = [
     chatDays: 7,
     group: isPhoneGroup,
     hasPhoneHandles: true,
+    integration: {
+      privacy:
+        "Read on this computer from the Phone app's store; what Life reads goes to the AI you chose, and turning the source off stops it.",
+      requirements: [{ check: "full_disk_access", kind: "permission" }],
+      value: {
+        answer: "Ana called you on Sunday at 9pm, for 12 minutes.",
+        ask: "When did I last talk to Ana?",
+      },
+    },
     kind: "chat",
     label: "Phone & FaceTime",
     macOnly: true,
@@ -190,6 +220,15 @@ const LISTED: Descriptor[] = [
     // Every issue is a thread of many: never a 1:1 chat.
     group: () => true,
     incoming: (from?: number) => incomingArchived("github", "eventId", from),
+    integration: {
+      privacy:
+        "Read through your own gh sign-in from the repos you list; what Life reads goes to the AI you chose, and turning the source off stops it.",
+      requirements: [],
+      value: {
+        answer: "Three pull requests on two repos, the last one on Friday.",
+        ask: "What did I merge this week?",
+      },
+    },
     isWorkTracker: true,
     kind: "chat",
     label: "GitHub",
@@ -209,6 +248,16 @@ const LISTED: Descriptor[] = [
       handle.includes("@") ? `mailto:${handle}` : undefined,
     earliest: readEarliestMail,
     incoming: incomingMail,
+    integration: {
+      privacy:
+        "Read on this computer from Mail's own store; what Life reads goes to the AI you chose, and turning the source off stops it.",
+      requirements: [{ check: "full_disk_access", kind: "permission" }],
+      value: {
+        answer:
+          "Ana asked on Monday whether it went out; you said it would that week.",
+        ask: "What did Ana ask me about the invoice?",
+      },
+    },
     kind: "mail",
     label: "Mail",
     macOnly: true,
@@ -227,6 +276,16 @@ const LISTED: Descriptor[] = [
     silentAfter: 12 * HOUR,
   },
   {
+    integration: {
+      privacy:
+        "Read on this computer from the Notes app's store; what Life reads goes to the AI you chose, and turning the source off stops it.",
+      requirements: [{ check: "full_disk_access", kind: "permission" }],
+      value: {
+        answer:
+          "Your note from 4 October: the order for Sam's birthday, to collect at 10.",
+        ask: "What did I write down about the bakery?",
+      },
+    },
     kind: "own_writing",
     label: "Notes",
     macOnly: true,
@@ -243,19 +302,29 @@ const LISTED: Descriptor[] = [
   },
   // His claude.ai and ChatGPT history, imported from their exports (memory/imports.ts): it gets new items only when he
   // imports a newer export, so its card is never amber; its newest is his newest imported message.
-  ...(["claude", "chatgpt"] as const).map(
-    (name): Descriptor => ({
+  ...(["claude", "chatgpt"] as const).map((name): Descriptor => {
+    const { label } = FORMATS[name];
+    return {
       earliest: () => readEarliestAssistant(name),
       imported: true,
+      integration: {
+        privacy: `Read from the ${label} export file you drop in; nothing new is fetched. What Life reads goes to the AI you chose.`,
+        requirements: [],
+        value: {
+          answer:
+            "You asked whether to raise the base price; it suggested testing it on new customers.",
+          ask: `What did I ask ${label} about pricing?`,
+        },
+      },
       kind: "own_writing",
-      label: FORMATS[name].label,
+      label,
       missing: () => (hasExportCopy(name) ? undefined : "not imported"),
       name,
       newest: () => newestAssistant(name),
       read: (since, before) => readAssistant(name)(since, undefined, before),
       silentAfter: Number.POSITIVE_INFINITY,
-    })
-  ),
+    };
+  }),
   // What he told Life in a chat with ChatGPT or Claude (`tell_life`): his words marked, a question as the assistant's.
   {
     earliest: readEarliestToldLife,
@@ -278,6 +347,16 @@ const LISTED: Descriptor[] = [
   },
   {
     earliest: readEarliestCommit,
+    integration: {
+      privacy:
+        "Read on this computer from the repos in your folder; what Life reads of their commits goes to the AI you chose, and turning the source off stops it.",
+      requirements: [],
+      value: {
+        answer:
+          "Fourteen commits across three repos, most of them on Wednesday.",
+        ask: "How much did I commit this week?",
+      },
+    },
     kind: "repo",
     label: "Git",
     missing: () => (settings().reposFolder ? undefined : "no repos folder set"),
@@ -290,6 +369,16 @@ const LISTED: Descriptor[] = [
   // His time in each app and website (Biome), on the Mac and the iOS devices that sync to it. The system writes it, so
   // no app is kept open; Biome prunes it after about a week, so the archive's copy is what is read.
   {
+    integration: {
+      privacy:
+        "Read on this computer from Screen Time's store; what Life reads goes to the AI you chose, and turning the source off stops it.",
+      requirements: [{ check: "full_disk_access", kind: "permission" }],
+      value: {
+        answer:
+          "Four hours in your editor and one in the browser, most of it in the morning.",
+        ask: "What did I spend most time on yesterday?",
+      },
+    },
     kind: "screen",
     label: "Screen Time",
     macOnly: true,
@@ -301,6 +390,16 @@ const LISTED: Descriptor[] = [
   },
   {
     earliest: earliestAppleHealth,
+    integration: {
+      privacy:
+        "Sent by your phone's app to this computer; what Life reads goes to the AI you chose, and turning the source off stops it.",
+      requirements: [],
+      value: {
+        answer:
+          "Six hours a night on average, with the best night on Thursday.",
+        ask: "How did I sleep this week?",
+      },
+    },
     kind: "physical",
     label: "Apple Health",
     missing: lifelogMissing,
@@ -313,6 +412,16 @@ const LISTED: Descriptor[] = [
   {
     earliest: earliestPhoto,
     hasPhoneHandles: true,
+    integration: {
+      privacy:
+        "The photos themselves never leave this computer: a local model describes them on the Mac, and only those descriptions go to the AI you chose.",
+      requirements: [{ check: "full_disk_access", kind: "permission" }],
+      value: {
+        answer:
+          "Nine photos from the coast: the beach, two dinners and the market.",
+        ask: "What did I photograph last weekend?",
+      },
+    },
     kind: "photos",
     label: "Photos",
     macOnly: true,
