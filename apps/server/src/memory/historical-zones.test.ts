@@ -54,6 +54,21 @@ test("sent mail says only whole-hour zones: -0000, a missing header, a quarter h
   ).toEqual([{ day: "2023-01-02", zone: "Etc/GMT-1" }]);
 });
 
+test("no photo and no sent mail place any day: every day is a gap, none deferred, so the first recorded zone stands", () => {
+  const report = historicalZonesOf(evidenceOf(), {
+    from: "2023-01-01",
+    to: "2023-01-04",
+  });
+  expect(report.deferred).toEqual([]);
+  expect(report.gaps).toEqual([
+    "2023-01-01",
+    "2023-01-02",
+    "2023-01-03",
+    "2023-01-04",
+  ]);
+  expect(report.runs).toEqual([]);
+});
+
 test("gaps take the nearest known day, ties earlier; split mail is a gap, unless it names both differing sides (a travel day)", () => {
   const report = historicalZonesOf(
     evidenceOf([

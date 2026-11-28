@@ -10,9 +10,9 @@ import { localTime, type Window } from "./zones";
 // runs, the backup's turn, the night's state).
 
 /** The night's first hour, by the Mac's clock: late enough that a night out is over and read whole (his decision, 11 Nov 2026; 02:00 before). */
-const FIRST_HOUR = 5;
+export const FIRST_HOUR = 5;
 /** From this hour a daily job no longer waits for the night: past the night's three tries, a tick apart. */
-const AFTER_NIGHT_HOUR = FIRST_HOUR + 4;
+export const AFTER_NIGHT_HOUR = FIRST_HOUR + 4;
 export const MAX_ATTEMPTS = 3;
 /** Whether `used` failed tries leave none: every scheduled job's one rule. */
 export const isOutOfTries = (used: number) => used >= MAX_ATTEMPTS;
@@ -119,6 +119,15 @@ export function nextNight(now: Date, day: string, state: JobState | undefined) {
 export function weekFrom(from: string, last: string): Window {
   const end = daysBefore(from, -6);
   return { from, to: end < last ? end : last };
+}
+
+/** The weeks from `since` to `today`, oldest first (`weekFrom`): what a step reads when it spans more than one. */
+export function weeksFrom(since: string, today: string) {
+  const weeks: Window[] = [];
+  for (let from = since; from <= today; from = daysBefore(from, -7)) {
+    weeks.push(weekFrom(from, today));
+  }
+  return weeks;
 }
 
 /** A scheduled job's state (`nightly`, `backup`, `bridges`). */

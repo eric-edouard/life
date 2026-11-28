@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import { addOnOf } from "../core/add-ons";
-import { clock, daysBefore } from "../core/clock";
+import { clock } from "../core/clock";
 import { answerCheck } from "../memory/answer-check";
 import { appointments } from "../memory/appointments";
 import { changeFeed, readObservation } from "../memory/changes";
@@ -13,26 +13,19 @@ import {
   NIGHT_CALLS,
   readConversationSummaryWork,
 } from "../memory/conversation-summaries";
-import { episodes } from "../memory/episodes";
+import { episodesStep } from "../memory/episodes";
 import { writeExchangeCounts } from "../memory/exchange-counts";
 import { exchangeReads, readExchangeReadWork } from "../memory/exchange-reads";
 import { extract } from "../memory/extract";
-import { DAYS, gather, readSourceEvents } from "../memory/gather";
+import { DAYS, gather, hearChatVoiceNotes } from "../memory/gather";
 import { collectHistorical } from "../memory/historical-collection";
 import { reindex } from "../memory/index-writer";
 import { links, readLinkWork } from "../memory/links";
 import { dueDirectionsOf, matterDirections } from "../memory/matter-directions";
 import { matterSituations } from "../memory/matter-situations";
-import {
-  callsOf,
-  matterLines,
-  matters,
-  readMatterRecords,
-  readMatterWork,
-} from "../memory/matters";
+import { matterLines, mattersOver } from "../memory/matters";
 import { locked } from "../memory/memory-lock";
 import { readMentions } from "../memory/mentions";
-import { hearVoiceNotes } from "../memory/message-files";
 import { openById } from "../memory/open-by-id";
 import { pages } from "../memory/pages";
 import { rebuildPassages } from "../memory/passage-rebuild";
@@ -43,12 +36,11 @@ import { day } from "../memory/read-day";
 import { writeRecordedDays } from "../memory/recorded-days";
 import { mapRepos, reposOf } from "../memory/repos";
 import { runs } from "../memory/run-log";
-import { weekFrom } from "../memory/schedule";
+import { weeksFrom } from "../memory/schedule";
 import { search } from "../memory/search";
 import { situations } from "../memory/situations";
 import { readSourceUse, sourceUseText } from "../memory/source-use";
 import { tiesNow } from "../memory/ties";
-import { publishUnits } from "../memory/unit-writer";
 import {
   readVoiceNamingWork,
   VOICE_NAMING_CALLS,
@@ -56,13 +48,7 @@ import {
 } from "../memory/voice-naming";
 import { placementOf, readPeople } from "../memory/who";
 import { chatsOf } from "../memory/words";
-import {
-  dayNow,
-  dayStart,
-  isDay,
-  lastDays,
-  type Window,
-} from "../memory/zones";
+import { dayNow, isDay, lastDays } from "../memory/zones";
 import { histories, readHistoryWork, storyTextOf } from "../personal/histories";
 import { personaReadingsOf, personas } from "../personal/personas";
 import { recordHisCorrection } from "./correct-matter";
@@ -147,15 +133,6 @@ const gathered = async (v: Values) => {
 };
 
 const scan = step(() => mapRepos());
-
-/** The weeks from `since` to `today`, oldest first (`weekFrom`). */
-function weeksFrom(since: string, today: string) {
-  const weeks: Window[] = [];
-  for (let from = since; from <= today; from = daysBefore(from, -7)) {
-    weeks.push(weekFrom(from, today));
-  }
-  return weeks;
-}
 
 /** Prints a read command's answer; no answer (arguments missing) is a usage error. */
 async function printed(
@@ -284,13 +261,7 @@ const HANDLERS: Record<string, Handler> = {
       return usage();
     }
   },
-  episodes: step(async (v) => {
-    const evidence = await gathered(v);
-    if (evidence.failed.length === 0) {
-      await publishUnits(evidence);
-    }
-    return episodes(evidence);
-  }),
+  episodes: step(async (v) => episodesStep(await gathered(v))),
   /** `exchange-counts`: counts every exchange of every year again (the night does; this is its first build and a replay). */
   "exchange-counts": step(async () =>
     writeExchangeCounts(
@@ -344,15 +315,7 @@ const HANDLERS: Record<string, Handler> = {
     if (!(v.from && isDay(v.from) && to && isDay(to))) {
       throw new Error("--from is a day (YYYY-MM-DD), --to too or left out");
     }
-    const { read } = await readSourceEvents(
-      dayStart(v.from),
-      dayStart(daysBefore(to, -1)),
-      (await readPeople()).truth
-    );
-    const heard = await hearVoiceNotes(
-      read.flatMap(({ events, s }) => (s.kind === "chat" ? events : []))
-    );
-    console.log(JSON.stringify(heard ?? { read: 0 }));
+    console.log(JSON.stringify(await hearChatVoiceNotes({ from: v.from, to })));
     return 0;
   },
   "historical-units": step((v) => collectHistorical(v)),
@@ -423,37 +386,8 @@ const HANDLERS: Record<string, Handler> = {
     const spans = values.since
       ? weeksFrom(values.since, today)
       : [lastDays(clock(), DAYS)];
-    return step(async () => {
-      const people = await readPeople();
-      const records = await readMatterRecords(people);
-      const sum = {
-        calls: 0,
-        episodes: 0,
-        failed: 0,
-        placed: 0,
-        refusedSteps: 0,
-        todoItems: 0,
-      };
-      for (const span of spans) {
-        // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before
-        const work = await readMatterWork(span, people, [], records);
-        if (!work) {
-          return { failed: 1 };
-        }
-        sum.episodes += work.episodes.length;
-        sum.todoItems += work.todoItems.length;
-        if (values.force || values.since) {
-          const run = await matters(work, people, records);
-          sum.calls += run.calls;
-          sum.failed += run.failed;
-          sum.placed += run.placed;
-          sum.refusedSteps += run.refusedSteps;
-        } else {
-          sum.calls += callsOf(work).length;
-        }
-      }
-      return sum;
-    })(values, rest);
+    const write = Boolean(values.force || values.since);
+    return step(() => mattersOver(spans, { write }))(values, rest);
   },
   /** `mentions`: the kept mentions (the night's) counted by how they are placed, as of today. Counts only, never a word. */
   mentions: async () => {

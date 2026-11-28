@@ -59,6 +59,7 @@ import { OWNER, type Truth } from "./read-truth";
 import { begin, checkedEntries, readsOf } from "./run";
 import { kindOf } from "./sources";
 import { areaLookup, areaOf, normalizeTopics } from "./tags";
+import { publishUnits } from "./unit-writer";
 import { type Built, type Resolve, UNKNOWN } from "./units";
 import { episodeNow, namedIn, nearNames, readPeople, unitNow } from "./who";
 import { voiceText } from "./words";
@@ -726,4 +727,15 @@ export async function episodes(evidence: Evidence) {
     sources,
     units: all.length,
   });
+}
+
+/**
+ * One gathered window's units published, then its episodes: what a hand run and the backfill do, one way (the night
+ * records the two steps apart). A source that failed publishes nothing: a partial day is never published.
+ */
+export async function episodesStep(evidence: Evidence) {
+  if (evidence.failed.length === 0) {
+    await publishUnits(evidence);
+  }
+  return episodes(evidence);
 }

@@ -4,6 +4,7 @@ import { clock, daysBefore } from "../core/clock";
 import { appendJsonl, readAppended } from "../core/files";
 import { digest } from "../core/hash";
 import { count, packed } from "../core/lists";
+import type { Engine } from "../core/names";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import {
@@ -66,7 +67,7 @@ import { TRUTH } from "./read-truth";
 import { outdatedBy, reopenedAtOf } from "./retirements";
 import { begin, readsOf } from "./run";
 import { clip, isMailerHandle, UNKNOWN } from "./units";
-import { episodeNow, observationsNow, type People } from "./who";
+import { episodeNow, observationsNow, type People, readPeople } from "./who";
 import { localDate, type Window } from "./zones";
 
 // Matters (docs/glossary.md): the running things of his life he never declared (an errand for someone, a purchase, a
@@ -712,9 +713,15 @@ export const isFullMatter = (v: Pick<MatterView, "areas" | "steps">) =>
 export async function matters(
   work: MatterWork,
   people: People,
-  records: Awaited<ReturnType<typeof readMatterRecords>>
+  records: Awaited<ReturnType<typeof readMatterRecords>>,
+  engine?: Engine
 ) {
-  const step = await begin("matters", "fast", { prompt: MATTERS_PROMPT });
+  const step = await begin(
+    "matters",
+    "fast",
+    { prompt: MATTERS_PROMPT },
+    engine
+  );
   const { truth } = people;
   const context = {
     ...meContext(truth),
@@ -795,6 +802,46 @@ export async function matters(
     );
   }
   return step.end({ placed, refusedSteps });
+}
+
+/**
+ * The matters step over weeks, oldest first: each week sees the matters of the weeks before it, so one call after
+ * another. `write` places them (`matters`, as the night and `--force` do); else it only counts the calls due. A week whose
+ * work cannot be read stops the whole: `{failed: 1}`.
+ */
+export async function mattersOver(
+  spans: Window[],
+  { engine, write }: { engine?: Engine; write: boolean }
+) {
+  const people = await readPeople();
+  const records = await readMatterRecords(people);
+  const sum = {
+    calls: 0,
+    episodes: 0,
+    failed: 0,
+    placed: 0,
+    refusedSteps: 0,
+    todoItems: 0,
+  };
+  for (const span of spans) {
+    // biome-ignore lint/performance/noAwaitInLoops: a week sees the matters of the weeks before
+    const work = await readMatterWork(span, people, [], records);
+    if (!work) {
+      return { failed: 1 };
+    }
+    sum.episodes += work.episodes.length;
+    sum.todoItems += work.todoItems.length;
+    if (write) {
+      const run = await matters(work, people, records, engine);
+      sum.calls += run.calls;
+      sum.failed += run.failed;
+      sum.placed += run.placed;
+      sum.refusedSteps += run.refusedSteps;
+    } else {
+      sum.calls += callsOf(work).length;
+    }
+  }
+  return sum;
 }
 
 /** The matters, one line each: name, areas, projects, how many records and the day of the newest (`bun life memory matters list`). */

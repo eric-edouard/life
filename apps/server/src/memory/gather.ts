@@ -18,6 +18,7 @@ import {
 import {
   asChatOrNot,
   describeFiles,
+  hearVoiceNotes,
   readFiles,
   showFiles,
 } from "./message-files";
@@ -41,6 +42,7 @@ import {
   voiceNames,
   voiceUnitsOf,
 } from "./units";
+import { readPeople } from "./who";
 import { dayStart, lastDays, localDate, type Window } from "./zones";
 
 /**
@@ -192,6 +194,22 @@ export async function readSourceEvents(
       }))
   );
   return { failed, read, repos };
+}
+
+/**
+ * The chat voice notes of a window heard, no model: the backfill's step and the hand command's (`hear-voice-notes`). Each
+ * note is a file of its message, its words kept as a line of memory/files.jsonl (a synchronous append, so no lock).
+ */
+export async function hearChatVoiceNotes(window: Window) {
+  const { read } = await readSourceEvents(
+    dayStart(window.from),
+    dayStart(daysBefore(window.to, -1)),
+    (await readPeople()).truth
+  );
+  const heard = await hearVoiceNotes(
+    read.flatMap(({ events, s }) => (s.kind === "chat" ? events : []))
+  );
+  return heard ?? { read: 0 };
 }
 
 /**

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { DAY } from "../core/clock";
 import { newestWithin } from "../core/lists";
+import type { Engine } from "../core/names";
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
 import { redact } from "../core/redact";
 import { isPromptVersion } from "../models/prompt-parts";
@@ -299,11 +300,17 @@ export async function conversationSummaries(
   cap = NIGHT_CALLS,
   where = READ_REPLIES,
   step?: Step,
-  open = openStore
+  open = openStore,
+  engine?: Engine
 ) {
   const run =
     step ??
-    (await begin("conversation-summaries", "main", { prompts: [PROMPT] }));
+    (await begin(
+      "conversation-summaries",
+      "main",
+      { prompts: [PROMPT] },
+      engine
+    ));
   const failed = new Set<string>();
   let [calls, stored] = [0, 0];
   for (;;) {
