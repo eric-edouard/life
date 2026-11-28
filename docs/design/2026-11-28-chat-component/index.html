@@ -4,7 +4,7 @@
      clip, icons, app marks and app colours come from the design system (card-blocks.js, window.CB).
      Page-local on purpose: LOOK, each real app's window (bubbles, window, corners, where times sit), since that look is
      what this exploration proposes and nothing shared draws it yet; and the head (face, name, app, arrow), the owner's
-     28 Nov head that replaces card-blocks' Source pill. The chosen variation moves into card-blocks.js; the other two go.
+     28 Nov head that replaces card-blocks' Source pill. The three renderers are proposals: they fold into CB.chat (card-blocks.js, which turn by turn v3 draws its chats from) when the owner picks one, and the other two go.
      What each app takes is Life's grid, what a chat takes (`ChatTakes`, sources/contract.ts: reply, mentions, a
      reaction or a set of them, a file). Two page-local words beside it: `caption` (a bridge's caption on a file,
      sources/matrix-content.ts) and `voice` (a voice note, which Life sends as an audio file). Per room the bridge says

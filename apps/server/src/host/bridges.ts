@@ -187,7 +187,7 @@ async function addHomeserver() {
         },
       ],
       presence: { enabled: false },
-      // The buffer before Life's archive: a deleted message's text is never pruned (AGENTS.md).
+      // The buffer before Life's archive: a deleted message's text is never pruned (.claude/rules/sources.md).
       redaction_retention_period: null,
       suppress_key_server_warning: true,
       trusted_key_servers: [],

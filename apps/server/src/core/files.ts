@@ -183,7 +183,7 @@ interface Kept<F> extends Seen {
  * once `done` returned: a read or a fold that throws leaves the last one as it was.
  */
 // ponytail: a writer that rewrites an append-only file in place, not through `writeWhole`, at least as long, is taken as
-// grown: no code does (AGENTS.md, "A rename or a new field backfills"); checking would read the whole file again.
+// grown: no code does (.claude/rules/memory.md, "A rename or a new field backfills"); checking would read the whole file again.
 function readFolded<F>(
   kept: Map<string, Kept<F>>,
   path: string,

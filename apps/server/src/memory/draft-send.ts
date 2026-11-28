@@ -23,7 +23,7 @@ import { enabledSources, sourceOf } from "./sources";
 import { oneLineOf, speakerOf } from "./units";
 import { type People, readPeople } from "./who";
 
-// A card's draft, sent (AGENTS.md, "Life sends only…"): which chat a draft names and what of it the chat takes, checked
+// A card's draft, sent (.claude/rules/acts-and-sends.md, "Life sends only…"): which chat a draft names and what of it the chat takes, checked
 // and stamped when the card is asked, and the send itself, on his answer to its outgoing option (`answerDecision`, the
 // only caller of `sendDraft`). A source sends through its send path (`Descriptor.send`).
 
