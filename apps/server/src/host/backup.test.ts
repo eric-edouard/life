@@ -66,7 +66,7 @@ test("Life's backup target is the setting resolved: the repository expanded, the
   });
 });
 
-test("init sets a backup only in the folder it is given, never in one that already holds a Life backup", () => {
+test("init sets a backup only in the folder it is given, never in one that already holds a Life backup; backup folders lists what setup offers", () => {
   const folder = mkdtempSync(join(tmpdir(), "life-init-"));
   const cloud = join(folder, "cloud");
   const entry = join(import.meta.dir, "../desk/life-entry.ts");
@@ -114,6 +114,11 @@ test("init sets a backup only in the folder it is given, never in one that alrea
     });
     mkdirSync(join(cloud, "Life backup", "restic"), { recursive: true });
     expect(init("--backup", cloud)).toBe(2);
+    // What setup offers: the cloud folders of this home, none here.
+    const offered = Bun.spawnSync(["bun", entry, "backup", "folders"], {
+      env: { ...process.env, HOME: folder },
+    });
+    expect(JSON.parse(offered.stdout.toString())).toEqual([]);
   } finally {
     rmSync(folder, { force: true, recursive: true });
   }

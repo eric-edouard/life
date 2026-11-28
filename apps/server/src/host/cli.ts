@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { APIFY_KEY_ENV } from "../apify/backend";
@@ -361,7 +361,7 @@ const commands: Record<string, () => number | Promise<number>> = {
       return result;
     })({}, []);
   },
-  /** A new install's data, once: `init --name <his name> --engine claude|openrouter|both [--backup <folder>] [--language <his memory's>] [--email a]… [--phone +33…]…`. */
+  /** A new install's data, once: `init`, its options in the usage line below. */
   async init() {
     const { values: v } = parseArgs({
       args: process.argv.slice(3),
@@ -384,25 +384,29 @@ const commands: Record<string, () => number | Promise<number>> = {
     // The engine and the backup are his choices, never defaults: no `--backup`, no backup. Its repository has a
     // password of its own, so one already there (another install's) is never taken.
     const before = readSettings();
-    const fresh =
-      v.backup && !before.backup ? backupSettingsOf(v.backup) : undefined;
+    const folder = v.backup ? resolve(v.backup) : undefined;
+    const fresh = folder ? backupSettingsOf(folder) : undefined;
     if (
-      v.backup &&
-      (!existsSync(v.backup) ||
-        (fresh?.repository && existsSync(fresh.repository)))
+      folder &&
+      fresh &&
+      !(
+        statSync(folder, { throwIfNoEntry: false })?.isDirectory() &&
+        !existsSync(fresh.repository)
+      )
     ) {
       console.error(
-        `init: --backup needs a folder with no Life backup in it: ${v.backup}`
+        `init: --backup needs a folder with no Life backup in it: ${folder}`
       );
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
-    if (fresh) {
+    const isNew = fresh && !before.backup;
+    if (isNew) {
       writeSecret("backupKey", randomBytes(32).toString("base64url"));
     }
     setSettings({
       ...engineSettingsOf(choice, before.desk),
-      ...(fresh ? { backup: fresh } : {}),
+      ...(isNew ? { backup: fresh } : {}),
       ...(v.language ? { memoryLanguage: v.language } : {}),
     });
     console.log("Life: data ready");
