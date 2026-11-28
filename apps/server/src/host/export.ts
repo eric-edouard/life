@@ -37,7 +37,7 @@ import {
 import { LOCK, locked } from "../memory/memory-lock";
 import { ARCHIVED } from "../memory/sources";
 import { ARCHIVE, archiveDb } from "../sources/archived";
-import { storeFiles, WATCH } from "../sources/lifelog";
+import { storeFiles, WATCH } from "../sources/voice-server";
 import { notesOutsideOf } from "./desk-read";
 import { isEmpty } from "./init";
 

@@ -49,7 +49,7 @@ test("what Life holds, by year with the sources, or by month inside one year", a
       date,
       id: `unit_00000000000${n}`,
       people: ["person:ana"],
-      source: "lifelog",
+      source: "voice",
       stats: { chars: 0, fromMe: 0, items: 1 },
       title: "t",
     }) as unknown as Unit;
@@ -72,7 +72,7 @@ test("what Life holds, by year with the sources, or by month inside one year", a
   const db = new Database(path, { readonly: true });
   try {
     const sources = heldLines(db, "person:ana", [], { sourcesOnly: true });
-    expect(sources.some((l) => l.startsWith("- lifelog: 3 units"))).toBe(true);
+    expect(sources.some((l) => l.startsWith("- voice: 3 units"))).toBe(true);
     expect(sources.join("\n")).not.toContain("By month");
     const byMonth = heldLines(db, "person:ana", [], { span: "2025" });
     expect(byMonth.filter((l) => l.startsWith("- 2025-")).length).toBe(2);

@@ -20,7 +20,7 @@
     "backend": "reminders"
   },
   "sources": [
-    "lifelog",
+    "voice",
     "imessage",
     "whatsapp",
     "line",

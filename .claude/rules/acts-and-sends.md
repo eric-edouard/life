@@ -11,63 +11,115 @@ paths:
 
 # What Life writes and sends, and the connector
 
-Moved from the root `AGENTS.md`, "Invariants". `docs/tasks.md` ("The only sends", "The connector") and `SECURITY.md` ("What leaves the Mac") are the reference; `scripts/imports.test.ts` checks the one send path and the one to-do writer.
+`docs/tasks.md` ("The only sends", "The connector") and `SECURITY.md` ("What leaves the Mac") are the reference;
+`scripts/imports.test.ts` checks the one send path and the one to-do writer.
 
-- **Only the owner writes `truth/`**: himself, or by his own words through one writer, `changeDirectoryEntry`, which checks the result with `bun life validate`'s code first. Its doors: the connector's `change_directory_entry` (his app's tap on a project's status or on a person's or organization's picture too (the picture sheet: his ask of 22 Nov 2026), its `said` the words of what the tap did, or the ready line he tapped); his card's tap (the new person he names answering a check, or a name he calls an organization, when no one holds that name: `addDirectoryEntryByHisWord`, his token's `answer_check` only, life#721; his yes of 20 Nov 2026); his Yes on an at organization card (a person of his directory added to an organization of it with the role the card showed, from their Contacts card: `addOrganizationPersonByHisWord`, his token's `answer_check` only; his yes of 21 Nov 2026, life#874); the main session's `change_directory_entry`, on his words of that ask (`said`, found by `hisWordsIn`; his ruling of 22 Nov 2026: "Ask Life should be able to edit the directory of course, and make a Home project of course"); an agent's `promote` (an ask it was handed is a one-off project: its goal and `said` are his words the main session told it (`read_spoken_ask`), only while his thread entry still holds them, never the agent's text; the agent gives only its `name`, id and area; with no area, both doors file it under a plain Personal area, made when missing: `desk/one-off-projects.ts`; the owner's decision of 28 Nov 2026); and `bun life change-directory-entry '<json>'`, run by his own sessions on his words (`said`), never by any other desk agent (a rule of the brief, not of the send guard). A one-off project's `goal` is his ask, word for word, within its `said`. One change at a time across these processes (`oneAtATimeAcross`). Models return JSON that zod validates; every quote is checked against its source
-  (`apps/server/src/memory/quote-check.ts`).
+## Only the owner writes `truth/`
 
-- **Life acts in one place: one to-do list backend per install** (Apple Reminders or Google Tasks, the `todoList`
-  setting), through `changeTodoItem` alone (`scripts/imports.test.ts` checks), on his clear request or the auto-add permission. What a backend lacks is a capability (`can`),
-  never a branch on its name. Asks are his
-  words handed to the agent, never acted on by Life; the desk is the one agent built in (`DESK_AGENT`): it applies his
-  asks of it that name a change (`after.agentChange`) in code and keeps its own list. Details: `docs/tasks.md`. The one other write, his request of 8 Nov
-  2026: Life's own events in his calendar, the Past calendar and the appointments it reads from his messages (marked
-  `(Life)`, free, until an agent confirms one with him (one he agreed in new lines is busy at once, his word of 21 Nov 2026); one he deletes is never written again), each at a place with its Google and Apple Maps links (`mapLinksOf`, his word of 21 Nov 2026). An appointment agreed in new lines is added within minutes (his word of 21 Nov 2026: `memory/arrival-appointments.ts`), the night taking over its id, with its source in the notes and a meeting link only as https copied exactly; never guests; one he deletes, in his calendar or by Remove (`change_appointment`: his token, or the main session on his words), is never written again until his Undo; its first event pushes `calendar.added` with an opaque id only. They are its reading,
-  never an action on anyone's words: nothing is sent, accepted or booked (`docs/tasks.md`, "Appointments"). Also an
-  agent's event on his yes (his word of 21 Nov 2026: "They should be able to write on my calendar, yes. They should ask me
-  'do you want to add this to your calendar' and I can just say yes"): a card's one `event` need, with its 1 to 3 popup
-  reminders, written once into the same calendar when he picks the card's `adds` option alone in his app (`answer_check`,
-  his token only: `addEventByHisWord`, `host/card-event-calendar.ts`; the `added` line is the outcome, never retried),
-  marked `lifeOutput=card` so no sync or Past calendar ever rewrites it: an event he deletes stays deleted; never guests,
-  never mail. His refinement (21 Nov 2026): when Life is sure it just adds it, with no ask: that is the appointments
-  above (Life's own reading, its sureness `INFERRED_SURE_AT`'s kind, with his Remove and Undo); an agent has no sureness
-  under Life's rules, so an agent's event always asks, never added unasked. Also an agent's Apify run on his yes (his
-  word of 22 Nov 2026): a card's one `apify` need (actor, input, estimate, dollar cap), started once on his Apify
-  account when he picks the card's `runs` option alone in his app (`answer_check`, his token only: `runApifyByHisWord`,
-  `host/card-apify-run.ts`; the `ran` line is the outcome, never retried), only for a pay-per-event actor, which Apify
-  holds under the cap; the door gives agents only reads (`find_apify_actors`, `read_apify_run`), and `APIFY_TOKEN`
-  never reaches an agent's environment (`GATED_KEYS`). The one other act is a card's draft, sent on his answer (below), and
-  its deletion on his Undo (his yes of 25 Nov 2026, question 20): `undoAnswer` through `answer_check` with `undo`, his token only, a
-  Matrix redaction or his GitHub comment deleted, only where the chat's own features allow a delete for everyone at that moment
-  (`deleteLineOf`, never a table of Life's), reported deleted once the bridge confirms; iMessage and mail have none.
+Himself, or by his own words through one writer, `changeDirectoryEntry`, which runs `bun life validate`'s checks
+first, one change at a time across processes (`oneAtATimeAcross`). Its doors:
 
-- **Life sends only a card's draft exactly as shown, on his answer to its outgoing option, into the one chat named
-  (or a new 1:1 WhatsApp chat by its number), through its own bridges, Messages.app for iMessage, Gmail through gog for mail, or `gh` for an issue of a repo he listed in `githubRepos` (a comment, or a new issue with the subject as title; text only; his yes of 19 Nov 2026)** (his decision of 18 Nov 2026). A card may hold several drafts, a batch, each into its own chat (the owner's decision of 28 Nov 2026: one "Send all"): his one pick sends each in order through the same send, every check per draft; its chats are held, contested and withdrawn per chat (his message in any one withdraws the card; it never waits on another card); only a batch whose every draft ended `not sent:` is open again, else it stays answered with each draft's outcome and nothing goes twice; it is never undone; and asking one is refused (`notBuiltOf`) until his app shows every draft. A draft is
-  text, or one file, or a reaction, with the message it replies or reacts to and the people it mentions
-  (`memory/draft.ts`). Life resolves the chat when the card is asked (refused unless exactly one) and stamps what he
-  sees: the chat's name, the message quoted, the file's real path, name, size and digest; the send reads only that
-  stored line, and a file's bytes must hash to the digest or nothing goes (`not sent`). What a chat takes is read from
-  its bridge's own room features (`com.beeper.room_features`, in the homeserver), never a table of Life's and never a
-  branch on a network's name: a room with none takes text only, and a feature it can't take is refused when the card
-  is asked and again before the send. iMessage has no bridge: Messages.app sends (text, or one file then its text as a
-  second message; no reply, reaction or mention), and the send waits to see that message's row in chat.db. Mail has no chat: a card's `from` (one of his mail addresses that gog holds with Gmail), `to`, `cc`, `subject`, text and one file go through `gog gmail send` (`sources/gmail.ts`), a reply into the thread of the message `onMessage` names, found in `from`'s Gmail; never reply-all, a quote, a signature or tracking. It sends once, on his pick of that option alone through `answer_check` (his app's
-  token: never a paired agent, a session's command or the desk; a session in his own app only once he approved the exact text in its chat), by `answerDecision` alone (`scripts/imports.test.ts`
-  checks), never on silence, never with his words added, never retried by Life: after a `not sent:` outcome (nothing went) the card is open again and only his own new answer sends, never twice; after `may have gone:` it stays answered, never retried (his yes of 18 Nov 2026). His pick may be made on the card's notification, on his phone or his Watch: its Send button, under the whole draft as the notification's text, answers through the same `answer_check` with the phone or Watch unlocked (and after Face ID or his passcode at that tap when his setting asks for it, then on the phone only), and a card that asks who its recipient is has no such button (his answers of 19 and 20 Nov 2026). Nothing is sent when anyone wrote in the chat since the card was asked, or since his last attempt that went nowhere (his yes of 18 Nov 2026: he rereads, then answers again); when he wrote there himself, Life withdraws the card (his ask of 20 Nov 2026, life#731). One open draft per chat, and Life introduces the agents (his yes of 21 Nov 2026, `memory/draft-contest.ts`): the same asker's second card into a chat its own open card's draft names is refused, as is a card into a chat where one already waits; another asker's card waits on the open card (`contests`, never in his inbox), and the desk wakes the holder with `draft.contested`, facts only (the waiting card's id, its asker, the chat, until when); the holder reads it at its door (`read_card`, as data) and yields (withdraws its own: the waiting card is asked), merges (`merges`: one card for both, its own withdrawn, the waiting card's agent hearing its answer too) or keeps (`kept`, with its why: the waiting card waits until the held card settles; its agent hears `draft.kept`). Silent 10 minutes (`CONTEST_WAIT`), Life asks the waiting card with `replaces` ("replaces an older draft"); his Send of a card withdraws every other card into its chat first (`replacedBy`; their askers hear `decision.withdrawn`). No agent withdraws another's card; a send his answer started holds its chat, every contest in it waiting, until it ends. A file he approved leaves the Mac for its
-  network (`SECURITY.md`). Agents hold no send tool, and his own Life's send guard refuses their own sends (`desk/send-guard.ts`). A session in his own app (his token) sends only this way too: it asks the card as `owner` and answers it by `answer_check` once he approved the exact text in that chat, never by typing in another app (his word of 19 Nov 2026). Its only other mail and notifications are to him
-  (`docs/tasks.md`, "The only sends").
+- the connector's `change_directory_entry`, his app's taps included (a project's status, a picture: `said` is the
+  tap's words or the line he tapped; 22 Nov 2026)
+- his token's `answer_check`: a new person or organization he names answering a check, when no one holds that name
+  (`addDirectoryEntryByHisWord`, life#721), and his Yes on an at organization card
+  (`addOrganizationPersonByHisWord`, life#874)
+- the main session's `change_directory_entry`, `said` found in his words of that ask (`hisWordsIn`; 22 Nov 2026)
+- an agent's `promote` of an ask into a one-off project (`desk/one-off-projects.ts`; 28 Nov 2026): its goal and `said`
+  are his words the main session told it (`read_spoken_ask`), only while his thread entry holds them, never the
+  agent's text; the agent gives only name, id and area (none: a plain Personal area). The goal is his ask word for word.
+- `bun life change-directory-entry '<json>'`, run by his own sessions on his words, never by another desk agent (a
+  rule of the brief, not the send guard).
 
-- **The connector reads, forwards his corrections and fact-check answers, appends his words with `tell_life`, records a decision an agent or his own app requests (`request_decision`) and his answer to any check (`answer_check`, through each kind's own writer; his pick of a draft's outgoing option sends that draft; his Start on a new matter check asks the desk, as `change_registered_agent`'s start does), records his word about a registered agent as an ask of the desk (`change_registered_agent`), acts only through `change_todo_item` and his word that a matter is done or dropped (`correct_memory` with `matter`, his token only: `correctMatter` ticks its to-do items through `changeTodoItem`, or on his Drop (`outcome: dropped`) removes them; and his pick of a decision's option marked `ends`, which is his word that its step or matter is done, through `endByHisWord`; and his Mark as done or Drop on a your move card, the same way, Drop recorded as dropped and its to-do items removed from his list, not ticked) and his Reopen of a closed matter (`correct_memory` with `matter` and kind `matter-reopened`, his token only, his yes of 22 Nov 2026: `correctMatter` unticks its ticked to-do items through `changeTodoItem` and lifts what closed its steps before it) and his pick of an `adds` option on a card with an `event` need (`answer_check`, his token only, `addEventByHisWord`: that one event into his calendar, once) and his pick of a `runs` option on a card with an `apify` need (`answer_check`, his token only, `runApifyByHisWord`: that one Apify run, once) and his Remove or Undo of an appointment Life added to his calendar (`change_appointment`, his token only) and his monthly amount and the edge's look he saves from the halo settings (`change_setting`, his token or the main session on his words; his yes of 25 Nov 2026, question 22; his ask of 26 Nov 2026), signs a messaging network's bridge in on his sign-in from his app (`sign_in_to_network`, his token only: one bridge login step at a time, its answers passed to that bridge on loopback and kept nowhere by Life; only for a network signed out or never linked; his yes of 26 Nov 2026), hands his words through Ask Life to the main session (`ask_main_session`, his token only, over the door's loopback path: it relays the session's lines and its answer, keeping nothing; his complaint, his "Wrong…" included, reaches the caretaker only that way), and writes his `truth/` only through `change_directory_entry` (by his words) and its code (the new person or organization he names answering a check), and deletes from his memory with `delete_from_memory` (his token only; the main session has it on his words at the desk's door; a preview first, the write only on its digest).** Never add a
-  tool that sends or edits anything else. Its message poll, like the desk's, first hears a chat's voice notes that have
-  no line (`hearVoiceNotes`: a line of `memory/files.jsonl`, Thai turns through Scribe once per note); that is Life
-  reading what was said, not an act.
+Models return JSON that zod validates; every quote is checked against its source (`memory/quote-check.ts`).
 
-- **Life serves no page.** Only `/mcp`, its OAuth, the voice server's routes under `/voice` (forwarded as they came, its own tokens their only auth, never its map page; `voice-forward.ts`), the app's status reads behind the local key, and the desk's door,
-  on loopback only, one key per registered agent (with its guard's answer, `/guard`, its spending stop's answer inside a pi turn, `/spending`, and the Life plugin's lookup of
-  an agent's session, `/session`, by a loopback `Host` only; and `/main-session`, his Ask Life words from the connector, behind the local key). Never take the local key on the public port (`docs/architecture.md`, "Pages").
+## Life acts in one place
 
-- **Life signs its own tokens; there is no other issuer.** `oauth.ts` is the one source of the issuer's address, the
-  owner's subject; an app (ChatGPT, Claude) is approved by a pairing code from the Mac.
-  lifelog signs nothing for Life (24 Oct 2026, its `docs/decisions.md`).
+- One to-do list backend per install (the `todoList` setting), changed through `changeTodoItem` alone, on his clear
+  request or the auto-add permission. A missing feature is a capability (`can`), never a branch on the backend's name.
+- Asks are his words handed to the agent, never acted on by Life. The desk is the one agent built in (`DESK_AGENT`):
+  it applies his asks that name a change (`after.agentChange`) in code (`docs/tasks.md`).
+- His calendar (his request of 8 Nov 2026): Life's own events only, the Past calendar and the appointments it reads
+  (`docs/tasks.md`, "Appointments"). They are its reading, never an action on anyone's words: nothing is sent,
+  accepted or booked; never guests or mail. One he deletes, or removes with `change_appointment` (his token, or the
+  main session on his words), is never written again until his Undo. Its push carries an opaque id only.
+- An agent's calendar event (21 Nov 2026): a card's one `event` need, written once when he picks its `adds` option
+  alone (`answer_check`, his token only: `addEventByHisWord`, `host/card-event-calendar.ts`), never retried, marked
+  `lifeOutput=card` so no sync rewrites it. Only Life's own reading may add unasked (its sureness); an agent's event
+  always asks.
+- An agent's Apify run (22 Nov 2026): a card's one `apify` need, started once when he picks its `runs` option alone
+  (his token only: `runApifyByHisWord`, `host/card-apify-run.ts`), never retried, pay-per-event actors only, under the
+  card's dollar cap. Agents get reads only (`find_apify_actors`, `read_apify_run`); `APIFY_TOKEN` never reaches them
+  (`GATED_KEYS`).
+- An access card's "I'm at my Mac" (28 Nov 2026): his pick of its `looks` option (his token only: `lookAtMac`,
+  `host/done-seen.ts`) shows the next step not done on his own Mac, its permission prompt or its System Settings pane,
+  through the permissions helper; nothing leaves the Mac.
+- His Undo of a sent draft (25 Nov 2026; `undoAnswer`, his token only) deletes it only where the chat itself allows a
+  delete for everyone (`deleteLineOf`, never a table of Life's).
 
-- **The actions backend is an interface, never the truth; the ledger is.** Changes read back from it can take authority
-  away or reorder, never add it. What is open is derived (`matterOf`), never stored (`docs/tasks.md`).
+## Life sends only a card's draft
+
+His decision of 18 Nov 2026: exactly as shown, on his answer to its outgoing option, into the one chat named, once.
+
+- Through Life's own bridges (a new 1:1 WhatsApp chat by its number), Messages.app for iMessage (no reply, reaction or mention), `gog gmail send` for
+  mail (`sources/gmail.ts`; never reply-all, a quote, a signature or tracking), or `gh` on a repo in `githubRepos`
+  (text only; 19 Nov 2026).
+- A draft is text, one file or a reaction, with its reply target and mentions (`memory/draft.ts`). The chat is resolved
+  when the card is asked (refused unless exactly one) and what he sees is stamped; the send reads only that stored
+  line, and a file must hash to its digest or nothing goes.
+- What a chat takes comes from its bridge's room features (`com.beeper.room_features`), never a table of Life's or a
+  branch on a network's name; checked when asked and again before the send.
+- It sends only on his pick of that option alone through `answer_check` with his app's token (never a paired agent, a
+  session's command or the desk), by `answerDecision` alone. Never on silence, never with his words added, never
+  retried: `not sent:` opens the card again for his new answer; `may have gone:` stays answered.
+- His notification's Send (phone or Watch) is the same `answer_check`; a card that asks who its recipient is has none
+  (19, 20 Nov 2026).
+- Nothing is sent when anyone wrote in the chat since the card was asked or his last failed attempt; his own message
+  there withdraws the card (life#731).
+- A batch (28 Nov 2026; `docs/tasks.md`): nothing goes twice, never undone, refused (`notBuiltOf`) until his app shows
+  every draft.
+- One open draft per chat (`memory/draft-contest.ts`, `docs/tasks.md`; 21 Nov 2026). No agent withdraws another's
+  card; a send his answer started holds its chat until it ends.
+- Agents hold no send tool, and the send guard refuses their own sends (`desk/send-guard.ts`). A session in his own app
+  sends only this way too: it asks the card as `owner` and answers it once he approved the exact text in that chat,
+  never by typing in another app (19 Nov 2026).
+- A file he approved leaves the Mac for its network (`SECURITY.md`). Life's only other mail and notifications go to him.
+
+## The connector
+
+Never add a tool that sends or edits anything beyond this list (`docs/tasks.md`, "The connector"):
+
+- reads; his corrections and fact-check answers; `tell_life`; `request_decision`
+- `answer_check`, his token only, through each kind's own writer: a draft's send, Start on a new matter (asks the
+  desk), `adds` (`addEventByHisWord`), `runs` (`runApifyByHisWord`), an access card's `looks` (`lookAtMac`), `ends` and his Mark as done or Drop on a your move
+  card (`endByHisWord`), a new directory entry
+- `change_registered_agent`: his word, as an ask of the desk
+- `change_todo_item`; `correct_memory` with `matter`, his token only: `correctMatter` ticks its to-do items, removes
+  them on Drop, unticks them on `matter-reopened` (22 Nov 2026)
+- `change_appointment` (his token: Remove, Undo); `change_setting` (his monthly amount and the edge's look; his token
+  or the main session; 25, 26 Nov 2026)
+- `sign_in_to_network` (his token: one bridge login step, passed on loopback, kept nowhere; only for a signed-out
+  network; 26 Nov 2026)
+- `ask_main_session` (his token, over the door's loopback, keeping nothing); his complaint reaches the caretaker only
+  this way
+- `change_directory_entry`; `delete_from_memory` (his token, or the main session at the door on his words; preview,
+  then the write on its digest)
+
+Its message poll first hears voice notes with no line (`hearVoiceNotes`): reading, not an act.
+
+## Life serves no page
+
+Only `/mcp`, its OAuth, the voice server's routes under `/voice` (forwarded as they came, their own tokens the only auth, never its map page;
+`voice-forward.ts`), the status reads behind the local key, and the desk's door on loopback (one key per agent;
+`/guard`, `/spending`, `/session` by a loopback `Host` only; `/main-session` behind the local key). Never take the
+local key on the public port (`docs/architecture.md`, "Pages").
+
+## Life signs its own tokens
+
+`oauth.ts` is the one source of the issuer's address and the owner's subject; an app is approved by a pairing code from
+the Mac. lifelog signs nothing for Life (24 Oct 2026).
+
+## The ledger is the truth
+
+The actions backend is an interface: what is read back can take authority away or reorder, never add it. What is open
+is derived (`matterOf`), never stored (`docs/tasks.md`).

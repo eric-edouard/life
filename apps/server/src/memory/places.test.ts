@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { OWNER_DATA_DIR } from "../core/paths";
-import { apply, type Stay } from "../sources/lifelog";
 import {
   conversation,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply, type Stay } from "../sources/voice-server";
 import { placesOf } from "./places";
 
 test("places: a conversation's label names who spoke as the directory does, not as lifelog heard", async () => {
@@ -16,11 +16,11 @@ test("places: a conversation's label names who spoke as the directory does, not 
   const before = readFileSync(file, "utf8");
   appendFileSync(
     file,
-    "  - id: test-bea\n    name: Test Bea\n    handles: { lifelog: 00000000-0000-8000-8000-0000000000b1 }\n"
+    "  - id: test-bea\n    name: Test Bea\n    handles: { voice: 00000000-0000-8000-8000-0000000000b1 }\n"
   );
   try {
     const open = () => {
-      const store = lifelogStore();
+      const store = voiceStore();
       apply(
         store,
         pageFixture({

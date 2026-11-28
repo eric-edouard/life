@@ -1,5 +1,11 @@
 import { z } from "zod";
 import { isoDateTime } from "../records/fields";
+import {
+  ACCESS_CHECKS,
+  type AccessStatuses,
+  accessLineOf,
+  accessStepsOf,
+} from "./access";
 import { oneLine } from "./draft";
 import { nameKey } from "./units";
 
@@ -9,6 +15,30 @@ import { nameKey } from "./units";
 // component; the tool's arguments never change for it.
 
 const https = z.url({ protocol: /^https$/ });
+const Access = z
+  .object({
+    kind: z.literal("access"),
+    steps: z
+      .array(
+        z
+          .object({
+            check: z.enum(ACCESS_CHECKS),
+            /** With `disk_free`: how much free space the step needs, in GB. */
+            freeGb: z.number().positive().optional(),
+            text: oneLine(120),
+          })
+          .strict()
+          .refine(
+            (s) => (s.check === "disk_free") === (s.freeGb !== undefined),
+            {
+              message: "`freeGb` goes with `disk_free`, and only with it",
+            }
+          )
+      )
+      .min(1)
+      .max(8),
+  })
+  .strict();
 const Account = z
   .object({
     bank: oneLine(80).optional(),
@@ -109,6 +139,7 @@ const Qr = z
   .strict();
 
 export const Need = z.discriminatedUnion("kind", [
+  Access,
   Account,
   Amount,
   Apify,
@@ -134,6 +165,11 @@ export const amountWordsOf = (value: number, currency: string) =>
 const KINDS: {
   [K in Kind]: { about: string; line: (n: Of<K>) => string; page: string };
 } = {
+  access: {
+    about: "Mac steps he grants",
+    line: (n) => accessLineOf(n.steps),
+    page: '`{kind: "access", steps: [{text, check, freeGb?}]}`: everything missing on his Mac in one card, 1 to 8 plain steps in order. `text` the step in his words ("Allow Life to see your photos"); `check` what Life checks silently: `photos`, `contacts`, `calendars` (Life\'s permission prompts), `accessibility`, `full_disk_access` (toggles in System Settings), or `disk_free` with `freeGb`, the free space needed. Life ticks each step itself as it sees it done; he never says "done". Give it with `doneSeenBy: "access"` and one option marked `looks: true` ("I\'m at my Mac"): his pick of it makes Life show the next missing step on his Mac (its prompt, or the right System Settings pane), and the card stays open until every step is done; then `decision.answered` carries `doneSeen`. A step he refuses or ignores leaves the card open until its deadline (`decision.lapsed`): then go on without it, or offer another way. Example: `{"kind":"access","steps":[{"text":"Allow Life to see your photos","check":"photos"},{"text":"Free 20 GB for the originals","check":"disk_free","freeGb":20}]}`.',
+  },
   account: {
     about: "a bank account",
     line: (n) =>
@@ -187,9 +223,18 @@ const KINDS: {
 export const needLineOf = (n: Need) =>
   (KINDS[n.kind].line as (x: Need) => string)(n);
 
-/** The needs as a card shows them: each with its `line`, in the agent's order. */
-export const needsShownOf = (needs: readonly Need[] = []) =>
-  needs.map((n) => ({ ...n, line: needLineOf(n) }));
+/** The needs as a card shows them: each with its `line`, in the agent's order; an access need's steps with their status, from the Mac's statuses `access` (`readAccessStatuses`). */
+export const needsShownOf = (
+  needs: readonly Need[] = [],
+  access: AccessStatuses = { statuses: {} }
+) =>
+  needs.map((n) => {
+    if (n.kind !== "access") {
+      return { ...n, line: needLineOf(n) };
+    }
+    const steps = accessStepsOf(n.steps, access);
+    return { ...n, line: accessLineOf(steps), steps };
+  });
 
 /** Every kind's name. */
 export const NEED_KINDS = Object.keys(KINDS) as Kind[];
@@ -260,6 +305,10 @@ export const apifyRunOf = (needs: readonly Need[] = []) =>
 /** The event a card's `adds` option writes: its one `event` need. */
 export const eventOf = (needs: readonly Need[] = []) =>
   needs.find((n): n is Of<"event"> => n.kind === "event");
+
+/** The steps an access card's look ticks: its one `access` need. */
+export const accessOf = (needs: readonly Need[] = []) =>
+  needs.find((n): n is Of<"access"> => n.kind === "access");
 
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>

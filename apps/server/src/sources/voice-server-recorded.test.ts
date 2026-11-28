@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { DAY, iso } from "../core/clock";
-import { readRecorded } from "./lifelog-recorded";
+import { readRecorded } from "./voice-server-recorded";
 
 const to = Date.parse("2026-11-12T00:00:00.000Z");
 const stretch = (startAt: number) => ({
@@ -8,8 +8,8 @@ const stretch = (startAt: number) => ({
   startAt: iso(startAt),
 });
 
-/** A lifelog that can tell since `since`, with one stretch at the start of each page asked; and what it was asked. */
-function lifelog(since: string | null) {
+/** A voice server that can tell since `since`, with one stretch at the start of each page asked; and what it was asked. */
+function fakeVoiceServer(since: string | null) {
   const asked: [string, string][] = [];
   const ask = (from: string, until: string) => {
     asked.push([from, until]);
@@ -23,7 +23,7 @@ function lifelog(since: string | null) {
 
 test("lifelog is asked 31 days at a time, newest first, down to the page it can tell from; the stretches come back oldest first", async () => {
   const since = iso(to - 70 * DAY);
-  const { ask, asked } = lifelog(since);
+  const { ask, asked } = fakeVoiceServer(since);
   const got = await readRecorded(iso(to), ask);
   expect(asked).toEqual([
     [iso(to - 31 * DAY), iso(to)],
@@ -39,7 +39,7 @@ test("lifelog is asked 31 days at a time, newest first, down to the page it can 
 });
 
 test("a lifelog that holds no recording is asked one page; one that does not answer throws", async () => {
-  const none = lifelog(null);
+  const none = fakeVoiceServer(null);
   expect(await readRecorded(iso(to), none.ask)).toEqual({
     since: null,
     stretches: [stretch(to - 31 * DAY)],

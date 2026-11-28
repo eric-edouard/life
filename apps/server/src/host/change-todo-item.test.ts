@@ -75,7 +75,7 @@ const mine = {
   now: NOW,
   o: {
     importance: 3,
-    source: { channel: "lifelog" as const, ref: "job:3@2026-10-21T09:00:00Z" },
+    source: { channel: "voice" as const, ref: "job:3@2026-10-21T09:00:00Z" },
     type: "to_do" as const,
   },
   state: "active",
@@ -97,7 +97,7 @@ test("the auto-add permission refuses a chat or mail observation, another speake
       })
     ).toContain("lifelog credits to his voice");
   }
-  // Re-read when it is applied: someone else's turn, or one lifelog no longer names him on.
+  // Re-read when it is applied: someone else's turn, or one the voice server no longer names him on.
   expect(autoAddRefusal({ ...mine, mine: false })).toContain("his voice");
   expect(autoAddRefusal({ ...mine, state: "retired" })).toContain(
     "not current"

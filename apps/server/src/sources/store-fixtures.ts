@@ -6,16 +6,16 @@ import { gzipSync } from "node:zlib";
 import { clock, MIN } from "../core/clock";
 import { setSettings, settings } from "../core/settings";
 import { toAppleNs, toAppleS } from "./imessage";
-import { openStore } from "./lifelog";
+import { openStore } from "./voice-server";
 
-// Small stores to test the readers against: lifelog's change feed, and the Mac apps' databases the archive copies.
+// Small stores to test the readers against: the voice server's change feed, and the Mac apps' databases the archive copies.
 
 const tmp = (prefix: string) => mkdtempSync(join(tmpdir(), prefix));
 
-/** An empty lifelog store in a fresh folder. */
-export const lifelogStore = () => openStore(tmp("life-lifelog-"));
+/** An empty voice store in a fresh folder. */
+export const voiceStore = () => openStore(tmp("life-lifelog-"));
 
-/** A page of lifelog's change feed. */
+/** A page of the voice server's change feed. */
 export const pageFixture = (over: Record<string, unknown> = {}) => ({
   conversations: [],
   cursor: "1",
@@ -260,10 +260,10 @@ export function imessageFixture(
 }
 
 /**
- * A stand-in for lifelog's REST API: `routes` map a path to what it answers (given the POSTed body). The `lifelog`
+ * A stand-in for the voice server's REST API: `routes` map a path to what it answers (given the POSTed body). The `lifelog`
  * setting and LIFELOG_TOKEN point at it until `close`. `seen` records each request.
  */
-export function lifelogServer(
+export function voiceServer(
   routes: Record<string, (body: unknown, query: URLSearchParams) => unknown>
 ) {
   const seen: { auth: string | null; body: unknown; path: string }[] = [];
@@ -272,7 +272,7 @@ export function lifelogServer(
       const { pathname: path, searchParams } = new URL(req.url);
       const body = req.method === "POST" ? await req.json() : undefined;
       seen.push({ auth: req.headers.get("authorization"), body, path });
-      // A route that gives nothing is lifelog's 404.
+      // A route that gives nothing is the voice server's 404.
       const out = await routes[path]?.(body, searchParams);
       return out === null || out === undefined
         ? new Response("", { status: 404 })

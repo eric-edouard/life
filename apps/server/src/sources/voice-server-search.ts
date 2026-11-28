@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { call } from "./lifelog-call";
+import { call } from "./voice-server-call";
 
-// lifelog's search of the exact spoken words (POST /search).
+// The voice server's search of the exact spoken words (POST /search).
 
 export const Hits = z.object({
   hits: z.array(
@@ -17,7 +17,7 @@ export const Hits = z.object({
   ),
 });
 
-/** lifelog's search of the exact spoken words, best first. `from` is inclusive, `to` exclusive (ISO instants). */
+/** The voice server's search of the exact spoken words, best first. `from` is inclusive, `to` exclusive (ISO instants). */
 export async function searchVoice(
   query: string,
   range: { from?: string; to?: string },

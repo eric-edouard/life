@@ -209,6 +209,10 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   signed-out network in to another account.
 - A one-off project's backup carries its working files, not its git history (life#1607), and leaves out any file starting `.env`. A secret kept in another file is in the backup; no scan runs. A vault for project secrets is life#1601.
 - Full Disk Access makes Life a high-value target on the Mac.
+- A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
+  every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility
+  lets a script drive any app's interface, past the send guard; an agent asks for it only on a card, and he turns it on
+  himself in System Settings.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).
 

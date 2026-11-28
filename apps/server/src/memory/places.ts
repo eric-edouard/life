@@ -6,14 +6,14 @@ import {
   visits,
   whereAt,
   withStore,
-} from "../sources/lifelog";
-import { conversationsBetween } from "../sources/lifelog-conversations";
+} from "../sources/voice-server";
+import { conversationsBetween } from "../sources/voice-server-conversations";
 import { loadTruth } from "./read-truth";
-import { conversationLabel, lifelogNames } from "./units";
+import { conversationLabel, voiceNames } from "./units";
 import { asData } from "./words";
 import { dayRange, isDay, localTime, time } from "./zones";
 
-// `bun life memory places`, and the connector's `read_places_visited`: where the owner was (lifelog's stays, from the iPhone's
+// `bun life memory places`, and the connector's `read_places_visited`: where the owner was (the voice server's stays, from the iPhone's
 // location history), each stay with the labels of the conversations recorded during it, joined here from Life's store.
 // Coordinates come from the asker: Life does no geocoding.
 
@@ -57,7 +57,7 @@ export async function staysOf(
   if (!(q.at || q.place || located)) {
     return null;
   }
-  // A date is a day of his, bounded where he was then (Life's zones): lifelog only takes instants.
+  // A date is a day of his, bounded where he was then (Life's zones): the voice server only takes instants.
   const day = q.at && isDay(q.at) ? q.at : undefined;
   const range = day ? dayRange(day, day) : dayRange(q.from, q.to);
   const now = clock().toISOString();
@@ -89,7 +89,7 @@ export async function placesOf(
     return null;
   }
   const now = clock().toISOString();
-  const byId = lifelogNames(await loadTruth());
+  const byId = voiceNames(await loadTruth());
   return withStore(
     (store) =>
       asData([

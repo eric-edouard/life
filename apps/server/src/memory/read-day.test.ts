@@ -17,7 +17,7 @@ test("day: its key observations in no episode, then its units, a recorded conver
       {
         date: "2026-10-14",
         id: "unit_000000000002",
-        source: "lifelog",
+        source: "voice",
         title: "Recorded conversation",
         topics: "plumbing",
       },
@@ -25,7 +25,7 @@ test("day: its key observations in no episode, then its units, a recorded conver
   });
   expect(lines).toContain("Units (2; `fetch <unit id>`):");
   expect(lines).toContain(
-    "- unit_000000000002 2026-10-14 lifelog: Recorded conversation [plumbing]"
+    "- unit_000000000002 2026-10-14 voice: Recorded conversation [plumbing]"
   );
   expect(lines).toContain(
     "- unit_000000000001 2026-10-14 whatsapp: Team [glass]"

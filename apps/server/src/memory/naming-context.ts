@@ -179,7 +179,7 @@ export function expectedCompanyOf(
 
 /** What shows that a person could be in the room: each is a list of person refs. */
 export interface Signs {
-  /** Named by his answer in this conversation (lifelog's `owner` basis). */
+  /** Named by his answer in this conversation (the voice server's `owner` basis). */
   answered: string[];
   /** Brought by an event of his calendar overlapping the part (`calendarGuestsOf`): a guest not known is offered as written (`unknown:`). */
   calendar: string[];
@@ -334,7 +334,7 @@ export function scheduledOf(
  * people heard would otherwise crowd out: his report of 22 Nov); heard in person in another conversation
  * (`isHeardAround`, the conversation running from `begin` to `end`); pictured in a photo of that day; in an active fact
  * dated that day that no recording is evidence of.
- * Nothing else: a person with none of these is not offered, whoever lifelog says the voice sounds like; an organization
+ * Nothing else: a person with none of these is not offered, whoever the voice server says the voice sounds like; an organization
  * (`isOrganization`) never is.
  */
 export function possibleSpeakersOf(

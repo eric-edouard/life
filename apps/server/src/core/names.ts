@@ -106,7 +106,7 @@ export const RUNTIME_WORDS: Record<RuntimeName, string> = {
 
 /** Where a unit or an observation comes from. */
 export const SourceName = z.enum([
-  "lifelog",
+  "voice",
   "line",
   "instagram",
   "messenger",
