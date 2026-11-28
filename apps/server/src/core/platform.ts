@@ -15,6 +15,9 @@ import {
 // descriptor (`macOnly`); their stores' paths stay with their readers.
 
 export const WINDOWS = process.platform === "win32";
+/** Life.app's permissions helper (`life-eventkit`, set by the app): what Life checks, asks and writes in EventKit on the Mac through; none outside the app. */
+export const permissionsHelperPath = () =>
+  process.env.LIFE_EVENTKIT || undefined;
 
 /** A relative path with `/` between its parts, as git, an export and a test name it on every system. */
 export const slashed = (p: string) => p.split(sep).join("/");
@@ -145,6 +148,12 @@ export const notifyArgs = (title: string, body: string) =>
 /** llama.cpp's server, for the describer: the app's bundled one (`LIFE_LLAMA_SERVER`), else the one on PATH (a checkout). */
 export const llamaServer = () =>
   process.env.LIFE_LLAMA_SERVER ?? Bun.which("llama-server");
+
+/** A bridge's program built into the app (`LIFE_BRIDGES_DIR`, by `scripts/app.ts`); none in a checkout without it. */
+export const bundledBridge = (network: string) =>
+  process.env.LIFE_BRIDGES_DIR
+    ? join(process.env.LIFE_BRIDGES_DIR, network)
+    : undefined;
 
 /** Google Chrome, for a bridge's sign-in window (`host/sign-in-browser.ts`): the Mac's; none elsewhere. */
 export const CHROME = WINDOWS

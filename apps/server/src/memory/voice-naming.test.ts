@@ -5,13 +5,13 @@ import { join } from "node:path";
 import { MIN } from "../core/clock";
 import { stamp } from "../models/llm";
 import type { SourceEvent } from "../records/source";
-import { apply, openStore } from "../sources/lifelog";
 import {
   conversation,
-  lifelogServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore } from "../sources/voice-server";
 import { readConversationSummaryWork } from "./conversation-summaries";
 import { readReplies } from "./read-replies";
 import type { Step } from "./run";
@@ -47,7 +47,7 @@ const people = {
 
 let dir = "";
 let n = 0;
-let server: ReturnType<typeof lifelogServer> | undefined;
+let server: ReturnType<typeof voiceServer> | undefined;
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "voice-naming-"));
 });
@@ -59,8 +59,8 @@ afterAll(async () => {
 type Scene = ReturnType<typeof sceneOf>;
 type Row = Record<string, unknown>;
 /**
- * A store holding c1 (turns of him, then `others` voices in turn; the first named `name` by lifelog, or nobody), and,
- * with `before`, c0 the day before (the first voice named Dana by lifelog), and a lifelog answering `voices` or no such route.
+ * A store holding c1 (turns of him, then `others` voices in turn; the first named `name` by the voice server, or nobody), and,
+ * with `before`, c0 the day before (the first voice named Dana by the voice server), and a voice server answering `voices` or no such route.
  */
 const sceneOf = (o: {
   before?: boolean;
@@ -102,7 +102,7 @@ const sceneOf = (o: {
     })),
   });
   server?.close();
-  server = lifelogServer({
+  server = voiceServer({
     "/conversations/c0": () => ({ latestRun: null }),
     "/conversations/c1": () => ({ latestRun: null }),
     [`/transcription-jobs/${before}/transcript`]: transcript(6),
@@ -221,7 +221,7 @@ test("a person matched by sound is not a possible speaker, and their voice is a 
     });
     return run(s, () => ({ voices: [] }));
   };
-  // Matched by lifelog's sound yesterday only (never answered by him): not offered, so today's match is shown as a V.
+  // Matched by the voice server's sound yesterday only (never answered by him): not offered, so today's match is shown as a V.
   const bySound = (await day("recognized")).work;
   expect(bySound.counts.parts).toBe(1);
   const input0 = bySound.asked[0]?.call.input as NamingInput | undefined;
@@ -270,7 +270,7 @@ test("a night with nothing new makes no call to lifelog's voices", async () => {
   await run(s, () => ({ voices: [] }));
   let calls = 0;
   server?.close();
-  server = lifelogServer({
+  server = voiceServer({
     "/conversations/c1": () => ({ latestRun: null }),
     [`/transcription-jobs/${s.job}/transcript`]: () => ({
       turns: Array.from({ length: 20 }, (_, t) => ({
@@ -334,7 +334,7 @@ test("the hidden run shows a voice he answered as an unnamed V with no likeness,
   expect(input0.voices).toEqual([{ likeness: [], voice: "V1" }]);
   // His answer on the hidden voice does not make its person a possible speaker: that would hand the model the truth.
   expect(input0.people).toEqual([]);
-  // A voice lifelog named by sound and a mixed one hide nothing; one he answered not relevant is hidden too.
+  // A voice the voice server named by sound and a mixed one hide nothing; one he answered not relevant is hidden too.
   expect(
     (await worksOf({ ...answered, basis: "recognized" })).hidden.counts.parts
   ).toBe(0);
@@ -513,7 +513,7 @@ test("a reply keeps an entry only when its person is offered, me or unknown, its
 });
 
 test("a voice he answered as a lifelog id the directory knows only by name still makes that person a possible speaker, keeps their likeness, and a recognized voice of theirs is checked against who could be there", async () => {
-  // "p9" is lifelog's id: the directory knows only "Dana", the name lifelog gave it on the turns.
+  // "p9" is the voice server's id: the directory knows only "Dana", the name the voice server gave it on the turns.
   const day = (answer: string | null) =>
     run(
       sceneOf({

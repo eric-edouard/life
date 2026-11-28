@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import type { SpokenPart } from "./spoken-conversations";
 import { unnamedTurnKey } from "./units";
 import {
@@ -88,7 +88,7 @@ test("the watcher's voice read is cut as the night cuts it, closed only when lif
     closed: new Set(["c1", "c3"]),
     turns: new Map([
       ["u1", [turn("job-1", "2026-11-21T01:00:00.000Z")]],
-      // Two minutes on: the same spoken conversation, though lifelog's is another and still open.
+      // Two minutes on: the same spoken conversation, though the voice server's is another and still open.
       ["u2", [turn("job-2", "2026-11-21T01:02:00.000Z")]],
       ["u3", [turn("job-3", "2026-11-21T03:00:00.000Z")]],
     ]),

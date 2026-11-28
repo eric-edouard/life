@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, DAY } from "../core/clock";
 import type { CheckGroup } from "../core/names";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import {
   answerCheck as answerWith,
   type CheckAnswer,
@@ -345,7 +345,7 @@ const whoOf = (resolve: (s: string) => string | null) => ({
   truth: { people: [] },
 });
 
-// Voice answers released together (the phone's held answers): each reads lifelog's queue after the one before it
+// Voice answers released together (the phone's held answers): each reads the voice server's queue after the one before it
 // landed, so all land, and one that fails does not stop the next.
 test("voice answers given at once are read and answered one at a time, and all land", async () => {
   const resolve = () => null;
@@ -356,7 +356,7 @@ test("voice answers given at once are read and answered one at a time, and all l
   }));
   let open = [...items];
   const seen: string[] = [];
-  const voices = await import("../sources/lifelog-voices");
+  const voices = await import("../sources/voice-speakers");
   const queue = spyOn(voices, "readNamingQueueNow").mockImplementation(
     async () => {
       const now = open;
@@ -414,7 +414,7 @@ test("a voice answer naming someone by a typed name reads his people once", asyn
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
   const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
@@ -426,7 +426,7 @@ test("a voice answer naming someone by a typed name reads his people once", asyn
     ...whoOf(resolve),
   } as never);
   const send = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p" });
   try {
@@ -449,7 +449,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
   const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "readNamingQueueNow"
   ).mockResolvedValue([item]);
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
@@ -457,10 +457,10 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     ...whoOf(resolve),
   } as never);
   const send = spyOn(
-    await import("../sources/lifelog-voices"),
+    await import("../sources/voice-speakers"),
     "answerNamingQueue"
   ).mockResolvedValue({ personId: "p" });
-  // The voice naming guessed Dana for the voices lifelog calls Dana: the card asks "Is this Dana?".
+  // The voice naming guessed Dana for the voices the voice server calls Dana: the card asks "Is this Dana?".
   const guesses = spyOn(
     await import("./voice-guesses"),
     "withVoiceGuesses"
@@ -521,7 +521,7 @@ test("a voice's answer goes to lifelog for every turn of it: a known person is a
     await expect(answerCheck(voice, { options: ["is-them"] })).rejects.toThrow(
       "give person or name"
     );
-    // The card he saw changed in lifelog (now several people, another suggestion, or one more recording): nothing is sent.
+    // The card he saw changed in the voice server (now several people, another suggestion, or one more recording): nothing is sent.
     const sent = send.mock.calls.length;
     for (const now of [
       { ...known, kind: "several" as const },
@@ -673,7 +673,7 @@ test("someone else, named as a person lifelog knows by an id the card does not l
   const KOFI_ID = "00000000-0000-4000-8000-000000000002";
   const resolve = (s: string) =>
     ({ [DANA_ID]: "person:dana", Kofi: "person:kofi" })[s] ?? null;
-  const voices = await import("../sources/lifelog-voices");
+  const voices = await import("../sources/voice-speakers");
   const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
   const queue = spyOn(voices, "readNamingQueueNow").mockResolvedValue([item]);
   const names = spyOn(voices, "readVoiceNames").mockResolvedValue({
@@ -702,21 +702,23 @@ test("someone else, named as a person lifelog knows by an id the card does not l
   }
 });
 
-// His report of 22 Nov: a voice that was his own could not be named him. Naming him assigns lifelog's owner id, never
+// His report of 22 Nov: a voice that was his own could not be named him. Naming him assigns the voice server's owner id, never
 // a new person by his directory name.
 test("a voice named him is assigned to lifelog's owner, and refused before lifelog has heard him", async () => {
   const resolve = (s: string) => (s === DANA_ID ? "person:dana" : null);
   const voice = check(voiceCardRefOf(whoOf(resolve), item), "voice");
-  const lifelog = await import("../sources/lifelog-voices");
-  const queue = spyOn(lifelog, "readNamingQueueNow").mockResolvedValue([item]);
-  const owner = spyOn(lifelog, "readOwnerVoiceId").mockResolvedValue(
+  const voiceSpeakers = await import("../sources/voice-speakers");
+  const queue = spyOn(voiceSpeakers, "readNamingQueueNow").mockResolvedValue([
+    item,
+  ]);
+  const owner = spyOn(voiceSpeakers, "readOwnerVoiceId").mockResolvedValue(
     "owner-id"
   );
   const people = spyOn(await import("./who"), "readPeople").mockResolvedValue({
     nameOf: () => "Test Owner",
     ...whoOf(resolve),
   } as never);
-  const send = spyOn(lifelog, "answerNamingQueue").mockResolvedValue({
+  const send = spyOn(voiceSpeakers, "answerNamingQueue").mockResolvedValue({
     personId: "owner-id",
   });
   try {

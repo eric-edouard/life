@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { openAppointment, readsOnce } from "../../memory/find-refs";
 import { AppointmentId } from "../../records/appointment";
-import { PUSH_ID } from "../../sources/lifelog-push";
+import { PUSH_ID } from "../../sources/voice-server-push";
 import {
   removeAppointment,
   restoreAppointment,

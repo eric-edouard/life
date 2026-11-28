@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { toOggOpus } from "./voice-notes";
+import { toOggOpus } from "./chat-voice-notes";
 
 test.skipIf(!(Bun.which("say") && Bun.which("ffmpeg")))(
   "a voice note that is not Ogg Opus (a bridge's M4A) is made Ogg Opus; an Ogg one passes as it is",

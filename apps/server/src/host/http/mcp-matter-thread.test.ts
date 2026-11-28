@@ -21,7 +21,7 @@ const observations = [
   // Two facts of one message: one line.
   fact("obs_000000000001", "2026-10-03T10:00:00Z", "whatsapp", "M1"),
   fact("obs_000000000002", "2026-10-03T10:00:00Z", "whatsapp", "M1"),
-  fact("obs_000000000003", "2026-10-04T10:06:00Z", "lifelog", "job-1:3@x"),
+  fact("obs_000000000003", "2026-10-04T10:06:00Z", "voice", "job-1:3@x"),
   // A message Life can't open now: its quote.
   fact("obs_000000000004", "2026-10-04T12:00:00Z", "whatsapp", "gone"),
   fact("obs_000000000005", "2026-10-05T08:00:00Z", "whatsapp", "C1"),

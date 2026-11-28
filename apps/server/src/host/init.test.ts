@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { git } from "../core/proc";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { ownerIn } from "../records/truth";
-import { lifelogServer } from "../sources/store-fixtures";
+import { voiceServer } from "../sources/store-fixtures";
 import { init } from "./init";
 
 test("init makes a new owner's data that validates, commits it, and never runs twice", async () => {
@@ -25,7 +25,7 @@ test("init makes a new owner's data that validates, commits it, and never runs t
 
 test("init seeds where he is by the phone's zone first", async () => {
   const data = join(mkdtempSync(join(tmpdir(), "life-init-zone-")), "data");
-  const server = lifelogServer({
+  const server = voiceServer({
     "/status": () => ({ phoneHeartbeat: { timeZone: "Asia/Jakarta" } }),
   });
   try {

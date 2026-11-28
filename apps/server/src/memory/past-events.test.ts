@@ -153,7 +153,7 @@ test("a sync of recent days drafts what the whole sync drafts of the episodes en
       ({
         date: "2026-10-18",
         id: `obs_${n}`,
-        source: { channel: "lifelog", ref: "x" },
+        source: { channel: "voice", ref: "x" },
         subjects: [],
         text: `Fact ${n}.`,
         unit: `unit_00000000000${n}`,

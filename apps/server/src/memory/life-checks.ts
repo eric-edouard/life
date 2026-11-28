@@ -5,7 +5,7 @@
 import type { z } from "zod";
 import type { CheckGroup } from "../core/names";
 import type { AnswerIcon } from "../records/answer-icon";
-import type { NamingQueueItem } from "../sources/lifelog-voices";
+import type { NamingQueueItem } from "../sources/voice-speakers";
 import type { PlanStep } from "./card-request";
 import type { Decision, doneSeenShownOf } from "./decision-lines";
 import type { StoredDraft } from "./draft";
@@ -207,7 +207,7 @@ export interface Check {
   at: string | null;
   /** His complaint on this card's cause at work with the caretaker (received, its assignment open, its event not dropped): the complaint (an ask id), since when, and the caretaker's own line when only this complaint is its work; absent: none. Such a card no longer blocks (`urgencyOf`). */
   beingFixed?: BeingFixed;
-  /** The spans of recording a card plays (`audio` is what the app plays from lifelog): a voice's, newest first as lifelog gives them, or a spoken name's one clip of its sentence (`check-sentences.ts`); none for every other kind. */
+  /** The spans of recording a card plays (`audio` is what the app plays from the voice server): a voice's, newest first as the voice server gives them, or a spoken name's one clip of its sentence (`check-sentences.ts`); none for every other kind. */
   clips: {
     at: string | null;
     audio: { end: number; jobId: string; start: number } | null;
@@ -215,7 +215,7 @@ export interface Check {
     conversation?: string | null;
     text: string;
     until: string | null;
-    /** Its words as lifelog times them (`TimedWords`): [start, end, length] each, in ms from the clip's start and UTF-16 units of `text` with the spacing before it, for lighting them while it plays. */
+    /** Its words as the voice server times them (`TimedWords`): [start, end, length] each, in ms from the clip's start and UTF-16 units of `text` with the spacing before it, for lighting them while it plays. */
     words: number[][];
   }[];
   /** The guess about who a decision's draft goes to, when Life only guesses who that is: asked beside it, answered on its own; none for every other check. */
@@ -224,14 +224,14 @@ export interface Check {
   contactsCard?: { handles: string[]; name: string } | null;
   /** Why it asks, what was tried, what it rests on: folded on his card, in Markdown. An agent's words, or Life's own for its guesses, with the words a guess rests on quoted (`checksOf`). */
   context: string | null;
-  /** A voice's: in how many conversations lifelog heard it ("Heard Tue at 14:20 · 3 times"); absent on every other kind. */
+  /** A voice's: in how many conversations the voice server heard it ("Heard Tue at 14:20 · 3 times"); absent on every other kind. */
   conversations?: number;
   /** By when he answers; null: no deadline. */
   deadline: string | null;
   /** Life's outcome on a decision whose step it looks for (`doneSeenBy`): while the card is open, only a look that found nothing (`not_found`) with Life's words; absent on every other kind or when it never looked. */
   doneSeen?: ReturnType<typeof doneSeenShownOf>;
-  /** How Life sees a decision's step done now (`doneSeenByOf`): `payment`, or `tap` (only his word); absent on every other kind. */
-  doneSeenBy?: "payment" | "tap";
+  /** How Life sees a decision's step done now (`doneSeenByOf`): `payment`, `access` (its Mac steps), or `tap` (only his word); absent on every other kind. */
+  doneSeenBy?: "access" | "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none, or a batch (`drafts`). */
   draft: StoredDraft | null;
   /** A batch's drafts, in order, each shown in full and sent by his one pick of its `outgoing` option; absent on a one-draft card and every other kind. */
@@ -299,7 +299,7 @@ export interface Check {
   session?: string;
   /** What follows the open step an ending check asks about, "since then": what makes Life think it is done, with who said it and when; null for every other kind. */
   since: Said | null;
-  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person lifelog suggests; null: none. */
+  /** What in his life it belongs to, when not `ref` itself: a matter step, `project:<id>`, `area:<id>`; for a voice, the person the voice server suggests; null: none. */
   subject: string | null;
   /** What it is trying to do, in one line. */
   title: string;
@@ -323,9 +323,9 @@ export const endingGuessOf = (step: string) =>
 
 /**
  * The pre-ticked answer (`Check.preTicked`): the option a bulk card starts a row ticked with; he unticks the wrong ones.
- * An ending reads probably done; a voice whose guess is in use (`subject`) and whose sound alone names them (lifelog's
- * `isLikely`), "Yes"; a voice of no one Life knows (lifelog's `new_person`: a known person's own name is never in `name`), heard in
- * one conversation with no name heard, its sound compared with the people lifelog knows (a `likely` list: none means no
+ * An ending reads probably done; a voice whose guess is in use (`subject`) and whose sound alone names them (the voice server's
+ * `isLikely`), "Yes"; a voice of no one Life knows (the voice server's `new_person`: a known person's own name is never in `name`), heard in
+ * one conversation with no name heard, its sound compared with the people the voice server knows (a `likely` list: none means no
  * sample of it, so it may be anyone, him included), "Don't name"; a guessed person, "Yes"; two accounts that may be one person, "Same
  * person" (the bulk card of guesses draws these as Yes or No rows, answered one by one); null for anything else.
  */

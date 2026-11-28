@@ -13,17 +13,20 @@ enum Helper {
   static let binary = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life")
   static let resources = Bundle.main.bundleURL.appending(path: "Contents/Resources/life")
 
-  /// The helper's environment: a GUI app's PATH is bare, so the usual tool folders are added (claude, codex, git).
+  /// The helper's environment: a GUI app's PATH is bare, so the usual tool folders are added (claude, codex), after the bundled git and gog, which come first.
   static var environment: [String: String] {
     var env = ProcessInfo.processInfo.environment
     let home = FileManager.default.homeDirectoryForCurrentUser.path
-    let extra = ["\(home)/.local/bin", "\(home)/.bun/bin", "/opt/homebrew/bin", "/usr/local/bin"]
+    let tools = Bundle.main.bundleURL.appending(path: "Contents/Helpers/tools/bin").path
+    let extra = [tools, "\(home)/.local/bin", "\(home)/.bun/bin", "/opt/homebrew/bin", "/usr/local/bin"]
     env["PATH"] = (extra + [env["PATH"] ?? "/usr/bin:/bin"]).joined(separator: ":")
     env["LIFE_CODE_DIR"] = resources.path
     env["LIFE_OWNER_DATA_DIR"] = data.path
     env["LIFE_STATE_DIR"] = state.path
     env["LIFE_EVENTKIT"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-eventkit").path
     env["LIFE_FOUNDATION_MODEL"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life-foundation-model").path
+    env["GIT_TEMPLATE_DIR"] = ""  // the bundled git carries no templates (a signed app holds only code)
+    env["LIFE_BRIDGES_DIR"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/bridges").path
     env["LIFE_LLAMA_SERVER"] = Bundle.main.bundleURL.appending(path: "Contents/Helpers/llama/llama-server").path
     env.merge(Keychain.all()) { _, kept in kept }
     return env

@@ -20,7 +20,7 @@ const notes = {
 const voice = {
   kind: "voice",
   label: "Pendant",
-  name: "lifelog",
+  name: "voice",
   read,
 } as unknown as Descriptor;
 
@@ -48,10 +48,10 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   const events = [
     run("run.start", "memory.nightly", "2026-11-17T00:31:00.000Z", N),
     run("run.start", "memory.extract", "2026-11-17T00:40:00.000Z", X),
-    // Three whatsapp chat-days and one lifelog conversation-day: a quarter of it is the pendant's.
+    // Three whatsapp chat-days and one recorded conversation-day: a quarter of it is the pendant's.
     call("2026-11-17T00:41:00.000Z", X, {
       costUsd: 0.4,
-      reads: { lifelog: 1, whatsapp: 3 },
+      reads: { voice: 1, whatsapp: 3 },
     }),
     run("run.end", "memory.extract", "2026-11-17T00:45:00.000Z", X),
     run("run.end", "memory.nightly", "2026-11-17T00:50:00.000Z", N),
@@ -62,7 +62,7 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   const unitDays = [
     { date: "2026-11-16", items: 40, source: "whatsapp", units: 4 },
     { date: "2026-11-17", items: 10, source: "whatsapp", units: 2 },
-    { date: "2026-11-17", items: 300, source: "lifelog", units: 1 },
+    { date: "2026-11-17", items: 300, source: "voice", units: 1 },
   ];
   const days = ["2026-11-16", "2026-11-17", "2026-11-18"];
   const use = sourceUseOf(events, unitDays, [chat, notes, voice], days);
@@ -70,7 +70,7 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   expect(use.map((u) => u.source)).toEqual([
     "whatsapp",
     "notes",
-    "lifelog",
+    "voice",
     "memory",
   ]);
   expect(of("whatsapp")).toMatchObject({
@@ -86,8 +86,8 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   expect(of("whatsapp")?.usdADay).toBeCloseTo(0.1);
   expect(of("whatsapp")?.usdWorstDay).toBeCloseTo(0.3);
   expect(of("whatsapp")?.tokensADay).toBeCloseTo(250);
-  expect(of("lifelog")?.usdWorstDay).toBeCloseTo(0.1);
-  expect(of("lifelog")?.readsPerUnit).toBe(1);
+  expect(of("voice")?.usdWorstDay).toBeCloseTo(0.1);
+  expect(of("voice")?.readsPerUnit).toBe(1);
   // A source with units read by no model call shows its model-free readers alone.
   expect(of("notes")).toMatchObject({
     model: [],
@@ -106,7 +106,7 @@ test("source use: items and units a day as median and max, reads per unit, a cal
   expect(text).toContain("model: extract (nightly) ×1");
   expect(text).toContain("Agent turns: not counted here");
   expect(sourceUseLine(use)).toEqual([
-    "By source, last 24 h: whatsapp $0.10 (3 units read), lifelog $0.03 (1 units read), memory $0.00 (5 units read, 1 not reported)",
+    "By source, last 24 h: whatsapp $0.10 (3 units read), voice $0.03 (1 units read), memory $0.00 (5 units read, 1 not reported)",
   ]);
 });
 
@@ -138,11 +138,11 @@ test("source use: each call split by its own units' share, never pooled with ano
     run("run.start", "memory.extract", "2026-11-17T00:40:00.000Z", X),
     call("2026-11-17T00:41:00.000Z", X, {
       costUsd: 1,
-      reads: { lifelog: 1, whatsapp: 9 },
+      reads: { voice: 1, whatsapp: 9 },
     }),
     call("2026-11-17T00:42:00.000Z", X, {
       costUsd: 9,
-      reads: { lifelog: 9, whatsapp: 1 },
+      reads: { voice: 9, whatsapp: 1 },
     }),
     run("run.end", "memory.extract", "2026-11-17T00:45:00.000Z", X),
   ] as LogEvent[];
@@ -150,5 +150,5 @@ test("source use: each call split by its own units' share, never pooled with ano
   const usd = (s: string) => use.find((u) => u.source === s)?.usdADay;
   // 0.9 + 0.9 and 0.1 + 8.1.
   expect(usd("whatsapp")).toBeCloseTo(1.8);
-  expect(usd("lifelog")).toBeCloseTo(8.2);
+  expect(usd("voice")).toBeCloseTo(8.2);
 });
