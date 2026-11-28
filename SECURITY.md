@@ -120,12 +120,13 @@ key`, on stdin, never an argument).
 The one list; nothing else leaves. The voice server (`apps/lifelog`), its own process, keeps its own in
 [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
-- To n0's public iroh relay in Singapore, from the first phone pairing on, with the connector on: the Mac link's
+- To n0's public iroh relay in Singapore (`aps1-1.relay.n0.iroh.link`), from the first phone pairing on, with the connector on: the Mac link's
   metadata (both devices' IP addresses, their endpoint ids, when they connect and how much moves), never content,
   encrypted end to end between the two keys. An install that never pairs a phone sends it nothing. Off with the
   connector (`connector: false`).
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
-  prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
+  prompts (`docs/operations.md`, "Model engines"): his Claude or Codex subscription through its own CLI, or with his
+  key OpenRouter (`openrouter.ai`) or allmodels.io (`api.allmodels.io`). Phone & FaceTime call lines reach the model exactly as WhatsApp
   call lines do (who, when, how long; no content), so nothing new leaves the Mac. With the `apple-health` source on,
   that text includes each day's Apple Health lines (sleep and workouts). With the `photos` source on, it includes each
   day's photo lines: times, Apple's place and address, coordinates to 10 m, scene words, the words Apple found in the
@@ -150,7 +151,7 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
 - With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
   minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another
-  language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
+  language it routes, cut from the audio, to ElevenLabs Scribe (`api.elevenlabs.io`), as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.
 - A field's dictation on his phone (`POST /dictation/transcript`) to the voice server's speech service on this Mac; the turns it
   hears as Thai, or all of it when mostly Thai, with vocabulary hints that can name people, to ElevenLabs Scribe under
@@ -161,12 +162,13 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).
 - From an agent of his own Life on pi, its `web_search` queries, with his key, to the providers his `desk.webSearch`
-  names, else in Life's order (the owner's yes of 22 Nov 2026, relayed by the orchestrator session): Tavily (1,000 free
-  credits a month; the account's terms, not reviewed here), Serper (Google's
+  names, else in Life's order (the owner's yes of 22 Nov 2026, relayed by the orchestrator session): Tavily (`api.tavily.com`; 1,000 free
+  credits a month; the account's terms, not reviewed here), Serper (`google.serper.dev`; Google's
   results; its privacy policy, reviewed 5 Nov 2025, keeps access and activity logs while the account exists and names
-  no shorter term for queries), the Brave Search API, then Perplexity's Search API; SerpAPI only when he names it. Each
+  no shorter term for queries), the Brave Search API (`api.search.brave.com`), then Perplexity's Search API (`api.perplexity.ai`); SerpAPI
+  (`serpapi.com`) only when he names it. With no key for any, no search leaves. Each
   paid search's price counts in the agent's turn.
-- To Apify (apify.com), with the token he gave Life's Mac app: his agents' store searches (`find_apify_actors`,
+- To Apify (`api.apify.com`), with the token he gave Life's Mac app: his agents' store searches (`find_apify_actors`,
   a query), and, only on his pick of a card's `runs` option alone, that card's actor and input exactly as he saw
   them, held under the card's dollar cap by Apify (his word of 22 Nov 2026: "don't waste his credits without him
   knowing"). The token stays in the Keychain and the helper; Life strips `APIFY_TOKEN` from the login environment its
@@ -177,7 +179,7 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   cases' agent is one: what it reads through the connector to answer a case goes to OpenAI through his Codex
   subscription (his word, 10 Nov 2026). People's pictures, to any app he paired, never to a paired agent
   (`read_person_pictures`; his word of 20 Nov 2026).
-- By email to him (Resend), when `mail` is set: the nightly report and the alerts.
+- By email to him (Resend, `api.resend.com`), when `mail` is set: the nightly report and the alerts; unset, none.
 - Into one chat of his, through Life's own bridge for that network (WhatsApp, Instagram, Messenger, LinkedIn), or through the
   Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one
   macOS grant is Automation, Life → Messages, asked at the first send): a card's
@@ -198,7 +200,7 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
 - On his Undo of a sent card (his yes of 25 Nov 2026): a delete for everyone of that one message, a redaction through
   its bridge where the room's own features allow it then, or his GitHub comment deleted through `gh`; never iMessage or mail.
 - To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
-  and the to-do items with Google Tasks as the backend.
+  and the to-do items with Google Tasks as the backend. All through `gog`, to Google's APIs; unset, none.
   Every gog call runs under Life's own OAuth client (a desktop client; a user may store their own) with the owner's
   sign-in (`connectGoogle`, `host/connect-google.ts`), to Google's APIs (`www.googleapis.com`, `gmail.googleapis.com`,
   `people.googleapis.com`); the sign-in is between this computer and Google, and gog's tokens stay in its file keyring
@@ -210,14 +212,29 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new
   cards", the number of cards that block him (the badge), the push's level (passive, active or time-sensitive) and,
   for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title or
-  a question). The voice server pushes it to his phone through Apple; his phone then reads the card from the connector and
+  a question). The voice server pushes it to his phone through Apple's push service (`api.push.apple.com`;
+  `api.sandbox.push.apple.com` for a development build); his phone then reads the card from the connector and
   writes the notification's text itself, shown on his lock screen and his Watch. When cards leave his inbox (answered,
   withdrawn, lapsed), a background push carries their same opaque ids alone, and the phone removes their notifications.
   An appointment Life added to his calendar is pushed the same way (his word of 21 Nov 2026): the words "Added to
   your calendar", its kind `calendar.added`, its level and its opaque id alone; the phone reads the event from the
   connector (`read_appointments`).
-- The encrypted backup, when `backup` is set, to the folder he chose.
+  <!-- Placeholder for bundle R (life#1573, branch packaging-r): the ids-only push service `life-push` (it holds the
+  app's APNs key and forwards ids only) and the people digest's alert turned into an id go here, with its host. -->
+- The backup, only when he picked a cloud folder at setup (off otherwise): one restic repository, encrypted on the Mac
+  with the password in `LIFE_STATE_DIR/backup.key` (mode 600), written into that folder; his cloud provider holds only
+  ciphertext.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
+- The connector's sign-in page (`host/http/oauth.ts`, where an assistant is paired) loads Life's font from Google
+  Fonts (its stylesheet starts with `assets/brand/tokens.css`, which imports it: `fonts.googleapis.com`, `fonts.gstatic.com`): the browser that opens it tells Google its IP address and
+  the font, nothing of his.
+- Downloads, which carry nothing of his but the Mac's IP address: the describer's model files from Hugging Face
+  (`huggingface.co`, once, when `describePhotos` is on); RemCTL from its GitHub release (`github.com`, once, when
+  Reminders is his to-do list's backend); Life.app's update check, Sparkle reading the latest release's
+  `appcast.xml` on `github.com`, when he lets it check; and speaker recognition's model files from Hugging Face and its
+  pinned code from GitHub, once, at the voice server's setup. Each pinned file is checked against its sha256.
+  Building Life from source downloads its pinned tools from their GitHub releases and git's source from
+  `mirrors.edge.kernel.org`, each checked the same way.
 - To a messaging network, through its bridge, on his sign-in from his app (`sign_in_to_network`): the cookies, password
   and codes he gives there, once, from his phone over his tailnet to the bridge on loopback; Life stores none and logs
   none; the bridge keeps its session as when he links on the Mac (his yes of 26 Nov 2026).

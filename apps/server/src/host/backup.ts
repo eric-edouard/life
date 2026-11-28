@@ -32,25 +32,24 @@ export const backupSize = (s = readBackup()) =>
   `${((s?.bytes ?? 0) / 1e9).toFixed(1)} GB`;
 
 /**
- * The first cloud folder on this computer, or none: iCloud Drive, then Google Drive's My Drive, then OneDrive. A new
- * install keeps its backup in one.
+ * The cloud folders on this computer, in the order setup offers them (the first preselected): iCloud Drive, then each
+ * Google Drive's My Drive, then each OneDrive. `bun life backup folders` prints them.
  */
-export function cloudFolderOf(home = HOME): string | undefined {
-  const icloud = join(home, "Library/Mobile Documents/com~apple~CloudDocs");
-  if (existsSync(icloud)) {
-    return icloud;
-  }
+export function cloudFoldersOf(home = HOME): string[] {
   const storage = join(home, "Library/CloudStorage");
-  const folders = existsSync(storage) ? readdirSync(storage) : [];
-  const google = folders.find((f) => f.startsWith("GoogleDrive-"));
-  if (google) {
-    return join(storage, google, "My Drive");
-  }
-  const oneDrive = folders.find((f) => f.startsWith("OneDrive"));
-  return oneDrive ? join(storage, oneDrive) : undefined;
+  const folders = existsSync(storage) ? readdirSync(storage).sort() : [];
+  return [
+    join(home, "Library/Mobile Documents/com~apple~CloudDocs"),
+    ...folders
+      .filter((f) => f.startsWith("GoogleDrive-"))
+      .map((f) => join(storage, f, "My Drive")),
+    ...folders
+      .filter((f) => f.startsWith("OneDrive"))
+      .map((f) => join(storage, f)),
+  ].filter((f) => existsSync(f));
 }
 
-/** A new install's `backup` setting: a repository in `folder`, its password Life's own secret (`init` mints it). */
+/** A new install's `backup` setting: a repository in the folder he picked, its password Life's own secret (`init --backup` mints it). */
 export const backupSettingsOf = (folder: string) => ({
   password: `cat '${SECRETS.backupKey}'`,
   repository: join(folder, "Life backup", "restic"),
