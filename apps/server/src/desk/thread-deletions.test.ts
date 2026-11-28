@@ -12,13 +12,13 @@ import {
 } from "../memory/instructions";
 import { CORRECTIONS, readCorrections } from "../memory/memory-files";
 import { Correction } from "../records/observation";
-import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
 import {
   conversation,
-  lifelogServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import { openDesk } from "./desk-store";
 import { askedOf, setup } from "./test-desk";
 import { blankDeletedThreadEntries } from "./thread-deletions";
@@ -62,7 +62,7 @@ const deleted = (refs: string[]) =>
   ]);
 
 test("the door: the preview lists the entries and instructions holding the words; an answer quoting them after the preview leaves the digest as it was; the record names them; the desk's tick blanks the entries", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     [`/transcription-jobs/${JOB}/transcript`]: () => ({
       turns: [
         { speakerId: "speaker_0", text: "Bring the blue drawings tomorrow." },

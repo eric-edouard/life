@@ -4,7 +4,7 @@ import { EpisodeId, SUBJECT_PREFIX, UnitId } from "../records/fields";
 import { LedgerEntry } from "../records/ledger-entry";
 import { MatterId } from "../records/matter";
 import { ObservationId } from "../records/observation";
-import { parseTurnRef } from "../sources/lifelog";
+import { parseTurnRef } from "../sources/voice-server";
 import { isAskPage } from "./card-request";
 import { DecisionId } from "./decision-lines";
 import { parseReadPartRef, type ReadPartRef } from "./read-part";
@@ -13,7 +13,7 @@ import { isDay } from "./zones";
 // The one grammar of what `fetch` opens (`openById`), which a card's `life:` links name and the phone is told the kind of
 // (`lifeLinksOf`). Pure: whether a ref names something that exists is its kind's reader's to say (`find-refs.ts`).
 
-/** A ref `fetch` takes, by kind; any other id is a conversation's (a lifelog conversation or an imported one). */
+/** A ref `fetch` takes, by kind; any other id is a conversation's (a recorded conversation or an imported one). */
 export type Ref = { id: string } & (
   | { kind: "appointment" }
   | { kind: "ask" }

@@ -35,13 +35,13 @@ import {
 } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { Descriptor } from "../sources/contract";
-import { apply, openStore, turnRef, WATCH } from "../sources/lifelog";
 import {
   conversation,
-  lifelogServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import { deleteFromMemoryAndTodoItems } from "./deletion-door";
 
 // A deletion end to end, on made-up data: a voice turn's words cut in a recorded conversation, previewed, refused on a
@@ -67,9 +67,9 @@ const ENGINE = "claude" as const;
 
 const said = (text: string) => ({ speakerId: "speaker_0", text });
 
-/** The lifelog stand-in: one closed conversation of two turns, its transcript held apart as lifelog holds it. */
+/** The voice server stand-in: one closed conversation of two turns, its transcript held apart as the voice server holds it. */
 const WORDS = "Meet me at the pier at noon.";
-/** Each word of `WORDS` with its milliseconds into the turn: lifelog's own timing of a turn's words. */
+/** Each word of `WORDS` with its milliseconds into the turn: the voice server's own timing of a turn's words. */
 const TIMED = [
   [0, 1000, 5],
   [1000, 2000, 3],
@@ -80,8 +80,8 @@ const TIMED = [
   [5500, 6500, 5],
 ];
 
-const lifelog = () =>
-  lifelogServer({
+const fakeVoiceServer = () =>
+  voiceServer({
     [`/transcription-jobs/${JOB}/transcript`]: () => ({
       turns: [said(WORDS), said("Bring the drawings.")],
     }),
@@ -157,7 +157,7 @@ afterAll(() => {
 
 test("a voice turn's words cut, then a message gone: gone from every read, the source's copy still there", async () => {
   const before = settings().sources;
-  const server = lifelog();
+  const server = fakeVoiceServer();
   setSettings({ sources: ["lifelog", "whatsapp"] });
   try {
     recorded();
@@ -390,7 +390,7 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
     });
     expect((await chatHits("pier", range)).join("\n")).not.toContain("pier");
 
-    // A call's span over that turn: its clip holds lifelog's words at places of its own, so a line he cut shows none.
+    // A call's span over that turn: its clip holds the voice server's words at places of its own, so a line he cut shows none.
     const page = await fetchOf("c1", 0, 200, openStore, {
       at: AT,
       until: "2026-10-14T09:00:30.000Z",
@@ -421,11 +421,11 @@ test("a voice turn's words cut, then a message gone: gone from every read, the s
 
 test("a chapter unit is never read again: a deletion names its turn, never its hash", async () => {
   const before = settings().sources;
-  const server = lifelog();
+  const server = fakeVoiceServer();
   setSettings({ sources: ["lifelog"] });
   try {
     recorded();
-    // A chapter as lifelog stored it before conversation-days: its own summary, and a hash no read ever rebuilds.
+    // A chapter as the voice server stored it before conversation-days: its own summary, and a hash no read ever rebuilds.
     const chapter = "unit_0000000000bb";
     const chapterHash = "aaaaaaaaaaaaaaaa";
     await writeUnits(

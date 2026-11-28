@@ -2,13 +2,14 @@ import type { z } from "zod";
 import { apifyToken } from "../apify/backend";
 import { DAY, HOUR } from "../core/clock";
 import { isOn } from "../core/outputs";
+import { permissionsHelperPath } from "../core/platform";
 import { isLifeActIcon } from "../records/answer-icon";
-import type { Ask, Option } from "./card-request";
+import { type Ask, DONE_SEEN_BY, type Option } from "./card-request";
 import type { Decision } from "./decision-lines";
 import { draftsOf } from "./draft";
 import { effectOf, instructionsFor } from "./instructions";
 import { type MatterStepNow, openStepsOf } from "./matter-read";
-import { eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
+import { accessOf, eventOf, NEED_KINDS, payeeWordsOf } from "./needs";
 
 // What breaks a card's rules beyond its shape (`requestDecision`), in words the asking agent can fix, each naming the
 // ask page that explains it (`fetch("ask/<name>")`, `card-request.ts`).
@@ -34,7 +35,7 @@ export function notBuiltOf(r: {
       "an option's `cost`, `effect` and `pick`") ||
     (takes && `\`takes: ${JSON.stringify(takes.takes)}\` (only \`note\`)`) ||
     (DONE_SEEN_NOT_BUILT.includes(String(r.doneSeenBy)) &&
-      `\`doneSeenBy: "${r.doneSeenBy}"\` (only \`payment\` and \`tap\`)`) ||
+      `\`doneSeenBy: "${r.doneSeenBy}"\` (only ${DONE_SEEN_BY.map((b) => `\`${b}\``).join(", ")})`) ||
     // ponytail: until his app shows every draft of a batch; the phone's batch screens lift it.
     (r.drafts !== undefined &&
       "`drafts`, a batch (his app shows one `draft` so far)")
@@ -268,13 +269,30 @@ function lookProblemOf(
     (looks.length > 1 && "at most one option `looks`") ||
     (looks.length > 0 &&
       ask.doneSeenBy !== "payment" &&
-      'a `looks` option needs `doneSeenBy: "payment"` (fetch("ask/payment"))') ||
+      ask.doneSeenBy !== "access" &&
+      'a `looks` option needs `doneSeenBy: "payment"` (fetch("ask/payment")) or `"access"` (fetch("ask/access"))') ||
+    accessProblemOf(ask, looks.length) ||
     (ask.doneSeenBy === "payment" &&
       ask.needs?.filter((n) => n.kind === "amount").length !== 1 &&
       '`doneSeenBy: "payment"` needs one `amount` need (fetch("ask/payment"))') ||
     (ask.doneSeenBy === "payment" &&
       payeeWordsOf(ask.needs).length === 0 &&
       '`doneSeenBy: "payment"` needs the payee\'s name as the bank shows it: the `account`\'s `holder` or the `link`\'s `vendor` (fetch("ask/payment"))')
+  );
+}
+
+/** What breaks an access card's rules (`doneSeenBy: "access"`, `fetch("ask/access")`); false when nothing does. */
+function accessProblemOf(ask: z.infer<typeof Ask>, looks: number) {
+  if ((ask.doneSeenBy === "access") !== (accessOf(ask.needs) !== undefined)) {
+    return '`doneSeenBy: "access"` goes with one `access` need, and an `access` need with it (fetch("ask/access"))';
+  }
+  return (
+    ask.doneSeenBy === "access" &&
+    (((ask.needs?.filter((n) => n.kind === "access").length !== 1 ||
+      looks !== 1) &&
+      '`doneSeenBy: "access"` needs one `access` need and one `looks` option, "I\'m at my Mac" (fetch("ask/access"))') ||
+      (!permissionsHelperPath() &&
+        "Life can't check or ask anything on this Mac (no permissions helper: Life.app is not running Life)"))
   );
 }
 

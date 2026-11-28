@@ -4,22 +4,22 @@ import { readJson, writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { isoDateTime } from "../records/fields";
-import { lifelogMissing } from "../sources/lifelog-call";
-import { type Recorded, readRecorded } from "../sources/lifelog-recorded";
+import { voiceServerMissing } from "../sources/voice-server-call";
+import { type Recorded, readRecorded } from "../sources/voice-server-recorded";
 import { RECORDED_DAYS } from "./memory-files";
 import { localDate } from "./zones";
 
-// The recorded days (docs/glossary.md): the local days the pendant recorded on, with or without speech, as lifelog
-// says (`GET /recorded`), kept in Life's state (`RECORDED_DAYS`, never his data) so no read asks lifelog: coverage's
-// evidence for a pendant day Life holds nothing of. lifelog is the truth: the night asks for all of it and rewrites
+// The recorded days (docs/glossary.md): the local days the pendant recorded on, with or without speech, as the voice server
+// says (`GET /recorded`), kept in Life's state (`RECORDED_DAYS`, never his data) so no read asks the voice server: coverage's
+// evidence for a pendant day Life holds nothing of. The voice server is the truth: the night asks for all of it and rewrites
 // the file whole, so late audio and a changed zone are never stale past a night.
 
 const Stored = z
   .object({
-    /** When lifelog was asked. */
+    /** When the voice server was asked. */
     built: isoDateTime,
     days: z.array(z.string()),
-    /** Since when lifelog can tell; null when it holds no recording. */
+    /** Since when the voice server can tell; null when it holds no recording. */
     since: isoDateTime.nullable(),
   })
   .strict();
@@ -42,13 +42,13 @@ export function recordedDaysOf(stretches: Recorded["stretches"]) {
 }
 
 /**
- * Asks lifelog for every stretch it holds and rewrites the file whole. Without lifelog nothing is written; when it
+ * Asks the voice server for every stretch it holds and rewrites the file whole. Without the voice server nothing is written; when it
  * does not answer, it is logged, `failed` says so and the last file stands.
- * ponytail: all of lifelog's history is asked each night (a third of a second a month of it); keep the closed months
+ * ponytail: all of the voice server's history is asked each night (a third of a second a month of it); keep the closed months
  * if that ever costs.
  */
 export async function writeRecordedDays() {
-  if (lifelogMissing()) {
+  if (voiceServerMissing()) {
     return { days: 0, failed: 0 };
   }
   try {
@@ -66,6 +66,6 @@ export async function writeRecordedDays() {
   }
 }
 
-/** The recorded days, or null when lifelog was never asked (no file, or one in another shape). */
+/** The recorded days, or null when the voice server was never asked (no file, or one in another shape). */
 export const readRecordedDays = () =>
   Stored.safeParse(readJson(RECORDED_DAYS)).data ?? null;

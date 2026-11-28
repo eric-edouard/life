@@ -3,7 +3,7 @@ import type { Episode } from "../records/episode";
 import type { Extracted, Observation } from "../records/observation";
 import type { SourceEvent } from "../records/source";
 import type { Unit } from "../records/unit";
-import type { LifelogConversation } from "../sources/lifelog";
+import type { VoiceConversation } from "../sources/voice-server";
 import {
   byDays,
   closedConversations,
@@ -22,7 +22,7 @@ import { ledger, madeBy, unit, verdict } from "./record-fixtures";
 import { type Built, linesHashOf, messageUnits } from "./units";
 import { episodeNow } from "./who";
 
-const conversation = (id: string, closed: boolean): LifelogConversation => ({
+const conversation = (id: string, closed: boolean): VoiceConversation => ({
   closed,
   endedAt: "2026-10-15T09:00:00.000Z",
   id,

@@ -37,7 +37,7 @@ import { publishUnits } from "@life/server/src/memory/unit-writer";
 import { readPeople } from "@life/server/src/memory/who";
 import { llmFor, llmSpec } from "@life/server/src/models/llm";
 import { add, NONE } from "@life/server/src/models/model-call";
-import { newestTurn } from "@life/server/src/sources/lifelog";
+import { newestTurn } from "@life/server/src/sources/voice-server";
 import { TruthSet, type timelineScore } from "./timeline";
 
 const EVALS = join(OWNER_DATA_DIR, "docs/evals");

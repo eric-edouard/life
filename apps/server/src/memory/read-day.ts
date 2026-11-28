@@ -7,7 +7,7 @@ import {
   type ReadReply,
 } from "../records/read-reply";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
-import { lifelogMissing } from "../sources/lifelog-call";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import {
   currentSummaries,
   summaryLine,
@@ -47,7 +47,7 @@ import { dayStart, inDays, localDate, time } from "./zones";
 
 const DAY_FACTS = 15;
 
-/** An episode of `read_day`: where he was during it (a stay, when lifelog says) and its key facts (`readBy`). */
+/** An episode of `read_day`: where he was during it (a stay, when the voice server says) and its key facts (`readBy`). */
 export interface DayEpisode {
   episode: Episode;
   facts: string[];
@@ -71,7 +71,7 @@ export const shownEpisode =
  * (`doneOf`), what he did (its episodes in time order, each with where he was, what happened and its key facts), the
  * key facts in no episode, its units (conversations, chats, mail and the rest; those judged worth nothing only
  * counted; none shown when `units` is not given), then what Life changed for him.
- * `whereUnknown`: lifelog could not be read, so where he was is not shown.
+ * `whereUnknown`: the voice server could not be read, so where he was is not shown.
  */
 export function dayLines({
   actions = [],
@@ -253,8 +253,8 @@ export async function readDayParts(
     .filter(inDays({ from: date, to: date }))
     .toSorted((a, b) => (a.start ?? a.day).localeCompare(b.start ?? b.day));
   const byEpisode = readBy(all);
-  // None without lifelog; null when it is set up but could not be read.
-  const stays = lifelogMissing()
+  // None without the voice server; null when it is set up but could not be read.
+  const stays = voiceServerMissing()
     ? []
     : await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, people);

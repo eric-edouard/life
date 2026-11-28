@@ -8,13 +8,13 @@ import { LEDGER, tasksOf } from "../memory/memory-files";
 import * as memoryLock from "../memory/memory-lock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as messageFiles from "../memory/message-files";
-import { apply } from "../sources/lifelog";
 import {
   turnFixture as fed,
-  lifelogServer,
-  lifelogStore,
   pageFixture,
+  voiceServer,
+  voiceStore,
 } from "../sources/store-fixtures";
+import { apply } from "../sources/voice-server";
 import type { Health } from "./health";
 import { hear } from "./hear";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
@@ -111,7 +111,7 @@ test("after a 3-day outage, his turns from before it are still heard, once, from
 });
 
 test("a restart hears again every turn first seen in the 10 minutes before the newest, even after an outage: the ask is recorded once", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: null, text: "hey Life, call the bank" },
@@ -121,7 +121,7 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
       ],
     }),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   const said = "2026-10-19T10:00:00.000Z";
   const seen = Date.parse("2026-10-19T10:00:10.000Z");
   const iso = (ms: number) => new Date(ms).toISOString();
@@ -172,7 +172,7 @@ test("a restart hears again every turn first seen in the 10 minutes before the n
 });
 
 test("lifelog down, the to-do minute still runs (1 Nov: 20 h of failed polls ran none)", async () => {
-  const server = lifelogServer({});
+  const server = voiceServer({});
   const spies = [
     // The code it runs at start, then twice unchanged (two failed polls), then new: it exits.
     spyOn(proc, "readRunning")

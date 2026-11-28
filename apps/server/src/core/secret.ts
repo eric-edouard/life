@@ -33,7 +33,7 @@ export const SECRETS = {
   oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
   /** A pi session's launch in Terminal (`continue_on_mac`): Life's part of its environment, deleted by the launcher as it reads it (`desk/runtimes/pi-terminal.ts`). */
   piTerminalLaunch: join(LIFE_STATE_DIR, "desk", "pi", "terminal-launch.json"),
-  /** The key a card's push id is made with (`pushIdOf`, `sources/lifelog-push.ts`); it never leaves the Mac. */
+  /** The key a card's push id is made with (`pushIdOf`, `sources/voice-server-push.ts`); it never leaves the Mac. */
   pushIdKey: join(LIFE_STATE_DIR, "push-id.key"),
   /**
    * Voice's secrets (its tokens, the ElevenLabs key, the backup's password, the Mac helper's Claude sign-in): Life

@@ -5,19 +5,19 @@ import { join } from "node:path";
 import { clock, DAY, MIN } from "../core/clock";
 import { queuedEvents } from "../host/desk-read";
 import type { SourceEvent } from "../records/source";
-import { apply, openStore, Page } from "../sources/lifelog";
 import {
   conversation,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
+import { apply, openStore, Page } from "../sources/voice-server";
 import { openAssignment } from "./agent-actions";
 import { EVENTS_SETTLE } from "./agent-wait";
 import { pollCalls, pollMessages, readPeopleOnce, wakeDue } from "./desk-clock";
 import { openDesk, writeWait } from "./desk-store";
 import { ANA, advance, ahead, asgOf, chatSource, setup, T0 } from "./test-desk";
 
-// The wait contract's call.ended: a call with an agent's people wakes it once its words are in, by lifelog's signals.
+// The wait contract's call.ended: a call with an agent's people wakes it once its words are in, by the voice server's signals.
 // Made-up chat, calls and recordings; the watcher's store is a fresh one in a temp folder.
 
 afterEach(() => {

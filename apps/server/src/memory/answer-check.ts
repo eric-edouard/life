@@ -8,7 +8,7 @@ import {
   readNamingQueueNow,
   readOwnerVoiceId,
   readVoiceNames,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import { HOME_LATER_FOR, isHomeLaterOf } from "./arrival-home";
 import {
   atOrganizationRefOf,
@@ -155,14 +155,14 @@ const correct = (said: object[], a: CheckAnswer) =>
 export const NO_LONGER_OPEN =
   "Not done: this ask is no longer open; it was answered or changed since it was shown, so nothing was saved.";
 
-/** A voice's queue item, as lifelog gives it now, and the people it was read with. */
+/** A voice's queue item, as the voice server gives it now, and the people it was read with. */
 interface Voice {
   item: GuessedQueueItem;
   people: People;
 }
 
 /**
- * The voice lifelog still asks him to name for the open check `c`, as lifelog gives it now (never a kept list), and
+ * The voice the voice server still asks him to name for the open check `c`, as the voice server gives it now (never a kept list), and
  * only while it is the card he saw: one he can be asked about, suggesting the same person (its ref, `voiceCardRefOf`).
  */
 async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
@@ -184,14 +184,14 @@ async function readVoice(c: Pick<Check, "ref">): Promise<Voice> {
 }
 
 /**
- * One voice answer at a time in this process (the phone releases held answers at once): its read of lifelog's queue
+ * One voice answer at a time in this process (the phone releases held answers at once): its read of the voice server's queue
  * and its answer share a turn. ponytail: a turn waits for the ones before it, each a queue read (34 to 120 ms measured)
- * and one write; a hung lifelog holds the rest up to its read limit, past the phone's 15 s idle wait (the answer still
+ * and one write; a hung voice server holds the rest up to its read limit, past the phone's 15 s idle wait (the answer still
  * lands, the phone shows it failed). Answers from the CLI's own process are not in this chain.
  */
 const voiceTurn = oneAtATime();
 
-/** His answer on a voice, sent to lifelog for every turn of it; nothing is written in memory. */
+/** His answer on a voice, sent to the voice server for every turn of it; nothing is written in memory. */
 async function answerVoice(
   voice: Voice | undefined,
   answerOf: (
@@ -215,8 +215,8 @@ async function answerVoice(
 }
 
 /**
- * Who a voice's answer names: a new person by `name`, him by lifelog's owner id, else the lifelog id of Life's `person`
- * (`voiceIdOf`: the card's own, else the one id lifelog gives one of their names), else that person by their name.
+ * Who a voice's answer names: a new person by `name`, him by the voice server's owner id, else the voice server id of Life's `person`
+ * (`voiceIdOf`: the card's own, else the one id the voice server gives one of their names), else that person by their name.
  */
 async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
   if (a.name) {
@@ -226,7 +226,7 @@ async function thisIs({ item, people }: Voice, c: Check, a: CheckAnswer) {
     throw new Error(`Not done: give person or name for ${c.ref}.`);
   }
   const ref = personIn(a);
-  // Him: lifelog knows him by its owner's id only, never by his directory name (which would make a second him).
+  // Him: the voice server knows him by its owner's id only, never by his directory name (which would make a second him).
   if (ref === OWNER) {
     const own = await readOwnerVoiceId();
     if (!own) {
@@ -575,7 +575,7 @@ const WRITERS: {
     },
   },
   voice: {
-    // "Yes" to the guess in use: the person lifelog suggests (the check's `subject`).
+    // "Yes" to the guess in use: the person the voice server suggests (the check's `subject`).
     "is-them": (c, a, { voice }) => {
       if (a.name || (a.person && a.person !== c.subject)) {
         throw new Error(
@@ -693,7 +693,7 @@ export async function answerCheck(
     });
     return { done, typed, voice: read };
   };
-  // A voice is read and answered in its turn: each reads lifelog's queue after the answer before it landed.
+  // A voice is read and answered in its turn: each reads the voice server's queue after the answer before it landed.
   const { done, typed, voice } = await (check.group === "voice"
     ? voiceTurn(async () => answer(await readVoice(check)))
     : answer());

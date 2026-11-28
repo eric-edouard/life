@@ -4,7 +4,6 @@ import { z } from "zod";
 import { clock, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import { log } from "../core/log";
-import { payments } from "../payments/backend";
 import { CardPreview, cardDigestOf, cardPreviewOf } from "./card-preview";
 import {
   cardProblemOf,
@@ -32,6 +31,7 @@ import {
   type Decision,
   type DecisionState,
   DoneSeen,
+  doneSeenByOf,
   doneSeenShownOf,
   Ended,
   Kept,
@@ -56,7 +56,7 @@ import {
 import { resolveDraft, sendDraft, sendLimitMs, wroteSince } from "./draft-send";
 import { cardRefsProblemOf, readsOnce } from "./find-refs";
 import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
-import { amountOf, apifyRunOf, eventOf } from "./needs";
+import { apifyRunOf, eventOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
 // draft he approves when there is one (or a batch's drafts, each into its own chat, all sent by his one pick: the
@@ -69,7 +69,7 @@ import { amountOf, apifyRunOf, eventOf } from "./needs";
 // send whose every draft ended `not sent:` voids its answer and the card is open again (his yes of 18 Nov 2026); once
 // any went or `may have gone:`, it stays answered; his Undo
 // (`answer-withdrawn`) voids it too. Life's own look for a step done is `done-seen` (`recordDoneSeen`): `not_found`
-// voids his `looks` answer, `seen` settles the card. The gate's `delivered` (`deliveryOf`) keeps a held card out of
+// voids his `looks` answer (on an access card, after showing the next missing step on his Mac), `seen` settles the card. The gate's `delivered` (`deliveryOf`) keeps a held card out of
 // every list. A draft into a chat another asker's open card holds waits on it (`contests`; his yes of 21 Nov 2026): the
 // holder yields, merges (`merges`) or keeps (`kept`); silent `CONTEST_WAIT`, it is asked with `replaces`, and his Send
 // withdraws the older card (`replacedBy`). Where each stands is worked out when read (`decisionsNow`); the open ones are
@@ -95,14 +95,6 @@ const stateOf = (d: Omit<Decision, "state">, now: Date): DecisionState => {
 };
 
 type Act = "add" | "end" | "look" | "run" | "send";
-
-/** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), else `tap`. */
-export const doneSeenByOf = (
-  d: Pick<Decision, "doneSeenBy" | "needs">
-): "payment" | "tap" =>
-  d.doneSeenBy === "payment" && payments() && amountOf(d.needs)
-    ? "payment"
-    : "tap";
 
 /** What an option does when he picks it alone with no words: `send` the card's draft (its `outgoing` option), `look` for its step done (`looks`, while Life can), `end` its step or matter (`ends`), else nothing. */
 const actOfOption = (
@@ -620,10 +612,10 @@ function answerProblemOf(
   );
 }
 
-/** Looks once for the card `d`'s step done (host: `lookForDone`): the event seen, or none; throws when it could not look. */
+/** Looks once for the card `d`'s step done (host: `lookForDone`): seen (with the event that shows it, when one does), or undefined; throws when it could not look. On an access card, a step still missing is shown on his Mac (its prompt or its System Settings pane): what his "I'm at my Mac" asks. */
 export type LookForDone = (
   d: Omit<Decision, "state">
-) => Promise<string | undefined>;
+) => Promise<{ eventId?: string } | undefined>;
 
 /** Appends Life's outcome of a look for `id`'s step done: `seen` with its event, or `not_found` (with the look's error). Never his answer. */
 export function recordDoneSeen(
@@ -650,9 +642,9 @@ async function lookOnAnswer(
 ) {
   onStep?.("looking");
   const outcome = await look(d).then(
-    (eventId) =>
-      eventId
-        ? { eventId, state: "seen" as const }
+    (seen) =>
+      seen
+        ? { ...seen, state: "seen" as const }
         : { state: "not_found" as const },
     (e: Error) => ({ error: e.message, state: "not_found" as const })
   );
