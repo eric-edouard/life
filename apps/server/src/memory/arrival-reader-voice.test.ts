@@ -230,7 +230,7 @@ test("a mail trigger left pending past midnight (the cap spent) is the night's, 
   }
 });
 
-test("voice: lifelog unreachable, chats and mail are still read", async () => {
+test("voice: the voice server unreachable, chats and mail are still read", async () => {
   const s = sceneOf(() => yes("send the slides"));
   await s.read([msg("Can you send the slides?")], true, 0, {
     ...voiceOf("talk", { closed: true, spoke: true, turns: 2 }),
