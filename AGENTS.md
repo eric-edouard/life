@@ -486,6 +486,7 @@ ruling of 29 Oct).
 
 - Handoffs, research, audits and plans are dated (his word of 23 Nov 2026): one file is `YYYY-MM-DD-<name>.md`; several
   files go in one folder `YYYY-MM-DD-<name>/`, in `docs/handoff/`, `docs/plans/` or where they belong.
+- **A design or component brief starts from `docs/design/sources-of-truth.md`** (his ask of 28 Nov 2026): its sources, in its order.
 - **Designs live in the repo only** (his rule of 27 Nov 2026): every design, prototype and exploration is a dated file under
   `docs/design/`, listed in `docs/design/README.md` (its sections are the designs app's tabs). He views them at
   https://designs.ericedouard.com: the designs app (`apps/design`), served by the Mac from `~/Work/life`, which
