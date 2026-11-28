@@ -12,7 +12,7 @@ import { isTimeZone } from "../core/time-zone";
 import { call, voiceServerMissing } from "./voice-server-call";
 
 // Recorded conversations from the voice server's change feed (GET /changes), read with the owner's device token
-// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeVoiceServer`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `lifelog-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
+// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeVoiceServer`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `voice-server-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: the conversations, and
 // for every turn only who spoke, when, and when the feed brought it, never its text; plus the hearing's marks) and builds
 // units from that store.
@@ -23,7 +23,7 @@ const WAIT_MARGIN_S = 30;
 export const WATCH = join(LIFE_STATE_DIR, "watch");
 
 // The shapes Life reads from the voice server's API, each field as nullable or optional as the voice server's contract says
-// (`apps/server/openapi.json` in the voice server; lifelog.test.ts checks it). Fields Life doesn't read (its chapters and
+// (`apps/server/openapi.json` in the voice server; voice-server.test.ts checks it). Fields Life doesn't read (its chapters and
 // summaries among them) are left out and ignored.
 export const Page = z.object({
   conversations: z.array(
@@ -155,7 +155,7 @@ export const storeFiles = (dir = WATCH) => ({
   file: join(dir, "lifelog.sqlite"),
 });
 
-/** The columns added since the first stores: `openStore` adds the ones an older store lacks (`create table if not exists` adds none), and rows fill them as they come again. `closed`, and what `lifelog-speech.ts` reads of a recording. */
+/** The columns added since the first stores: `openStore` adds the ones an older store lacks (`create table if not exists` adds none), and rows fill them as they come again. `closed`, and what `voice-server-speech.ts` reads of a recording. */
 const ADDED_COLUMNS = [
   ["conversations", "closed", "integer"],
   ["transcription_jobs", "state", "text"],
@@ -316,7 +316,7 @@ function drop(db: Database, r: Page["removed"][number]) {
   }
 }
 
-/** A page's recordings as stored rows. A withdrawn one (a removed `job` with its first page) is kept, not dropped: its pages are not in until the phone sends them again (`lifelog-speech.ts`). */
+/** A page's recordings as stored rows. A withdrawn one (a removed `job` with its first page) is kept, not dropped: its pages are not in until the phone sends them again (`voice-server-speech.ts`). */
 const jobRowsOf = (page: Page) => [
   ...page.jobs.map((j) => [
     j.id,
@@ -793,7 +793,7 @@ function speakerTarget(a: Fix) {
 }
 
 type Write = [method: string, path: string, body: unknown];
-/** The corrections Life forwards to the voice server, the owner's explicit ones (its other writes are `notifyPhone` and `answerNamingQueue`, `lifelog-voices.ts`). Each names the fields it needs and the request it makes. */
+/** The corrections Life forwards to the voice server, the owner's explicit ones (its other writes are `notifyPhone` and `answerNamingQueue`, `voice-speakers.ts`). Each names the fields it needs and the request it makes. */
 const FORWARDS: Record<
   string,
   { needs: (keyof Fix)[]; request: (a: Fix) => Write }
