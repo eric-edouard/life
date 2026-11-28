@@ -6,18 +6,17 @@ import { MIN } from "../core/clock";
 import { readJson, unreadable, writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { HOME } from "../core/platform";
+import { HOME, permissionsHelperPath } from "../core/platform";
 import { exec, execOk } from "../core/proc";
 import {
   ACCESS_STATUSES,
   type AccessCheck,
   AccessStatus,
   type AccessStatuses,
-  macHelperPath,
 } from "../memory/access";
 
 // The Mac's side of an access card: its statuses read silently and a missing step shown to him. Every read and prompt
-// runs in Life.app's helper (`life-eventkit access`), a process Life.app started, so the answer is Life's grant, never
+// runs in the permissions helper (`life-eventkit access`), a process Life.app started, so the answer is Life's grant, never
 // Terminal's or bun's (macOS gives a child's access to its responsible app). Full Disk Access has no status call: it is
 // a read of a file only it opens; free space is the home volume's.
 
@@ -41,14 +40,7 @@ const PANES: Record<AccessCheck, string> = {
   photos:
     "x-apple.systempreferences:com.apple.preference.security?Privacy_Photos",
 };
-/** The checks with a prompt of their own: asked once, then only their pane turns them on. */
-const PROMPTED = new Set<AccessCheck>([
-  "accessibility",
-  "calendars",
-  "contacts",
-  "photos",
-]);
-
+/** What the permissions helper reads: the checks with a prompt of their own (Accessibility's is the system's alert, which opens its pane and has no "no", so it is shown again until it is on; the others are asked once, then only their pane turns them on). */
 const HelperStatuses = z
   .object({
     accessibility: AccessStatus,
@@ -59,9 +51,9 @@ const HelperStatuses = z
   .strict();
 
 const helper = () => {
-  const path = macHelperPath();
+  const path = permissionsHelperPath();
   if (!path) {
-    throw new Error("no Life.app helper on this Mac");
+    throw new Error("no permissions helper: Life.app is not running Life");
   }
   return path;
 };
@@ -93,7 +85,7 @@ export async function showAccessStepOnMac(
   check: AccessCheck,
   status: z.infer<typeof AccessStatus>
 ) {
-  if (status === "missing" && PROMPTED.has(check)) {
+  if (status === "missing" && Object.hasOwn(HelperStatuses.shape, check)) {
     exec([helper(), "access", "ask", `--of=${check}`], {
       timeout: PROMPT_WAIT,
     }).then(

@@ -592,10 +592,10 @@ function answerProblemOf(
   );
 }
 
-/** Looks once for the card `d`'s step done (host: `lookForDone`): the event seen, or none; throws when it could not look. On an access card, a step still missing is shown on his Mac (its prompt or its System Settings pane): what his "I'm at my Mac" asks. */
+/** Looks once for the card `d`'s step done (host: `lookForDone`): seen (with the event that shows it, when one does), or undefined; throws when it could not look. On an access card, a step still missing is shown on his Mac (its prompt or its System Settings pane): what his "I'm at my Mac" asks. */
 export type LookForDone = (
   d: Omit<Decision, "state">
-) => Promise<string | undefined>;
+) => Promise<{ eventId?: string } | undefined>;
 
 /** Appends Life's outcome of a look for `id`'s step done: `seen` with its event, or `not_found` (with the look's error). Never his answer. */
 export function recordDoneSeen(
@@ -622,9 +622,9 @@ async function lookOnAnswer(
 ) {
   onStep?.("looking");
   const outcome = await look(d).then(
-    (eventId) =>
-      eventId
-        ? { eventId, state: "seen" as const }
+    (seen) =>
+      seen
+        ? { ...seen, state: "seen" as const }
         : { state: "not_found" as const },
     (e: Error) => ({ error: e.message, state: "not_found" as const })
   );

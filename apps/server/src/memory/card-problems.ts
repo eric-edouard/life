@@ -2,8 +2,8 @@ import type { z } from "zod";
 import { apifyToken } from "../apify/backend";
 import { DAY, HOUR } from "../core/clock";
 import { isOn } from "../core/outputs";
+import { permissionsHelperPath } from "../core/platform";
 import { isLifeActIcon } from "../records/answer-icon";
-import { macHelperPath } from "./access";
 import { type Ask, DONE_SEEN_BY, type Option } from "./card-request";
 import type { Decision } from "./decision-lines";
 import { effectOf, instructionsFor } from "./instructions";
@@ -274,8 +274,8 @@ function accessProblemOf(ask: z.infer<typeof Ask>, looks: number) {
     (((ask.needs?.filter((n) => n.kind === "access").length !== 1 ||
       looks !== 1) &&
       '`doneSeenBy: "access"` needs one `access` need and one `looks` option, "I\'m at my Mac" (fetch("ask/access"))') ||
-      (!macHelperPath() &&
-        "Life can't check or ask anything on this Mac (no Life.app helper)"))
+      (!permissionsHelperPath() &&
+        "Life can't check or ask anything on this Mac (no permissions helper: Life.app is not running Life)"))
   );
 }
 

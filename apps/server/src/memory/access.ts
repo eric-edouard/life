@@ -5,7 +5,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 
 // An access card's steps (`access`, the asks contract; his decision of 28 Nov 2026): what only he can grant on the Mac,
 // each step with what Life checks silently. A step's status is worked out when read, from the Mac's statuses as last
-// read (`ACCESS_STATUSES`, written whole by host's `readAccessNow`, a process Life.app started: every grant is Life's),
+// read (`ACCESS_STATUSES`, written whole by host's `readAccessNow` through the permissions helper: every grant is Life.app's),
 // never stored on the card.
 
 /** What Life checks silently for a step: a permission of Life's, Full Disk Access, or free disk space. */
@@ -44,9 +44,6 @@ export const readAccessStatuses = (): AccessStatuses =>
     statuses: {},
   };
 
-/** The app's permissions helper (`life-eventkit`, set by Life.app): none, Life can't see or ask anything on a Mac. */
-export const macHelperPath = () => process.env.LIFE_EVENTKIT || undefined;
-
 /** An access need's step (`needs.ts`). */
 interface AccessStep {
   check: AccessCheck;
@@ -70,9 +67,11 @@ export const accessStepsOf = (
         : (s.statuses[step.check] ?? ("missing" as AccessStatus)),
   }));
 
-/** Whether every step is done. */
-export const isAccessDone = (steps: readonly AccessStep[], s: AccessStatuses) =>
-  accessStepsOf(steps, s).every((step) => step.status === "done");
+/** The first step not done, with its status; none when every step is done. */
+export const nextAccessStepOf = (
+  steps: readonly AccessStep[],
+  s: AccessStatuses
+) => accessStepsOf(steps, s).find((step) => step.status !== "done");
 
 /** The steps numbered in plain words, a status after each one not missing: what a phone that doesn't know the kind draws. */
 export const accessLineOf = (

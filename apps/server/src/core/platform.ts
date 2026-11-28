@@ -15,6 +15,9 @@ import {
 // descriptor (`macOnly`); their stores' paths stay with their readers.
 
 export const WINDOWS = process.platform === "win32";
+/** Life.app's permissions helper (`life-eventkit`, set by the app): what Life checks, asks and writes in EventKit on the Mac through; none outside the app. */
+export const permissionsHelperPath = () =>
+  process.env.LIFE_EVENTKIT || undefined;
 
 /** A relative path with `/` between its parts, as git, an export and a test name it on every system. */
 export const slashed = (p: string) => p.split(sep).join("/");

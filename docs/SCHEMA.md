@@ -312,7 +312,7 @@ outside the lock, schemaVersion 3, by `kind`:
 - `answer-withdrawn` (`withdrawAnswer`, his Undo through `answer_check`): `id`, `at`, `unsent` (the sent message Life
   deleted for everyone first). It voids his answer as `not sent:` does: the card is open again.
 - `rated` (`rateDecision`): `id`, `at`, `mark` (`bad`, `okay`, `good`), his "How am I doing?"; the latest stands.
-- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, `access:<card id>` on an access card, or `not_found`, with `error`
+- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, none on an access card, or `not_found`, with `error`
   when the look failed), Life's outcome of looking for the card's step done, never his answer. A `not_found` voids the
   answer it follows: the card is open again. A `seen` settles the card even with no answer of his. A look with no outcome
   30 seconds past his answer (and a minute's grace) never finished: worked out when read as a `not_found`, and written
@@ -741,7 +741,7 @@ episodes' day files (`readEpisodesWith`, `memory/person-episodes.ts`). Delete it
 ## The Mac's access statuses (not in memory/)
 
 `LIFE_STATE_DIR/access-statuses.json`: `{statuses: {accessibility, calendars, contacts, full_disk_access, photos}, freeGb}`,
-each status `done`, `missing` or `refused`, as Life.app's helper last read them (`host/mac-access.ts`'s `readAccessNow`,
+each status `done`, `missing` or `refused`, as the permissions helper last read them (`host/mac-access.ts`'s `readAccessNow`,
 on the watcher's minute while an access card is open, and on his "I'm at my Mac"). Rewritten whole when it changes, never
 migrated: machine state, from which an access card's steps are worked out when read (`memory/access.ts`).
 

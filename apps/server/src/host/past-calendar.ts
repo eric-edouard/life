@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, DAY, daysBefore, iso } from "../core/clock";
 import { log } from "../core/log";
 import { isOn } from "../core/outputs";
+import { permissionsHelperPath } from "../core/platform";
 import { execOk } from "../core/proc";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
@@ -75,7 +76,7 @@ function pastCalendar(calendar: string, account: string) {
 }
 
 /**
- * The Past calendar through the app's EventKit tool (`LIFE_EVENTKIT`): his Apple calendar, Life's events found by the
+ * The Past calendar through the app's permissions helper (`permissionsHelperPath`): his Apple calendar, Life's events found by the
  * episode and hash in their URL.
  */
 function appleCalendar(calendar: string, tool: string) {
@@ -146,7 +147,7 @@ export async function syncPast(since: Date | undefined, now = clock()) {
   // On: an account, else the app's EventKit tool.
   const cal = past.account
     ? pastCalendar(past.calendar, past.account)
-    : appleCalendar(past.calendar, process.env.LIFE_EVENTKIT as string);
+    : appleCalendar(past.calendar, permissionsHelperPath() as string);
   const want = await wanted(now, since);
   if (!want) {
     return null;

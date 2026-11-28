@@ -168,10 +168,10 @@ const DecisionPayload = z.object({
       "When he answered, the deadline it lapsed at, or when Life withdrew it or saw its step done"
     ),
   doneSeen: z
-    .object({ eventId: z.string(), state: z.literal("seen") })
+    .object({ eventId: z.string().optional(), state: z.literal("seen") })
     .optional()
     .describe(
-      "Life saw its step done itself (`doneSeenBy`): the payment's event (`read_payments`); with no `answer` when Life saw it before he said"
+      "Life saw its step done itself (`doneSeenBy`): a payment's with its event (`eventId`, `read_payments`), an access card's when every step is done on his Mac (no `eventId`); with no `answer` when Life saw it before he said"
     ),
   end: z
     .object({ error: z.string().optional() })
@@ -227,8 +227,13 @@ const outcomesOf = (
           : { eventId: d.added.eventId },
       }
     : {}),
-  ...(d.doneSeen?.state === "seen" && d.doneSeen.eventId
-    ? { doneSeen: { eventId: d.doneSeen.eventId, state: "seen" } }
+  ...(d.doneSeen?.state === "seen"
+    ? {
+        doneSeen: {
+          ...(d.doneSeen.eventId && { eventId: d.doneSeen.eventId }),
+          state: "seen",
+        },
+      }
     : {}),
   ...(d.end ? { end: d.end.error ? { error: d.end.error } : {} } : {}),
   ...(d.send

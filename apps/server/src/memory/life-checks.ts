@@ -7,7 +7,7 @@ import type { CheckGroup } from "../core/names";
 import type { AnswerIcon } from "../records/answer-icon";
 import type { NamingQueueItem } from "../sources/lifelog-voices";
 import type { PlanStep } from "./card-request";
-import type { Decision, doneSeenByOf, doneSeenShownOf } from "./decision-lines";
+import type { Decision, doneSeenShownOf } from "./decision-lines";
 import type { StoredDraft } from "./draft";
 import type { AgentHold } from "./held-matters";
 import type { needsShownOf } from "./needs";
@@ -231,7 +231,7 @@ export interface Check {
   /** Life's outcome on a decision whose step it looks for (`doneSeenBy`): while the card is open, only a look that found nothing (`not_found`) with Life's words; absent on every other kind or when it never looked. */
   doneSeen?: ReturnType<typeof doneSeenShownOf>;
   /** How Life sees a decision's step done now (`doneSeenByOf`): `payment`, `access` (its Mac steps), or `tap` (only his word); absent on every other kind. */
-  doneSeenBy?: ReturnType<typeof doneSeenByOf>;
+  doneSeenBy?: "access" | "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
   draft: StoredDraft | null;
   /** On a plan card: what its plan was gathered from, one line (the source chip), which opens its `context`; null on a decision with none; absent on every other kind. */

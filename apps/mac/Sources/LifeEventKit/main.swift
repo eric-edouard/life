@@ -1,7 +1,7 @@
 import EventKit
 import Foundation
 
-// life-eventkit: Life.app's permissions helper (`access`, Access.swift), and the Past calendar on an Apple calendar,
+// life-eventkit: the permissions helper (`access`, Access.swift), and the Past calendar on an Apple calendar,
 // through EventKit, for an install without Google
 // (apps/server/src/memory/past-events.ts, `calendar held|create|delete`). Life's events carry their episode and hash in their URL,
 // `life://episode/<id>?hash=<hash>`, as Google's carry them in private properties. Reminders is remctl's, never this.

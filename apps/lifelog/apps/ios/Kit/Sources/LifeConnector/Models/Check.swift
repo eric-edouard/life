@@ -332,7 +332,7 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let doneSeenBy: DoneSeenBy?
 
     public enum DoneSeenBy: String, UnknownTolerant, Sendable {
-        case payment, tap
+        case access, payment, tap
         case unknown
     }
 

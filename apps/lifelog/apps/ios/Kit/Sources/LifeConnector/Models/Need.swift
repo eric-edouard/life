@@ -8,7 +8,7 @@ extension Check {
     /// the read.
     public struct Need: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
-            case account, amount, apify, app, event, link, place, text, qr
+            case access, account, amount, apify, app, event, link, place, text, qr
             case unknown
         }
 
@@ -164,8 +164,9 @@ extension Check {
                     }
                 rows = [NeedRow(glyph: .note, text: line)] + links
             // The code itself is the card's hero (`Check.payCode`); without its text, its line.
-            // An Apify run (Life's line: what, by which actor, its estimate, cap and input); a code's line without its text.
-            case .apify, .qr, .unknown:
+            // An Apify run (Life's line: what, by which actor, its estimate, cap and input); a code's line without its text;
+            // an access card's steps (Life's line: numbered, each with its status) until its own view (life#1558).
+            case .access, .apify, .qr, .unknown:
                 rows = []
             }
             return rows.isEmpty ? [NeedRow(glyph: .note, text: line)] : rows

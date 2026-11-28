@@ -56,6 +56,14 @@ const ask = (over = {}) =>
     ...over,
   });
 
+/** Waits up to 2 s for the fake helper's note of a prompt. */
+const untilAsked = async (tries = 100): Promise<void> => {
+  if (tries > 0 && !(await Bun.file(ASKED).exists())) {
+    await Bun.sleep(20);
+    return untilAsked(tries - 1);
+  }
+};
+
 let listed: ReturnType<typeof spyOn>;
 beforeEach(async () => {
   rmSync(DECISIONS, { force: true });
@@ -105,7 +113,8 @@ test("his I'm at my Mac: the missing step's prompt is shown there, his answer vo
     changed: { state: "open" },
     doneSeen: { line: "Asked on your Mac", state: "not_found" },
   });
-  await Bun.sleep(50);
+  // The prompt runs unawaited, as on the Mac: wait for the fake helper to note it.
+  await untilAsked();
   expect(await Bun.file(ASKED).text()).toBe("--of=photos\n");
   // The statuses the look read are what the card shows: contacts ticked, photos still to do.
   const card = decisionsNow().find((d) => d.id === id);
@@ -119,6 +128,9 @@ test("his I'm at my Mac: the missing step's prompt is shown there, his answer vo
     ],
   });
   // He allows it on the Mac: the watcher's minute sees every step done, the card ends with no answer of his.
+  // Not yet on: the watcher's minute writes nothing, the card stays asked.
+  await lookForAccessDone();
+  expect(decisionsNow().find((d) => d.id === id)?.state).toBe("open");
   helperSays(ALL_DONE);
   await lookForAccessDone();
   expect(decisionsNow().find((d) => d.id === id)?.state).toBe("seen");
@@ -129,7 +141,7 @@ test("his I'm at my Mac: the missing step's prompt is shown there, his answer vo
     "planner"
   ).events;
   expect(told?.data).toMatchObject({
-    doneSeen: { eventId: `access:${id}`, state: "seen" },
+    doneSeen: { state: "seen" },
   });
   // Seen once: a later minute reads nothing, the card being closed.
   await lookForAccessDone();
@@ -166,7 +178,7 @@ test("a refused step, or one only System Settings turns on, opens its pane; free
       read({ freeGb: 25, statuses: {} }),
       show
     )
-  ).toBe("access:dec_000000000001");
+  ).toEqual({});
 });
 
 test("an access card's rules: its need, doneSeenBy and one I'm at my Mac go together, and only with the Mac's helper", async () => {

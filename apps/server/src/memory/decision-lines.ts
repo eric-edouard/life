@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { z } from "zod";
+import { permissionsHelperPath } from "../core/platform";
 import { payments } from "../payments/backend";
 import { isoDateTime } from "../records/fields";
-import { macHelperPath } from "./access";
 import { Ask } from "./card-request";
 import { StoredDraft } from "./draft";
 import { MEMORY } from "./memory-files";
@@ -294,7 +294,7 @@ export function doneSeenShownOf(l?: DoneSeen, needs?: readonly Need[]) {
   };
 }
 
-/** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), `access` while Life.app's helper is there to check the Mac, else `tap`. */
+/** How Life sees `d`'s step done now: `payment` while payments are on (amendment 1: a card with no channel to look in is `tap`), `access` while the permissions helper is there to check the Mac, else `tap`. */
 export const doneSeenByOf = (
   d: Pick<Decision, "doneSeenBy" | "needs">
 ): "access" | "payment" | "tap" =>
@@ -303,7 +303,7 @@ export const doneSeenByOf = (
     amountOf(d.needs) &&
     "payment") ||
   (d.doneSeenBy === "access" &&
-    macHelperPath() &&
+    permissionsHelperPath() &&
     accessOf(d.needs) &&
     "access") ||
   "tap";

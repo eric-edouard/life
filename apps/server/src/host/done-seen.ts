@@ -1,7 +1,7 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { accessStepsOf, isAccessDone } from "../memory/access";
+import { nextAccessStepOf } from "../memory/access";
 import { type Decision, doneSeenByOf } from "../memory/decision-lines";
 import {
   decisionsNow,
@@ -98,9 +98,6 @@ export async function readSeenDone(
   );
 }
 
-/** The id of an access card's `seen` line: the card's own, since no event of the Mac's names it. */
-const accessSeenIdOf = (id: string) => `access:${id}`;
-
 /**
  * His "I'm at my Mac" on access card `d`: every step done, the card is seen; else its first step not done is shown
  * on his Mac (`showAccessStepOnMac`) and nothing is seen: his answer is voided and the card stays open, ticking.
@@ -114,20 +111,21 @@ export async function lookAtMac(
   if (!need) {
     return;
   }
-  const next = accessStepsOf(need.steps, await read()).find(
-    (s) => s.status !== "done"
-  );
+  const next = nextAccessStepOf(need.steps, await read());
   if (!next) {
-    return accessSeenIdOf(d.id);
+    return {};
   }
   await show(next.check, next.status);
 }
 
 /** His answer's look: on an access card, his Mac (`lookAtMac`); else the payment that shows `d`'s step done, or none. */
-export const lookForDone: LookForDone = async (d) =>
-  doneSeenByOf(d) === "access"
-    ? lookAtMac(d)
-    : (await readSeenDone([d])).get(d.id);
+export const lookForDone: LookForDone = async (d) => {
+  if (doneSeenByOf(d) === "access") {
+    return lookAtMac(d);
+  }
+  const eventId = (await readSeenDone([d])).get(d.id);
+  return eventId ? { eventId } : undefined;
+};
 
 let lookedAt = Number.NEGATIVE_INFINITY;
 let looking = false;
@@ -178,8 +176,8 @@ export async function lookForAccessDone(read = readAccessNow) {
     const statuses = await read();
     for (const d of open) {
       const need = accessOf(d.needs);
-      if (need && isAccessDone(need.steps, statuses)) {
-        recordDoneSeen(d.id, { eventId: accessSeenIdOf(d.id), state: "seen" });
+      if (need && !nextAccessStepOf(need.steps, statuses)) {
+        recordDoneSeen(d.id, { state: "seen" });
       }
     }
   } finally {
