@@ -260,12 +260,6 @@ line links there.
   "Thinking…"; a retry says "Taking a little longer…" (owner, 24 Nov 2026).
 - When the answer starts, the line blurs away and the words ink in where it was (owner, 24 Nov 2026).
 
-### Turn by turn
-
-- Each turn is a page: his question pinned at the top under a soft blur, clamped to 2 lines, its size stepping down
-  with its length; the answer flows under it, centred when short (owner, 28 Nov 2026).
-- Earlier turns: pull down, each page snapping gently into place (owner, 28 Nov 2026).
-
 ### Life's questions
 
 - Life answers as it wants, then ends with its question when it needs one; a question is not an item, is not counted
@@ -471,9 +465,8 @@ Newest first. The notes merged into this page, at their last commit: [current sp
   comparison page switches scenes and variations with no full reload; the next variations are per topic (motion, an
   answer's content) rather than whole apps. Chat replies get their own exploration: three variations of the one chat
   component.
-- Turn by turn pages: his question pinned under a soft blur, 2 lines at most, sized by its length; the answer under it,
-  centred when short; earlier turns by pulling down, with a gentle snap. Top controls on the iPhone Duo all on the
-  right; on a regular iPhone the count left, the pendant right. The life-design skill holds the rules in force.
+- Top controls on the iPhone Duo all on the right, in every posture; on a regular iPhone the count left, the pendant
+  right. The life-design skill holds the rules in force.
 - Cards: one main button with the rest as small pills; the middle of a card drawn its own way per kind; shown: what
   happens if he doesn't answer, Life's plan steps, the sources read, next suggestions. One shape for every card or a
   shape per kind is explored in variations on App v4's data, unfolding on a tap.

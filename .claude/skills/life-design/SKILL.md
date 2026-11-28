@@ -29,9 +29,8 @@ The rules in force, newest decision first. The dated history is `docs/design/phi
 
 ## Turn by turn
 
-Each turn is a page: his question pinned at the top under a soft blur, clamped to 2 lines, its size stepping down with
-its length; the answer flows under it, centred when short. Earlier turns: pull down, a gentle snap per page. Details:
-`references/turns.md`.
+The app's thread is turn by turn: the rule is `docs/design/philosophy.md`, "The thread" (its turn by turn line, 28 Nov),
+built as `ThreadTurns` and `ThreadView`. `references/turns.md`.
 
 ## Answers
 
