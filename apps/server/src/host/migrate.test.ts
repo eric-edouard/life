@@ -8,9 +8,16 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { clock } from "../core/clock";
+import { logFileOf } from "../core/log";
 import { dayStart } from "../memory/zones";
 import { Correction } from "../records/observation";
-import { migrateSettings, settingsOf } from "./migrate";
+import {
+  migrateSettings,
+  migrateVoiceSource,
+  settingsOf,
+  voiceLineOf,
+} from "./migrate";
 
 test("the settings step drops `agents` and keeps the rest; a file without it is left as it is", () => {
   const without = { sources: ["git"] };
@@ -79,4 +86,134 @@ test("the corrections step: a Not now becomes Later on its card's ref, line for 
   const before = readFileSync(path, "utf8");
   migrateSettings(mkdtempSync(join(tmpdir(), "life-migrate-")), dir);
   expect(readFileSync(path, "utf8")).toBe(before);
+});
+
+test("the settings step names the voice source `voice` in `sources`, its `lifelog` key left for its own step", () => {
+  expect(
+    settingsOf({
+      lifelog: { url: "https://voice.example.test" },
+      sources: ["lifelog", "git"],
+    })
+  ).toEqual({
+    lifelog: { url: "https://voice.example.test" },
+    sources: ["voice", "git"],
+  });
+  const done = { sources: ["voice", "git"] };
+  expect(settingsOf(done)).toBe(done);
+});
+
+const VOICE_FILES: Record<string, string[]> = {
+  "appointment-events.jsonl": [
+    '{"at":"2026-11-01T09:00:00.000Z","kind":"added","messages":["lifelog|job1:2@2026-11-01T08:00:00.000Z","whatsapp|m1"],"title":"lifelog demo"}',
+  ],
+  "corrections.jsonl": [
+    '{"inConversation":"lifelog|call-bloom","kind":"this-is","nameOrHandle":"David","note":"lifelog said so"}',
+    '{"inConversation":"whatsapp|chat-1","kind":"this-is","nameOrHandle":"Ana"}',
+  ],
+  "fact-checks.jsonl": [
+    '{"source":"lifelog","text":"Ana said lifelog works"}',
+    '{"source":null,"text":"lifelog"}',
+  ],
+  "observations/2026-10.jsonl": [
+    '{"about":"project:lifelog","quote":"the lifelog app","source":{"channel":"lifelog","ref":"job1:2@2026-11-01T08:00:00.000Z"},"subjects":["project:lifelog"]}',
+    '{"source":{"channel":"whatsapp","ref":"whatsapp:c/m"},"text":"lifelog"}',
+    "",
+  ],
+  "publications.jsonl": ['{"sources":["lifelog","git"]}'],
+  "read-replies/2026-11.jsonl": [
+    '{"messages":["lifelog|job1:1@x","lifelog|job1:2@x"],"reply":{"projects":[{"project":"lifelog"}],"text":"lifelog|not a key"}}',
+    '{"messages":["voice|job2:1@x"]}',
+  ],
+  "units/2026-10-09.jsonl": [
+    '{"id":"unit_000000000001","key":"conv-1","source":"lifelog","title":"lifelog: a talk"}',
+    '{"id":"unit_000000000002","key":"lifelog","refs":["git:lifelog/abc"],"source":"git","title":"lifelog: 16 commits"}',
+    '{"id":"unit_000000000003","key":"conv-2","source":"voice"}',
+  ],
+};
+
+test("the voice source step renames typed fields only, line for line: text, projects and new lines byte for byte; a second run changes nothing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "life-migrate-voice-"));
+  const state = mkdtempSync(join(tmpdir(), "life-migrate-voice-state-"));
+  for (const [file, lines] of Object.entries(VOICE_FILES)) {
+    mkdirSync(join(dir, "memory", file, ".."), { recursive: true });
+    writeFileSync(join(dir, "memory", file), `${lines.join("\n")}\n`);
+  }
+  mkdirSync(join(state, "log"));
+  const reads =
+    '{"kind":"model.run","reads":{"lifelog":12,"mail":3},"title":"lifelog"}';
+  const today = logFileOf(clock().toISOString());
+  writeFileSync(
+    join(state, "log", "2026-11-01.jsonl"),
+    `${reads}\nnot json "lifelog":\n`
+  );
+  writeFileSync(join(state, "log", today), `${reads}\n`);
+
+  expect(migrateVoiceSource(dir, state)).toEqual({
+    "appointment-events.jsonl": 1,
+    "corrections.jsonl": 1,
+    "fact-checks.jsonl": 1,
+    log: 1,
+    observations: 1,
+    "publications.jsonl": 1,
+    "read-replies": 1,
+    units: 1,
+  });
+  const read = (file: string) =>
+    readFileSync(join(dir, "memory", file), "utf8").split("\n");
+  for (const [file, lines] of Object.entries(VOICE_FILES)) {
+    expect(read(file).length).toBe(lines.length + 1);
+  }
+  const rows = (file: string) =>
+    read(file)
+      .filter(Boolean)
+      .map((l) => JSON.parse(l));
+  expect(
+    rows("units/2026-10-09.jsonl").map((u) => [u.source, u.key, u.title])
+  ).toEqual([
+    ["voice", "conv-1", "lifelog: a talk"],
+    ["git", "lifelog", "lifelog: 16 commits"],
+    ["voice", "conv-2", undefined],
+  ]);
+  expect(read("units/2026-10-09.jsonl").slice(1)).toEqual(
+    VOICE_FILES["units/2026-10-09.jsonl"]?.slice(1).concat("")
+  );
+  expect(rows("observations/2026-10.jsonl")[0]).toEqual({
+    about: "project:lifelog",
+    quote: "the lifelog app",
+    source: { channel: "voice", ref: "job1:2@2026-11-01T08:00:00.000Z" },
+    subjects: ["project:lifelog"],
+  });
+  expect(rows("fact-checks.jsonl").map((c) => [c.source, c.text])).toEqual([
+    ["voice", "Ana said lifelog works"],
+    [null, "lifelog"],
+  ]);
+  expect(rows("publications.jsonl")[0].sources).toEqual(["voice", "git"]);
+  expect(rows("read-replies/2026-11.jsonl")[0]).toEqual({
+    messages: ["voice|job1:1@x", "voice|job1:2@x"],
+    reply: { projects: [{ project: "lifelog" }], text: "lifelog|not a key" },
+  });
+  expect(rows("appointment-events.jsonl")[0].messages).toEqual([
+    "voice|job1:2@2026-11-01T08:00:00.000Z",
+    "whatsapp|m1",
+  ]);
+  expect(rows("corrections.jsonl").map((c) => c.inConversation)).toEqual([
+    "voice|call-bloom",
+    "whatsapp|chat-1",
+  ]);
+  // The past days' logs only: today's is still being appended to.
+  expect(readFileSync(join(state, "log", "2026-11-01.jsonl"), "utf8")).toBe(
+    '{"kind":"model.run","reads":{"mail":3,"voice":12},"title":"lifelog"}\nnot json "lifelog":\n'
+  );
+  expect(readFileSync(join(state, "log", today), "utf8")).toBe(`${reads}\n`);
+
+  const after = Object.keys(VOICE_FILES).map(read);
+  expect(migrateVoiceSource(dir, state)).toBeNull();
+  for (const [file, lines] of Object.entries(VOICE_FILES)) {
+    const name = file.includes("/") ? (file.split("/")[0] ?? file) : file;
+    for (const l of read(file)) {
+      expect(voiceLineOf(name, l)).toBe(l);
+    }
+    expect(lines.length).toBeGreaterThan(0);
+  }
+  expect(Object.keys(VOICE_FILES).map(read)).toEqual(after);
 });
