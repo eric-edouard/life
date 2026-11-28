@@ -167,8 +167,9 @@ export function isPairedPhone(id: string, now = clock().getTime()) {
 }
 
 /**
- * The sign-in that spends a pairing's code gives its phone to the client it approves (none bound, nothing to move);
- * revoking the client takes it too (the app's list, later).
+ * The sign-in that spends a pairing's code gives its phone to the client it approves (none bound, nothing to move).
+ * ponytail: a client's phone stays until the client is removed from sign-in state; revoking it from the app's list is
+ * not built.
  */
 function approving(client: string, known: Client, phone: string | undefined) {
   if (!phone) {

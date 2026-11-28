@@ -143,8 +143,11 @@ export function pushRelayOf(env: Env, signer: Signer = signerIn(env)) {
     }
     const now = clock().getTime();
     forgetHours(now);
-    // Fly's proxy, since the socket's address is Fly's own.
-    const caller = request.headers.get("fly-client-ip") ?? "";
+    // Fly's proxy, since the socket's address is Fly's own; a request it did not stamp has no caller to hold.
+    const caller = request.headers.get("fly-client-ip");
+    if (!caller) {
+      return badRequest();
+    }
     const tooMany = responseOf({ reason: "TooManyRequests" }, 429);
     if (isOver(`ip:${caller}`, PER_IP, now)) {
       return tooMany;

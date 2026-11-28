@@ -92,6 +92,23 @@ test("ids only: any word, a badge, an unknown kind or a bad body is refused", as
   expect((await push("x".repeat(5000))).status).toBe(413);
 });
 
+test("a request Fly did not stamp with a caller's address is refused, nothing sent", async () => {
+  const { fetch, sent } = relayOf();
+  const answers = await Promise.all(
+    [{}, { "fly-client-ip": "" }].map((headers) =>
+      fetch(
+        new Request("https://life-push.fly.dev/push", {
+          body: JSON.stringify({ push: { kind: "voice.ready" }, token: TOKEN }),
+          headers,
+          method: "POST",
+        })
+      )
+    )
+  );
+  expect(answers.map((answer) => answer.status)).toEqual([400, 400]);
+  expect(sent).toHaveLength(0);
+});
+
 test("each kind goes to APNs as the one composer says, on the phone's path, its answer taken as APNs'", async () => {
   const pushes: Push[] = [
     { kind: "card.new", level: "time-sensitive", pushId: PUSH_ID },
