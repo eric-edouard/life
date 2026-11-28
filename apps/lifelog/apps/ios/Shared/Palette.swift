@@ -44,7 +44,7 @@ nonisolated enum Palette {
 }
 
 extension Palette {
-    /// Cream at a strength, as tokens.css's `--tint`, `--glass`, `--wash`: a quiet pill and his bubble; a floating
+    /// Cream at a strength, as tokens.css's `--tint`, `--glass`, `--wash`: a quiet pill; a floating
     /// control; an unfolded item. The only greys the phone draws.
     static let tint = fg.opacity(0.10)
     static let glass = fg.opacity(0.14)

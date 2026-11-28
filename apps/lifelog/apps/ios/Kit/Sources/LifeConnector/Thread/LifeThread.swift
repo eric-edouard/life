@@ -11,7 +11,7 @@ public struct ThreadEntry: Identifiable, Equatable, Sendable, Codable {
         /// Not sent: no Mac or no internet. Goes as it was when it can.
         case waiting
         case answered
-        /// Life didn't answer (`why`); a tap on his bubble asks again.
+        /// Life didn't answer (`why`); a tap on his question asks again.
         case failed
         /// He pressed Stop while it ran.
         case stopped
@@ -206,7 +206,7 @@ public final class LifeThread {
         }
     }
 
-    /// A tap on his bubble when Life couldn't answer: the same words, as a new ask.
+    /// A tap on his question when Life couldn't answer: the same words, as a new ask.
     public func askAgain(_ id: UUID, screen: MainSessionScreen) {
         if let at = pending.firstIndex(where: { $0.id == id }), pending[at].phase == .failed {
             (pending[at].phase, pending[at].key, pending[at].why) = (.sending, UUID().uuidString, nil)
