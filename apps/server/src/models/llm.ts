@@ -11,7 +11,7 @@ import { errorOf, fromModel } from "../core/log-line";
 import { Engine } from "../core/names";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { CODEX, cliEnv, isOwnLife, MACHINE_DIR } from "../core/platform";
-import { exec, firstLine } from "../core/proc";
+import { exec, firstLine, readProgram } from "../core/proc";
 import { settings } from "../core/settings";
 import type { IntegrationTerms } from "../records/integration";
 import {
@@ -591,17 +591,90 @@ export const callCharsOf = (llm: Llm) =>
   (PROVIDERS[llm.engine].contextTokens - MAX_TOKENS) * CHARS_PER_TOKEN;
 
 /**
- * Whether Life is online: his main engine's provider answers at all (any HTTP status) within 5 s. Offline (travelling,
- * a VPN down) nothing Life schedules can work. The request carries no key and no text.
+ * Whether Life is online: `engine`'s provider (his main engine's, unless said) answers at all (any HTTP status) within
+ * 5 s. Offline (travelling, a VPN down) nothing Life schedules can work. The request carries no key and no text.
  */
-export const isOnline = () =>
-  fetch(`https://${PROVIDERS[llmFor("main").engine].host}`, {
+export const isOnline = (engine = llmFor("main").engine) =>
+  fetch(`https://${PROVIDERS[engine].host}`, {
     method: "HEAD",
     signal: AbortSignal.timeout(5000),
   }).then(
     () => true,
     () => false
   );
+
+/** OpenRouter's credits, as its API reports them: the total he bought and the total he spent. */
+const Credits = z.object({
+  data: z.object({ total_credits: z.number(), total_usage: z.number() }),
+});
+
+/** OpenRouter's balance, or null with no key set or a call that failed. The request carries only that key. */
+async function creditsNow() {
+  const key = process.env[ROUTERS.openrouter.key];
+  if (!key) {
+    return null;
+  }
+  try {
+    const res = await fetch("https://openrouter.ai/api/v1/credits", {
+      headers: { authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const { data } = Credits.parse(await res.json());
+    return data.total_credits - data.total_usage;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether the Claude Code program `program` is signed in, by its own `auth status`; any failure is not. */
+async function claudeSignedInNow(program: string) {
+  try {
+    const { stdout } = await exec([program, "auth", "status", "--json"], {
+      env: cliEnv(),
+      timeout: 5000,
+    });
+    return JSON.parse(stdout).loggedIn === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What the AI integration's requirements read, once for the integration read. It checks that the Claude Code program is
+ * on this Mac and signed in (only when `engine`'s terms ask for them), that a router's key is set, that the OpenRouter
+ * balance is above zero (only when its terms ask for it) and that its host answers. The credits call carries only the
+ * key, to the provider already in use.
+ */
+export async function readEngineCheck(engine = readEngine()) {
+  const { integration, host } = PROVIDERS[engine];
+  const isClaude = integration.requirements.some(
+    (r) =>
+      (r.kind === "install" && r.what === "claude_code") ||
+      (r.kind === "sign_in" && r.with === "claude")
+  );
+  const wantsCredits = integration.requirements.some(
+    (r) => r.kind === "credits"
+  );
+  const router = engine in ROUTERS ? ROUTERS[engine as Router] : undefined;
+  // readProgram gives a bare name back when `Bun.which` finds nothing.
+  const program = isClaude ? readProgram("claude") : "claude";
+  return {
+    claudeFound: !isClaude || program !== "claude",
+    claudeSignedIn: !isClaude || (await claudeSignedInNow(program)),
+    credits: wantsCredits ? await creditsNow() : null,
+    host,
+    // A router's key, the page where it is made, and whether it is set.
+    key: router && {
+      name: router.key,
+      opens: router.keysAt,
+      set: Boolean(process.env[router.key]),
+    },
+    online: await isOnline(engine),
+  };
+}
 
 /** The keys each engine takes, by engine: the app asks for each by this name. */
 export const engineKeys = () =>

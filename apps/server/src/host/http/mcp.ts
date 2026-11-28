@@ -93,6 +93,7 @@ import { type Refused, SCOPE, type Verify } from "./auth";
 import { text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
 import { deleteFromMemoryTool } from "./mcp-deletions";
+import { integrationsTool } from "./mcp-integrations";
 import { mainSessionTool } from "./mcp-main-session";
 import { networkSignInTool } from "./mcp-network-sign-in";
 import { personPicturesTool } from "./mcp-people";
@@ -335,6 +336,7 @@ export function buildServer(readsOnly = false, logsArguments = false) {
         return await readResourceSamples();
       }
     );
+    integrationsTool(server, NOT_HIS);
   }
   tool(
     server,

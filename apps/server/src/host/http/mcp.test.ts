@@ -34,7 +34,11 @@ import {
 import { NOT_HIS } from "./mcp-tool";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
-const HIS_ONLY = ["read_resource_samples", "read_spending"];
+const HIS_ONLY = [
+  "read_integrations",
+  "read_resource_samples",
+  "read_spending",
+];
 
 test("no token: 401 with the challenge that names the metadata", async () => {
   const { res } = await rpc(null, "tools/list");
@@ -120,6 +124,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_chats",
     "read_day",
     "read_inbox",
+    "read_integrations",
     "read_life_status",
     "read_matter",
     "read_matters",
@@ -166,6 +171,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
     "read_inbox(after,ifNot,limit,pushId)",
+    "read_integrations()",
     "read_life_status()",
     "read_matter(id)",
     "read_matters(area,before,ifNot,noProject,person,project,state)",

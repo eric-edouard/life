@@ -1,0 +1,133 @@
+import { expect, test } from "bun:test";
+import { Engine } from "../core/names";
+import { setSettings, settings } from "../core/settings";
+import { enabledSources, SOURCES } from "../memory/sources";
+import { providerOf } from "../models/llm";
+import type { IntegrationTerms } from "../records/integration";
+import { NETWORKS } from "../sources/networks";
+import { integrationHealthOf } from "./integration-health";
+import {
+  type IntegrationReads,
+  integrationFactsOf,
+  isDoneOf,
+  requirementsOf,
+} from "./integrations";
+
+// The integration read's own rules, on made-up data: no network call, no read of this Mac.
+
+/** Made-up reads: nothing read, nothing failing, no bridge checked. */
+const reads = (over: Partial<IntegrationReads> = {}): IntegrationReads => ({
+  bridges: new Map(),
+  failingStores: new Map(),
+  life: { error: "lifelog not set up", ok: false as const },
+  newest: new Map(),
+  now: new Date("2026-11-28T09:00:00.000Z"),
+  t: Date.parse("2026-11-28T09:00:00.000Z"),
+  turn: { ok: true, value: null },
+  ...over,
+});
+
+const sourceOf = (name: string) => {
+  const d = SOURCES.find((s) => s.name === name);
+  if (!d) {
+    throw new Error(`no source ${name}`);
+  }
+  return d;
+};
+
+test("every source, network and engine that needs something of him carries its terms, each with a privacy line", () => {
+  const terms: IntegrationTerms[] = [];
+  // The networks are their own entries; Told Life and the agent's ledger need nothing of him.
+  const needsNothing = new Set(["told-life", "agent"]);
+  const networkNames = new Set<string>(NETWORKS.map((n) => n.name));
+  for (const d of SOURCES) {
+    if (needsNothing.has(d.name) || networkNames.has(d.name)) {
+      expect(d.integration).toBeUndefined();
+      continue;
+    }
+    if (d.integration) {
+      terms.push(d.integration);
+    } else {
+      throw new Error(`${d.name} has no integration`);
+    }
+  }
+  for (const n of NETWORKS) {
+    terms.push(n.integration);
+  }
+  for (const engine of Engine.options) {
+    terms.push(providerOf(engine).integration);
+  }
+  for (const t of terms) {
+    expect(t.privacy.length).toBeGreaterThan(0);
+    expect(t.value.ask.length).toBeGreaterThan(0);
+    expect(t.value.answer.length).toBeGreaterThan(0);
+  }
+});
+
+test("a network's requirements: its app keys first, then signing in from his phone", () => {
+  const telegram = sourceOf("telegram");
+  expect(requirementsOf(telegram)).toEqual([
+    { kind: "key", name: "telegram", opens: "https://my.telegram.org" },
+    { kind: "sign_in", with: "network" },
+  ]);
+  // WhatsApp's bridge only sends: its app is what Life reads, so it never asks him to sign in.
+  expect(requirementsOf(sourceOf("whatsapp"))).toEqual([
+    { check: "full_disk_access", kind: "permission" },
+  ]);
+  // A source with terms of its own keeps them.
+  expect(requirementsOf(sourceOf("git"))).toEqual([]);
+});
+
+test("Telegram with no keys yet waits on him, with the key's words; with keys and a broken bridge, the bridge's", () => {
+  const telegram = sourceOf("telegram");
+  const was = settings().sources;
+  try {
+    setSettings({ sources: [...new Set([...was, "telegram" as const])] });
+    expect(enabledSources().includes(telegram)).toBe(true);
+    const needingKeys = integrationFactsOf(
+      telegram,
+      reads({
+        bridges: new Map([
+          [
+            "telegram",
+            {
+              needsKeys: true as const,
+              ok: false,
+              text: "needs your app keys",
+            },
+          ],
+        ]),
+      })
+    );
+    expect(needingKeys.requirements).toEqual([
+      {
+        done: false,
+        kind: "key",
+        name: "telegram",
+        opens: "https://my.telegram.org",
+      },
+      // Unmet too on a made-up Mac, but the key comes first.
+      { done: false, kind: "sign_in", with: "network" },
+    ]);
+    expect(integrationHealthOf(needingKeys)).toMatchObject({
+      state: "waiting_on_user",
+      why: "Add your key from my.telegram.org.",
+    });
+    const broken = integrationFactsOf(
+      telegram,
+      reads({
+        bridges: new Map([
+          ["telegram", { ok: false, text: "telegram bridge BAD_CREDENTIALS" }],
+        ]),
+      })
+    );
+    expect(broken.kind === "source" && broken.bridgeDown).toBe(
+      "telegram bridge BAD_CREDENTIALS"
+    );
+    // Its keys are in, so the key requirement is done.
+    const [key] = requirementsOf(telegram);
+    expect(key && isDoneOf(key, telegram, reads())).toBe(true);
+  } finally {
+    setSettings({ sources: was });
+  }
+});

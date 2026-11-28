@@ -1,6 +1,8 @@
 import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { lifelogServer } from "../../sources/store-fixtures";
+// biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
+import * as macAccess from "../mac-access";
 import { alertKeyOf, redCards } from "../report";
 import { crashCard } from "./crash-card";
 import { processingStepsOf, snapshot } from "./snapshot";
@@ -86,13 +88,19 @@ test(
 test(
   "a source Life can't read is red and says why, so the tick mails it; an import never run is idle, so it doesn't",
   async () => {
-    const red = new Map(
-      redCards((await snapshot()).cards).map((c) => [c.id, c])
-    );
-    // The made-up data has no WhatsApp archive and no repos folder; claude.ai is imported or not, by the tests before.
-    expect(red.get("whatsapp")?.headline).toBe("WhatsApp not archived yet");
-    expect(red.get("git")?.headline).not.toBe("unreadable");
-    expect(red.has("claude")).toBe(false);
+    // Full Disk Access is the test process's own, which differs by machine: granted here, so the source's cause shows.
+    const fda = spyOn(macAccess, "readFullDiskAccess").mockReturnValue("done");
+    try {
+      const red = new Map(
+        redCards((await snapshot()).cards).map((c) => [c.id, c])
+      );
+      // The made-up data has no WhatsApp archive and no repos folder; claude.ai is imported or not, by the tests before.
+      expect(red.get("whatsapp")?.headline).toBe("WhatsApp not archived yet");
+      expect(red.get("git")?.headline).not.toBe("unreadable");
+      expect(red.has("claude")).toBe(false);
+    } finally {
+      fda.mockRestore();
+    }
   },
   MIN
 );
