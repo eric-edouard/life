@@ -7,6 +7,11 @@ options:
 packages:
   LifelogKit:
     path: Kit
+  # The phone's way to its Mac over iroh (`MacLink`), the app target's alone: no Kit target, extension or the Watch may
+  # reach it.
+  IrohLib:
+    url: https://github.com/n0-computer/iroh-ffi
+    exactVersion: 1.2.0
 settings:
   base:
     # The two settings to change to build under another team: every bundle id, the app group and the background
@@ -36,6 +41,8 @@ targets:
     # Shared: the app group, snapshot copy and the control's intent, compiled into the widget extension too.
     sources: [Lifelog, Shared]
     dependencies:
+      - package: IrohLib
+        product: IrohLib
       - target: LifelogWidgets
       - target: LifelogWatch
       - target: LifelogNotificationService
@@ -85,6 +92,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(LIFELOG_BUNDLE_ID)
         PRODUCT_NAME: lifelog
         ENABLE_USER_SCRIPT_SANDBOXING: NO
+        # iroh's netdev enumerates this phone's interfaces through Network.framework (`nw_path_monitor`).
+        OTHER_LDFLAGS: [$(inherited), -framework, Network]
         # Lifelog/AppIcon.icon, the Icon Composer document (Liquid Glass layers, light/dark/tinted).
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"

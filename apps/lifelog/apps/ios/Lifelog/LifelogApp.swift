@@ -32,6 +32,7 @@ struct LifelogApp: App {
             switch phase {
             case .active:
                 Task { await appDelegate.capture.becameActive() }
+                Task { await appDelegate.life.relinkMac() }
                 appDelegate.claimLocation()
             case .background: appDelegate.sync.wentToBackground()
             default: break
@@ -188,13 +189,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     /// The server's silent push (`"lifelog": "processing"`): words or a summary landed, or blocks are wanted; or Life's
-    /// cards that left its inbox, whose notifications go. The alert (voices to name) goes through the notification center
-    /// instead.
+    /// cards that left its inbox, whose notifications go and whose count changed. The alert (voices to name) goes through
+    /// the notification center instead.
     func application(
         _ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any]
     ) async -> UIBackgroundFetchResult {
         if case .removed(let gone)? = NotificationRoute(userInfo: userInfo) {
             await LifeStore.removeNotifications(sparingResults: true) { gone.contains($0) }
+            // No push carries a badge any more: the asks are read again, and `LifeStore` sets the badge from that read
+            // (`waitingCount`) as it does after any other read.
+            await life.refreshItems()
             return .newData
         }
         guard userInfo["lifelog"] as? String == "processing" else { return .noData }

@@ -94,6 +94,10 @@ enum ConnectionCheck {
         case MCPError.wrongCode: ("This link has expired. Make a new one on the Mac.", true)
         case ServerClient.ClientError.server(401, _, _):
             ("The server did not accept this link's token. Make a new one on the Mac.", false)
+        // The Mac's own answer to the code this phone wrote over iroh, or no Mac at all: the pair
+        // fails at "The Mac accepts this phone", never over Tailscale instead.
+        case MacLinkError.refused: ("This Mac did not accept this phone. Make a new link on the Mac.", false)
+        case is MacLinkError: ("This Mac could not be reached. Make a new link on the Mac.", false)
         case is Pairing.NotKept: ("This iPhone could not keep the pairing.", false)
         case is ServerClient.ClientError, is URLError: (SyncStore.sentence(error), false)
         default: (MCPError.of(error).reason, false)

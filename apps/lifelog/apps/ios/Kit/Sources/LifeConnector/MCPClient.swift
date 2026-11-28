@@ -88,12 +88,7 @@ public struct MCPClient: Sendable {
             }
             return result
         }
-        let (bytes, response): (URLSession.AsyncBytes, URLResponse)
-        do { (bytes, response) = try await http.session.bytes(for: request) } catch let error as URLError
-            where error.code == .timedOut
-        {
-            throw MCPError.timedOut
-        } catch { throw MCPError.of(error) }
+        let (bytes, response) = try await http.bytes(for: request)
         guard let http = response as? HTTPURLResponse else { throw MCPError.failed("Not an HTTP answer.") }
         try Self.check(http)
         let isStream = http.value(forHTTPHeaderField: "content-type")?.contains("text/event-stream") == true

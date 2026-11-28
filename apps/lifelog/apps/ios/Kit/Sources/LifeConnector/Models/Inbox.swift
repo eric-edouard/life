@@ -1,4 +1,5 @@
 import Foundation
+import Library
 
 /// `read_inbox`: every open ask, what blocks first then most urgent, with the counts the badge and the tabs show.
 public struct Inbox: Decodable, Sendable, Equatable {
@@ -13,6 +14,12 @@ public struct Inbox: Decodable, Sendable, Equatable {
     /// Every open card is in it, none cut off by the read's limit: only then does a card it lacks no longer wait.
     public var isWhole: Bool { checks.count >= total }
     public let version: String?
+
+    /// The badge a `read_inbox` reply gives (`badge`), for the reads that keep only one card of it: the service
+    /// extension sets the app's badge from the same answer it writes a notification with. Nil when it does not decode.
+    public static func badge(in inbox: String) -> Int? {
+        (try? LibraryStore.feedDecoder.decode(Self.self, from: Data(inbox.utf8)))?.badge
+    }
 }
 
 /// The card a tapped push opens.

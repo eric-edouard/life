@@ -54,6 +54,8 @@ The design data (`apps/lifelog/fixtures/design/`, one JSON file per connector re
   confirms naming each server, and only then `SyncStore.pair` or `LifeStore.pair` stores it. A server's token is checked
   against the server before it is kept (`Pairing.pair`), so a failed pairing leaves the old one working. A link never
   repoints the app alone, and a token is never drawn.
+- The phone reaches its Mac over iroh: `IrohLib` in the app target only, requests reach the Mac through `MacRoute` and no
+  other way, and a refused proof fails pairing with no fallback. The how is `MacLink.swift`'s header.
 - `SyncStore` is the one driver: uploads, the outbox, the feed and the status. Debug builds pair from
   `LIFELOG_DEVICE_TOKEN` and `LIFELOG_SERVER_URL` in the environment (`DeviceToken.importFromEnvironment`), the one
   debug path.

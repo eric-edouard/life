@@ -44,7 +44,8 @@ public struct LifeOAuth: Sendable {
             found, clientID: clientID, code: link.code, challenge: Self.challenge(for: verifier), state: state)
         await onStep(.exchanging)
         let endpoint = LifeEndpoint(
-            origin: link.origin, clientID: clientID, tokenEndpoint: found.token, resource: found.resource)
+            origin: link.origin, clientID: clientID, tokenEndpoint: found.token, resource: found.resource,
+            mac: link.mac)
         let tokens = try await tokens(
             at: found.token,
             form: [

@@ -60,6 +60,8 @@ final class LifeStore {
 
     /// The Life this phone is paired with: set by a pairing, gone once Life no longer knows it (a read says so).
     private(set) var pairedOrigin: URL?
+    /// The Mac that pairing named over iroh, if it did (`MacLink`): nil reaches Life at its origin alone.
+    private(set) var macTarget: MacTarget?
     /// Since when Life cannot be reached, for the notice that says so.
     private(set) var lostSince: Date?
 
@@ -117,7 +119,11 @@ final class LifeStore {
         self.now = now
         self.setBadge = setBadge
         self.path = path
-        pairedOrigin = tokens.load()?.endpoint.origin
+        let stored = tokens.load()
+        pairedOrigin = stored?.endpoint.origin
+        macTarget = stored?.endpoint.macTarget
+        // The Mac this pairing named (`MacLink`): iroh first, its origin only when a dial fails.
+        Task { await MacLink.shared.point(at: macTarget) }
         if let kept = cache.load(Self.itemsKey), let value = try? ThreadRead.parsed(kept.text) {
             parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
             items.apply(.succeeded(value, kept.at))
@@ -559,6 +565,9 @@ final class LifeStore {
         let credentials = try await approve(link)
         tokens.save(credentials)
         pairedOrigin = credentials.endpoint.origin
+        // The Mac this Life named, or none: the bridge this phone keeps follows the pairing (`MacLink`).
+        macTarget = credentials.endpoint.macTarget
+        await MacLink.shared.point(at: macTarget)
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         thread.startOver()
@@ -571,6 +580,10 @@ final class LifeStore {
         onStep(.reading)
         await refresh()
     }
+
+    /// The bridge again when the app comes forward: a dial that failed left the requests on the Mac's origin, and iroh
+    /// gets its next try with the same Mac (`MacLink` dials when a request reaches the bridge).
+    func relinkMac() async { await MacLink.shared.point(at: macTarget) }
 
     #if DEBUG
 

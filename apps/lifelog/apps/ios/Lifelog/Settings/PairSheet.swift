@@ -1,3 +1,4 @@
+import Library
 import LifeConnector
 import ServerAPI
 import SwiftUI
@@ -185,7 +186,7 @@ struct PairSheet: View {
             }
             do {
                 switch connection {
-                case .life: if let link = offer.life { try await life.pair(link, onStep: step) }
+                case .life: if let link = offer.life { try await pairLife(link, onStep: step) }
                 case .server: if let link = offer.server { try await sync.pair(link, onStep: step) }
                 }
                 runs[connection]?.isKept = true
@@ -198,6 +199,24 @@ struct PairSheet: View {
             }
         }
         phase = .done
+    }
+
+    /// Life's pairing, the Mac the link names reached over iroh first: `MacLink` is pointed at its key and the code proved
+    /// on `life/pair/1` before the sign-in, so a Mac this phone cannot reach or that refuses it fails at "The Mac accepts
+    /// this phone" — no Tailscale fallback. A pairing that fails or throws puts the Mac this phone had
+    /// back, as `LifeStore` only repoints the bridge once the tokens are kept.
+    private func pairLife(_ link: LifePairing, onStep: (PairStep) -> Void) async throws {
+        let previous = MacLink.shared.target
+        await MacLink.shared.point(at: link.mac.map { MacTarget(origin: link.origin, key: $0) })
+        do {
+            if link.mac != nil {
+                guard try await MacLink.shared.prove(code: link.code) else { throw MacLinkError.refused }
+            }
+            try await life.pair(link, onStep: onStep)
+        } catch {
+            await MacLink.shared.point(at: previous)
+            throw error
+        }
     }
 
     /// Paired, but the inbox is the first proof: if it did not read, its line fails with why.

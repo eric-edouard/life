@@ -52,7 +52,7 @@ public struct CardNotification: Sendable, Equatable {
 
     // MARK: Answering from the notification
 
-    /// The category every card's push names (`alertOf`, lifelog's `apns.ts`).
+    /// The category every card's push names (`ALERTS`, lifelog's `apns-request.ts`).
     public static let category = "life.card"
     /// A card it can send from: its category's actions, which the Watch shows, are Send and Reply….
     public static let sendCategory = "life.card.send"
@@ -104,13 +104,15 @@ public struct CardNotification: Sendable, Equatable {
 
     /// The service extension's read of a push's card: from the Life paired when the push arrived (`paired`) and no other
     /// (`readPush` reads at the origin it is given), so the origin it keeps with the card (`lifeKey`) is the read's own.
+    /// Its `badge` is the same read's: no push carries a count any more (`core/push.ts`), so the notification's is the
+    /// one Life's inbox gives.
     public static func read(
         pushId: String, pairedWith paired: URL?, asksFaceID: Bool, readPush: @Sendable (URL) async throws -> String
-    ) async -> (card: CardNotification, life: URL)? {
+    ) async -> (card: CardNotification, life: URL, badge: Int?)? {
         guard let paired, let inbox = try? await readPush(paired),
             let card = of(pushId: pushId, inbox: inbox, asksFaceID: asksFaceID)
         else { return nil }
-        return (card, paired)
+        return (card, paired, Inbox.badge(in: inbox))
     }
 
     /// The card as kept (its JSON), if this build reads it.

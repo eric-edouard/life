@@ -61,7 +61,8 @@ public struct ServerClient: Sendable {
 
     func request(_ path: String, method: String = "GET") throws -> URLRequest {
         guard let server = server(), let token = token() else { throw ClientError.notPaired }
-        var request = URLRequest(url: server.appending(path: path))
+        // Through `MacLink`'s bridge when it carries this server's host (`MacRoute`), as addressed otherwise.
+        var request = URLRequest(url: MacRoute.route(server.appending(path: path)))
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         return request
