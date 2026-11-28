@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -12,12 +13,7 @@ import { clock } from "../core/clock";
 import { logFileOf } from "../core/log";
 import { dayStart } from "../memory/zones";
 import { Correction } from "../records/observation";
-import {
-  migrateSettings,
-  migrateVoiceSource,
-  settingsOf,
-  voiceLineOf,
-} from "./migrate";
+import { migrateSettings, migrateVoiceSource, settingsOf } from "./migrate";
 
 test("the settings step drops `agents` and keeps the rest; a file without it is left as it is", () => {
   const without = { sources: ["git"] };
@@ -174,8 +170,9 @@ test("the voice source step renames typed fields only, line for line: text, proj
     ["git", "lifelog", "lifelog: 16 commits"],
     ["voice", "conv-2", undefined],
   ]);
-  expect(read("units/2026-10-09.jsonl").slice(1)).toEqual(
-    VOICE_FILES["units/2026-10-09.jsonl"]?.slice(1).concat("")
+  // A line already new, and one with no source of the voice, stay byte for byte.
+  expect(read("units/2026-10-09.jsonl").slice(1, 3)).toEqual(
+    (VOICE_FILES["units/2026-10-09.jsonl"] ?? []).slice(1, 3)
   );
   expect(rows("observations/2026-10.jsonl")[0]).toEqual({
     about: "project:lifelog",
@@ -208,12 +205,13 @@ test("the voice source step renames typed fields only, line for line: text, proj
 
   const after = Object.keys(VOICE_FILES).map(read);
   expect(migrateVoiceSource(dir, state)).toBeNull();
-  for (const [file, lines] of Object.entries(VOICE_FILES)) {
-    const name = file.includes("/") ? (file.split("/")[0] ?? file) : file;
-    for (const l of read(file)) {
-      expect(voiceLineOf(name, l)).toBe(l);
-    }
-    expect(lines.length).toBeGreaterThan(0);
-  }
+  expect(Object.keys(VOICE_FILES).map(read)).toEqual(after);
+  // Without its mark, a run again finds nothing to rename.
+  rmSync(join(dir, "memory", "migrations.jsonl"));
+  expect(
+    Object.values(migrateVoiceSource(dir, state) ?? { none: 1 }).every(
+      (n) => n === 0
+    )
+  ).toBe(true);
   expect(Object.keys(VOICE_FILES).map(read)).toEqual(after);
 });
