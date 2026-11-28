@@ -12,6 +12,12 @@ The pages share their parts instead of copying them. Life's brand is [`assets/br
 [`components.css`](components.css) imports it and holds the rules the app v4 pages had in common that no other page's markup could pick up.
 The turn by turn pages share [`2026-11-27-turns.css`](2026-11-23-chat-first/2026-11-27-turns.css). A rule only one page uses stays in that page.
 
+## Start here
+
+| Design | What it is |
+|---|---|
+| [Sources of truth](sources-of-truth.md) | What any person or agent reads before designing a screen or building a component, in order |
+
 ## Prototype
 
 The one approved design: the app is built to it (the owner's yes of 26 Nov 2026). Nothing else here is a target until it
