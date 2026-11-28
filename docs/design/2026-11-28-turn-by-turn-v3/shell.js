@@ -1,4 +1,4 @@
-/* Turn by turn v3's shell, forked from v2's (needs edge.js, data.js, chat.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
+/* Turn by turn v3's shell, forked from v2's (needs v2's edge.js, data.js, chat.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
    draws the phone and the side panel; Shell.run(id) plays a scene (also on postMessage({scene:id}) and on #scene=id); postMessage({vary:{topic:value}})
    hands the variations to opts.onVary, then plays the current scene again, with no reload.
    A scene is run(ctx), async, with ctx = {phone, stage, field, edge, wait, type, speak, cancelled, lock, notify}. Starting a scene
@@ -10,15 +10,14 @@
    the pendant (a tap opens its page over whatever shows, ctx.pendant()). The count is worked out, never set: what waits
    on him (DATA.waiting) and every card drawn since, less what he settled.
    ctx.cards(items) makes the cards: one per item, side by side, swiped sideways. What a card holds is drawn here only
-   (cardHtml; a draft's head and chat by chat.js), so it changes in one place; a variant places the row and may set --s-pad, --s-card-bg,
-   --s-card-radius, --s-card-shadow. */
+   (cardHtml; a draft's head and chat by chat.js), so it changes in one place; the scene places the row. */
 window.Shell=(function(){
   var MIC='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>';
   var UP='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/><path d="M12 8v10"/></svg>';
   var BACK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>';
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   var CANCEL={cancelled:true},run=0,last='idle',scenes=[],opts,phone,stage,field,lock,count,pend,buttons={},kept=new WeakMap(),open=new Set();
-  function esc(t){return String(t).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+  var esc=Chat.esc;
 
   /* a card, as App v4 draws it: who (face or initial), what, its line, its one sentence of why, one wide action, then
      its outcome; a draft is its chat (chat.js: the head, the messages that matter, the draft), its quick edits, Later
@@ -47,7 +46,7 @@ window.Shell=(function(){
       list.addEventListener('scroll',at,{passive:true});at();}
     showCount();
     /* a mouse drag pages by one card: a mouse has no sideways scroll, and the designs are mostly viewed with one (touch and
-       trackpads scroll natively). Its pointerdown stays in the row, so variant A's reel never takes a card swipe as a shot's */
+       trackpads scroll natively). Its pointerdown stays in the row, so the reel never takes a card swipe as a shot's */
     var x0=null;
     list.addEventListener('pointerdown',function(e){e.stopPropagation();if(e.pointerType==='mouse')x0=e.clientX;});
     list.addEventListener('pointerup',function(e){if(x0===null)return;var dx=e.clientX-x0;x0=null;
@@ -110,7 +109,7 @@ window.Shell=(function(){
       sync:function(){snd.disabled=!input.value.trim();},
       clear:function(){input.value='';heard.textContent='';f.sync();},
       live:function(on){el.classList.toggle('live',on);mic.setAttribute('aria-pressed',String(on));}};
-    function ask(text,how){if(!text)return;f.clear();(opts.onAsk||function(t,h){start(h==='voice'?'voice-send':'type-send');})(text,how);}
+    function ask(text,how){if(!text)return;f.clear();opts.onAsk(text,how);}
     input.addEventListener('keydown',function(e){if(e.key==='Enter')ask(input.value.trim(),'typed');});
     input.addEventListener('input',f.sync);
     snd.addEventListener('click',function(){ask(input.value.trim(),'typed');});

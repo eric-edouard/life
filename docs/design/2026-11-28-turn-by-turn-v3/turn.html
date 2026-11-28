@@ -12,7 +12,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Turn by turn v3</title>
 <link rel="stylesheet" href="../../../assets/brand/tokens.css">
-<link rel="stylesheet" href="edge.css">
+<link rel="stylesheet" href="../2026-11-27-turn-by-turn-v2/edge.css">
 <link rel="stylesheet" href="shell.css">
 <link rel="stylesheet" href="chat.css">
 <style>
@@ -20,7 +20,6 @@
 .stage:has(> .a){overflow:visible}
 .a{position:absolute;inset:0;--spring:cubic-bezier(.2,1.15,.32,1);--soft:cubic-bezier(.2,.8,.2,1)}
 b{font-weight:650}
-.a-m{color:var(--muted)}
 /* the title card: his words */
 .a-ttl{position:absolute;left:20px;right:20px;margin:0;text-align:center;font-size:34px;line-height:1.14;font-weight:650;letter-spacing:-.025em;text-wrap:balance;transform-origin:50% 0;will-change:transform}
 .a-ttl .w{display:inline-block;transition:opacity .35s,filter .35s,transform .45s var(--spring)}
@@ -126,7 +125,7 @@ b{font-weight:650}
 </style>
 </head>
 <body>
-<script src="edge.js"></script>
+<script src="../2026-11-27-turn-by-turn-v2/edge.js"></script>
 <script src="data.js"></script>
 <script src="chat.js"></script>
 <script src="shell.js"></script>
@@ -138,7 +137,7 @@ var V={day:'rows',pager:'snap'};
 (location.hash.match(/(day|pager)=\w+/g)||[]).forEach(function(x){x=x.split('=');V[x[0]]=x[1];});
 var SPRING='cubic-bezier(.2,1.15,.32,1)',SOFT='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
 function el(p,cls,html){var e=document.createElement('div');e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
-function esc(s){return s.replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+var esc=Chat.esc;
 function cap(s){return s.replace(/^./,function(ch){return ch.toUpperCase();});}
 /* animates from one state to another and leaves the element in the second; under Reduce Motion, a cross-fade only */
 function mv(e,from,to,ms,ease,delay){var fin=to;
@@ -149,7 +148,7 @@ function gone(e,ms){var a=mv(e,{opacity:1,transform:'none',filter:'none'},{opaci
 function root(c){return el(c.stage,'a');}
 function split(s,at){var i=s.indexOf(at);return i<0?[s,'']:[s.slice(0,i+(at==='. '?1:0)),s.slice(i+at.length)];}
 /* a proposed block, still to build */
-function nb(kind,html){return '<div class="a-nb">'+html+'<i class="a-new">new block · '+kind+'</i></div>';}
+function nb(kind,html){return '<div>'+html+'<i class="a-new">new block · '+kind+'</i></div>';}
 
 /* the title card: his words, centred a little above the middle */
 function title(r,text,hidden){var t=el(r,'a-ttl','');
