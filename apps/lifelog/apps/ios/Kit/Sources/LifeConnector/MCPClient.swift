@@ -17,7 +17,7 @@ public struct MCPClient: Sendable {
 
     public init(session: LifeSession, urlSession: URLSession? = nil) {
         self.session = session
-        http = LifeHTTP(session: urlSession ?? IrohURLProtocol.makeURLSession())
+        http = LifeHTTP(session: urlSession ?? MacLinkURLProtocol.makeURLSession())
     }
 
     /// The tool's answer text (JSON, as the tool wrote it). `onProgress` gets each progress message of the stream. `answerKey`
@@ -37,6 +37,7 @@ public struct MCPClient: Sendable {
         var bearer = try await session.bearer(of: pairing)
         for attempt in 0...1 {
             var request = URLRequest(url: url)
+            request.macLink = pairing.macLink
             request.httpMethod = "POST"
             request.httpBody = body
             request.timeoutInterval = onProgress == nil ? Self.readTimeoutSeconds : Self.actionIdleTimeoutSeconds

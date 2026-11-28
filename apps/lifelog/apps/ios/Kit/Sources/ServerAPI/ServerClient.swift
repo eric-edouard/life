@@ -24,15 +24,18 @@ public struct ServerClient: Sendable {
 
     let server: @Sendable () -> URL?
     let token: @Sendable () -> String?
+    /// The Mac link the paired server is reached over (nil: directly), read with it on each request.
+    let macLink: @Sendable () -> MacLinkAddress?
     let session: URLSession
 
     public init(
-        server: @escaping @Sendable () -> URL?, session: URLSession = IrohURLProtocol.makeURLSession(),
-        token: @escaping @Sendable () -> String?
+        server: @escaping @Sendable () -> URL?, session: URLSession = MacLinkURLProtocol.makeURLSession(),
+        token: @escaping @Sendable () -> String?, macLink: @escaping @Sendable () -> MacLinkAddress? = { nil }
     ) {
         self.server = server
         self.session = session
         self.token = token
+        self.macLink = macLink
     }
 
     // MARK: Plumbing
@@ -63,6 +66,7 @@ public struct ServerClient: Sendable {
     func request(_ path: String, method: String = "GET") throws -> URLRequest {
         guard let server = server(), let token = token() else { throw ClientError.notPaired }
         var request = URLRequest(url: server.appending(path: path))
+        request.macLink = macLink()
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         return request

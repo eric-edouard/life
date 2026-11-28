@@ -98,7 +98,8 @@ let package = Package(
         // Library for `UnknownTolerant`; MacLink for the pairing link and the one session maker.
         .target(name: "LifeConnector", dependencies: ["Library", "MacLink"], swiftSettings: settings),
         .testTarget(
-            name: "LifeConnectorTests", dependencies: ["LifeConnector", "Library", "MacLink"], swiftSettings: settings),
+            name: "LifeConnectorTests", dependencies: ["LifeConnector", "Library", "MacLink", "ServerAPI"],
+            swiftSettings: settings),
         .target(
             name: "ContextMarkdown", dependencies: [.product(name: "Markdown", package: "swift-markdown")],
             swiftSettings: settings),

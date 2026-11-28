@@ -8,8 +8,8 @@ private let fixtures = URL(filePath: #filePath).deletingLastPathComponent().dele
     .appending(path: "fixtures")
 
 /// The links every app reads alike (`fixtures/wire/pairing-links.json`, shared with the Android app): each half on its
-/// own, over HTTPS, or Life on this device's loopback.
-@Test func aLinkGivesEachHalfOverHTTPSOrLoopback() throws {
+/// own, over HTTPS or Life on this device's loopback, or any address over the Mac link the link names.
+@Test func aLinkGivesEachHalfWithItsMacLink() throws {
     struct Case: Decodable {
         struct Server: Decodable { let server: String, token: String }
         struct Life: Decodable { let origin: String, code: String }
@@ -17,53 +17,32 @@ private let fixtures = URL(filePath: #filePath).deletingLastPathComponent().dele
         let link: String
         let pairing: Server?
         let life: Life?
+        let macLink: MacLinkAddress?
     }
     let cases = try JSONDecoder().decode(
         [Case].self, from: Data(contentsOf: fixtures.appending(path: "wire/pairing-links.json")))
-    #expect(cases.count > 10)
+    #expect(cases.filter { $0.macLink != nil }.count == 3)
     for c in cases {
         let link = PairLink(link: try #require(URL(string: c.link), "\(c.case)"))
         #expect(link?.server?.server.absoluteString == c.pairing?.server, "\(c.case)")
         #expect(link?.server?.token == c.pairing?.token, "\(c.case)")
         #expect(link?.life?.origin.absoluteString == c.life?.origin, "\(c.case)")
         #expect(link?.life?.code == c.life?.code, "\(c.case)")
-        #expect(link?.macLink == nil, "\(c.case)")
+        for macLink in [link?.life?.macLink, link?.server?.macLink] where macLink != nil {
+            #expect(macLink == c.macLink, "\(c.case)")
+        }
     }
 }
 
-private let key = String(repeating: "ab12", count: 16)
-private let relay = "https%3A%2F%2Frelay.example.%2F"
-
-/// With the Mac's key any address is valid, the Mac's loopback too; without it, plain HTTP stays refused.
-@Test(arguments: [
-    (
-        "life=http%3A%2F%2F127.0.0.1%3A46200&code=ABC234&token=abc_DEF-123-xyz_789&url=http%3A%2F%2F127.0.0.1%3A46200%2Fvoice&mac=\(key)&relay=\(relay)",
-        true, true, true
-    ),
-    ("life=http%3A%2F%2Flife.example&code=ABC234&mac=\(key)&relay=\(relay)", true, false, true),
-    ("url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=\(key)&relay=\(relay)", false, true, true),
-    ("url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=\(key)", false, false, false),
-    (
-        "url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=\(key)&relay=http%3A%2F%2Frelay.example",
-        false, false, false
-    ),
-    ("life=https%3A%2F%2Flife.example&code=ABC234&mac=short&relay=\(relay)", true, false, false),
-])
-func theMacsKeyCarriesAnyAddress(query: String, hasLife: Bool, hasServer: Bool, isLinked: Bool) {
-    let link = PairLink(link: URL(string: "lifelog://pair?\(query)")!)
-    #expect((link?.life != nil) == hasLife)
-    #expect((link?.server != nil) == hasServer)
-    #expect(link?.macLink == (isLinked ? MacLinkAddress(mac: key, relay: "https://relay.example./") : nil))
-}
-
-@Test func anOriginKeepsItsAddressForEveryPathAndNoOtherPort() throws {
-    let origin = URL(string: "http://127.0.0.1:\(Int.random(in: 50000...60000))")!
-    let address = try #require(MacLinkAddress(mac: key, relay: "https://relay.example./"))
-    MacLinkBook.remember(address, for: origin.appending(path: "mcp"))
-    #expect(MacLinkBook.address(for: origin.appending(path: "voice/switches")) == address)
-    #expect(MacLinkBook.address(for: URL(string: "http://127.0.0.1:1/mcp")!) == nil)
-    MacLinkBook.remember(nil, for: origin)
-    #expect(MacLinkBook.address(for: origin) == nil)
+@Test func aRequestCarriesItsMacLink() throws {
+    let address = try #require(
+        MacLinkAddress(mac: String(repeating: "ab12", count: 16), relay: "https://relay.example./"))
+    var request = URLRequest(url: URL(string: "http://127.0.0.1:46200/mcp")!)
+    #expect(request.macLink == nil && !MacLinkURLProtocol.canInit(with: request))
+    request.macLink = address
+    #expect(request.macLink == address && MacLinkURLProtocol.canInit(with: request))
+    request.macLink = nil
+    #expect(request.macLink == nil)
 }
 
 /// A stream that records what the phone writes and answers with the reads given, in order.
@@ -130,6 +109,14 @@ private func exchange(_ request: URLRequest, _ stream: FakeStream) async -> (HTT
     #expect(answer?.statusCode == 200)
     #expect(pieces == ["data: {\"progress\":1}\n\n", "data: {\"result\":2}\n\n"])
     #expect(String(decoding: await stream.written, as: UTF8.self).hasPrefix("GET /mcp HTTP/1.0\r\n"))
+}
+
+/// Never sent to an HTTP/1.0 request; refused rather than passed on with its chunk sizes in the body.
+@Test func aChunkedAnswerIsRefused() async {
+    let stream = FakeStream([piece("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n")])
+    let (answer, _, error) = await exchange(URLRequest(url: URL(string: "http://127.0.0.1:46200/mcp")!), stream)
+    #expect(answer == nil)
+    #expect((error as? URLError)?.code == .badServerResponse)
 }
 
 /// A connection lost before or during the answer reads as one, so a read is tried again (`ServerClient.send`).

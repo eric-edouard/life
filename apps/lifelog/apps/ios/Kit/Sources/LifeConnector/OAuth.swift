@@ -15,7 +15,7 @@ public struct LifeOAuth: Sendable {
     public init(
         session: URLSession? = nil, now: @escaping @Sendable () -> Date = { Date() }
     ) {
-        http = LifeHTTP(session: session ?? IrohURLProtocol.makeURLSession())
+        http = LifeHTTP(session: session ?? MacLinkURLProtocol.makeURLSession())
         self.now = now
     }
 
@@ -35,19 +35,22 @@ public struct LifeOAuth: Sendable {
     public func pair(_ link: LifePairing, onStep: @Sendable (Step) async -> Void = { _ in }) async throws
         -> LifeCredentials
     {
-        let found = try await discover(link.origin)
+        let macLink = link.macLink
+        let found = try await discover(link.origin, over: macLink)
         await onStep(.registering)
-        let clientID = try await register(found.registration)
+        let clientID = try await register(found.registration, over: macLink)
         await onStep(.approving)
         let verifier = Self.newVerifier()
         let state = Self.newVerifier()
         let approval = try await approve(
-            found, clientID: clientID, code: link.code, challenge: Self.challenge(for: verifier), state: state)
+            found, clientID: clientID, code: link.code, challenge: Self.challenge(for: verifier), state: state,
+            over: macLink)
         await onStep(.exchanging)
         let endpoint = LifeEndpoint(
-            origin: link.origin, clientID: clientID, tokenEndpoint: found.token, resource: found.resource)
+            origin: link.origin, clientID: clientID, tokenEndpoint: found.token, resource: found.resource,
+            macLink: macLink)
         let tokens = try await tokens(
-            at: found.token,
+            at: found.token, over: macLink,
             form: [
                 ("grant_type", "authorization_code"), ("code", approval), ("code_verifier", verifier),
                 ("client_id", clientID), ("redirect_uri", Self.redirect), ("resource", found.resource),
@@ -65,10 +68,12 @@ public struct LifeOAuth: Sendable {
         do {
             // A lost reply (no connection, or a proxy's 502 or 524 while Life did rotate it) is asked once more: Life
             // serves a used refresh token one more time within a minute.
-            do { return try await tokens(at: endpoint.tokenEndpoint, form: form) } catch MCPError.refused(let why) {
+            do {
+                return try await tokens(at: endpoint.tokenEndpoint, over: endpoint.macLink, form: form)
+            } catch MCPError.refused(let why) {
                 throw MCPError.refused(why)
             } catch {}
-            return try await tokens(at: endpoint.tokenEndpoint, form: form)
+            return try await tokens(at: endpoint.tokenEndpoint, over: endpoint.macLink, form: form)
         } catch MCPError.refused(_) { throw MCPError.notPaired }
     }
 
@@ -92,27 +97,28 @@ public struct LifeOAuth: Sendable {
         let registrationEndpoint: URL
     }
 
-    private func discover(_ origin: URL) async throws -> Found {
+    private func discover(_ origin: URL, over macLink: MacLinkAddress?) async throws -> Found {
         let well = origin.appending(path: ".well-known")
         let resource: ResourceMetadata = try await first(
-            [well.appending(path: "oauth-protected-resource/mcp"), well.appending(path: "oauth-protected-resource")])
+            [well.appending(path: "oauth-protected-resource/mcp"), well.appending(path: "oauth-protected-resource")],
+            over: macLink)
         guard let issuer = resource.authorizationServers.first.flatMap(URL.init(string:)) else {
             throw MCPError.failed("Life names no sign-in server.")
         }
         // RFC 8414: the well-known path goes between the host and the issuer's own path.
         let root = well.appending(path: "oauth-authorization-server")
         let issuerRoot = URL(string: root.absoluteString + issuer.path) ?? root
-        let server: ServerMetadata = try await first([issuerRoot, root])
+        let server: ServerMetadata = try await first([issuerRoot, root], over: macLink)
         return Found(
             resource: resource.resource, authorization: server.authorizationEndpoint, token: server.tokenEndpoint,
             registration: server.registrationEndpoint)
     }
 
     /// The first of `urls` that answers 200 with `T`.
-    private func first<T: Decodable>(_ urls: [URL]) async throws -> T {
+    private func first<T: Decodable>(_ urls: [URL], over macLink: MacLinkAddress?) async throws -> T {
         var last = MCPError.failed("Life has no sign-in to pair with.")
         for url in urls {
-            let (data, response) = try await http.get(url)
+            let (data, response) = try await http.get(url, over: macLink)
             guard response.statusCode == 200 else { continue }
             do { return try Self.decoder.decode(T.self, from: data) } catch {
                 last = .failed("Life's sign-in is not readable.")
@@ -121,8 +127,9 @@ public struct LifeOAuth: Sendable {
         throw last
     }
 
-    private func register(_ url: URL) async throws -> String {
+    private func register(_ url: URL, over macLink: MacLinkAddress?) async throws -> String {
         var request = URLRequest(url: url)
+        request.macLink = macLink
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "content-type")
         request.httpBody = try JSONSerialization.data(
@@ -137,16 +144,16 @@ public struct LifeOAuth: Sendable {
 
     /// The pairing code approves the registration: Life answers a redirect with the authorization code, or the form
     /// again (a 200) when the code is wrong or has expired.
-    private func approve(_ found: Found, clientID: String, code: String, challenge: String, state: String) async throws
-        -> String
-    {
+    private func approve(
+        _ found: Found, clientID: String, code: String, challenge: String, state: String, over macLink: MacLinkAddress?
+    ) async throws -> String {
         let request = LifeHTTP.post(
             found.authorization,
             form: [
                 ("client_id", clientID), ("code_challenge", challenge), ("code_challenge_method", "S256"),
                 ("redirect_uri", Self.redirect), ("resource", found.resource), ("response_type", "code"),
                 ("state", state), ("pairing", code),
-            ])
+            ], over: macLink)
         let (_, response) = try await http.data(for: request, followingRedirects: false)
         if response.statusCode == 200 { throw MCPError.wrongCode }
         let items = response.value(forHTTPHeaderField: "location").flatMap(URLComponents.init(string:))?.queryItems
@@ -156,8 +163,9 @@ public struct LifeOAuth: Sendable {
         return code
     }
 
-    private func tokens(at url: URL, form: [(String, String)]) async throws -> LifeTokens {
-        let (data, response) = try await http.data(for: LifeHTTP.post(url, form: form))
+    private func tokens(at url: URL, over macLink: MacLinkAddress?, form: [(String, String)]) async throws -> LifeTokens
+    {
+        let (data, response) = try await http.data(for: LifeHTTP.post(url, form: form, over: macLink))
         struct Issued: Decodable {
             let accessToken: String
             let refreshToken: String

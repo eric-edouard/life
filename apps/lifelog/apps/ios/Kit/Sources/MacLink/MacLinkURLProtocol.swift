@@ -1,22 +1,23 @@
 import Foundation
 import IrohLib
 
-/// Requests to an origin paired with a Mac's key (`MacLinkBook`) go over the Mac link: each one on its own stream of
-/// one iroh connection to that Mac, which pipes it to the connector's port (mac-link.ts). Every other request goes as
-/// usual. Its callers see plain `URLSession` answers: a body as it arrives (an event stream piece by piece), and a
-/// dropped connection as `URLError.networkConnectionLost`, which a read retries once (`ServerClient.send`).
-public final class IrohURLProtocol: URLProtocol, @unchecked Sendable {
+/// A request tagged with a Mac link (`URLRequest.macLink`, set from its pairing) goes over it: on its own stream of one
+/// iroh connection to that Mac, which pipes it to the connector's port (mac-link.ts). Every other request goes as usual.
+/// Its callers see plain `URLSession` answers: a body as it arrives (an event stream piece by piece), and a dropped
+/// connection as `URLError.networkConnectionLost`, which a read retries once (`ServerClient.send`).
+public final class MacLinkURLProtocol: URLProtocol, @unchecked Sendable {
     #if DEBUG
         /// The end-to-end tests' fake Life (`Lifelog/E2E`): a `URLProtocol` set before any session is made. Debug only.
         public nonisolated(unsafe) static var protocolsOfTests: [AnyClass] = []
     #endif
 
-    /// The one session maker for every client of Life and the voice server: with no path to the Mac a request fails
-    /// at once, never waits for one. Ephemeral: nothing is cached or kept on disk.
+    /// The one session maker for every client of Life and the voice server. A direct request with no path fails at
+    /// once, never waits for one; one over the Mac link may wait while the Mac is dialed (up to 10 s, `MacLinkDialer`).
+    /// Ephemeral: nothing is cached or kept on disk.
     public static func makeURLSession() -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.waitsForConnectivity = false
-        var protocols: [AnyClass] = [IrohURLProtocol.self]
+        var protocols: [AnyClass] = [MacLinkURLProtocol.self]
         #if DEBUG
             protocols = protocolsOfTests + protocols
         #endif
@@ -25,35 +26,41 @@ public final class IrohURLProtocol: URLProtocol, @unchecked Sendable {
     }
 
     private var loading: Task<Void, Never>?
+    /// The run loop and mode `startLoading` was called on: every word to `client` goes there, as `URLProtocol` asks.
+    private var runLoop: CFRunLoop?
+    private var mode = CFRunLoopMode.defaultMode.rawValue
 
-    override public static func canInit(with request: URLRequest) -> Bool {
-        request.url.flatMap(MacLinkBook.address(for:)) != nil
-    }
+    override public static func canInit(with request: URLRequest) -> Bool { request.macLink != nil }
 
     override public static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override public func startLoading() {
         let request = request
+        runLoop = CFRunLoopGetCurrent()
+        mode = RunLoop.current.currentMode.map { $0.rawValue as CFString } ?? mode
         loading = Task {
             do {
-                guard let address = request.url.flatMap(MacLinkBook.address(for:)) else {
-                    throw URLError(.unsupportedURL)
-                }
-                let stream = try await MacLinkDialer.shared.stream(to: address)
-                try await MacLinkExchange.run(request, over: stream) { response in
-                    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                guard let address = request.macLink else { throw URLError(.unsupportedURL) }
+                try await MacLinkDialer.shared.exchange(request, with: address) { response in
+                    toClient { $0.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed) }
                 } body: { data in
-                    client?.urlProtocol(self, didLoad: data)
+                    toClient { $0.urlProtocol(self, didLoad: data) }
                 }
-                client?.urlProtocolDidFinishLoading(self)
+                toClient { $0.urlProtocolDidFinishLoading(self) }
             } catch {
                 guard !Task.isCancelled else { return }
-                client?.urlProtocol(self, didFailWithError: error)
+                toClient { $0.urlProtocol(self, didFailWithError: error) }
             }
         }
     }
 
     override public func stopLoading() { loading?.cancel() }
+
+    private func toClient(_ say: @escaping (any URLProtocolClient) -> Void) {
+        guard let runLoop, let client else { return }
+        CFRunLoopPerformBlock(runLoop, mode) { say(client) }
+        CFRunLoopWakeUp(runLoop)
+    }
 }
 
 /// One stream of the Mac link, as an exchange uses it: IrohLib's `BiStream` in the app, a fake in tests.
@@ -102,7 +109,10 @@ enum MacLinkExchange {
         } catch {
             throw URLError(.networkConnectionLost)
         }
-        response(try Self.response(String(decoding: head, as: UTF8.self), url: url))
+        let answer = try Self.response(String(decoding: head, as: UTF8.self), url: url)
+        // Never sent to an HTTP/1.0 request (Bun ends a streamed body by closing): bytes this reader would pass on as is.
+        guard answer.value(forHTTPHeaderField: "transfer-encoding") == nil else { throw URLError(.badServerResponse) }
+        response(answer)
         if !rest.isEmpty { body(Data(rest)) }
         do {
             while case let read = try await stream.read(), !read.isEmpty { body(read) }
@@ -172,19 +182,39 @@ actor MacLinkDialer {
     private var endpoint: Task<Endpoint, any Error>?
     private var connections: [String: Task<Connection, any Error>] = [:]
 
-    /// A new stream to the Mac: on the connection held, or a new one when it is gone.
-    func stream(to address: MacLinkAddress) async throws -> BiStream {
+    /// One exchange on a new stream to the Mac. A connection that fails it is let go, so the next request dials again
+    /// instead of waiting on a dead one until QUIC's idle timeout.
+    func exchange(
+        _ request: URLRequest, with address: MacLinkAddress, response: @Sendable (HTTPURLResponse) -> Void,
+        body: @Sendable (Data) -> Void
+    ) async throws {
+        let (connection, stream) = try await stream(to: address)
+        do {
+            try await MacLinkExchange.run(request, over: stream, response: response, body: body)
+        } catch let error as URLError where error.code == .networkConnectionLost {
+            if let held = connections[address.mac], (try? await held.value) === connection {
+                connections[address.mac] = nil
+            }
+            try? connection.close(errorCode: 0, reason: Data())
+            throw error
+        }
+    }
+
+    /// A new stream: on the connection held, or a new one when it is gone.
+    private func stream(to address: MacLinkAddress) async throws -> (Connection, BiStream) {
         if let held = connections[address.mac], let connection = try? await held.value,
             connection.closeReason() == nil, let stream = try? await connection.openBi()
         {
-            return stream
+            return (connection, stream)
         }
         let dial = Task { try await Self.dial(address, from: try await bound(relay: address.relay).value) }
         connections[address.mac] = dial
         do {
-            return try await dial.value.openBi()
+            let connection = try await dial.value
+            return (connection, try await connection.openBi())
         } catch {
-            connections[address.mac] = nil
+            // Only this dial: another request may already wait on a newer one.
+            if connections[address.mac] == dial { connections[address.mac] = nil }
             if (try? await endpoint?.value) == nil { endpoint = nil }
             throw URLError(.cannotConnectToHost)
         }

@@ -1,4 +1,5 @@
 import Foundation
+import MacLink
 import Synchronization
 
 @testable import LifeConnector
@@ -10,6 +11,7 @@ struct Seen: Sendable {
     let headers: [String: String]
     let body: Data
     let timeout: TimeInterval
+    var macLink: MacLinkAddress?
 
     var json: [String: Any] { (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:] }
     /// The form fields of the body.
@@ -74,7 +76,7 @@ final class Stub: URLProtocol, @unchecked Sendable {
         }
         let seen = Seen(
             url: url, method: request.httpMethod ?? "GET", headers: request.allHTTPHeaderFields ?? [:], body: body,
-            timeout: request.timeoutInterval)
+            timeout: request.timeoutInterval, macLink: request.macLink)
         guard let handler = Self.handlers.withLock({ $0[host] }) else { return }
         let reply = handler(seen)
         var headers = reply.headers

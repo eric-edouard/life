@@ -438,7 +438,7 @@ extension ServerClient {
                     server: server, session: URLSession(configuration: configuration), token: DeviceToken.read)
             }
         #endif
-        return ServerClient(server: server, token: DeviceToken.read)
+        return ServerClient(server: server, token: DeviceToken.read, macLink: { DeviceToken.macLink })
     }()
 }
 

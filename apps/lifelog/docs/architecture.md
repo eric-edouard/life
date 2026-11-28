@@ -22,6 +22,7 @@ flowchart TB
       AudioPipeline
       Upload["Upload<br/>TimelineScanner · Uploader · Driver"]
       ServerAPI
+      MacLink["MacLink<br/>pairing link · iroh"]
       Library["Library<br/>cache · outbox"]
       Export
       Timeline
@@ -51,7 +52,8 @@ flowchart TB
   Export --> Library
   Facts --> Capture
   Glances --> Facts
-  ServerAPI -- "HTTPS, device token" --> Server
+  ServerAPI --> MacLink
+  MacLink -- "HTTPS, or the Mac link (iroh) through Life's origin; device token" --> Server
   Android -- "raw pages, device token (docs/sync.md)" --> Server
   Server -. "silent push" .-> SyncStore
   Server --> Identity
@@ -76,6 +78,8 @@ flowchart TB
   recording's audio file.
 - `ServerAPI`: `ServerClient`, one file per server domain, and `Outbox.swift`: the owner's edits (`OwnerIntent`) kept
   in `library.sqlite`, made into requests when replayed, and shown as waiting (`PendingEdits`).
+- `MacLink`: the pairing link (`PairLink`) and how the phone reaches the Mac from anywhere: each request of a pairing
+  that names the Mac's key goes over iroh (`MacLinkURLProtocol`, the one session maker for Life and the server).
 - `Export`: the export, backup and restore formats (`docs/formats.md`).
 - `Incidents`, `Glance`, `OwnerSettings`, `Health`: capture facts for screens, the Watch and widgets; settings;
   crash and health reports.
@@ -108,7 +112,8 @@ On the phone, each piece of state has one owner, and only that owner writes it:
 | `Uploader` | `SyncStore` | `upload.sqlite` | The cursor (the first page not with the server), heard-through sent, the raw backup's progress |
 | `LibraryStore` (cache) | feature stores | `library.sqlite` | The feed's rows under their keys, its cursor and single values, a search index over them |
 | `Outbox` | `SyncStore`, feature stores | `library.sqlite` | The owner's edits (`OwnerIntent`) waiting for the server, in order, and the refused ones |
-| `LifeToken` | `LifeStore` | defaults + Keychain | The pairing with Life (not the lifelog server): its origin and client id, its access and refresh tokens |
+| `LifeToken` | `LifeStore` | defaults + Keychain | The pairing with Life (not the lifelog server): its origin, client id and Mac link, its access and refresh tokens |
+| `MacLinkDialer` (`MacLink`) | `MacLinkURLProtocol` | memory | This process's iroh endpoint (a new key each launch) and its connection to each Mac |
 | `ReadCache` | `LifeStore` | `life-reads/` (Application Support) | The last good answer of each of Life's reads, as the tool's JSON text, out of backups |
 | `PictureCache` | `PartyBook` (`LifeStore.parties`) | `person-pictures/` (the app group's caches) | People's pictures by id (`read_person_pictures`), kept for good |
 
