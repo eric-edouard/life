@@ -7,6 +7,7 @@ import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
 import { assignmentOfCard, readCursor } from "../host/desk-read";
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
+import type { HandedKind } from "../host/desk-turn-reads";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import { ASK_SPOKEN, COMPLAINT_RECEIVED } from "../host/events";
@@ -337,6 +338,19 @@ export const endWhenIdle = (
         and m.assignment_id is not null and m.moved_at is not null and c.error is null and m.failed is null
         and not exists (select 1 from turn t where t.move = m.ask and t.cause <> 'move_notes' and t.begun_at is not null))`,
     [status, clock().toISOString(), outcome, agent]
+  );
+
+/** Work handed on from his thread entry `entry` to assignment `assignment` (`handed_work`), its `kind`, at `at`: once per entry and assignment. The one writer of `handed_work`. */
+export const recordHandedWork = (
+  db: Database,
+  entry: number,
+  assignment: string,
+  kind: HandedKind,
+  at: string
+) =>
+  db.run(
+    "insert or ignore into handed_work (entry_id, assignment_id, kind, handed_at) values (?, ?, ?, ?)",
+    [entry, assignment, kind, at]
   );
 
 /**

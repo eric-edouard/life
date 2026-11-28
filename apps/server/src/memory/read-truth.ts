@@ -53,11 +53,11 @@ export interface Truth {
 /** How much of a project's notes (the body of `truth/projects/<id>.md`) an area page's hold and an agent's packet show, cut at a word (`clip`). */
 export const PROJECT_NOTES_MAX = 1500;
 
-/** A project's one line, as the area read, an area page's hold and an agent's packet show it: name, id, status, deadlines. */
+/** A project's one line, as the area read, an area page's hold and an agent's packet show it: name, id, status, a one-off's goal, deadlines. */
 export const projectHeaderOf = (
-  p: Pick<Project, "deadlines" | "id" | "name" | "status">
+  p: Pick<Project, "deadlines" | "goal" | "id" | "name" | "status">
 ) =>
-  `Project ${p.name} (${p.id}, ${p.status})${p.deadlines.map((d) => `; ${d.date}: ${d.what}`).join("")}`;
+  `Project ${p.name} (${p.id}, ${p.status})${p.goal ? `; goal: ${JSON.stringify(p.goal)}` : ""}${p.deadlines.map((d) => `; ${d.date}: ${d.what}`).join("")}`;
 
 /** Everyone in his directory: its people, then its organizations (`DirectoryParty`). The one join of the two lists. */
 export const directoryPartiesOf = ({

@@ -28,6 +28,9 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 - **Organization** (`truth/organizations.yaml`, optional): `id`, `name`, `aliases`, `relation`, `handles` (as a
   person's), `domains` (host names: an address in `handles.email` is it, another at a domain stays a person), `people`
   (`[{ id, role, until? }]`, `until` a year or a `YYYY-MM-DD` once they left; none: there now) and `projects`.
+- **Project** (`truth/projects/<id>.md`, frontmatter then his notes): `id`, `name`, `area`, `status` (`active`, `waiting`,
+  `parked`, `done`, `dropped`), `people`, `chats`, `repos`, `deadlines`, and `goal` on a one-off project only: his ask,
+  word for word (within the `said` that wrote it). `done`: its goal reached; `dropped`: not, the reason in its notes.
 - **Picture pick**: a person or an organization may carry `pictureFrom`, the source whose picture shows (`contacts`, a
   source's name, or `none`: no picture); unset, or a source no longer showing one: the first they show. Only someone
   of his directory has a pick; his app's picture sheet writes it through `change_directory_entry`.

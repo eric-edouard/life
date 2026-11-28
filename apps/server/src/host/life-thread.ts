@@ -254,13 +254,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   const looks = await matterLooks();
   const items = [
     ...entries
-      .filter(
-        (e) =>
-          !(
-            gone.has(threadEntryRefOf(e.id)) ||
-            (JSON.parse(e.refs) as string[]).some((r) => gone.has(r))
-          )
-      )
+      .filter((e) => !isGoneOf(gone, e))
       .map((e) => ({
         answer: e.answer,
         answeredAt: e.answered_at,
@@ -354,6 +348,50 @@ const isFix = (x: object) => {
 
 /** A thread entry's ref, as a deletion names it. */
 export const threadEntryRefOf = (id: number) => `thread:${id}`;
+
+/** Whether a thread entry is hidden: a deletion (`gone`, its refs) names it, or its answer cites what one removed. */
+const isGoneOf = (
+  gone: ReadonlySet<string>,
+  e: Pick<EntryRow, "id" | "refs">
+) =>
+  gone.has(threadEntryRefOf(e.id)) ||
+  (JSON.parse(e.refs) as string[]).some((r) => gone.has(r));
+
+/** How many of his entries before the one handed an agent reads with it, within `DAY`. */
+const AROUND = 10;
+
+/**
+ * The talk around his thread entry `entry`, as an agent given work from it reads it (`read_handed_conversation`): that
+ * entry and up to `AROUND` before it within a day, his words and Life's answers, oldest first; none he deleted (blanked,
+ * named by a deletion, or citing what one removed), as `readThread` hides them.
+ */
+export function conversationAroundOf(db: Database, entry: number) {
+  const at = db
+    .query<{ asked_at: string }, [number]>(
+      "select asked_at from thread_entry where id = ?"
+    )
+    .get(entry)?.asked_at;
+  if (!at) {
+    return [];
+  }
+  const gone = deletionsNow().refs;
+  return db
+    .query<
+      Pick<EntryRow, "answer" | "asked_at" | "id" | "refs" | "words">,
+      [string, string, number, number]
+    >(
+      "select id, asked_at, words, answer, refs from thread_entry where deleted_at is null and asked_at >= ? and (asked_at < ? or id = ?) order by asked_at desc limit ?"
+    )
+    .all(new Date(Date.parse(at) - DAY).toISOString(), at, entry, AROUND + 1)
+    .filter((e) => !isGoneOf(gone, e))
+    .reverse()
+    .map((e) => ({
+      answer: e.answer,
+      at: e.asked_at,
+      id: e.id,
+      words: e.words,
+    }));
+}
 
 /**
  * The thread entries not yet blanked whose words, answer or refs hold what a deletion removes (`holds`): its preview's.

@@ -171,6 +171,38 @@ test("a project's status edit rewrites its status line alone, and back again", a
   );
 });
 
+// A one-off project (28 Nov 2026): its goal is his ask, word for word, within `said`; it ends done or dropped.
+test("a one-off project keeps his ask as its goal, refuses words he did not say, and ends dropped", async () => {
+  const ask = "Sort out my old travel photos into albums";
+  await expect(
+    changeDirectoryEntry({
+      action: "add",
+      area: "work",
+      goal: "Delete every photo",
+      kind: "project",
+      name: "Travel photos",
+      said: ask,
+    })
+  ).rejects.toThrow("word for word");
+  await changeDirectoryEntry({
+    action: "add",
+    area: "work",
+    goal: ask,
+    kind: "project",
+    name: "Travel photos",
+    said: `Please: ${ask}.`,
+  });
+  await changeDirectoryEntry({
+    action: "edit",
+    id: "travel-photos",
+    kind: "project",
+    said: "Drop the photos project",
+    status: "dropped",
+  });
+  const p = (await loadTruth()).projects.find((x) => x.id === "travel-photos");
+  expect([p?.goal, p?.status]).toEqual([ask, "dropped"]);
+});
+
 test("refused: a goal over two lines, a heading in the text, a name with no id", async () => {
   const before = file("me.md");
   const text = (t: string, kind: "goal" | "may_keep") =>
