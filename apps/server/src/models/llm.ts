@@ -467,8 +467,8 @@ interface Provider {
   host: string;
   /** Its terms as an integration (`records/integration.ts`): what leaves the computer and what it takes. */
   integration: IntegrationTerms;
-  /** The keys it takes, one per router of its routes. */
-  keys: string[];
+  /** The keys it takes, one per router of its routes, each with the page where it is made; a fallback router's is optional. */
+  keys: { name: string; opens: string; optional?: true }[];
   /** What he calls it. */
   label: string;
   models: Record<Tier, string>;
@@ -502,7 +502,11 @@ function apiEngine(
     contextTokens,
     host: new URL(ROUTERS[engine].url).host,
     integration,
-    keys: routers.map((r) => ROUTERS[r].key),
+    keys: routers.map((r) => ({
+      name: ROUTERS[r].key,
+      opens: ROUTERS[r].opens,
+      ...(r === engine ? {} : { optional: true as const }),
+    })),
     label,
     models,
   };
@@ -648,7 +652,7 @@ async function claudeSignedInNow(program: string) {
 
 /**
  * What the AI integration's requirements read, once for the integration read. It checks that the Claude Code program is
- * on this Mac and signed in (only when `engine`'s terms ask for them), that a router's key is set, that the OpenRouter
+ * on this Mac and signed in (only when `engine`'s terms ask for them), that each key it takes is set, that the OpenRouter
  * balance is above zero (only when its terms ask for it) and that its host answers. The credits call carries only the
  * key, to the provider already in use.
  */
@@ -662,7 +666,6 @@ export async function readEngineCheck(engine = readEngine()) {
   const wantsCredits = integration.requirements.some(
     (r) => r.kind === "credits"
   );
-  const router = engine in ROUTERS ? ROUTERS[engine as Router] : undefined;
   // readProgram gives a bare name back when `Bun.which` finds nothing.
   const program = isClaude ? readProgram("claude") : "claude";
   return {
@@ -670,19 +673,20 @@ export async function readEngineCheck(engine = readEngine()) {
     claudeSignedIn: !isClaude || (await claudeSignedInNow(program)),
     credits: wantsCredits ? await creditsNow() : null,
     host,
-    // A router's key, the page where it is made, and whether it is set.
-    key: router && {
-      name: router.key,
-      opens: router.keysAt,
-      set: Boolean(process.env[router.key]),
-    },
+    // Each key it takes, the page where it is made, and whether it is set.
+    keys: PROVIDERS[engine].keys.map((k) => ({
+      ...k,
+      set: Boolean(process.env[k.name]),
+    })),
     online: await isOnline(engine),
   };
 }
 
 /** The keys each engine takes, by engine: the app asks for each by this name. */
 export const engineKeys = () =>
-  Object.fromEntries(Object.entries(PROVIDERS).map(([e, p]) => [e, p.keys]));
+  Object.fromEntries(
+    Object.entries(PROVIDERS).map(([e, p]) => [e, p.keys.map((k) => k.name)])
+  );
 
 /**
  * Whether this process's calls (on `engine`, his setting unless a bench says) go to an engine with a quota to read (his
