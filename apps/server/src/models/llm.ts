@@ -463,8 +463,8 @@ interface Provider {
   host: string;
   /** Its terms as an integration (`records/integration.ts`): what leaves the computer and what it takes. */
   integration: IntegrationTerms;
-  /** The keys it takes, one per router of its routes, each with the page where it is made. */
-  keys: { name: string; opens: string }[];
+  /** The keys it takes, one per router of its routes, each with the page where it is made; a fallback router's is optional. */
+  keys: { name: string; opens: string; optional?: true }[];
   /** What he calls it. */
   label: string;
   models: Record<Tier, string>;
@@ -501,6 +501,7 @@ function apiEngine(
     keys: routers.map((r) => ({
       name: ROUTERS[r].key,
       opens: ROUTERS[r].opens,
+      ...(r === engine ? {} : { optional: true as const }),
     })),
     label,
     models,

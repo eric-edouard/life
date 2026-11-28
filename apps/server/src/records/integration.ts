@@ -18,7 +18,7 @@ export type AccessCheck = (typeof ACCESS_CHECKS)[number];
 export type Requirement =
   | { kind: "permission"; check: "full_disk_access" }
   | { kind: "sign_in"; with: "network" | "claude" }
-  | { kind: "key"; name: string; opens: string }
+  | { kind: "key"; name: string; opens: string; optional?: true }
   | { kind: "credits"; with: "openrouter" }
   | { kind: "install"; what: "claude_code" }
   | { kind: "device"; what: "pendant" | "phone" };

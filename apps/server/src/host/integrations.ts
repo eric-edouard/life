@@ -258,6 +258,30 @@ export const networkIntegrationsOf = (reads: IntegrationReads) =>
       })
     );
 
+/** The AI's facts, from its engine check and terms: the keys he makes first, then what its terms ask. */
+export function aiFactsOf(
+  check: Awaited<ReturnType<typeof readEngineCheck>>,
+  terms: IntegrationTerms
+): IntegrationFacts {
+  return {
+    host: check.host,
+    kind: "ai",
+    on: true,
+    online: check.online,
+    requirements: [
+      ...check.keys.map(({ set, ...key }) => ({
+        ...key,
+        done: set,
+        kind: "key" as const,
+      })),
+      ...terms.requirements.map((r) => ({
+        ...r,
+        done: isEngineDoneOf(r, check),
+      })),
+    ],
+  };
+}
+
 /**
  * Every integration now, in the order a user meets them: the AI, voice, each source on this system, then each messaging
  * network. Served to the host app's setup window and the phone.
@@ -269,27 +293,8 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
     readIntegrationReads(now),
     cached(`engine check:${engine}`, MIN, () => readEngineCheck(engine)),
   ]);
-  // The keys he makes first, then what its terms ask.
-  const aiRequirements: MetRequirement[] = [
-    ...engineCheck.keys.map(({ name, opens, set }) => ({
-      done: set,
-      kind: "key" as const,
-      name,
-      opens,
-    })),
-    ...aiTerms.requirements.map((r) => ({
-      ...r,
-      done: isEngineDoneOf(r, engineCheck),
-    })),
-  ];
   const ai: Integration = integrationOf({
-    facts: {
-      host: engineCheck.host,
-      kind: "ai",
-      on: true,
-      online: engineCheck.online,
-      requirements: aiRequirements,
-    },
+    facts: aiFactsOf(engineCheck, aiTerms),
     group: "ai",
     icon: engine,
     id: "ai",

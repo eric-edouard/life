@@ -108,9 +108,11 @@ export function integrationHealthOf(f: IntegrationFacts): IntegrationHealth {
   if (!f.on) {
     return { state: "off", tone: "idle", word: "off" };
   }
-  // A device is no step of its own to wait on: the voice server's own `missing` and the phone's silence judge it.
+  // A device is no step of its own to wait on: the voice server's own `missing` and the phone's silence judge it. An
+  // optional key (a fallback router's) never blocks.
   const unmet = f.requirements.find(
-    (r): r is MetRequirement & StepRequirement => r.kind !== "device" && !r.done
+    (r): r is MetRequirement & StepRequirement =>
+      r.kind !== "device" && !(r.kind === "key" && r.optional) && !r.done
   );
   if (unmet) {
     return {

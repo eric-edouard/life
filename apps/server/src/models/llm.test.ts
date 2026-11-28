@@ -591,7 +591,12 @@ test("the AI integration's check lists every key its engine takes, each with the
         opens: "https://openrouter.ai/settings/keys",
         set: true,
       },
-      { name: "ALLMODELS_API_KEY", opens: "https://allmodels.io", set: false },
+      {
+        name: "ALLMODELS_API_KEY",
+        opens: "https://allmodels.io",
+        optional: true,
+        set: false,
+      },
     ]);
   } finally {
     offline.mockRestore();
