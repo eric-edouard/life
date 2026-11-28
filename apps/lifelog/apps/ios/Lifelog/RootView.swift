@@ -4,7 +4,8 @@ import SwiftUI
 import UIKit
 
 /// The whole app: the thread, the field at the bottom, the edge, and two round buttons at the top (what waits on him,
-/// the pendant). No tab bar and no other screen; the rest opens over it.
+/// the pendant), which the iPhone Duo puts in its system bar instead. No tab bar and no other screen; the rest opens
+/// over it.
 struct RootView: View {
     @Environment(SyncStore.self) private var sync
     @AppStorage(Appearance.key) private var appearance = Appearance.auto
@@ -12,6 +13,7 @@ struct RootView: View {
     @Environment(CaptureStore.self) private var capture
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.verticalSizeClass) private var heightClass
     /// The one sheet that may be up: opening another replaces it, a pairing link included.
     @State private var sheet: Sheet?
     /// What is pushed over the thread: a profile, one level deep.
@@ -46,6 +48,8 @@ struct RootView: View {
     @State private var fieldHeight: CGFloat = 0
     /// The two round buttons over the thread: it starts below them.
     @State private var topHeight: CGFloat = 0
+    /// The system bar stands on this side (the iPhone Duo folded, or unfolded on its side): the buttons go in it.
+    @State private var sideBar: HorizontalEdge?
 
     private struct Profile: Hashable { let ref: String }
     @Namespace private var profileZoom
@@ -65,7 +69,8 @@ struct RootView: View {
                 Palette.bg.ignoresSafeArea()
                 if life.isPaired {
                     ThreadView(
-                        thread: thread, screen: screen, actions: actions, topHeight: topHeight, fieldHeight: fieldHeight
+                        thread: thread, screen: screen, actions: actions,
+                        topHeight: hasControlsInSystemBar ? 0 : topHeight, fieldHeight: fieldHeight
                     )
                 } else {
                     Button("Pair Life") { sheet = .settings }.buttonStyle(.pill(.filled, size: .compact)).padding(
@@ -75,13 +80,24 @@ struct RootView: View {
             // An overlay, not an inset: an inset that fills the height (as this one did) leaves the thread only what is
             // left under it, and the thread then starts in the wrong place.
             .overlay(alignment: .top) {
-                buttons.onGeometryChange(for: CGFloat.self) {
-                    $0.size.height
-                } action: {
-                    topHeight = $0
+                if !hasControlsInSystemBar {
+                    buttons.onGeometryChange(for: CGFloat.self) {
+                        $0.size.height
+                    } action: {
+                        topHeight = $0
+                    }
                 }
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .modifier(SideBarReader(edge: $sideBar))
+            // On the iPhone Duo, in every posture, the system bar holds them under its status bar (Apple's iPhone Duo
+            // guidance): the pendant, then what waits on him as two badged icons, a group of its own.
+            .toolbar(hasControlsInSystemBar ? .visible : .hidden, for: .navigationBar)
+            .toolbar {
+                if hasControlsInSystemBar {
+                    // Custom views stay in a horizontal bar unless they prefer the side one (iOS 27.1).
+                    if #available(iOS 27.1, *) { rightControls.axisBehavior(.verticalPreferred) } else { rightControls }
+                }
+            }
             .navigationDestination(for: Profile.self) {
                 ProfileView(ref: $0.ref).zooms(from: $0.ref, in: profileZoom)
             }
@@ -230,6 +246,11 @@ struct RootView: View {
         text = ""
     }
 
+    /// The iPhone Duo: its system bar on the side (folded, or unfolded on its side), or unfolded upright (the only
+    /// iPhone regular both ways; a large iPhone on its side is regular wide only). A regular iPhone keeps the two round
+    /// buttons over the thread.
+    private var hasControlsInSystemBar: Bool { sideBar != nil || (sizeClass == .regular && heightClass == .regular) }
+
     private var isRecording: Bool {
         if case .recording = capture.status.recording { true } else { false }
     }
@@ -263,23 +284,69 @@ struct RootView: View {
             .accessibilityHidden(!isCountShown)
             .accessibilityLabel("Waiting on you: \(life.openCount ?? 0)")
             Spacer()
-            Button {
-                sheet = .pendant
-            } label: {
-                // The prototype's dot: lit and breathing while it records, a hollow ring otherwise.
-                Group {
-                    if isRecording {
-                        StateDot(color: Palette.fg, isLit: true)
-                    } else {
-                        Circle().strokeBorder(Palette.muted, lineWidth: 1.6).frame(
-                            width: Metrics.dot, height: Metrics.dot)
-                    }
-                }
-                .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
-            }
-            .contextMenu { Button("Settings") { sheet = .settings } }
-            .accessibilityLabel(isRecording ? "Pendant, recording" : "Pendant, not recording")
+            pendantButton
         }
         .buttonStyle(.glass).buttonBorderShape(.circle).padding(.horizontal, Metrics.Spacing.l)
+    }
+
+    /// The iPhone Duo's controls, as WhatsApp and Instagram draw theirs there: the pendant on its own, then one capsule
+    /// of two icons with their counts (what waits on him, neutral; the important, red), each listing its asks.
+    @ToolbarContentBuilder private var rightControls: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) { pendantButton }
+        ToolbarSpacer(.fixed, placement: .topBarTrailing)
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            if isCountShown {
+                Button {
+                    thread.showWaiting(life.openRefs ?? [])
+                } label: {
+                    BadgedIcon(
+                        title: "Waiting on you", symbol: "hand.raised", count: life.openCount ?? 0, color: Palette.muted
+                    )
+                }
+            }
+            if urgent > 0 {
+                Button {
+                    thread.showWaiting(life.waitingRefs ?? [])
+                } label: {
+                    BadgedIcon(title: "Important", symbol: "exclamationmark", count: urgent, color: Palette.flag)
+                }
+            }
+        }
+    }
+
+    /// The pendant: its dot; tap opens it, long press Settings.
+    private var pendantButton: some View {
+        Button {
+            sheet = .pendant
+        } label: {
+            // The prototype's dot: lit and breathing while it records, a hollow ring otherwise.
+            Group {
+                if isRecording {
+                    StateDot(color: Palette.fg, isLit: true)
+                } else {
+                    Circle().strokeBorder(Palette.muted, lineWidth: 1.6).frame(
+                        width: Metrics.dot, height: Metrics.dot)
+                }
+            }
+            .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
+        }
+        .contextMenu { Button("Settings") { sheet = .settings } }
+        .accessibilityLabel(isRecording ? "Pendant, recording" : "Pendant, not recording")
+    }
+}
+
+/// Which side the system bar stands on, nil when it is at the top (`toolbarVerticalEdge`, iOS 27.1).
+private struct SideBarReader: ViewModifier {
+    @Binding var edge: HorizontalEdge?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 27.1, *) { content.modifier(Read(edge: $edge)) } else { content }
+    }
+
+    @available(iOS 27.1, *)
+    private struct Read: ViewModifier {
+        @Environment(\.toolbarVerticalEdge) private var shown
+        @Binding var edge: HorizontalEdge?
+        func body(content: Content) -> some View { content.onChange(of: shown, initial: true) { edge = shown } }
     }
 }

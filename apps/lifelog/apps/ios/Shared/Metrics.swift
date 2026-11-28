@@ -8,6 +8,8 @@ enum Metrics {
 
     /// The state dot beside a status word.
     static let dot: CGFloat = 9
+    /// A count's badge on an icon, at its smallest.
+    static let countBadge: CGFloat = 18
     /// The smallest tap target.
     static let tapTarget: CGFloat = 44
     /// A row of a list (a grouped inset card): the asks, the matters, the people.

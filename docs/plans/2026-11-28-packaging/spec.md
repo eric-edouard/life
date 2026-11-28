@@ -65,8 +65,8 @@ Each is met through the door it already has, so the trust rules stay where they 
 | sign_in network | – | the sign-in sheet, `sign_in_to_network` |
 | sign_in google | `gog` with Life's client, in the default browser | – |
 | sign_in claude | the `claude` CLI's sign-in, in the browser | – |
-| key | OpenRouter: its OAuth PKCE flow on a loopback port returns a key, with a spending `limit`; ElevenLabs: its key page opens, Life fills the key from the clipboard when the user copies it | – |
-| credits | OpenRouter's credits page opens; the balance is re-read when the user comes back | – |
+| key | OpenRouter: its OAuth PKCE flow on a loopback port returns a key, with a spending `limit`; ElevenLabs: its own onboarding signs in or makes the account and makes the key, nothing to copy (owner, 28 Nov 2026) | – |
+| credits | OpenRouter's credits page opens inside Life's window (no API buys credits); a one-token test call shows when they arrived | – |
 | install | Claude Code's official installer, run by the helper | – |
 | device | the pairing QR | Bluetooth pairing in the app |
 
@@ -83,9 +83,10 @@ already known.
 2. **You.** Name and email, read from the computer's account (macOS `id -F`) and confirmed in one field; `init` runs
    here (`host/init.ts:35-47` writes `truth/` with the name; `host/cli.ts:329` refuses to start without it).
 3. **The AI.** Life looks for Claude Code and its sign-in.
-   - **Claude:** "the most capable models, usually the best results; uses your Claude subscription". It is installed if missing, then signed in in the browser.
-   - **OpenRouter:** "private open-weight models, about $15 a month, paid to OpenRouter". Its OAuth flow returns the key, then credits are bought.
-   - **Both:** memory on OpenRouter, agents on Claude.
+   - No "Life's pick"; each option says where his words go (owner, 28 Nov 2026).
+   - **Claude:** "your words go to Anthropic; uses your Claude Pro or Max plan". It is installed if missing, then signed in.
+   - **DeepSeek:** "your words go to OpenRouter, then DeepSeek V4.1 Flash, only at providers that keep nothing", $5–20 a month: `~deepseek/deepseek-flash-latest` with `provider.zdr` (SECURITY.md). Its OAuth flow returns the key, then credits are bought.
+   - **Both:** memory on DeepSeek, agents on Claude.
 
    Settings: Claude sets `engine: claude` and the claude runtime; OpenRouter sets `engine: openrouter` and pi; both sets `engine: openrouter` and the claude runtime.
 4. **Your languages.** Tick the languages heard around you. The answer sets voice's language mode, which has three values:

@@ -132,6 +132,13 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   read only, Life's own left out) that overlap it: each guest it offers as a possible speaker (a name, or an address no
   one is known by), with the event's title and time in their brief (his yes of 22 Nov 2026: that provider already gets his
   messages).
+- A new user's default model route, once packaging bundle M ships (not built yet): OpenRouter, model
+  `~deepseek/deepseek-flash-latest`, every request with `provider: {"zdr": true}`, so only providers that keep nothing
+  serve it (any such provider, wider than the two hosts of 22 Nov, on his words below); the key is made by OpenRouter's OAuth (PKCE) with a spending `limit` ($20 by default), about $5–20 a month.
+  His words of 28 Nov 2026: DeepSeek Flash latest, a zero data retention policy, flagged for audits as the default
+  route. Turn it off by choosing Claude in setup, or by asking Life.
+- Anonymous diagnostics to Life's developer: proposed, not built (issue #1599, his ask of 28 Nov 2026); nothing leaves
+  until it ships with its fields listed here and a way to turn it off.
 - With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
   minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another
