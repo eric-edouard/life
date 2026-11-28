@@ -95,7 +95,7 @@ test("the auto-add permission refuses a chat or mail observation, another speake
         ...mine,
         o: { ...mine.o, source: { channel, ref: "m1" } },
       })
-    ).toContain("lifelog credits to his voice");
+    ).toContain("the voice server credits to his voice");
   }
   // Re-read when it is applied: someone else's turn, or one the voice server no longer names him on.
   expect(autoAddRefusal({ ...mine, mine: false })).toContain("his voice");

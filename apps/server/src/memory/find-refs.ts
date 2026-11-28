@@ -89,7 +89,7 @@ export async function findTurn(
   );
   return place
     ? hit({ kind: "turn", place })
-    : miss(`no turn ${id}: lifelog no longer has it`);
+    : miss(`no turn ${id}: the voice server no longer has it`);
 }
 
 /** Whether `ref` names something that exists, by its kind's reader. */

@@ -473,7 +473,7 @@ export async function fetchOf(
   if (!read) {
     return asData([
       head,
-      "(no words: lifelog no longer has this recording, or these turns are empty)",
+      "(no words: the voice server no longer has this recording, or these turns are empty)",
     ]);
   }
   if (read.total === 0) {

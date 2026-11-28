@@ -364,7 +364,9 @@ function pendantCard(r: Reads, d: Descriptor): Card {
       [
         isPhoneSilent,
         {
-          ask: ASK("that the phone has not reported to lifelog for 12 hours"),
+          ask: ASK(
+            "that the phone has not reported to the voice server for 12 hours"
+          ),
           tone: "bad",
           word: "phone not reporting",
         },
@@ -402,7 +404,9 @@ function voiceServerCard(r: Reads): Card {
       [
         !polling(r),
         {
-          ask: ASK("that the watcher has not polled lifelog for 15 minutes"),
+          ask: ASK(
+            "that the watcher has not polled the voice server for 15 minutes"
+          ),
           tone: "bad",
           word: "not polling",
         },
@@ -427,7 +431,7 @@ function voiceServerCard(r: Reads): Card {
     group: "sources",
     headline: polledHeadline(r),
     id: "lifelog",
-    name: "lifelog server",
+    name: "voice server",
   };
 }
 
