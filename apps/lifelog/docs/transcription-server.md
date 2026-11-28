@@ -164,7 +164,8 @@ The phone reads no route of it since PR 595; Life's model spending reads `GET /s
 
 The server runs on the owner's Mac, inside Lifelog Host (`apps/mac-quiet/README.md`, "Lifelog Host"): one binary, the
 SQLite file and the audio folder under `~/Library/Application Support/lifelog`, listening on 127.0.0.1 only. Phones
-reach it through the owner's tailnet (Tailscale Serve) or a Cloudflare tunnel to their own domain.
+reach it through Life's origin over the Mac link (iroh, by the Mac's key in the pairing link), the owner's tailnet
+(Tailscale Serve) or a Cloudflare tunnel to their own domain.
 
 - `bun run --cwd apps/lifelog/apps/server build:host [out]` writes `lifelog-server`, one file with its migrations inside; it needs
   no Bun or checkout, and migrates its file at boot. `bun run host:app` puts it in the app.
