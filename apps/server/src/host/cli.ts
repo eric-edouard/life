@@ -240,7 +240,8 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /**
    * The connector's reads over stdio, none of its writes (`buildServer(true)`): an agent of his own Life on pi reaches
-   * them so (`desk/runtimes/pi-runtime.ts`), as his Claude agents reach the connector. Ends when its client closes.
+   * them so (`desk/runtimes/pi-runtime.ts`), as his Claude agents reach the connector, and a frozen copy's agent on any
+   * runtime (`isSecondLifeReading`). Ends when its client closes.
    */
   async "connector-reads"() {
     const transport = new StdioServerTransport();

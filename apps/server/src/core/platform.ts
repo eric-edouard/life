@@ -90,6 +90,11 @@ export const MACHINE_DIR = (() => {
   return set ?? APP_MACHINE_DIR;
 })();
 
+// A frozen clock (`clock.ts`, which imports nothing, so pi's extension can load it) is a second Life's alone.
+if (process.env.LIFE_NOW && isOwnLife()) {
+  throw new Error("LIFE_NOW is for a second Life, never his own data");
+}
+
 /** The pinned codex's native binary for this system, under Life's files (`node_modules`, or the app's helper). */
 export const CODEX = (() => {
   const arch = process.arch === "arm64" ? "aarch64" : "x86_64";

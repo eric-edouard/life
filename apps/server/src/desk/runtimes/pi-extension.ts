@@ -12,7 +12,7 @@ import type { WebSearchProviderName } from "../../core/names";
 import { searchableOf } from "../../web-search/backend";
 import { SEND_FACTS_ENV, type SendFacts, sendRefusalOf } from "../send-guard";
 import { type ClaudeHookGroup, runClaudeHooks } from "./claude-hooks";
-import { DOOR_KEY_ENV } from "./contract";
+import { DOOR_KEY_ENV, READS_SERVER } from "./contract";
 import { DOOR_TOOL, pruneResults, resultOf } from "./pi-results";
 import { registerSubagent } from "./pi-subagent";
 import { registerWebFetch, registerWebSearch } from "./web-tools";
@@ -92,9 +92,6 @@ export interface LifeDeskConfig {
   search: WebSearchProviderName[];
 }
 
-/** pi's MCP server name for the connector's reads (`mcp__life_connector__<tool>`); `life` is the door's in his own sessions. */
-export const READS_SERVER = "life_connector";
-
 const required = (name: string) => {
   const value = process.env[name];
   if (!value) {
@@ -111,7 +108,7 @@ const taken = (name: string) => {
 };
 
 /** The extension's config from the spawn's environment (`PI_EXTENSION_ENV`), the key and the reads' entry taken out. */
-function configOfEnv(): LifeDeskConfig {
+export function configOfEnv(): LifeDeskConfig {
   const env = PI_EXTENSION_ENV;
   const apiKey = required(env.key);
   taken(env.key);
@@ -127,7 +124,8 @@ function configOfEnv(): LifeDeskConfig {
     ...(inForce ? { inForce } : {}),
     isOwn,
     provider: JSON.parse(required(env.provider)),
-    ...(isOwn && reads ? { reads: JSON.parse(reads) } : {}),
+    // Given by the spawn only where its agents read (`pi-runtime.ts`).
+    ...(reads ? { reads: JSON.parse(reads) } : {}),
     results: join(process.env.PI_CODING_AGENT_DIR ?? ".", "results"),
     ...(rules ? { rules } : {}),
     search: isOwn ? JSON.parse(process.env[env.search] ?? "[]") : [],

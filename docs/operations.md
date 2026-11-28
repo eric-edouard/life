@@ -14,6 +14,8 @@ Four folders, defined in `apps/server/src/core/paths.ts` and `apps/server/src/co
 | `LIFE_CODE_DIR` (env too) | Life's own files: prompts, assets | Life.app: the helper's resources; a checkout: the checkout |
 | `MACHINE_DIR` (env `LIFE_MACHINE_DIR`) | Fixed per computer (`apps/server/src/core/platform.ts`): `~/Library/Application Support/Life` on the Mac, `%LOCALAPPDATA%\Life` on Windows, shared by every install: the archive, the backup's staging, Codex's home, the service locks; a second Life (a demo) sets its own, and `LIFE_PORT` for its ports | |
 
+- `LIFE_NOW` (an ISO instant) freezes `clock()` for a second Life, so a question case's copy reads the same "now" on
+  every run; refused with his own data.
 - `OWNER_DATA_DIR` is a git repository of its own with no remote. The nightly commits there and pushes nothing (`commitMemory`
   refuses a repo with a remote, and a folder that is not a repo's root).
 - A checkout can point `~/Life` and `derived/` at the app's folders as links: one live copy, read by the app and by
@@ -102,8 +104,10 @@ agent's work and its card, Mark as done, the matter and its cards gone. Each ste
 PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
 failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
 
-What the demo's agent can reach: the desk's door (its five tools, approved), and nothing else of his. A second Life's
-Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but the door (none
+What the demo's agent can reach: the desk's door (its five tools, approved), and nothing else of his (a frozen copy's
+agent, a question case's, also reads that copy: `isSecondLifeReading`; some reads reach the Mac's own stores, his
+contacts, so a demo's never). A second Life's
+Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but its door (none
 of his connectors, which reach his own Life), no built-in tool (no shell, no file read), no CLAUDE.md and no auto
 memory (its row in `runtime-rows.ts`). It still runs as his user, signed in to his Claude account, with `HOME` his (Claude's
 sign-in and transcripts live there); with no tool that reads files, that home is out of its reach. The demo's services

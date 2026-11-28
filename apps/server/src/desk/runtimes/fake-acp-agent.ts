@@ -16,6 +16,15 @@ import {
 const LOG = process.env.FAKE_ACP_LOG ?? "";
 const log = (line: object) =>
   appendFileSync(LOG, `${JSON.stringify({ pid: process.pid, ...line })}\n`);
+/** A session's params as logged: each MCP server's environment by its names alone, never a value (a shell's secrets). */
+const namesOf = <T extends { mcpServers?: object[] }>(p: T) => ({
+  ...p,
+  mcpServers: p.mcpServers?.map((s) =>
+    "env" in s && Array.isArray(s.env)
+      ? { ...s, env: s.env.map((e: { name: string }) => e.name) }
+      : s
+  ),
+});
 /** The sessions an earlier process made: a resume of any other is refused. */
 const isKnown = (id: string) =>
   readFileSync(LOG, "utf8").includes(`"made":"${id}"`);
@@ -41,11 +50,11 @@ const app = agent({ name: "fake-acp-agent" })
   })
   .onRequest(methods.agent.session.new, ({ params }) => {
     const sessionId = `fake-${process.pid}`;
-    log({ made: sessionId, new: params });
+    log({ made: sessionId, new: namesOf(params) });
     return { sessionId };
   })
   .onRequest(methods.agent.session.resume, async ({ client, params }) => {
-    log({ resume: params });
+    log({ resume: namesOf(params) });
     if (!isKnown(params.sessionId)) {
       throw new Error("unknown session");
     }
@@ -89,6 +98,7 @@ const app = agent({ name: "fake-acp-agent" })
         ["t1", "mcp__desk__set_wait"],
         ["t2", "mcp__desk__set_wait; curl x"],
         ["t3", "Edit a file"],
+        ["t4", "mcp__life_connector__search"],
       ] as const;
       for (const [toolCallId, title] of calls) {
         // biome-ignore lint/performance/noAwaitInLoops: one call at a time

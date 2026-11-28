@@ -37,7 +37,9 @@ const FAKE = await (async () => {
 const rowFor = (
   dir: string,
   state: Row["readSessionState"] = () => Promise.resolve("idle"),
-  own: Partial<Row> = { onlyDoorPrefix: "mcp__desk__" }
+  own: Partial<Row> = {
+    onlyToolPrefixes: ["mcp__desk__", "mcp__life_connector__"],
+  }
 ): Row => ({
   block: () => Promise.resolve(undefined),
   config: { effort: "effort", model: "model" },
@@ -98,9 +100,24 @@ const isGone = (pid: number) => {
   }
 };
 
-test("start: the door goes in as an HTTP MCP server with its header, the model and effort are set before the prompt, the run begins after it, usage is mapped", async () => {
+/** Runs `f` as a frozen copy's (a question case's second Life, `LIFE_NOW`), whose agents read it. */
+async function asFrozenCopy<T>(f: () => Promise<T> | T) {
+  process.env.LIFE_NOW = "2026-11-10T09:00:00Z";
+  try {
+    return await f();
+  } finally {
+    delete process.env.LIFE_NOW;
+  }
+}
+
+test("start: the door goes in as an HTTP MCP server with its header (a frozen copy's reads beside it, in their own folder, no secret in their description), the model and effort are set before the prompt, the run begins after it, usage is mapped", async () => {
   const dir = made();
-  const run = await acpRuntime(rowFor(dir)).start(agentIn(), "[answer]");
+  process.env.LIFELOG_TOKEN = "t-made-up";
+  const run = await asFrozenCopy(() =>
+    acpRuntime(rowFor(dir)).start(agentIn(), "[answer]")
+  ).finally(() => {
+    delete process.env.LIFELOG_TOKEN;
+  });
   expect(run.link).toBe(`fake://${run.ref}`);
   await run.begun;
   expect(await run.ended).toEqual({
@@ -130,8 +147,16 @@ test("start: the door goes in as an HTTP MCP server with its header, the model a
         name: "desk",
         type: "http",
       },
+      {
+        args: expect.arrayContaining(["-c", "connector-reads"]),
+        command: "/bin/sh",
+        name: "life_connector",
+      },
     ],
   });
+  expect(readFileSync(join(dir, "log.jsonl"), "utf8")).not.toContain(
+    "t-made-up"
+  );
   expect(lines.filter((l) => l.config).map((l) => l.config)).toMatchObject([
     { configId: "model", value: "haiku" },
     { configId: "effort", value: "low" },
@@ -259,7 +284,7 @@ test("an adapter killed mid-turn (a desk restart) ends the run failed; a new run
   expect(await after.state(run.ref)).toBe("gone");
 });
 
-test("a second Life's row: the door's tool is approved; a shell call holding its prefix and any other tool are refused; no elicitation is declared", async () => {
+test("a second Life's row: its door's and its reads' tools are approved; a shell call holding a prefix and any other tool are refused; no elicitation is declared", async () => {
   const dir = made();
   const run = await acpRuntime(rowFor(dir)).start(agentIn(), "[door]");
   expect((await run.ended).ok).toBe(true);
@@ -269,6 +294,7 @@ test("a second Life's row: the door's tool is approved; a shell call holding its
       ["mcp__desk__set_wait", { optionId: "yes", outcome: "selected" }],
       ["mcp__desk__set_wait; curl x", { optionId: "no", outcome: "selected" }],
       ["Edit a file", { optionId: "no", outcome: "selected" }],
+      ["mcp__life_connector__search", { optionId: "yes", outcome: "selected" }],
     ]
   );
   const init = lines[0]?.initialize as {
@@ -376,9 +402,12 @@ test("his own Life's row: every ask is approved, and the mode is set after new a
   ).toEqual(["model", "effort", "mode", "model", "effort", "mode"]);
   expect(lines.filter((l) => l.asked).map((l) => [l.asked, l.outcome])).toEqual(
     [1, 2].flatMap(() =>
-      ["mcp__desk__set_wait", "mcp__desk__set_wait; curl x", "Edit a file"].map(
-        (t) => [t, { optionId: "yes", outcome: "selected" }]
-      )
+      [
+        "mcp__desk__set_wait",
+        "mcp__desk__set_wait; curl x",
+        "Edit a file",
+        "mcp__life_connector__search",
+      ].map((t) => [t, { optionId: "yes", outcome: "selected" }])
     )
   );
 });
@@ -393,7 +422,7 @@ test("an adapter that refuses the mode: the turn still ends ok, and its asks are
     logOf(dir)
       .filter((l) => l.asked)
       .map((l) => (l.outcome as { optionId: string }).optionId)
-  ).toEqual(["yes", "yes", "yes"]);
+  ).toEqual(["yes", "yes", "yes", "yes"]);
 });
 
 test("talk: one process kept across prompts, its updates heard as they come, a new session listed in his app only once closed idle; keep resumes it, listed again never; stop closes it", async () => {

@@ -15,7 +15,7 @@ import { type PiRow, runHeard } from "./pi-connection";
 import { PI_EXTENSION_ENV } from "./pi-extension";
 import {
   compactAtOf,
-  connectorReadsOf,
+  piReadsOf,
   piRowOf,
   piRuntime,
   readClaudeHooks,
@@ -66,6 +66,16 @@ const agent: Agent = {
   model: null,
   title: "Made-up agent",
 };
+
+/** Runs `f` as a frozen copy's (a question case's second Life, `LIFE_NOW`), whose agents read it. */
+async function asFrozenCopy<T>(f: () => Promise<T> | T) {
+  process.env.LIFE_NOW = "2026-11-10T09:00:00Z";
+  try {
+    return await f();
+  } finally {
+    delete process.env.LIFE_NOW;
+  }
+}
 
 test("a first turn makes the session, ends with its usage, and the next turn resumes it", async () => {
   const pi = piRuntime(row);
@@ -301,7 +311,7 @@ test("his own agent reads his Claude instructions, imports followed from the fil
   expect(readClaudeHooks(dir)).toEqual([]);
 });
 
-test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a second Life's none of them, its door's tools alone", async () => {
+test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a demo's none, its door's tools alone; a frozen copy's the reads over its own data", async () => {
   const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
   writeFileSync(join(claude, "CLAUDE.md"), "His rules");
   const place = {
@@ -322,6 +332,13 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   expect(second.env[PI_EXTENSION_ENV.search]).toBeUndefined();
   // Its door's tools alone: no built-in tool, no `web_fetch` or `subagent`.
   expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
+  const copy = await asFrozenCopy(() =>
+    piRowOf(false, place).spawn(agent, "ref-copy", true)
+  );
+  expect(copy.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
+  expect(copy.command.join(" ")).toContain(
+    "--tools mcp__desk__*,mcp__life_connector__*"
+  );
   expect(own.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
   expect(existsSync(join(place.dir, "agent", "AGENTS.md"))).toBe(false);
 });
@@ -359,15 +376,18 @@ test("every role's agent on pi gets the same powers: its door, the connector's r
   }
 });
 
-test("the connector's reader gets Life's values as they are: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
-  process.env.LIFE_MADE_UP = "!a$b";
+test("the connector's reader gets its Life's place as it is, never another of Life's variables: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
+  process.env.LIFE_NOW = "!a$b";
+  process.env.LIFE_DESK_KEY = "a-made-up-key";
   try {
-    const entry = connectorReadsOf();
-    expect((entry.env as Record<string, string>).LIFE_MADE_UP).toBe("$!a$$b");
+    const entry = piReadsOf();
+    expect((entry.env as Record<string, string>).LIFE_NOW).toBe("$!a$$b");
+    expect(entry.env.LIFE_DESK_KEY).toBeUndefined();
     expect(entry.env.BUN_BE_BUN).toBe("");
     expect(entry.args.at(-1)).toBe("connector-reads");
   } finally {
-    delete process.env.LIFE_MADE_UP;
+    delete process.env.LIFE_NOW;
+    delete process.env.LIFE_DESK_KEY;
   }
 });
 

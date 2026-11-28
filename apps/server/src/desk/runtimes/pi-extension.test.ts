@@ -2,15 +2,16 @@ import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { READS_SERVER } from "./contract";
 import { fakePiProvider, RECORD } from "./fake-pi-provider";
 import {
+  configOfEnv,
   contextOf,
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
   PI_PROVIDER,
-  READS_SERVER,
 } from "./pi-extension";
-import { connectorReadsOf, PI_CLI } from "./pi-runtime";
+import { PI_CLI, piReadsOf } from "./pi-runtime";
 
 // Life's pi extension in a real pi (the pinned one, `--mode rpc`, under Bun as the helper runs it) against a made-up
 // OpenAI-shaped provider: the model asks for two shell calls, a send and a read of the provider key; the guard refuses
@@ -133,7 +134,7 @@ async function runTurn() {
         [PI_EXTENSION_ENV.key]: "life-key",
         [PI_EXTENSION_ENV.own]: "1",
         [PI_EXTENSION_ENV.provider]: JSON.stringify(made),
-        [PI_EXTENSION_ENV.reads]: JSON.stringify(connectorReadsOf()),
+        [PI_EXTENSION_ENV.reads]: JSON.stringify(piReadsOf()),
         [PI_EXTENSION_ENV.rules]: "Made-up brief and contract.",
       },
       stderr: "ignore",
@@ -254,4 +255,40 @@ test("an earlier turn's tool answers reach the model as a note, the door's and t
   expect(sent[3]?.content[0]?.text).toBe("short");
   expect(sent[5]?.content[0]?.text).toBe(long);
   expect(contextOf(messages.slice(3))).toBeUndefined();
+});
+
+test("a second Life's extension takes the reads its spawn gave (a frozen copy's), none of his hooks or search, the reads' entry gone from the environment", () => {
+  const e = PI_EXTENSION_ENV;
+  const reads = JSON.stringify({ args: ["connector-reads"], command: "bun" });
+  Object.assign(process.env, {
+    [e.doorKey]: "k",
+    [e.doorUrl]: "http://127.0.0.1:1/mcp",
+    [e.facts]: "{}",
+    [e.key]: "key",
+    [e.provider]: "{}",
+    [e.reads]: reads,
+    [e.hooks]: '["his hook"]',
+  });
+  try {
+    const config = configOfEnv();
+    expect(config.reads).toEqual(JSON.parse(reads));
+    expect([config.isOwn, config.hooks, config.search]).toEqual([
+      false,
+      [],
+      [],
+    ]);
+    expect(process.env[e.reads]).toBeUndefined();
+  } finally {
+    for (const k of [
+      e.doorKey,
+      e.doorUrl,
+      e.facts,
+      e.key,
+      e.provider,
+      e.reads,
+      e.hooks,
+    ]) {
+      delete process.env[k];
+    }
+  }
 });

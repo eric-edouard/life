@@ -68,6 +68,16 @@ const a = {
   title: "Test",
 };
 
+/** Runs `f` as a frozen copy's (a question case's second Life, `LIFE_NOW`), whose agents read it. */
+async function asFrozenCopy<T>(f: () => Promise<T> | T) {
+  process.env.LIFE_NOW = "2026-11-10T09:00:00Z";
+  try {
+    return await f();
+  } finally {
+    delete process.env.LIFE_NOW;
+  }
+}
+
 test("the rows put the door's key in the environment, never in a command; each names the adapter, the model and the effort", async () => {
   const spawned = await Promise.all(
     [true, false].flatMap((isOwn) =>
@@ -101,7 +111,7 @@ test("the rows put the door's key in the environment, never in a command; each n
       inherit: "all",
     },
   });
-  expect([claude.onlyDoorPrefix, codex.onlyDoorPrefix]).toEqual([
+  expect([claude.onlyToolPrefixes, codex.onlyToolPrefixes]).toEqual([
     undefined,
     undefined,
   ]);
@@ -110,9 +120,15 @@ test("the rows put the door's key in the environment, never in a command; each n
     "agent-full-access"
   );
   const second = runtimeRowsOf(false);
-  expect([second.claude.onlyDoorPrefix, second.codex.onlyDoorPrefix]).toEqual([
-    "mcp__desk__",
-    "mcp.desk.",
+  // A demo's agent: its door alone. A frozen copy's: its door and its reads.
+  expect([
+    second.claude.onlyToolPrefixes,
+    second.codex.onlyToolPrefixes,
+  ]).toEqual([["mcp__desk__"], ["mcp.desk."]]);
+  const copy = await asFrozenCopy(() => runtimeRowsOf(false));
+  expect([copy.claude.onlyToolPrefixes, copy.codex.onlyToolPrefixes]).toEqual([
+    ["mcp__desk__", "mcp__life_connector__"],
+    ["mcp.desk.", "mcp.life_connector."],
   ]);
   expect([second.claude.mode, second.codex.mode]).toEqual([
     undefined,
@@ -123,12 +139,26 @@ test("the rows put the door's key in the environment, never in a command; each n
   );
 });
 
-test("a second Life's agent takes none of his settings, tools or instruction files: its door alone; his own runs as he set the programs up", async () => {
+test("a second Life's agent takes none of his settings, tools or instruction files: its door alone, a frozen copy's its reads too (their secrets in its environment, never an argument), its turns sent where `ANTHROPIC_BASE_URL` says; his own runs as he set the programs up", async () => {
   const rows = runtimeRowsOf(false);
-  expect(rows.claude.meta?.(a)).toMatchObject({
+  expect(
+    (rows.claude.meta?.(a) as { claudeCode: { options: object } } | undefined)
+      ?.claudeCode.options
+  ).toMatchObject({ allowedTools: ["mcp__desk"] });
+  expect((await rows.claude.spawn(a)).env.LIFELOG_TOKEN).toBeUndefined();
+  process.env.LIFELOG_TOKEN = "t-made-up";
+  try {
+    await asFrozenCopy(async () => {
+      expect((await rows.claude.spawn(a)).env.LIFELOG_TOKEN).toBe("t-made-up");
+      expect(JSON.stringify(rows.claude.meta?.(a))).not.toContain("t-made-up");
+    });
+  } finally {
+    delete process.env.LIFELOG_TOKEN;
+  }
+  expect(await asFrozenCopy(() => rows.claude.meta?.(a))).toMatchObject({
     claudeCode: {
       options: {
-        allowedTools: ["mcp__desk"],
+        allowedTools: ["mcp__desk", "mcp__life_connector"],
         settingSources: [],
         strictMcpConfig: true,
         tools: [],
@@ -141,6 +171,18 @@ test("a second Life's agent takes none of his settings, tools or instruction fil
   const { env } = await rows.claude.spawn(a);
   expect(env.CLAUDE_CODE_DISABLE_AUTO_MEMORY).toBe("1");
   expect(env.CLAUDE_CODE_DISABLE_CLAUDE_MDS).toBe("1");
+  expect(env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC).toBe("1");
+  process.env.ANTHROPIC_BASE_URL = "http://127.0.0.1:9";
+  try {
+    expect((await rows.claude.spawn(a)).env.ANTHROPIC_BASE_URL).toBe(
+      "http://127.0.0.1:9"
+    );
+    expect(
+      (await runtimeRowsOf(true).claude.spawn(a)).env.ANTHROPIC_BASE_URL
+    ).toBeUndefined();
+  } finally {
+    delete process.env.ANTHROPIC_BASE_URL;
+  }
   const second = JSON.parse((await rows.codex.spawn(a)).env.CODEX_CONFIG ?? "");
   expect(second.project_doc_max_bytes).toBe(0);
   for (const f of [...CODEX_OFF, ...CODEX_AGENT_OFF]) {
