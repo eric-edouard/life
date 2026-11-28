@@ -120,6 +120,22 @@ b{font-weight:650}
 /* the waveform the field becomes while he speaks */
 .field .heard .a-wv{display:flex;align-items:center;justify-content:space-between;height:36px;padding-right:4px}
 .field .heard .a-wv i{width:2.5px;height:28px;border-radius:2px;background:var(--fg);transform:scaleY(.1);transition:transform 80ms linear}
+/* the judge's fixes (V.fix, a class fix-<name> on the page each): see the comparison page's "Judge's fixes" */
+.a-jfaces{display:flex;gap:10px;margin-top:14px}
+.a-jfaces button{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:18px;background:var(--tile);transition:opacity .3s}
+.a-jfaces b{font-size:var(--text-title);font-weight:650}.a-jfaces small{font-size:var(--text-meta);color:var(--muted);text-align:center;line-height:1.3}
+.a-jfaces.picked button:not(.on){opacity:.3}
+.a-old{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center;margin:14px 0 10px;padding:0 4px;opacity:.35}
+.a-old b{display:block;font-size:var(--text-body);font-weight:600;line-height:1.35}.a-old small{display:block;color:var(--muted);font-size:var(--text-line)}
+.a-can{display:flex;flex-direction:column;gap:8px;margin-top:22px}
+.a-can button{height:48px;padding:0 18px;border-radius:24px;background:var(--tile);text-align:left;font-size:var(--text-body);font-weight:600}
+.a-hint{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:var(--text-meta);font-weight:600}
+.fix-hint .a-hi.up{top:44px}
+.fix-head .a-hi.up{top:-41px}.fix-head .a-hi.up h2{display:none}.fix-head .a-hi.up p{margin:0;color:var(--fg);font-size:15px;font-weight:650}
+.fix-head .a-home{top:0;bottom:auto}.fix-head.fix-hint .a-home{top:44px}.fix-head .a-home .a-k{font-size:var(--text-header);font-weight:650;color:var(--fg)}
+.fix-stack .s-row{flex-direction:column;overflow-x:visible;scroll-snap-type:none}
+.fix-stack .s-row .s-card{flex:0 0 auto}.fix-stack .s-dots{display:none}
+.fix-stack .a-home{top:170px;overflow-y:auto;scrollbar-width:none;padding-bottom:12px}.fix-stack.fix-head .a-home{top:0;bottom:0}.fix-stack.fix-head.fix-hint .a-home{top:44px}
 @media (prefers-reduced-motion:reduce){.a-ticks .now b{transform:scaleX(1);opacity:.5}}
 </style>
 </head>
@@ -133,8 +149,13 @@ b{font-weight:650}
 var D=DATA,R=matchMedia('(prefers-reduced-motion: reduce)').matches,asked=null;
 /* the variations, per topic: how a day's events look, how the pager of earlier turns feels; the comparison page sets
    them (postMessage({vary})), or #day=…&pager=… */
-var V={day:'rows',pager:'snap'};
-(location.hash.match(/(day|pager)=\w+/g)||[]).forEach(function(x){x=x.split('=');V[x[0]]=x[1];});
+var V={day:'rows',pager:'snap',fix:''};
+(location.hash.match(/(day|pager|fix)=[\w-]*/g)||[]).forEach(function(x){x=x.split('=');V[x[0]]=x[1];});
+/* the judge's fixes on (V.fix, names joined by "-"), each also a class fix-<name> on the page for its CSS */
+var FIXES=['lead','which','old','head','raw','fail','hint','stack'];
+function on(k){return V.fix.split('-').indexOf(k)>=0;}
+function fixClasses(){FIXES.forEach(function(k){document.documentElement.classList.toggle('fix-'+k,on(k));});}
+fixClasses();
 var SPRING='cubic-bezier(.2,1.15,.32,1)',SOFT='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
 function el(p,cls,html){var e=document.createElement('div');e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
 var esc=CB.esc;
@@ -148,7 +169,7 @@ function gone(e,ms){var a=mv(e,{opacity:1,transform:'none',filter:'none'},{opaci
 function root(c){return el(c.stage,'a');}
 function split(s,at){var i=s.indexOf(at);return i<0?[s,'']:[s.slice(0,i+(at==='. '?1:0)),s.slice(i+at.length)];}
 /* a proposed block, still to build */
-function nb(kind,html){return '<div>'+html+'<i class="a-new">new block · '+kind+'</i></div>';}
+function nb(kind,html){if(on('raw'))return html;return '<div>'+html+'<i class="a-new">new block · '+kind+'</i></div>';}
 
 /* the title card: his words, centred a little above the middle */
 function title(r,text,hidden){var t=el(r,'a-ttl','');
@@ -235,7 +256,7 @@ var CHEV='<svg class="fold" width="18" height="18" viewBox="0 0 24 24" fill="non
 function dayHtml(d){var n=d.waiting.length;
   return '<h3 class="a-h">'+esc(d.lead)+'</h3>'+nb('event','<div class="a-day v-'+V.day+'">'+d.events.map(function(e){
       return '<div class="a-ev"><span class="at">'+e.at+'</span>'+(V.day==='line'?'<i></i>':'')+'<span><b>'+esc(e.t)+'</b><small>'+esc(e.where)+'</small></span></div>';}).join('')+'</div>')+
-    (n?'<p class="a-also">You also have '+n+' waiting on you</p>'+d.waiting.map(function(k,i){var line=k.draft!=null?k.app+' · '+k.sub:k.sub;
+    (n?'<p class="a-also">You also have '+n+' waiting on you</p>'+d.waiting.map(function(k,i){var line=k.draft!=null?(on('raw')?CB.APPS[k.app].n:k.app)+' · '+k.sub:k.sub;
       return '<button type="button" class="a-dec" data-dec="'+i+'" aria-expanded="false"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(k.who||k.to.charAt(0)))+'</span>'+
         '<span><b>'+esc(k.t)+'</b><small>'+esc(line)+' · '+(k.when==='today'?'<em>today</em>':esc(k.when))+'</small></span>'+CHEV+'</button>';}).join(''):'');}
 function unfolds(c,d){return function(e){e.querySelectorAll('[data-dec]').forEach(function(b){var box=null;
@@ -247,9 +268,21 @@ function unfolds(c,d){return function(e){e.querySelectorAll('[data-dec]').forEac
 function dayShots(c,key){var d=D.days[key];return [{top:true,html:dayHtml(d),init:unfolds(c,d)}];}
 
 /* "Did Jade answer?": when and that she wrote, then her chat with the ready draft and its options (B's flow) */
-function jadeShots(c){var a=D.asks.jade.answer;return [{top:true,html:'<h3 class="a-h">'+esc(a.lead)+'</h3>',init:withCards(c,[a.card])}];}
-/* "Tell Ben…": no lead line, straight to the draft card */
-function tellShots(c){return [{top:true,html:'',init:withCards(c,[D.asks.tell.answer.card])}];}
+function jadeShots(c){var a=D.asks.jade.answer,o=a.older;return [{top:true,html:'<h3 class="a-h">'+esc(a.lead)+'</h3>'+
+  (on('old')?'<div class="a-old" aria-label="Older draft, replaced"><span class="s-disc"><img alt="" src="'+a.card.face+'"></span><span><b>'+esc(o.draft)+'</b><small>'+esc(o.why)+'</small></span></div>':''),
+  init:withCards(c,[a.card])}];}
+/* "Tell Ben…": no lead line, straight to the draft card; the judge's fixes: a headline naming which Ben (lead), and
+   first "Which Ben?" with their two faces, the draft once he picks (which) */
+function tellShots(c){var a=D.asks.tell.answer,card=on('lead')||on('which')?a.named:a.card,head=function(t){return '<h3 class="a-h">'+esc(t)+'</h3>';};
+  if(!on('which'))return [{top:true,html:on('lead')?head(a.lead):'',init:withCards(c,[card])}];
+  return [{top:true,html:head(a.which)+'<div class="a-jfaces">'+a.bens.map(function(b){return '<button type="button"'+(b.pick?' data-pick':'')+'><span class="s-disc">'+b.f+'</span><b>'+esc(b.t)+'</b><small>'+esc(b.s)+'</small></button>';}).join('')+'</div>',
+    init:function(e){var f=e.querySelector('.a-jfaces');f.querySelectorAll('button').forEach(function(b){b.onclick=function(){if(f.classList.contains('picked'))return;
+      f.classList.add('picked');b.classList.add('on');if(on('lead'))e.firstChild.textContent=a.lead;
+      e.appendChild(c.cards([card]));};});}}];} /* the shot's own entrance animates the card in */
+/* a read fails; the judge's fix: the useful line first, then what Life can still do, a tap putting it in the field */
+function failShots(c){var a=D.failure;if(!on('fail'))return oneShot(a.error.t,'. ','','a-h');var x=a.fixed;
+  return [{top:true,html:'<h3 class="a-h">'+esc(x.lead)+'</h3><p class="a-big">'+esc(x.line)+'</p><div class="a-can">'+x.can.map(function(t){return '<button type="button">'+esc(t)+'</button>';}).join('')+'</div>',
+    init:function(e){e.querySelectorAll('.a-can button').forEach(function(b){b.onclick=function(){c.field.input.value=b.textContent;c.field.sync();c.field.input.focus();};});}}];}
 
 /* one idea answers: the key part large, the rest under it */
 function oneShot(text,sep,extra,cls){var p=split(text,sep);return [{html:'<div class="'+(cls||'a-hero mid')+'">'+p[0]+'</div>'+(p[1]?'<p class="a-big">'+cap(p[1])+'</p>':'')+(extra||'')}];}
@@ -257,7 +290,14 @@ function oneShot(text,sep,extra,cls){var p=split(text,sep);return [{html:'<div c
 async function ask(c,r,a){var mine=asked;asked=null;var text=mine?mine.text:a.ask;
   return (mine?mine.how:a.how)==='voice'?spoken(c,r,text,!!mine):typed(c,r,text,!!mine);}
 async function turn(c,a,shots){var r=root(c),t=await ask(c,r,a),s=await work(c,r,t,a);await land(c,r,t,s,shots);}
-function hi(r){var h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
+/* the judge's fix: a hint at the top that earlier turns are there; a tap, a pull down or a wheel up opens them */
+function hint(r){var h=el(r,'a-hint','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>');
+  var b=document.createElement('button');b.type='button';b.textContent='Pull down for earlier turns';b.style.color='inherit';h.appendChild(b);
+  function open(){Shell.run('history');}b.onclick=open;
+  var y0=null;r.addEventListener('pointerdown',function(e){if(!e.target.closest('button,a,.s-cards'))y0=e.clientY;});
+  r.addEventListener('pointerup',function(e){if(y0!==null&&e.clientY-y0>50)open();y0=null;});
+  r.addEventListener('wheel',function(e){if(e.deltaY<-20&&!e.target.closest('.s-cards'))open();},{passive:true});}
+function hi(r){if(on('hint'))hint(r);var h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
   mv(h.firstChild,{opacity:0,transform:'translateY(16px)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);
   mv(h.lastChild,{opacity:0},{opacity:1},600,SOFT,250);return h;}
 function shown(r,text){var t=title(r,text);mv(t,{opacity:0},{opacity:1},400);return t;}
@@ -279,7 +319,7 @@ function pager(c,r){var pg=el(r,'a-pager'+(V.pager==='peek'?' v-peek':''),''),pa
   pg.scrollTop=pg.scrollHeight;look();return pg;}
 
 Shell.mount({title:'Turn by turn v3',
-  onVary:function(v){for(var k in v)V[k]=v[k];},
+  onVary:function(v){for(var k in v)V[k]=v[k];fixClasses();},
   onAsk:function(text,how){asked={text:text,how:how};Shell.run(how==='voice'?'voice-send':'type-send');},
   scenes:[
   {id:'idle',label:'Idle',run:function(c){hi(root(c));}},
@@ -302,7 +342,7 @@ Shell.mount({title:'Turn by turn v3',
     var p=el(r,'a-arr','<p class="a-why">'+esc(D.arrives.why)+'</p>');p.appendChild(c.cards([D.arrives.card]));mv(h,{transform:'none'},{transform:'translateY(-120px)',opacity:.5},900,SOFT);
     mv(p,{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1},900,SPRING);}},
   {id:'slow',label:'A slow ask',run:function(c){var a=D.slow;return turn(c,a,oneShot(a.answer.lead,'. ',placeHtml(a.answer.place)));}},
-  {id:'failure',label:'A read fails',run:function(c){var a=D.failure;return turn(c,a,oneShot(a.error.t,'. ','','a-h'));}},
+  {id:'failure',label:'A read fails',run:function(c){return turn(c,D.failure,failShots(c));}},
   {id:'history',label:'Earlier turns',run:function(c){var r=root(c),p=pager(c,r);mv(p.lastChild.firstChild,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);}},
   {id:'follow-up',label:'And tomorrow?',run:async function(c){var r=root(c),top=captionNow(r,D.asks.day.ask);reel(c,r,top,dayShots(c,'today'),true).go(0);
     mv(r,{opacity:0},{opacity:1},400);await c.wait(1500);
