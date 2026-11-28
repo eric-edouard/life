@@ -45,7 +45,7 @@ import { checks, pull } from "../todo-list/backend";
 import { syncAppointments } from "./appointments-calendar";
 import { pushNewCardsIfChanged, pushNewDecisionsAtOnce } from "./card-push";
 import { describePhotos } from "./describe-photos";
-import { lookForPaymentsDone } from "./done-seen";
+import { lookForAccessDone, lookForPaymentsDone } from "./done-seen";
 import { HEALTH, type Health, polling, readHealth } from "./health";
 import { hear, speechIn } from "./hear";
 import { serve } from "./http/server";
@@ -630,6 +630,9 @@ function minute() {
   );
   lookForPaymentsDone().catch((e: Error) =>
     log("run.error", { ...errorOf(e), step: "watch.done-seen" })
+  );
+  lookForAccessDone().catch((e: Error) =>
+    log("run.error", { ...errorOf(e), step: "watch.access-seen" })
   );
   pushNewCardsIfChanged();
   if (isOwnLife()) {
