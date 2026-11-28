@@ -33,7 +33,7 @@ export {
   type MacEngine,
   macEngines,
   processingSwitches,
-  type Transcriber,
+  transcriberChoices,
   transcribers,
 } from "./processing-switches";
 

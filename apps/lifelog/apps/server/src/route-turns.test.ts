@@ -4,6 +4,7 @@ import { parseTranscript, textOf } from "./elevenlabs";
 import {
   BARS,
   type Judged,
+  routeIn,
   routeTurns,
   scribeRanges,
   thaiChanceOf,
@@ -42,6 +43,18 @@ const heard = (turns: Heard["turns"], words: Heard["words"]): Heard => ({
   words,
 });
 const { elsewhere: AWAY, thai: HOME } = BARS;
+
+test("the language mode local routes nothing to Scribe, even a block of Thai in Thailand", () => {
+  const thai = heard(
+    [turn(0, 8, "0", "th"), turn(8, 20, "1", "th"), turn(20, 23, "0", "en")],
+    [word(1, "sawasdee"), word(9, "khrap"), word(21, "ok")]
+  );
+  expect(routeIn("speech", thai, "Asia/Bangkok")).toEqual({ kind: "whole" });
+  expect(routeIn("local", thai, "Asia/Bangkok")).toEqual({
+    kind: "turns",
+    routed: [],
+  });
+});
 
 test("a block of Thai goes to Scribe whole, wherever the owner is", () => {
   const thai = heard(
