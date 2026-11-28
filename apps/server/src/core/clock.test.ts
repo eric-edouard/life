@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { MIN, minutes } from "./clock";
+import { buildNumber, MIN, minutes } from "./clock";
 import { LIFE_CODE_DIR } from "./paths";
 import { repoFiles } from "./proc";
 
@@ -29,4 +29,10 @@ test("minutes rounds durations and omits an empty hour remainder", () => {
     "1 h",
     "1 h 38 min",
   ]);
+});
+
+const BUILD_NUMBER = /^\d{8}\.\d{4}$/;
+
+test("buildNumber is the UTC build time", () => {
+  expect(buildNumber()).toMatch(BUILD_NUMBER);
 });

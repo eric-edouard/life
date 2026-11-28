@@ -131,6 +131,8 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   route. Turn it off by choosing Claude in setup, or by asking Life.
 - Anonymous diagnostics to Life's developer: proposed, not built (issue #1599, his ask of 28 Nov 2026); nothing leaves
   until it ships with its fields listed here and a way to turn it off.
+- With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
+  minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.

@@ -158,4 +158,6 @@ export interface DirectionPin extends Pin {
   goal?: string;
   laterShown?: readonly string[];
   nextStep?: NextStep;
+  /** The prompt a Life draft was made with (its line's `madeBy`): an older one is drafted again (`isDirectionDue`). */
+  prompt?: string;
 }

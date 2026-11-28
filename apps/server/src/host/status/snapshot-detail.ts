@@ -1,3 +1,4 @@
+import { cached } from "../../core/cached";
 import { clock, DAY, MIN } from "../../core/clock";
 import { recentEvents } from "../../core/log";
 import { logLevelOf } from "../../core/log-line";
@@ -8,7 +9,7 @@ import { clip } from "../../memory/units";
 import type { Tone } from "./card";
 import { isCrash } from "./crash-card";
 import { sleeps } from "./mac";
-import { cached, callerOf, type LogLine, spent, toneOfRun } from "./snapshot";
+import { callerOf, type LogLine, spent, toneOfRun } from "./snapshot";
 
 // A card's detail for the app's status window (apps/server/src/host/http/status-reads.ts serves it): its history, its raw log lines, and a run's steps
 // and what it wrote. Read-only, like the status snapshot (apps/server/src/host/status/snapshot.ts). His words and errors' text are in `content` only.

@@ -57,6 +57,18 @@ export async function execOk(
 }
 
 /**
+ * The program the desk launches for a CLI: found on the PATH as it is now (`cliEnv`), less any `node_modules/.bin` (where
+ * `bun run` puts Life's own pinned Codex, which is not his); the bare name when none is found.
+ */
+export function readProgram(name: string) {
+  const path = (cliEnv().PATH ?? "")
+    .split(":")
+    .filter((d) => !d.endsWith("node_modules/.bin"))
+    .join(":");
+  return Bun.which(name, { PATH: path }) ?? name;
+}
+
+/**
  * Runs `cmd` with `input` on its stdin, kept open (a server that quits at the end of its input before answering), to
  * the first whole line of its output that `done` accepts: that line, or undefined when it exits, refuses its input,
  * `done` throws or `timeout` ms pass first. It is killed either way.
