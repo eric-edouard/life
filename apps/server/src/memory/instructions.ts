@@ -30,6 +30,7 @@ export const EFFECTS = [
   "style",
   "sensitive",
   "budget",
+  "what-to-ask",
 ] as const;
 type Effect = (typeof EFFECTS)[number];
 
@@ -120,11 +121,22 @@ export const intentionsNow = (now = clock()) =>
 export const instructionsHolding = (holds: HoldsDeleted, now = clock()) =>
   liveOf(now).flatMap((i) => (holds([i.said, i.text], []) ? [i.id] : []));
 
-/** The instructions in force now on `subject`, oldest first: of a scope it names (`all` always), not replaced, not past `until`. */
-export function instructionsFor(subject: InstructionSubject, now = clock()) {
+/** His `what-to-ask` instructions in force now, oldest first: read once, then each step's (`instructionsOn`). */
+export const whatToAskNow = (now = clock()) =>
+  liveOf(now).filter((i) => i.effect === "what-to-ask");
+
+/** Those of `list` on `subject`, in its order: of a scope it names (`all` always). Pure. */
+export function instructionsOn<I extends Pick<Instruction, "scope">>(
+  list: readonly I[],
+  subject: InstructionSubject
+) {
   const scopes = scopesOf(subject);
-  return liveOf(now).filter((i) => scopes.has(i.scope));
+  return list.filter((i) => scopes.has(i.scope));
 }
+
+/** The instructions in force now on `subject`, oldest first: of a scope it names (`all` always), not replaced, not past `until`. */
+export const instructionsFor = (subject: InstructionSubject, now = clock()) =>
+  instructionsOn(liveOf(now), subject);
 
 /** How narrow a scope is, by its kind: a matter's, then a person's or a channel's, then a project's, then everything. */
 const NARROWNESS: Record<string, number> = {
