@@ -1,24 +1,24 @@
 <!doctype html>
-<!-- Turn by turn v2, variation A "Cinema", on the real flow (2026-11-28-real-flow.md): his words rise from the field to
-     the centre like a title card; while Life works, "Thinking…" then one quiet step line under them, replaced at each
-     read and never saying what it found; when the whole answer lands, his words shrink to a caption and the answer plays
-     as full-screen shots, one idea each (swipe or tap to move), closing on what he can act on. Drafts are cards: Send is
-     his one tap. A proposed block carries a quiet "new block" tag. -->
+<!-- Turn by turn v3: variation A "Cinema" of v2, kept as it was for idle, typing, hold to talk, Life works, the slow
+     ask, the failed read and "Hey Life", with the owner's review of 28 Nov (philosophy.md, "Answers to his questions",
+     "Drafts", Decisions log): an answer comes whole and at once, as one shot; a day is one format (its events as a vertical
+     list, then "You also have N waiting on you" and their rows, a tap unfolding one in place); "Did Jade answer?"
+     says when and what, then her chat and the ready draft; "Tell Ben" goes straight to the draft; a card that arrives
+     says why first; earlier turns are a full-screen vertical pager that snaps from turn to turn. Where his review left a
+     real choice, the variations are per topic (V below), switched by the comparison page with no reload. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Turn by turn v2: A, cinema</title>
+<title>Turn by turn v3</title>
 <link rel="stylesheet" href="../../../assets/brand/tokens.css">
 <link rel="stylesheet" href="edge.css">
 <link rel="stylesheet" href="shell.css">
 <style>
-/* the title card may rise from under the field, so the stage lets it out (history keeps its scroll) */
-.stage:has(> .a:not(.a-scroll)){overflow:visible}
+/* the title card may rise from under the field and the pager covers the phone, so the stage lets them out */
+.stage:has(> .a){overflow:visible}
 .a{position:absolute;inset:0;--spring:cubic-bezier(.2,1.15,.32,1);--soft:cubic-bezier(.2,.8,.2,1)}
-.a-scroll{position:static;inset:auto;display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 0 32px;margin-top:auto}
 b{font-weight:650}
-.a-m{color:var(--muted)}
 /* the title card: his words */
 .a-ttl{position:absolute;left:20px;right:20px;margin:0;text-align:center;font-size:34px;line-height:1.14;font-weight:650;letter-spacing:-.025em;text-wrap:balance;transform-origin:50% 0;will-change:transform}
 .a-ttl .w{display:inline-block;transition:opacity .35s,filter .35s,transform .45s var(--spring)}
@@ -55,62 +55,68 @@ b{font-weight:650}
 /* a proposed block, still to build: a quiet tag under it */
 .a-new{display:block;margin-top:6px;font-style:normal;font-size:11px;font-weight:600;color:var(--faint)}
 .a-new::before{content:"";display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:3px;background:var(--flag);vertical-align:1px;opacity:.8}
-/* the day's events as a filmstrip of frames, the next one lit */
-.a-film{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:22px}
-.a-fr{min-height:176px;padding:14px 12px;border-radius:var(--block-radius);background:var(--tile);display:flex;flex-direction:column}
-.a-fr:first-child{background:var(--paper)}
-.a-fr b{font-size:28px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
-.a-fr span{margin-top:auto;font-size:var(--text-title);font-weight:650;line-height:1.2}
-.a-fr small{margin-top:4px;color:var(--muted);font-size:var(--text-line);line-height:1.3}
 /* a place: a tap opens Maps */
 .a-place{margin-top:14px;padding:14px 16px;border-radius:var(--block-radius);background:var(--tile);color:var(--fg);text-decoration:none;display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px}
 .a-place b{font-size:var(--text-title)}
 .a-place small{grid-column:1;color:var(--muted);font-size:var(--text-line)}
 .a-place em{grid-column:2;grid-row:1/3;font-style:normal;font-size:var(--text-line);font-weight:650;color:var(--muted)}
-/* faces, quotes */
-.a-face{width:96px;height:96px;border-radius:48px;display:block}
-.a-nb+.a-h{margin-top:18px}
-.a-face.s{width:36px;height:36px;border-radius:18px;margin:0}
-.a-who{display:flex;align-items:center;gap:12px;font-size:var(--text-title)}
-.a-who small{display:block;color:var(--muted);font-size:var(--text-line);font-weight:450}
-.a-quote{margin:18px 0 0;padding:16px 18px;border-radius:var(--block-radius);background:var(--paper);font-size:var(--text-header);font-weight:600;line-height:1.4}
-.a-quote.s{font-size:var(--text-body);font-weight:450;color:var(--muted);margin-top:12px;padding:12px 14px}
-/* a draft card: whose, when, the exact words, Send; then Sent and Undo */
-.a-card{margin-top:18px}
-.a-card .from{font-size:var(--text-line);color:var(--muted);margin:0}
-.a-card .from b{color:var(--fg);font-weight:650}
-.a-draft{margin:10px 0 0 auto;max-width:88%;width:fit-content;padding:14px 16px;border-radius:22px 22px 6px 22px;background:var(--tint);font-size:var(--text-title);font-weight:600;transition:background .6s,opacity .4s}
-.a-card.sent .a-draft{background:var(--paper)}
-.a-card.undone .a-draft{opacity:.4;text-decoration:line-through}
-.a-edits{display:flex;gap:6px;justify-content:flex-end;margin-top:10px}
-.a-edits button{height:32px;padding:0 14px;border-radius:16px;background:var(--tile);font-size:var(--text-line);font-weight:600}
-.a-send{position:relative;display:block;margin-top:18px;width:100%;height:52px;border-radius:26px;background:var(--fg);color:var(--on);font-weight:650;font-size:var(--text-title);overflow:hidden}
-.a-send span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;transition:opacity .25s,transform .4s var(--spring)}
-.a-send .l2{opacity:0;transform:translateY(12px)}
-.a-card.busy .a-send .l1{opacity:0;transform:translateY(-12px)}
-.a-card.busy .a-send .l2{opacity:1;transform:none}
-.a-card.sent .a-send,.a-card.undone .a-send{display:none}
-.a-done{display:none;margin-top:16px;justify-content:space-between;align-items:center;font-size:var(--text-title);font-weight:650;color:var(--ok)}
-.a-card.sent .a-done,.a-card.undone .a-done{display:flex}
-.a-card.undone .a-done{color:var(--muted)}
-.a-done button{height:36px;padding:0 16px;border-radius:18px;background:var(--tile);color:var(--fg);font-size:var(--text-line)}
-.a-card.undone .a-done button{display:none}
+.a-shot>.s-cards{margin-top:18px}
+.a-shot>.s-cards:first-child{margin-top:0}
 /* a card brought in while he is idle: it rises above the field, the greeting steps back */
-.a-arr{position:absolute;left:-8px;right:-8px;bottom:0;padding:18px 18px 20px;border-radius:30px;background:#1a1b20;box-shadow:0 -20px 50px rgba(0,0,0,.6)}
-.a-arr .a-card{margin-top:14px}
-/* the closing shot: everything in one list */
-.a-rows{margin-top:10px}
-.a-row{width:100%;min-height:60px;display:grid;grid-template-columns:64px 1fr;align-items:center;gap:12px;text-align:left;padding:8px 0;box-shadow:inset 0 -.5px 0 var(--line)}
-.a-row:last-child{box-shadow:none}
-.a-row .lead{font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums}
-.a-row .txt b{display:block;font-size:var(--text-title)}
-.a-row .txt small{display:block;color:var(--muted);font-size:var(--text-line);line-height:1.35}
-/* earlier turns, read like credits */
-.a-turn{max-width:310px;margin-top:40px}
-.a-turn:first-child{margin-top:0}
-.a-turn small{display:block;color:var(--faint);font-size:var(--text-meta)}
-.a-turn .q{display:block;margin-top:6px;font-size:var(--text-header);font-weight:650;letter-spacing:-.01em;text-wrap:balance}
-.a-turn .r{display:block;margin-top:6px;color:var(--muted)}
+.a-arr{position:absolute;left:0;right:0;bottom:0;padding:0 20px}
+/* the home with matters waiting: the greeting up top, the top 3 cards above the field */
+.a-hi.up{top:1%}
+.a-home{position:absolute;left:0;right:0;bottom:4px;padding:0 20px}
+.a-home .a-k{margin-bottom:10px}
+/* a shot taller than the screen scrolls */
+.a-shot.top{overflow-y:auto;scrollbar-width:none;padding-bottom:24px}
+.a-shot>*{flex-shrink:0}
+.a-shot.top::-webkit-scrollbar{display:none}
+/* a day, the one format: its events as a vertical list (V.day: rows, timeline, large times), then what is waiting on you */
+.a-day{margin-top:18px;text-align:left}
+.a-ev{display:grid;grid-template-columns:58px 1fr;align-items:baseline;padding:9px 0}
+.a-ev .at{font-size:var(--text-title);font-weight:650;font-variant-numeric:tabular-nums}
+.a-ev b{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}
+.a-ev small{display:block;color:var(--muted);font-size:var(--text-line);line-height:1.35}
+.v-line .a-ev{grid-template-columns:54px 22px 1fr;padding:0}
+.v-line .a-ev i{align-self:stretch;position:relative}
+.v-line .a-ev i::before{content:"";position:absolute;left:4px;top:7px;width:10px;height:10px;border-radius:5px;background:var(--faint)}
+.v-line .a-ev i::after{content:"";position:absolute;left:8px;top:21px;bottom:-5px;width:2px;border-radius:1px;background:var(--tint)}
+.v-line .a-ev:first-child i::before{background:var(--fg)}
+.v-line .a-ev:last-child i::after{display:none}
+.v-line .a-ev span{padding-bottom:20px}
+.v-big .a-ev{grid-template-columns:1fr;padding:0 0 18px}
+.v-big .a-ev .at{font-size:var(--text-profile);letter-spacing:-.02em;line-height:1.1}
+.a-also{margin:22px 0 4px;font-size:var(--text-header);font-weight:650;letter-spacing:-.01em;line-height:1.25;text-align:left}
+.a-dec{width:100%;display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:12px;padding:9px 0;text-align:left}
+.a-dec .s-disc{width:40px;height:40px}
+.a-dec b{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}
+.a-dec small{display:block;color:var(--muted);font-size:var(--text-line);line-height:1.35}
+.a-dec em{font-style:normal;color:var(--flag)}
+.a-dec .fold{color:var(--muted);transition:transform .3s}
+.a-dec[aria-expanded="true"] .fold{transform:rotate(180deg)}
+.a-unf{overflow:hidden}
+.a-unf .s-card{background:var(--wash)}
+/* a card that arrives: one line of why, then the card */
+.a-why{margin:0 4px 12px;font-size:var(--text-title);font-weight:600;line-height:1.4}
+/* earlier turns: a full-screen pager (over the whole phone, under the top controls and the field), one turn a page,
+   snapping magnetically; V.pager: snap (plain), depth (the turn leaving shrinks and fades), peek (the turns around show) */
+.a-pager{position:absolute;left:0;right:0;top:-110px;bottom:-110px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;
+  -webkit-mask:linear-gradient(transparent 100px,#000 160px,#000 calc(100% - 130px),transparent calc(100% - 90px));mask:linear-gradient(transparent 100px,#000 160px,#000 calc(100% - 130px),transparent calc(100% - 90px))}
+.a-pager::-webkit-scrollbar{display:none}
+/* a turn taller than its page scrolls inside it, then hands the scroll on to the pager */
+.a-pg{height:100%;scroll-snap-align:start;scroll-snap-stop:always;display:flex;flex-direction:column;justify-content:safe center;padding:120px 24px 130px;text-align:left;overflow-y:auto;scrollbar-width:none}
+.a-pg::-webkit-scrollbar{display:none}
+.a-pg>div{flex-shrink:0}
+.a-pg>div{will-change:transform,opacity}
+.a-pg small{display:block;color:var(--faint);font-size:var(--text-meta)}
+.a-pg .q{display:block;margin-top:6px;font-size:var(--text-profile);font-weight:650;letter-spacing:-.015em;line-height:1.2;text-wrap:balance}
+.a-pg .r{display:block;margin-top:14px;font-size:var(--text-header);line-height:1.4;color:var(--muted)}
+.a-pg .a-day{margin-top:8px}
+.a-pg .a-h{margin-top:14px;font-size:var(--text-header)}
+.v-peek{padding:130px 0}
+.v-peek .a-pg{height:auto;min-height:56%;max-height:calc(100% - 260px);scroll-snap-align:center;padding:24px;transition:opacity .3s}
+.v-peek .a-pg:not(.at){opacity:.32}
 /* the waveform the field becomes while he speaks */
 .field .heard .a-wv{display:flex;align-items:center;justify-content:space-between;height:36px;padding-right:4px}
 .field .heard .a-wv i{width:2.5px;height:28px;border-radius:2px;background:var(--fg);transform:scaleY(.1);transition:transform 80ms linear}
@@ -120,12 +126,18 @@ b{font-weight:650}
 <body>
 <script src="edge.js"></script>
 <script src="data.js"></script>
+<script src="../2026-11-23-chat-first/2026-11-26-design-lab/card-blocks.js" charset="utf-8"></script>
+<script>document.head.insertAdjacentHTML("beforeend","<style>"+CB.css.cards+"</style>");</script>
 <script src="shell.js"></script>
 <script>
 var D=DATA,R=matchMedia('(prefers-reduced-motion: reduce)').matches,asked=null;
+/* the variations, per topic: how a day's events look, how the pager of earlier turns feels; the comparison page sets
+   them (postMessage({vary})), or #day=…&pager=… */
+var V={day:'rows',pager:'snap'};
+(location.hash.match(/(day|pager)=\w+/g)||[]).forEach(function(x){x=x.split('=');V[x[0]]=x[1];});
 var SPRING='cubic-bezier(.2,1.15,.32,1)',SOFT='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
-function el(p,cls,html){var e=document.createElement(cls.indexOf('a-row')===0?'button':'div');if(e.tagName==='BUTTON')e.type='button';e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
-function esc(s){return s.replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+function el(p,cls,html){var e=document.createElement('div');e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
+var esc=CB.esc;
 function cap(s){return s.replace(/^./,function(ch){return ch.toUpperCase();});}
 /* animates from one state to another and leaves the element in the second; under Reduce Motion, a cross-fade only */
 function mv(e,from,to,ms,ease,delay){var fin=to;
@@ -133,10 +145,10 @@ function mv(e,from,to,ms,ease,delay){var fin=to;
   var a=e.animate([from,to],{duration:ms,easing:ease||SOFT,delay:delay||0,fill:'backwards'});
   for(var k in fin)e.style[k]=fin[k];return a;}
 function gone(e,ms){var a=mv(e,{opacity:1,transform:'none',filter:'none'},{opacity:0,transform:'translateY(-10px)',filter:'blur(8px)'},ms||260,OUT);a.onfinish=function(){e.remove();};}
-function root(c,scroll){return el(c.stage,'a'+(scroll?' a-scroll':''));}
+function root(c){return el(c.stage,'a');}
 function split(s,at){var i=s.indexOf(at);return i<0?[s,'']:[s.slice(0,i+(at==='. '?1:0)),s.slice(i+at.length)];}
 /* a proposed block, still to build */
-function nb(kind,html){return '<div class="a-nb">'+html+'<i class="a-new">new block · '+kind+'</i></div>';}
+function nb(kind,html){return '<div>'+html+'<i class="a-new">new block · '+kind+'</i></div>';}
 
 /* the title card: his words, centred a little above the middle */
 function title(r,text,hidden){var t=el(r,'a-ttl','');
@@ -213,39 +225,31 @@ function reel(c,r,top,shots,instant){var w=el(r,'a-reel',''),i=-1,user=false,n=s
     if(e.target.closest('button,a')||i===n-1)return;var b=w.getBoundingClientRect();go(e.clientX-b.left<b.width/3?i-1:i+1,true);});
   return {go:go,play:async function(){for(var x=0;x<n;x++){if(user)return;var ms=shots[x].ms||0;go(x,false,ms);if(x<n-1)await c.wait(ms);}}};}
 
-/* a draft card (an `items` block): whose, when it was drafted, the exact words, Send; then Sent and Undo */
-function cardHtml(k){return '<div class="a-card"><p class="from"><b>To '+k.to+' on '+k.app+'</b><br>'+k.made+'</p>'+
-  '<div class="a-draft">'+esc(k.draft)+'</div>'+
-  (k.edits?'<div class="a-edits">'+k.edits.map(function(x){return '<button type="button">'+x+'</button>';}).join('')+'</div>':'')+
-  '<button type="button" class="a-send"><span class="l1">'+k.send+'</span><span class="l2">'+k.sending+'</span></button>'+
-  '<div class="a-done" aria-live="polite"><span>'+k.sent+'</span><button type="button">'+k.undo+'</button></div></div>';}
-function wireCard(e,k,c){var card=e.querySelector('.a-card'),done=card.querySelector('.a-done span');
-  card.querySelector('.a-send').onclick=async function(){if(card.classList.contains('busy'))return;card.classList.add('busy');
-    try{await c.wait(k.sendMs);}catch(x){return;}card.classList.remove('busy');card.classList.add('sent');c.edge.set('landed');};
-  card.querySelector('.a-done button').onclick=function(){card.classList.remove('sent');card.classList.add('undone');done.textContent='Deleted for everyone';};}
+/* the shell's cards (one per item, swiped sideways), put at the end of a shot */
+function withCards(c,items){return function(e){e.appendChild(c.cards(items));};}
 function placeHtml(p){return '<a class="a-place" href="https://maps.apple.com/?q='+encodeURIComponent(p.name+', '+p.address)+'" target="_blank" rel="noopener"><b>'+p.name+'</b><small>'+p.address+'</small><em>Maps</em></a>';}
 
-function dayShots(){var a=D.asks.day.answer,ld=split(a.lead,'. '),face=D.asks.jade.answer.who.face,p=a.payment;
-  return [
-    {ms:4800,top:true,html:'<h3 class="a-h">'+ld[0]+'</h3>'+
-      nb('event','<div class="a-film">'+a.events.map(function(e){return '<div class="a-fr"><b>'+e.at+'</b><span>'+e.t+'</span><small>'+e.where+'</small></div>';}).join('')+'</div>')+placeHtml(a.place)},
-    {ms:4400,html:nb('face','<img class="a-face" alt="" src="'+face+'">')+'<h3 class="a-h">'+ld[1]+'</h3><p class="a-p">'+a.waiting.about+', last written '+a.waiting.at.toLowerCase()+'</p><div class="a-quote">“'+a.waiting.last+'”</div>'},
-    {ms:3400,html:nb('payment','<p class="a-k">Due '+p.due+'</p><div class="a-hero">'+p.amount+'</div><h3 class="a-h">'+p.t+'</h3>')},
-    {top:true,init:function(e,go){e.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){go(+b.dataset.go,true);};});},
-      html:'<div class="a-rows">'+
-        a.events.map(function(e){return '<button type="button" class="a-row" data-go="0"><span class="lead">'+e.at+'</span><span class="txt"><b>'+e.t+'</b><small>'+e.where+'</small></span></button>';}).join('')+
-        '<button type="button" class="a-row" data-go="1"><span class="lead"><img class="a-face s" alt="" src="'+face+'"></span><span class="txt"><b>'+a.waiting.who+' waits on you</b><small>'+a.waiting.about+'</small></span></button>'+
-        '<button type="button" class="a-row" data-go="2"><span class="lead">'+p.amount+'</span><span class="txt"><b>'+p.t+'</b><small>Due '+p.due+'</small></span></button></div>'}];}
+/* a day, the one format wherever it shows (owner, 28 Nov): one line, its events as a vertical list, then what's waiting on him
+   waiting on him as rows; a tap unfolds one in place, its card under its row */
+var CHEV='<svg class="fold" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+function dayHtml(d){var n=d.waiting.length;
+  return '<h3 class="a-h">'+esc(d.lead)+'</h3>'+nb('event','<div class="a-day v-'+V.day+'">'+d.events.map(function(e){
+      return '<div class="a-ev"><span class="at">'+e.at+'</span>'+(V.day==='line'?'<i></i>':'')+'<span><b>'+esc(e.t)+'</b><small>'+esc(e.where)+'</small></span></div>';}).join('')+'</div>')+
+    (n?'<p class="a-also">You also have '+n+' waiting on you</p>'+d.waiting.map(function(k,i){var line=k.draft!=null?k.app+' · '+k.sub:k.sub;
+      return '<button type="button" class="a-dec" data-dec="'+i+'" aria-expanded="false"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(k.who||k.to.charAt(0)))+'</span>'+
+        '<span><b>'+esc(k.t)+'</b><small>'+esc(line)+' · '+(k.when==='today'?'<em>today</em>':esc(k.when))+'</small></span>'+CHEV+'</button>';}).join(''):'');}
+function unfolds(c,d){return function(e){e.querySelectorAll('[data-dec]').forEach(function(b){var box=null;
+  b.onclick=function(){var on=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(on));
+    if(on){box=document.createElement('div');box.className='a-unf';box.appendChild(c.cards([d.waiting[+b.dataset.dec]]));b.after(box);
+      var h=box.offsetHeight;mv(box,{height:'0px',opacity:0},{height:h+'px',opacity:1},400,SOFT).onfinish=function(){box.style.height='';};
+      var sh=b.closest('.a-shot'),bt=box.offsetTop+h-sh.clientHeight;if(sh.scrollTop<bt)sh.scrollTo({top:Math.min(bt,b.offsetTop-8),behavior:R?'auto':'smooth'});}
+    else{var x=box;box=null;mv(x,{height:x.offsetHeight+'px',opacity:1},{height:'0px',opacity:0},300,SOFT).onfinish=function(){x.remove();};}};});};}
+function dayShots(c,key){var d=D.days[key];return [{top:true,html:dayHtml(d),init:unfolds(c,d)}];}
 
-function jadeShots(c){var a=D.asks.jade.answer,ld=split(a.lead,'. '),who='<div class="a-who"><img class="a-face s" alt="" src="'+a.who.face+'"><span><b>'+a.who.name+'</b><small>'+a.reply.app+', '+a.reply.at+'</small></span></div>';
-  return [
-    {ms:3000,html:nb('face','<img class="a-face" alt="" src="'+a.who.face+'">')+'<h3 class="a-h">'+ld[0]+'</h3>'},
-    {ms:4200,html:who+nb('quote','<div class="a-quote">“'+a.reply.t+'”</div>')},
-    {html:who+'<div class="a-quote s">“'+a.reply.t+'”</div><p class="a-p">'+ld[1]+'</p>'+cardHtml(a.card),init:function(e){wireCard(e,a.card,c);}}];}
-
-function tellShots(c){var a=D.asks.tell.answer;
-  return [{ms:2200,html:'<div class="a-hero mid">'+a.lead+'</div>'},
-    {html:'<p class="a-k">'+a.lead+'</p>'+cardHtml(a.card),init:function(e){wireCard(e,a.card,c);}}];}
+/* "Did Jade answer?": when and that she wrote, then her chat with the ready draft and its options (B's flow) */
+function jadeShots(c){var a=D.asks.jade.answer;return [{top:true,html:'<h3 class="a-h">'+esc(a.lead)+'</h3>',init:withCards(c,[a.card])}];}
+/* "Tell Ben…": no lead line, straight to the draft card */
+function tellShots(c){return [{top:true,html:'',init:withCards(c,[D.asks.tell.answer.card])}];}
 
 /* one idea answers: the key part large, the rest under it */
 function oneShot(text,sep,extra,cls){var p=split(text,sep);return [{html:'<div class="'+(cls||'a-hero mid')+'">'+p[0]+'</div>'+(p[1]?'<p class="a-big">'+cap(p[1])+'</p>':'')+(extra||'')}];}
@@ -253,38 +257,58 @@ function oneShot(text,sep,extra,cls){var p=split(text,sep);return [{html:'<div c
 async function ask(c,r,a){var mine=asked;asked=null;var text=mine?mine.text:a.ask;
   return (mine?mine.how:a.how)==='voice'?spoken(c,r,text,!!mine):typed(c,r,text,!!mine);}
 async function turn(c,a,shots){var r=root(c),t=await ask(c,r,a),s=await work(c,r,t,a);await land(c,r,t,s,shots);}
+function hi(r){var h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
+  mv(h.firstChild,{opacity:0,transform:'translateY(16px)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);
+  mv(h.lastChild,{opacity:0},{opacity:1},600,SOFT,250);return h;}
 function shown(r,text){var t=title(r,text);mv(t,{opacity:0},{opacity:1},400);return t;}
 
-Shell.mount({title:'Turn by turn v2: A, cinema',
+/* earlier turns: a full-screen vertical pager, one turn a page, oldest first, opening on the latest; it snaps
+   magnetically from turn to turn (a wheel, a finger, or a mouse drag pages by one) */
+function pager(c,r){var pg=el(r,'a-pager'+(V.pager==='peek'?' v-peek':''),''),pages=[];
+  D.history.forEach(function(h){var p=el(pg,'a-pg',''),d=h.day&&D.days[h.day];
+    var inner=el(p,'','<small>'+h.at+'</small><span class="q">'+esc(h.ask)+'</span>'+(d?dayHtml(d):'<span class="r">'+esc(h.answer)+'</span>'));
+    if(d)unfolds(c,d)(inner);pages.push(p);});
+  function look(){var mid=pg.scrollTop+pg.clientHeight/2,ats=pages.map(function(p){return (p.offsetTop+p.offsetHeight/2-mid)/p.offsetHeight;}),
+      near=ats.reduce(function(b,x,i){return Math.abs(x)<Math.abs(ats[b])?i:b;},0);
+    pages.forEach(function(p,i){var at=ats[i];p.classList.toggle('at',i===near);
+      if(V.pager==='depth'&&!R){var d=Math.min(1,Math.abs(at));p.firstChild.style.transform='translateY('+(at*-60).toFixed(1)+'px) scale('+(1-.1*d).toFixed(3)+')';p.firstChild.style.opacity=(1-.75*d).toFixed(3);p.firstChild.style.filter='blur('+(d*6).toFixed(1)+'px)';}});}
+  pg.addEventListener('scroll',look,{passive:true});
+  var y0=null;pg.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse'&&!e.target.closest('button,a'))y0=e.clientY;});
+  pg.addEventListener('pointerup',function(e){if(y0===null)return;var dy=(e.clientY-y0)/scaleOf(c);y0=null;
+    if(Math.abs(dy)>30)pg.scrollBy({top:(dy<0?1:-1)*pages[0].offsetHeight,behavior:R?'auto':'smooth'});});
+  pg.scrollTop=pg.scrollHeight;look();return pg;}
+
+Shell.mount({title:'Turn by turn v3',
+  onVary:function(v){for(var k in v)V[k]=v[k];},
   onAsk:function(text,how){asked={text:text,how:how};Shell.run(how==='voice'?'voice-send':'type-send');},
   scenes:[
-  {id:'idle',label:'Idle',run:function(c){var r=root(c),h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>');
-    mv(h.firstChild,{opacity:0,transform:'translateY(16px)',filter:'blur(8px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);
-    mv(h.lastChild,{opacity:0},{opacity:1},600,SOFT,250);}},
-  {id:'type-send',label:'He types an ask',run:async function(c){if(asked)return turn(c,D.asks.day,dayShots());
+  {id:'idle',label:'Idle',run:function(c){hi(root(c));}},
+  {id:'home-waiting',label:'Opens with matters waiting',run:function(c){var r=root(c);hi(r).classList.add('up');
+    var w=el(r,'a-home','<p class="a-k">Waiting on you</p>');w.appendChild(c.cards(D.waiting.slice(0,3)));
+    mv(w,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},800,SPRING,350);}},
+  {id:'waiting-list',label:'Waiting on you',run:async function(c){var r=root(c),t=shown(r,D.waitingAsk);await c.wait(400);
+    await land(c,r,t,null,[{top:true,html:'<h3 class="a-h">'+D.waitingLead+'</h3>',init:withCards(c,D.waiting)}]);}},
+  {id:'pendant',label:'Pendant status',run:function(c){hi(root(c));c.pendant();}},
+  {id:'type-send',label:'He types an ask',run:async function(c){if(asked)return turn(c,D.asks.day,dayShots(c,'today'));
     var r=root(c),t=await ask(c,r,D.asks.day);c.edge.set('work');subtitle(r,t).set('<span class="v">Thinking…</span>');}},
   {id:'voice-send',label:'He holds to talk',run:async function(c){if(asked)return turn(c,D.asks.jade,jadeShots(c));
     var r=root(c),t=await ask(c,r,D.asks.jade);c.edge.set('work');subtitle(r,t).set('<span class="v">Thinking…</span>');}},
-  {id:'working',label:'Life works',run:async function(c){var r=root(c),t=shown(r,D.asks.day.ask),s=await work(c,r,t,D.asks.day);await land(c,r,t,s,dayShots());}},
-  {id:'answer-day',label:'Answer: the day',run:function(c){return turn(c,D.asks.day,dayShots());}},
-  {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(c,D.asks.jade,jadeShots(c));}},
-  {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return turn(c,D.asks.tell,tellShots(c));}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var r=root(c),h=el(r,'a-hi','<h2>Hi</h2><p>'+D.now.day+'</p>'),k=D.arrives.card,x=k.context;
+  {id:'working',label:'Life works',run:async function(c){var r=root(c),t=shown(r,D.asks.day.ask),s=await work(c,r,t,D.asks.day);await land(c,r,t,s,dayShots(c,'today'));}},
+  {id:'answer-day',label:'What’s on today',run:function(c){return turn(c,D.asks.day,dayShots(c,'today'));}},
+  {id:'answer-jade',label:'Did Jade answer?',run:function(c){return turn(c,D.asks.jade,jadeShots(c));}},
+  {id:'tell',label:'Tell Ben',run:function(c){return turn(c,D.asks.tell,tellShots(c));}},
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var r=root(c),h=hi(r);
     await c.wait(D.arrives.arriveMs);
-    var p=el(r,'a-arr','<div class="a-who"><span><b>'+x.who+'</b><small>'+x.app+', '+x.at+'</small></span></div>'+nb('quote','<div class="a-quote s">“'+x.t+'”</div>')+cardHtml(k));
-    wireCard(p,k,c);mv(h,{transform:'none'},{transform:'translateY(-120px)',opacity:.5},900,SOFT);
+    var p=el(r,'a-arr','<p class="a-why">'+esc(D.arrives.why)+'</p>');p.appendChild(c.cards([D.arrives.card]));mv(h,{transform:'none'},{transform:'translateY(-120px)',opacity:.5},900,SOFT);
     mv(p,{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1},900,SPRING);}},
   {id:'slow',label:'A slow ask',run:function(c){var a=D.slow;return turn(c,a,oneShot(a.answer.lead,'. ',placeHtml(a.answer.place)));}},
   {id:'failure',label:'A read fails',run:function(c){var a=D.failure;return turn(c,a,oneShot(a.error.t,'. ','','a-h'));}},
-  {id:'history',label:'Earlier turns',run:function(c){var r=root(c,true);
-    D.history.forEach(function(h,i){var e=el(r,'a-turn','<small>'+h.at+'</small><span class="q">'+h.ask+'</span><span class="r">'+h.answer+'</span>');
-      mv(e,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING,i*140);});
-    c.stage.scrollTop=c.stage.scrollHeight;}},
-  {id:'follow-up',label:'A follow-up',run:async function(c){var r=root(c),top=captionNow(r,D.asks.day.ask),sh=dayShots();reel(c,r,top,sh,true).go(sh.length-1);
+  {id:'history',label:'Earlier turns',run:function(c){var r=root(c),p=pager(c,r);mv(p.lastChild.firstChild,{opacity:0,transform:'translateY(40px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'none'},700,SPRING);}},
+  {id:'follow-up',label:'And tomorrow?',run:async function(c){var r=root(c),top=captionNow(r,D.asks.day.ask);reel(c,r,top,dayShots(c,'today'),true).go(0);
     mv(r,{opacity:0},{opacity:1},400);await c.wait(1500);
     await c.type(c.field.input,D.followUp.ask);await c.wait(380);mv(c.field.send,{transform:'scale(.8)'},{transform:'scale(1)'},420,SPRING);
     var r2=root(c);[].forEach.call(r.children,function(x){gone(x,260);});
-    var t=await typed(c,r2,D.followUp.ask,true),s=await work(c,r2,t,D.followUp);r.remove();await land(c,r2,t,s,oneShot(D.followUp.answer.lead,': '));}},
+    var t=await typed(c,r2,D.followUp.ask,true),s=await work(c,r2,t,D.followUp);r.remove();await land(c,r2,t,s,dayShots(c,'tomorrow'));}},
   {id:'hey-life',label:'Hey Life, from the pendant',run:async function(c){var h=D.heyLife;c.lock();c.edge.set('still');
     await c.wait(h.heardMs);c.lock(h.heardAt);c.notify(h.heard);await c.wait(h.answerMs);
     await Promise.race([c.notify(h.done),c.wait(4000)]); /* his tap, or on its own for Play all */

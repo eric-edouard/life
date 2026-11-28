@@ -33,8 +33,9 @@ that safe.
    it when missing it costs something that can't be undone; otherwise Life handles it or stays silent.
 2. Silence must be trustworthy. Silence means "all handled" only if Life reliably says when something is broken.
    So what is wrong and needs the person comes before anything else (the Mac unreachable, the pendant not recording, a
-   login expired, the budget about to be passed), and Life shows it is present without reporting (the edge, "Life is
-   working on it"). What Life can fix itself it fixes, unseen. What is degraded but works shows nothing.
+   login expired, the budget about to be passed), and Life shows it is present without reporting (the edge, once he
+   turns it on; "Life is working on it"). What Life can fix itself it fixes, unseen. What is degraded but works
+   shows nothing.
 3. Acting without asking is a ladder. Which rung an act takes depends on whether it can be undone and whether it
    is in the person's name or spends their money:
 
@@ -54,6 +55,8 @@ that safe.
 6. Ask well, so as to ask less. One decision per card: what, why, and what each answer does. The likely answer
    ready to tap. Never ask what Life can read, never ask twice what was answered, and never remind someone of what they
    already know. Code holds the card's part of this (`CARD_SELF_CHECK`, `memory/card-request.ts`).
+   But an open step of the person's stays asked until it ended or their word, never hidden by its age, date, sender
+   or a stopped agent (his rule of 27 Nov 2026; `open-steps-asked.test.ts` walks every path).
 7. A few things stay on screen. Where the stakes are immediate, a button beats a conversation: what is waiting on the
    person, the pendant (its dot opens its page, with Pause as a switch that acts at once; his ruling of 27 Nov 2026) and
    what is broken. These few are the only fixed points; everything else Life brings up. The phone opens on them (his yes
@@ -64,7 +67,9 @@ that safe.
 8. Life's insides never show; what it did always can. No agents, roles, models or prompts on screen (agent health
    lives only in Settings' diagnostics); while Life works, one quiet step line that changes with each read ("Reading
    your chats") (his decision of 28 Nov 2026). What was done is always findable, and undoable where it can be.
-9. An empty screen is a valid screen. Never fill it to look busy, and never say all is well.
+9. An empty screen is a valid screen. Never fill it to look busy, and never say all is well. A UI idea that serves a
+   builder's view instead of the person's (a "more details" button, a full view of everything, a toggle just in case)
+   is said to be one before it is built (his ask of 23 Nov 2026).
 10. Every ask gets a reply (his "Yes, always reply" of 27 Nov 2026). A spoken "hey Life" shows in the thread as heard at
    once, then ends in the answer, a card, or a plain line saying what Life couldn't do and why; never silence.
 

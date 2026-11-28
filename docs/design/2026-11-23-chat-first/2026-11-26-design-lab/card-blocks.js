@@ -54,13 +54,27 @@
   I.qr = svg('<rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><path d="M14 14h2v2h-2zM19 14v2M14 19h2M18 18h2v2"/>');
   I.imessage = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" fill="#34C759"/><path fill="#fff" d="M12 5.5c-4.1 0-7.5 2.7-7.5 6.1 0 1.9 1 3.6 2.7 4.7-.1 1-.6 1.9-1.3 2.6 1.5 0 2.8-.6 3.7-1.3.8.2 1.6.3 2.4.3 4.1 0 7.5-2.7 7.5-6.2S16.1 5.5 12 5.5Z"/></svg>';
 
+  I.telegram = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#2AABEE"/><path fill="#fff" d="m5.5 11.6 11.6-4.5c.5-.2 1 .1.8.9l-2 9.3c-.1.6-.5.8-1 .5l-3-2.2-1.5 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5c.2-.2 0-.3-.4-.1l-6.9 4.4-3-.9c-.6-.2-.6-.6.2-1Z"/></svg>';
+  I.instagram = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6.5" fill="#D62976"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.1" cy="7.9" r="1" fill="#fff"/></svg>';
+  I.messenger = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0084FF" d="M12 1.5C6.1 1.5 1.5 5.8 1.5 11.6c0 3 1.2 5.6 3.3 7.4v3.5l3.2-1.8c1.2.3 2.6.5 4 .5 5.9 0 10.5-4.3 10.5-10.1S17.9 1.5 12 1.5Z"/><path fill="#fff" d="m5.8 14.6 3.1-4.9c.5-.8 1.5-1 2.3-.4l2.4 1.8c.2.2.6.2.8 0l3.3-2.5c.4-.3 1 .2.7.6l-3.1 4.9c-.5.8-1.5 1-2.3.4l-2.4-1.8a.6.6 0 0 0-.8 0l-3.3 2.5c-.4.3-1-.2-.7-.6Z"/></svg>';
+  I.line = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" fill="#06C755"/><path fill="#fff" d="M12 5c-4.4 0-8 2.9-8 6.4 0 3.2 2.8 5.8 6.6 6.3.3.1.6.2.7.4.1.2 0 .6 0 .8l-.1.7c0 .2-.2.8.7.4s4.9-2.9 6.7-4.9c1.2-1.3 1.8-2.6 1.8-3.7C20.4 7.9 16.8 5 12 5Z"/></svg>';
+  I.linkedin = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="4" fill="#0A66C2"/><path fill="#fff" d="M6 9.5h2.6V18H6zM7.3 5.3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM10.3 9.5h2.5v1.2c.4-.7 1.2-1.4 2.6-1.4 2.7 0 3.2 1.8 3.2 4.1V18H16v-4c0-1 0-2.2-1.3-2.2-1.4 0-1.6 1-1.6 2.1V18h-2.6z"/></svg>';
+  I.photo = svg('<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/>');
+  I.reply = svg('<path d="M9 6 4 11l5 5M4 11h10a6 6 0 0 1 6 6v1"/>');
+  I.doc = svg('<path d="M6 2.5h8l4 4v15H6z"/><path d="M14 2.5v4h4"/>');
+
   /* ---- 1. Tokens ---- */
   var T = { fg: '#fff8ea', muted: '#8a867e', tint: 'rgba(255,248,234,.1)', tile: '#111214', card: '#0b0c0e', ok: '#30d158', ai: '#9aa8ec', flag: '#f0896f' };
   /* a network's own mark and colour: rgb for its fills, ink for words on them; one with no mark of its own keeps a line glyph */
   var APPS = {
     wa: { n: 'WhatsApp', rgb: '37,211,102', ink: '#4fdc8a', mark: 'wa' },
     imessage: { n: 'Messages', rgb: '10,132,255', ink: '#64b0ff', mark: 'imessage' },
-    mail: { n: 'Mail', rgb: '255,248,234', ink: T.fg, mark: 'mail', line: 1 }
+    mail: { n: 'Mail', rgb: '255,248,234', ink: T.fg, mark: 'mail', line: 1 },
+    telegram: { n: 'Telegram', rgb: '42,171,238', ink: '#6cc4f2', mark: 'telegram' },
+    instagram: { n: 'Instagram', rgb: '214,41,118', ink: '#ee8fb1', mark: 'instagram' },
+    messenger: { n: 'Messenger', rgb: '0,132,255', ink: '#64b0ff', mark: 'messenger' },
+    line: { n: 'LINE', rgb: '6,199,85', ink: '#4fdc8a', mark: 'line' },
+    linkedin: { n: 'LinkedIn', rgb: '10,102,194', ink: '#86c5f0', mark: 'linkedin' }
   };
   function appOf(k) { return APPS[k] || APPS.wa; }
   /* the app a source line names ("Kit · WhatsApp, Tue"), else WhatsApp */
@@ -458,5 +472,44 @@
   NEW += '.cb-lm{width:22px;height:22px;flex:none;display:flex}.cb-lm svg{width:100%;height:100%}.cb-lmi{width:100%;height:100%;border-radius:6px;background:#24252b;color:#b9b4aa;display:flex;align-items:center;justify-content:center;font-weight:750;font-size:12.5px}.cb-lmi svg{width:14px;height:14px}' +
     '.cb-lk{display:flex;align-items:center;gap:8px;align-self:flex-start;max-width:100%;min-height:36px;padding:0 12px 0 7px;border-radius:18px;background:rgba(255,248,234,.07);color:#fff8ea;text-decoration:none;font-size:13.5px}.cb-lk b{font-weight:650;white-space:nowrap}.cb-lk small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#b9b4aa;font-size:13px}.cb-lk>svg{width:13px;height:13px;flex:none;opacity:.7}' +
     '.cb-lkp{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:18px;background:#111214;color:#fff8ea;text-decoration:none}.cb-lkp .cb-lm{width:36px;height:36px;margin-top:1px}.cb-lkp .cb-lmi{border-radius:9px;font-size:17px}.cb-lkp>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}.cb-lkp small{font-size:12.5px;font-weight:650;color:#8a867e}.cb-lkp b{font-size:18px;font-weight:700;letter-spacing:-.01em;line-height:1.3}.cb-lkp em{font-style:normal;font-size:13.5px;color:#b9b4aa;line-height:1.35}.cb-lkp>svg{width:15px;height:15px;flex:none;color:#8a867e;margin-top:3px}';
-  window.CB = { LINKS: LINKS, linkOf: linkOf, B: B, I: I, T: T, APPS: APPS, draw: draw, esc: esc, face: Face, ring: StillRing, ai: LifesWords, undo: Undo, saved: Saved, sw: Switch, check: Check, css: { base: BASE, cards: NEW } };
+  /* The chat a draft card shows (28 Nov): the head (picture or initials, name, app, arrow that opens the chat), the log
+     (the messages that matter, unrelated ones as one quiet count, scrolling, opening at the bottom), then the draft in
+     the app's colour with the dashed outline. k = {to, face?, app (its id, a key of APPS), chat:[{who,t,at}|{me,t,at}|{unrelated:n}], draft} */
+  function ChatCard(k) {
+    var a = APPS[k.app];
+    var ini = k.to.split(' ').map(function (w) { return w.charAt(0); }).join('').slice(0, 2);
+    var msg = function (m) {
+      if (m.unrelated) return '<div class="cb-cn">' + m.unrelated + ' unrelated message' + (m.unrelated > 1 ? 's' : '') + '</div>';
+      return '<div class="cb-cm ' + (m.me ? 'cb-cu' : 'cb-ci') + '">' + esc(m.t) + '<span class="cb-ca">' + esc(m.at) + '</span></div>';
+    };
+    return '<div class="cb-cc" style="--app:' + a.rgb + '"><div class="cb-ch"><span class="cb-cf">' + (k.face ? '<img alt="" src="' + k.face + '">' : esc(ini)) + '</span>' +
+      '<span class="cb-cw2"><b>' + esc(k.to) + '</b><small>' + a.n + '</small></span><a class="cb-co" href="#" onclick="return false" aria-label="Open the chat in ' + a.n + '">' + I.open + '</a></div>' +
+      '<div class="cb-cl"><div class="cb-cll">' + (k.chat || []).map(msg).join('') + (k.draft != null ? '<div class="cb-cm cb-cu cb-cd">' + esc(k.draft) + '</div>' : '') + '</div></div></div>';
+  }
+  NEW += '.cb-cc{display:flex;flex-direction:column;gap:10px}' +
+    '.cb-ch{display:flex;align-items:center;gap:12px}' +
+    '.cb-cf{flex:none;width:40px;height:40px;border-radius:20px;background:#24252b;display:flex;align-items:center;justify-content:center;font-weight:650;font-size:15px;overflow:hidden}' +
+    '.cb-cf img{width:100%;height:100%}' +
+    '.cb-cw2{flex:1;min-width:0}' +
+    '.cb-cw2 b{display:block;font-size:var(--text-title);font-weight:650;line-height:1.3}' +
+    '.cb-cw2 small{display:block;font-size:var(--text-line);color:var(--muted);line-height:1.35}' +
+    '.cb-co{flex:none;width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;background:rgba(var(--app),.14);color:rgb(var(--app))}' +
+    '/* the log: at most about four messages tall, opening at the bottom, scrolled with a finger or a wheel */' +
+    '.cb-cl{display:flex;flex-direction:column-reverse;max-height:228px;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;' +
+    '  -webkit-mask:linear-gradient(transparent,#000 18px);mask:linear-gradient(transparent,#000 18px)}' +
+    '.cb-cl::-webkit-scrollbar{display:none}' +
+    '.cb-cll{display:flex;flex-direction:column;gap:6px;padding-top:18px}' +
+    '.cb-cm{max-width:84%;padding:8px 12px 7px;border-radius:16px;font-size:var(--text-body);line-height:1.4}' +
+    '.cb-ci{align-self:flex-start;background:var(--tint);border-top-left-radius:5px}' +
+    '/* his messages: the app\'s colour */' +
+    '.cb-cu{align-self:flex-end;background:rgba(var(--app),.16);border-top-right-radius:5px}' +
+    '.cb-ca{display:inline-block;margin-left:8px;font-size:11px;color:var(--muted);vertical-align:-1px}' +
+    '.cb-cn{align-self:center;font-size:12px;color:var(--muted);padding:2px 0}' +
+    '/* the draft: the app\'s own sent-bubble colour, a 1.5 px dashed outline that fades once sent */' +
+    '.cb-co svg{width:18px;height:18px}' +
+    '.cb-cd{background:rgba(var(--app),.08);outline:1.5px dashed rgba(var(--app),.55);outline-offset:-1.5px;margin-top:4px;transition:outline-color .6s,opacity .4s}' +
+    '.sent .cb-cd{outline-color:transparent}' +
+    '.undone .cb-cd{opacity:.4;text-decoration:line-through}' +
+    '';
+  window.CB = { LINKS: LINKS, linkOf: linkOf, B: B, I: I, T: T, APPS: APPS, draw: draw, esc: esc, chat: ChatCard, face: Face, ring: StillRing, ai: LifesWords, undo: Undo, saved: Saved, sw: Switch, check: Check, css: { base: BASE, cards: NEW } };
 })();
