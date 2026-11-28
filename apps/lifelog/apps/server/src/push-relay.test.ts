@@ -95,7 +95,7 @@ test("ids only: any word, a badge, an unknown kind or a bad body is refused", as
 test("a request Fly did not stamp with a caller's address is refused, nothing sent", async () => {
   const { fetch, sent } = relayOf();
   const answers = await Promise.all(
-    [{}, { "fly-client-ip": "" }].map((headers) =>
+    ([{}, { "fly-client-ip": "" }] as Record<string, string>[]).map((headers) =>
       fetch(
         new Request("https://life-push.fly.dev/push", {
           body: JSON.stringify({ push: { kind: "voice.ready" }, token: TOKEN }),
