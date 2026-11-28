@@ -5,6 +5,7 @@ import process from "node:process";
 import { hold } from "@life/server/src/core/lock";
 import { hasPassed, readCleanTree, recordPassed } from "./check-trees";
 import { GATE_SKIPPED } from "./e2e-dirs";
+import { startStep } from "./run-step";
 
 // One check at a time on a machine: several worktrees' gates at once load it until time-limited tests fail.
 await hold("check", process.cwd(), 5000);
@@ -30,6 +31,9 @@ FNR == 1 { depth = 0 }
 }
 END { exit failed }`;
 
+// Notes each test file as it starts, for the stuck report (`run-step.ts`).
+const noteTestFile = ["--preload", "./scripts/note-test-file.ts"];
+
 const steps: Record<string, string[]> = {
   biome: ["bun", "x", "--bun", "ultracite", "check"],
   cases: ["bun", "scripts/cases-check.ts"],
@@ -49,8 +53,11 @@ const steps: Record<string, string[]> = {
   "lifelog test": [
     "bun",
     "test",
+    // A fresh global per file, so the preload runs for each (`--parallel` below implies it).
+    "--isolate",
     "--timeout",
     "60000",
+    ...noteTestFile,
     `./${lifelog}/apps/server/`,
     `./${lifelog}/apps/stt-bench/`,
     `./${lifelog}/packages/`,
@@ -72,6 +79,7 @@ const steps: Record<string, string[]> = {
     "--parallel=8",
     "--timeout",
     "30000",
+    ...noteTestFile,
     "./apps/server/src/",
     "./scripts/",
     "./apps/edge/",
@@ -218,42 +226,34 @@ if (passed) {
 // Only the current failures stay in derived/check.
 await rm("derived/check", { force: true, recursive: true });
 
-// Output is drained while the step runs, so a chatty step never blocks on a full pipe.
-// Each step leads its own process group, so killing it reaches the processes it started
-// (sh -> xcodebuild) and none is left holding a lock for the next run.
+// Wall-clock limits, so no step holds the machine-wide lock for good: about four times the slowest run seen on the
+// loaded Mac (tests 155 s, the Swift chain 429 s, 28 Nov).
+const limitMinutes = (name: string) => (name === "swift builds" ? 30 : 10);
 const started = performance.now();
-const procs = Object.entries(steps).map(([name, cmd]) => {
-  const proc = Bun.spawn(cmd, {
-    detached: true,
-    stderr: "pipe",
-    stdout: "pipe",
-  });
-  const output = Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]).then((parts) => parts.join(""));
-  return { name, output, proc };
-});
+const procs = Object.entries(steps).map(([name, cmd]) => ({
+  name,
+  ...startStep(
+    cmd,
+    limitMinutes(name) * 60_000,
+    `${process.cwd()}/derived/check/running/${name}`
+  ),
+}));
 
+// A step leads its own process group and its descendants die with it (sh -> xcodebuild), so none is left holding a
+// lock for the next run.
 function killAll() {
-  for (const { proc } of procs) {
-    try {
-      process.kill(-proc.pid);
-    } catch {
-      // The whole group has already exited.
-    }
+  for (const { kill } of procs) {
+    kill();
   }
 }
 
 // The parity gate, last in the Swift chain, ran nothing: shown, and the tree is not recorded as passing the Swift part.
 let paritySkipped = false;
-const results = procs.map(async ({ name, output, proc }) => {
-  const code = await proc.exited;
+const results = procs.map(async ({ name, result }) => {
+  const { code, output } = await result;
   if (code === GATE_SKIPPED && name === "swift builds") {
     paritySkipped = true;
-    console.log(
-      `✓ ${name}; parity gate ${(await output).trim().split("\n").at(-1)}`
-    );
+    console.log(`✓ ${name}; parity gate ${output.trim().split("\n").at(-1)}`);
     return;
   }
   if (code === 0) {
@@ -262,11 +262,10 @@ const results = procs.map(async ({ name, output, proc }) => {
     );
     return;
   }
-  const out = await output;
   const log = `derived/check/${name}.log`;
-  await Bun.write(log, out);
+  await Bun.write(log, output);
   console.error(
-    `✗ ${name} (full log: ${log})\n${out.trim().split("\n").slice(-20).join("\n")}`
+    `✗ ${name} (full log: ${log})\n${output.trim().split("\n").slice(-20).join("\n")}`
   );
   killAll();
   process.exit(1);
