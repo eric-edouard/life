@@ -198,7 +198,7 @@ const VOICE_RULES: [string, (r: Row) => Row][] = [
 ];
 
 /** One line of `file` (a name of `VOICE_RULES`) with its source names new; any other line comes back byte for byte. */
-export function voiceLineOf(file: string, line: string) {
+function voiceSourceLineOf(file: string, line: string) {
   const rule = VOICE_RULES.find(([f]) => f === file)?.[1];
   if (!(rule && line.includes(OLD_VOICE))) {
     return line;
@@ -285,7 +285,8 @@ export function migrateVoiceSource(
     for (const [file] of VOICE_RULES) {
       for (const path of pathsOf(dir, file)) {
         counts[file] =
-          (counts[file] ?? 0) + rewriteLines(path, (l) => voiceLineOf(file, l));
+          (counts[file] ?? 0) +
+          rewriteLines(path, (l) => voiceSourceLineOf(file, l));
       }
     }
     appendFileSync(
