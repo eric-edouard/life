@@ -10,8 +10,8 @@ import { copyNotes, readNotes } from "../sources/notes";
 import {
   conversation,
   imessageFixture,
-  lifelogServer,
-  lifelogStore,
+  voiceServer,
+  voiceStore,
   noteData,
   notesFixture,
   pageFixture,
@@ -32,7 +32,7 @@ import {
   type Built,
   conversationLabel,
   lifeChat,
-  lifelogUnits,
+  voiceUnitsOf,
   MARKED,
 } from "./units";
 import { embedNew } from "./vectors";
@@ -84,11 +84,11 @@ const mailHits = (
   return storedMailHits(query, range, vector);
 };
 const words = ["Allo", "Salut", "", "Fin"];
-let server: ReturnType<typeof lifelogServer> | undefined;
+let server: ReturnType<typeof voiceServer> | undefined;
 afterAll(() => server?.close());
 
 const serverOf = () => {
-  server ??= lifelogServer({
+  server ??= voiceServer({
     "/transcription-jobs/job-0/transcript": () => ({
       turns: Array.from({ length: 8 }, (_, n) => ({
         speakerId: null,
@@ -105,7 +105,7 @@ const serverOf = () => {
 /** A fresh store: four turns of conversation c1 (one named, one with no words). */
 const open = () => {
   serverOf();
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
@@ -182,7 +182,7 @@ test("a conversation label: the local time, with who spoke when anybody but him 
 });
 
 test("a conversation-day read for its episodes: its title, then who said what and when, an ask marked; a chapter unit keeps its text", async () => {
-  const [day] = lifelogUnits(readConversations(open(), new Date(0)), new Set());
+  const [day] = voiceUnitsOf(readConversations(open(), new Date(0)), new Set());
   const store = open();
   const [b, chapter] = await voiceText(
     [

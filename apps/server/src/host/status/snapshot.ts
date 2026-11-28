@@ -25,7 +25,7 @@ import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
 import { isBookkeeping, TODO_CHANGE_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
-import { lifelogStatus, newestTurn } from "../../sources/voice-server";
+import { readVoiceServerStatus, newestTurn } from "../../sources/voice-server";
 import { checks } from "../../todo-list/backend";
 import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
@@ -259,7 +259,7 @@ async function reads(now: Date) {
     cached("log", 5000, () => recentEvents<LogLine>(8, "")),
     cached("failing", 15_000, () => archiveFailing()),
     cached("turn", 3000, () => safe(newestTurn)),
-    cached("lifelog", 30_000, () => safe(lifelogStatus)),
+    cached("lifelog", 30_000, () => safe(readVoiceServerStatus)),
     cached("mac", 15_000, () => macState()),
     cached("mem", MIN, () => memoryCounts()),
     cached("unreflected", 5 * MIN, () => safe(unreflected)),
@@ -392,7 +392,7 @@ const polledHeadline = (r: Reads) => {
   return r.health?.lastOkAt ? "polling" : "never polled";
 };
 
-function lifelogCard(r: Reads): Card {
+function voiceServerCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
   const backlog = r.life.ok
     ? r.life.value.phoneHeartbeat?.backlog?.pages
@@ -543,7 +543,7 @@ function sourceCards(r: Reads): Card[] {
         return [unreadableCard(d, why)];
       }
       return d.kind === "voice"
-        ? [pendantCard(r, d), lifelogCard(r)]
+        ? [pendantCard(r, d), voiceServerCard(r)]
         : [sourceCard(r, d)];
     }),
     {

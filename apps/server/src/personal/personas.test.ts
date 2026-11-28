@@ -11,8 +11,8 @@ import type { Unit } from "../records/unit";
 import { apply } from "../sources/voice-server";
 import {
   conversation,
-  lifelogServer,
-  lifelogStore,
+  voiceServer,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -295,7 +295,7 @@ test("a persona in an older shape reads as none, so it is due at the next run (n
 });
 
 test("an old chapter is read by its words while lifelog holds its turns, by its summary when not", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: [
         { speakerId: "speaker_0", text: "Allo" },
@@ -303,7 +303,7 @@ test("an old chapter is read by its words while lifelog holds its turns, by its 
       ],
     }),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({

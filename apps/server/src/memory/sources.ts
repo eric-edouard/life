@@ -46,7 +46,7 @@ import {
   readImessageAt,
   readSharedPictures,
 } from "../sources/imessage";
-import { lifelogMissing } from "../sources/voice-server-call";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import {
   incomingMail,
   mailRoot,
@@ -109,7 +109,7 @@ const LISTED: Descriptor[] = [
     capturesOnItsOwn: true,
     kind: "voice",
     label: "Pendant",
-    missing: lifelogMissing,
+    missing: voiceServerMissing,
     name: "lifelog",
     silentAfter: 6 * HOUR,
   },
@@ -303,7 +303,7 @@ const LISTED: Descriptor[] = [
     earliest: earliestAppleHealth,
     kind: "physical",
     label: "Apple Health",
-    missing: lifelogMissing,
+    missing: voiceServerMissing,
     name: "apple-health",
     newest: newestAppleHealth,
     read: readAppleHealth,

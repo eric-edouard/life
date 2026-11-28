@@ -13,7 +13,7 @@ import { openStore } from "./voice-server";
 const tmp = (prefix: string) => mkdtempSync(join(tmpdir(), prefix));
 
 /** An empty lifelog store in a fresh folder. */
-export const lifelogStore = () => openStore(tmp("life-lifelog-"));
+export const voiceStore = () => openStore(tmp("life-lifelog-"));
 
 /** A page of lifelog's change feed. */
 export const pageFixture = (over: Record<string, unknown> = {}) => ({
@@ -263,7 +263,7 @@ export function imessageFixture(
  * A stand-in for lifelog's REST API: `routes` map a path to what it answers (given the POSTed body). The `lifelog`
  * setting and LIFELOG_TOKEN point at it until `close`. `seen` records each request.
  */
-export function lifelogServer(
+export function voiceServer(
   routes: Record<string, (body: unknown, query: URLSearchParams) => unknown>
 ) {
   const seen: { auth: string | null; body: unknown; path: string }[] = [];

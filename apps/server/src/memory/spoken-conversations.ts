@@ -1,5 +1,5 @@
 import { CONVERSATION_ENDS_AFTER } from "../core/quiet";
-import { authorOf, type LifelogTurn, turnRef } from "../sources/voice-server";
+import { authorOf, type VoiceTurn, turnRef } from "../sources/voice-server";
 import { voiceKey } from "../sources/voice-speakers";
 import { exchangesOf, isFinished } from "./exchanges";
 import { OWNER } from "./read-truth";
@@ -27,7 +27,7 @@ export const isSummarised = (parts: readonly SpokenPart[]) =>
 export const CONVERSATION_PART_CHARS = 150_000;
 
 /** A recorded turn and the lifelog conversation it is in (`readSpokenTurns`). */
-export type SpokenTurn = LifelogTurn & { conversation: string };
+export type SpokenTurn = VoiceTurn & { conversation: string };
 
 /** The spoken conversations among `turns` that are over as of `now` (`isFinished`), oldest first. */
 export const spokenConversationsOf = (turns: SpokenTurn[], now: Date) =>

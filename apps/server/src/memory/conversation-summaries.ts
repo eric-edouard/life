@@ -25,7 +25,7 @@ import {
   spokenConversationsOf,
   spokenPartsOf,
 } from "./spoken-conversations";
-import { clip, lifelogNames, turnKey, turnRefOf } from "./units";
+import { clip, voiceNames, turnKey, turnRefOf } from "./units";
 import type { People } from "./who";
 import { transcripts } from "./words";
 import { dayStart, localDate, time } from "./zones";
@@ -217,7 +217,7 @@ export async function readConversationSummaryWork(
   open = openStore
 ) {
   const turns = await withStore(
-    (store) => readSpokenTurns(store, lifelogNames(people.truth)),
+    (store) => readSpokenTurns(store, voiceNames(people.truth)),
     open
   );
   const { current, stale } = await heldSummaries(open, where);

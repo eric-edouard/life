@@ -26,7 +26,7 @@ import {
 } from "../records/read-reply";
 import { eventKey } from "../records/source";
 import { firstNameOf, ownerIn } from "../records/truth";
-import { type LifelogTurn, readStore, withStore } from "../sources/voice-server";
+import { type VoiceTurn, readStore, withStore } from "../sources/voice-server";
 import { checkedAppointmentReply } from "./arrival-appointments";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { EXCHANGE_ENDS_AFTER, exchangesOf, isFinished } from "./exchanges";
@@ -406,7 +406,7 @@ export async function readArrivals(
     online?: typeof isOnline;
     /** The words of voice units' turns, by unit id (default: `turnLines`). */
     spoken?: (
-      turns: Map<string, LifelogTurn[]>
+      turns: Map<string, VoiceTurn[]>
     ) => Promise<ReadonlyMap<string, SourceLine[]>>;
     step?: () => ReturnType<typeof begin>;
     where?: string;
@@ -694,7 +694,7 @@ export interface RecentVoice {
   /** The conversations lifelog has closed (`closedConversations`). */
   closed: ReadonlySet<string>;
   /** Each unit's turns, by unit id: who spoke and when, as the same read saw them. */
-  turns: ReadonlyMap<string, LifelogTurn[]>;
+  turns: ReadonlyMap<string, VoiceTurn[]>;
 }
 
 /**

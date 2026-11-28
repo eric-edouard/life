@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
 import { eventKey, type SourceEvent } from "../records/source";
-import type { LifelogConversation } from "../sources/voice-server";
+import type { VoiceConversation } from "../sources/voice-server";
 import { type ArrivalReads, arrivalsDue } from "./arrival-gate";
 import { unread } from "./episodes";
-import { applyRules, lifelogUnits, messageUnits } from "./units";
+import { applyRules, voiceUnitsOf, messageUnits } from "./units";
 
 const NOW = Date.parse("2026-11-10T12:00:00.000Z");
 const ago = (minutes: number) => new Date(NOW - minutes * MIN).toISOString();
@@ -46,7 +46,7 @@ const gate = (events: SourceEvent[], read = reads()) =>
 const talk = (
   turns: number,
   { closed = true, him = true } = {}
-): LifelogConversation => ({
+): VoiceConversation => ({
   closed,
   endedAt: ago(10),
   id: "conv-1",
@@ -63,9 +63,9 @@ const talk = (
     turnIndex: i,
   })),
 });
-const heard = (c: LifelogConversation) =>
+const heard = (c: VoiceConversation) =>
   arrivalsDue(
-    { built: lifelogUnits([c], new Set()) },
+    { built: voiceUnitsOf([c], new Set()) },
     reads(),
     new Date(NOW)
   ).map((a) => ("wait" in a ? a.wait : "due"));

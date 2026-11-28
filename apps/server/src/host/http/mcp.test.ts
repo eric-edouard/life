@@ -15,7 +15,7 @@ import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
 import { apply, type Stay } from "../../sources/voice-server";
 import {
   conversation,
-  lifelogStore,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../../sources/store-fixtures";
@@ -436,7 +436,7 @@ test("the server is named Life, carries its icons, and its instructions fit in 5
 
 test("places: each stay lists the conversations recorded during it", async () => {
   const open = () => {
-    const store = lifelogStore();
+    const store = voiceStore();
     apply(
       store,
       pageFixture({

@@ -8,7 +8,7 @@ import type { SourceEvent } from "../records/source";
 import { apply, openStore } from "../sources/voice-server";
 import {
   conversation,
-  lifelogServer,
+  voiceServer,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -47,7 +47,7 @@ const people = {
 
 let dir = "";
 let n = 0;
-let server: ReturnType<typeof lifelogServer> | undefined;
+let server: ReturnType<typeof voiceServer> | undefined;
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "voice-naming-"));
 });
@@ -102,7 +102,7 @@ const sceneOf = (o: {
     })),
   });
   server?.close();
-  server = lifelogServer({
+  server = voiceServer({
     "/conversations/c0": () => ({ latestRun: null }),
     "/conversations/c1": () => ({ latestRun: null }),
     [`/transcription-jobs/${before}/transcript`]: transcript(6),
@@ -270,7 +270,7 @@ test("a night with nothing new makes no call to lifelog's voices", async () => {
   await run(s, () => ({ voices: [] }));
   let calls = 0;
   server?.close();
-  server = lifelogServer({
+  server = voiceServer({
     "/conversations/c1": () => ({ latestRun: null }),
     [`/transcription-jobs/${s.job}/transcript`]: () => ({
       turns: Array.from({ length: 20 }, (_, t) => ({

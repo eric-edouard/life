@@ -2,8 +2,8 @@ import { createHmac } from "node:crypto";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { secretIn } from "../core/secret";
-import { writeLifelog } from "./voice-server";
-import { lifelogMissing } from "./voice-server-call";
+import { writeVoiceServer } from "./voice-server";
+import { voiceServerMissing } from "./voice-server-call";
 
 /** How a push interrupts him: Apple's `interruption-level` (passive: Notification Center only, no sound). */
 export type PushLevel = "passive" | "active" | "time-sensitive";
@@ -27,10 +27,10 @@ export const pushIdOf = (ref: string, key = secretIn("pushIdKey")) =>
 
 /** A push to his phone through lifelog, logged like a correction; nothing without lifelog set up. Never throws: a failure is its log line. Whether lifelog took it. */
 export async function notifyPhone(push: Push) {
-  if (lifelogMissing()) {
+  if (voiceServerMissing()) {
     return false;
   }
-  return await writeLifelog("POST", "/notifications", push).then(
+  return await writeVoiceServer("POST", "/notifications", push).then(
     () => true,
     (e) => {
       log("lifelog.write", { ...errorOf(e), phase: "failed" });

@@ -12,7 +12,7 @@ import { isOnline } from "../models/llm";
 import { isPromptVersion } from "../models/prompt-parts";
 import type { SourceEvent, SourceFile } from "../records/source";
 import { FileEntry } from "../records/unit";
-import { lifelogMissing } from "../sources/voice-server-call";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { emlxPart } from "../sources/mail";
 import { readVoiceNoteWords, toOggOpus } from "../sources/voice-notes";
 import { fileRefOf, isGone } from "./deletions";
@@ -161,7 +161,7 @@ export const asChatOrNot = (e: SourceEvent, isChat: boolean): SourceEvent =>
 const readable = (f: SourceFile): f is Readable =>
   !!f.path &&
   (f.mime.startsWith("image/") ||
-    (isVoiceNote(f) && !lifelogMissing() && isVoiceDue(f.ref)) ||
+    (isVoiceNote(f) && !voiceServerMissing() && isVoiceDue(f.ref)) ||
     f.mime === "application/pdf" ||
     DOCUMENT.test(f.mime));
 

@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
 import type { SourceEvent } from "../records/source";
-import type { LifelogConversation } from "../sources/voice-server";
+import type { VoiceConversation } from "../sources/voice-server";
 import {
   cutOf,
   type Deletions,
   deletedEventsOf,
   NO_DELETIONS,
 } from "./deletions";
-import { lifelogUnits } from "./units";
+import { voiceUnitsOf } from "./units";
 
 // What he deleted of a day's words: the words a read takes, and the hash that makes that day read again. Made-up turns.
 
@@ -25,7 +25,7 @@ const said = (n: number, name: string | null, owner = false) => ({
   turnIndex: n,
 });
 
-const conversation: LifelogConversation = {
+const conversation: VoiceConversation = {
   closed: false,
   endedAt: "2026-10-25T10:40:00.000Z",
   id: "00000000-0000-8000-8000-01a1210b4bdf",
@@ -49,7 +49,7 @@ const msg = (over: Partial<SourceEvent>): SourceEvent => ({
 
 test("his deletion of a turn, or of words in it, moves its day's hash, so the day is read again (the words as he deleted them)", () => {
   const hashOf = (deletions: Deletions) =>
-    lifelogUnits([conversation], none, deletions)[0]?.unit.hash;
+    voiceUnitsOf([conversation], none, deletions)[0]?.unit.hash;
   const plain = hashOf(NO_DELETIONS);
   const turn = "job-1:0@2026-10-25T10:00:00.000Z";
   const cut = cutOf(turn, "the pier at noon", 4, 8);

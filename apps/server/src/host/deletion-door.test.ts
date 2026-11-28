@@ -38,7 +38,7 @@ import type { Descriptor } from "../sources/contract";
 import { apply, openStore, turnRef, WATCH } from "../sources/voice-server";
 import {
   conversation,
-  lifelogServer,
+  voiceServer,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -81,7 +81,7 @@ const TIMED = [
 ];
 
 const lifelog = () =>
-  lifelogServer({
+  voiceServer({
     [`/transcription-jobs/${JOB}/transcript`]: () => ({
       turns: [said(WORDS), said("Bring the drawings.")],
     }),

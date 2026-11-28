@@ -2,10 +2,10 @@ import { afterAll, expect, test } from "bun:test";
 import { clock } from "../../core/clock";
 import { logEvents, logFileOf } from "../../core/log";
 import { forward } from "../../sources/voice-server";
-import { lifelogServer } from "../../sources/store-fixtures";
+import { voiceServer } from "../../sources/store-fixtures";
 import { correct } from "./mcp";
 
-const server = lifelogServer({
+const server = voiceServer({
   "/conversations/c1/title": () => ({ id: "c1" }),
   "/people/p1": () => ({ id: "p1" }),
   "/people/p1/merge": () => ({ id: "p1" }),

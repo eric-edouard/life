@@ -1,8 +1,8 @@
 import {
   LIVE,
-  type LifelogTurn,
-  type LifelogTurnRow,
-  lifelogTurn,
+  type VoiceTurn,
+  type VoiceTurnRow,
+  voiceTurnOf,
   nameOf,
   type Store,
 } from "./voice-server";
@@ -11,7 +11,7 @@ import {
 
 /**
  * The live conversations (`c`) matching `rest` (a `where` tail and `order by`), each with the names of the people other
- * than the owner who spoke in it, as the directory names them (`byId`, `lifelogNames`) else as lifelog does.
+ * than the owner who spoke in it, as the directory names them (`byId`, `voiceNames`) else as lifelog does.
  */
 function conversationRows(
   store: Store,
@@ -74,12 +74,12 @@ export const conversationsBetween = (
  */
 export const readSpokenTurns = (store: Store, byId: Map<string, string>) =>
   store.db
-    .query<LifelogTurnRow, []>(
+    .query<VoiceTurnRow, []>(
       `select t.* from turns t join conversations c on c.id = t.conversation_id where ${LIVE}
         order by t.start_at, t.job_id, t.turn_index`
     )
     .all()
-    .map((t): LifelogTurn & { conversation: string } => ({
-      ...lifelogTurn(t, byId),
+    .map((t): VoiceTurn & { conversation: string } => ({
+      ...voiceTurnOf(t, byId),
       conversation: t.conversation_id,
     }));

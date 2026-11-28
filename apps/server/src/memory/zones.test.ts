@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { writeWhole } from "../core/files";
 import { readPhoneZone } from "../sources/voice-server";
-import { lifelogServer } from "../sources/store-fixtures";
+import { voiceServer } from "../sources/store-fixtures";
 import { ZONES } from "./memory-files";
 import {
   cutAt,
@@ -55,7 +55,7 @@ test("where he is now: the phone's latest zone, whatever its age; the Mac's only
     { "/status": () => ({ phoneHeartbeat: "not a heartbeat" }) },
   ];
   for (const routes of failing) {
-    const server = lifelogServer(routes);
+    const server = voiceServer(routes);
     try {
       // biome-ignore lint/performance/noAwaitInLoops: one fake lifelog at a time, each sets the settings it is read by
       expect(await readZoneHere({ mac, phone: readPhoneZone })).toBeUndefined();

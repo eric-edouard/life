@@ -9,7 +9,7 @@ import {
 } from "../sources/voice-server";
 import { conversationsBetween } from "../sources/voice-server-conversations";
 import { loadTruth } from "./read-truth";
-import { conversationLabel, lifelogNames } from "./units";
+import { conversationLabel, voiceNames } from "./units";
 import { asData } from "./words";
 import { dayRange, isDay, localTime, time } from "./zones";
 
@@ -89,7 +89,7 @@ export async function placesOf(
     return null;
   }
   const now = clock().toISOString();
-  const byId = lifelogNames(await loadTruth());
+  const byId = voiceNames(await loadTruth());
   return withStore(
     (store) =>
       asData([

@@ -7,7 +7,7 @@ import { stamp } from "../models/llm";
 import { apply, openStore } from "../sources/voice-server";
 import {
   conversation,
-  lifelogServer,
+  voiceServer,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -34,7 +34,7 @@ const people = {
 
 let dir = "";
 let n = 0;
-let server: ReturnType<typeof lifelogServer> | undefined;
+let server: ReturnType<typeof voiceServer> | undefined;
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), "summaries-"));
 });
@@ -98,7 +98,7 @@ const sceneOf = (
     })
   );
   server?.close();
-  server = lifelogServer({
+  server = voiceServer({
     "/conversations/c1": () => ({
       latestRun: {
         result: {

@@ -99,7 +99,7 @@ export async function writeUnits(
  * regrouped onto a day it had left) counts as new: its old observations stay gone until the next full rebuild (the
  * night's); compare ids against the index's observations if that day matters.
  */
-export async function syncLifelogUnits(store: Store, since: Date) {
+export async function syncVoiceUnits(store: Store, since: Date) {
   const { built, chapters, have } = await voiceUnits(
     store,
     since,

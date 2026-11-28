@@ -7,9 +7,9 @@ import {
   parseTurnRef,
   type Store,
   withStore,
-  writeLifelog,
+  writeVoiceServer,
 } from "./voice-server";
-import { call, lifelogMissing } from "./voice-server-call";
+import { call, voiceServerMissing } from "./voice-server-call";
 
 // What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
 // answered or recognised each (`readVoices`). Read-only.
@@ -278,7 +278,7 @@ let isDown = false;
  * (`answerCheck`), never the kept list; throws when lifelog cannot be read.
  */
 export const readNamingQueueNow = async () =>
-  lifelogMissing()
+  voiceServerMissing()
     ? []
     : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
 
@@ -332,7 +332,7 @@ export async function answerNamingQueue(
     | { kind: "assign"; personId: string }
     | { kind: "ignore" | "media" | "not_relevant" }
 ) {
-  const done = await writeLifelog("POST", "/naming-queue/answer", {
+  const done = await writeVoiceServer("POST", "/naming-queue/answer", {
     answer,
     voices,
   });

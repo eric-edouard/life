@@ -3,8 +3,8 @@ import { rmSync, writeFileSync } from "node:fs";
 import { apply, openStore } from "../sources/voice-server";
 import {
   conversation,
-  lifelogServer,
-  lifelogStore,
+  voiceServer,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -71,7 +71,7 @@ const TURNS: [string, string, string, number[][]?, string?][] = [
   ],
 ];
 
-const server = lifelogServer({
+const server = voiceServer({
   "/transcription-jobs/job-call/transcript": () => ({
     turns: TURNS.map(([, , text]) => ({ speakerId: null, text })),
   }),
@@ -86,7 +86,7 @@ const server = lifelogServer({
 afterAll(() => server.close());
 
 const open = () => {
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({

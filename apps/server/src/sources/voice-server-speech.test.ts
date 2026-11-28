@@ -8,7 +8,7 @@ import { recordingsOf } from "./voice-server-speech";
 import {
   conversation,
   pageFixture,
-  lifelogStore as store,
+  voiceStore as store,
   turnFixture,
 } from "./store-fixtures";
 

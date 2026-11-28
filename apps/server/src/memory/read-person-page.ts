@@ -49,7 +49,7 @@ import {
 } from "./read-part";
 import { directoryPartiesOf, isDirectoryNew, OWNER } from "./read-truth";
 import { readSituationNow } from "./situations";
-import { conversationLabel, lifelogNames, nameKey } from "./units";
+import { conversationLabel, voiceNames, nameKey } from "./units";
 import {
   meant,
   namedLike,
@@ -303,7 +303,7 @@ export async function person(
         ref,
         episodes,
         lifelog ? [lifelog] : heard.map((s) => s.id),
-        lifelogNames(truth)
+        voiceNames(truth)
       );
       const page = () => pageBlock(db, found?.text ?? null, "in the evidence");
       const inputs: PartInputs = {

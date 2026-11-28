@@ -7,7 +7,7 @@ import {
   type ReadReply,
 } from "../records/read-reply";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
-import { lifelogMissing } from "../sources/voice-server-call";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import {
   currentSummaries,
   summaryLine,
@@ -254,7 +254,7 @@ export async function readDayParts(
     .toSorted((a, b) => (a.start ?? a.day).localeCompare(b.start ?? b.day));
   const byEpisode = readBy(all);
   // None without lifelog; null when it is set up but could not be read.
-  const stays = lifelogMissing()
+  const stays = voiceServerMissing()
     ? []
     : await staysOf({ at: date }).catch(() => null);
   const context = await dueContext(date, people);

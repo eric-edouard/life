@@ -18,7 +18,7 @@ import {
   SEARCHABLE_AT,
 } from "../records/unit";
 import { isActivity } from "../sources/contract";
-import { lifelogMissing } from "../sources/voice-server-call";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
 import type { Evidence } from "./gather";
 import {
@@ -539,7 +539,7 @@ export async function episodes(evidence: Evidence) {
         const texts = new Map(spoken.map((b) => [b.unit.id, b.text]));
         const shown = units.filter((b) => !isNew(b) || texts.has(b.unit.id));
         // Where he was: lifelog's stays, none on an install without it; lifelog set up but unreadable fails the attempt.
-        const stays = lifelogMissing()
+        const stays = voiceServerMissing()
           ? []
           : ((await staysOf({ at: day })) ?? []);
         // Known: answered (`answeredBy`), or answered earlier in this run (one person, one id).

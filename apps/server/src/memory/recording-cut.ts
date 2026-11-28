@@ -1,6 +1,6 @@
 import { iso } from "../core/clock";
 import type { Unit } from "../records/unit";
-import { type LifelogTurn, turnRef } from "../sources/voice-server";
+import { type VoiceTurn, turnRef } from "../sources/voice-server";
 import { readTurnClip } from "../sources/voice-speakers";
 import { type Deletions, isCut, isGone } from "./deletions";
 
@@ -59,7 +59,7 @@ export const isEmptySpan = ({ at, until }: Within) =>
   Boolean(at && until && at >= until);
 
 /** Whether a turn crosses an edge of the span: begun before it, or ending after it or at an end lifelog never gave. */
-const isCrossing = (t: LifelogTurn, { at, until }: Within) =>
+const isCrossing = (t: VoiceTurn, { at, until }: Within) =>
   Boolean((at && t.at < at) || (until && (!t.end || t.end > until)));
 
 /**
@@ -70,7 +70,7 @@ const isCrossing = (t: LifelogTurn, { at, until }: Within) =>
  * keeps no text at all. Rewrites `said` in place.
  */
 export async function clipEdges(
-  shown: LifelogTurn[],
+  shown: VoiceTurn[],
   said: Map<string, { speakerId: string | null; text: string }[]>,
   span: Within,
   deletions: Deletions
@@ -105,7 +105,7 @@ interface Timed {
 }
 
 /** A crossing turn's text: its words inside the span, and what of it was not read. */
-export function clippedOf(t: LifelogTurn, timed: Timed | null, span: Within) {
+export function clippedOf(t: VoiceTurn, timed: Timed | null, span: Within) {
   if (!timed?.at || timed.words.length === 0) {
     return NOT_TIMED;
   }

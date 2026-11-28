@@ -9,7 +9,7 @@ import { readImportedConversation } from "../sources/assistants";
 import { repoMap } from "../sources/git";
 import {
   authorOf,
-  type LifelogTurn,
+  type VoiceTurn,
   openStore,
   parseTurnRef,
   readTranscript,
@@ -58,7 +58,7 @@ import {
   clip,
   conversationKeyOf,
   isFrozen,
-  lifelogNames,
+  voiceNames,
   lineOf,
   MARKED,
   normalize,
@@ -153,7 +153,7 @@ export async function transcripts(
  * `conversations` (`voiceLines`; `keep` drops an unnamed voice by how it was heard). A read that failed throws.
  */
 export async function turnLines(
-  turnsById: Map<string, LifelogTurn[]>,
+  turnsById: Map<string, VoiceTurn[]>,
   conversations: string[],
   resolve: Resolve,
   keep?: (v: VoiceKind | undefined) => boolean,
@@ -190,7 +190,7 @@ export async function spokenLines(
       new Map(
         voice.map((u) => [
           u.id,
-          turnsBetween(store, u.key, u.start, u.end, lifelogNames(truth)),
+          turnsBetween(store, u.key, u.start, u.end, voiceNames(truth)),
         ])
       ),
     open
@@ -260,7 +260,7 @@ export function chatLines(b: Built, resolve: Resolve): SourceLine[] {
 }
 
 /** Where a voice's author came from (`authorOf`); not the owner. */
-const fromOf = (t: LifelogTurn) => {
+const fromOf = (t: VoiceTurn) => {
   const from = authorOf(t);
   return from ? { from } : {};
 };
@@ -284,7 +284,7 @@ const heardAs = (v: VoiceKind | undefined) =>
  * one lifelog says is his is the owner's, another says how it was heard (`kinds`, `heardAs`): over a phone, nearby.
  */
 export function voiceLines(
-  turns: LifelogTurn[],
+  turns: VoiceTurn[],
   jobs: Map<string, { speakerId: string | null; text: string }[]>,
   resolve: Resolve,
   kinds = new Map<string, VoiceKind>(),
@@ -521,7 +521,7 @@ async function spokenPage(
   people: People,
   open: typeof openStore
 ) {
-  const names = lifelogNames(people.truth);
+  const names = voiceNames(people.truth);
   const key = unit?.key ?? id;
   const turns =
     span && isEmptySpan(span)

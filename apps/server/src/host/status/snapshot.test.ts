@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
-import { lifelogServer } from "../../sources/store-fixtures";
+import { voiceServer } from "../../sources/store-fixtures";
 import { alertKeyOf, redCards } from "../report";
 import { crashCard } from "./crash-card";
 import {
@@ -230,7 +230,7 @@ test(
   "a phone silent 12 h is red, so the tick mails it: its app or its way to lifelog is down, not him quiet",
   async () => {
     const knownAt = new Date(Date.now() - 13 * HOUR).toISOString();
-    const server = lifelogServer({
+    const server = voiceServer({
       "/status": () => ({ pendant: { knownAt, recording: "recording" } }),
     });
     // Past the snapshot's cache of lifelog's status, which earlier tests filled.

@@ -4,7 +4,7 @@ import { writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { visits, whereAt } from "../sources/voice-server";
-import { lifelogMissing } from "../sources/voice-server-call";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { HOME_ARRIVAL, readHomeArrival } from "./home-arrival";
 import { readMatterPins } from "./matters";
 import { dayNow, dayStart } from "./zones";
@@ -52,7 +52,7 @@ export async function recordArrivalHome(now: Date) {
     )
     .map(([, at]) => at)
     .toSorted();
-  if (!since || lifelogMissing()) {
+  if (!since || voiceServerMissing()) {
     return;
   }
   try {

@@ -9,10 +9,10 @@ import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { openReadOnly, openWritable } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
-import { call, lifelogMissing } from "./voice-server-call";
+import { call, voiceServerMissing } from "./voice-server-call";
 
 // Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
-// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeLifelog`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `lifelog-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
+// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeVoiceServer`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `lifelog-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: the conversations, and
 // for every turn only who spoke, when, and when the feed brought it, never its text; plus the hearing's marks) and builds
 // units from that store.
@@ -86,7 +86,7 @@ export const Page = z.object({
 type Page = z.infer<typeof Page>;
 
 /** A recorded turn: where its words are (`readTranscript(jobId)[turnIndex]`), when, and who lifelog says spoke. */
-export interface LifelogTurn {
+export interface VoiceTurn {
   at: string;
   /** When it ended, and when the feed first brought it; null on a turn stored before 20 Oct. */
   end: string | null;
@@ -101,20 +101,20 @@ export interface LifelogTurn {
 }
 
 /** A recorded conversation with its turns, each with the span of the ask that starts at it (the hearing's marks). */
-export interface LifelogConversation {
+export interface VoiceConversation {
   /** lifelog has settled it (the contract's `closed`): grouping adds nothing more to it. */
   closed: boolean;
   endedAt: string;
   id: string;
   startedAt: string;
-  turns: (LifelogTurn & { marks: string[] })[];
+  turns: (VoiceTurn & { marks: string[] })[];
 }
 
 /**
  * What the status snapshot reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
  * The contract leaves both objects untyped, so every field here may be absent or null.
  */
-export const LifelogStatus = z.object({
+export const VoiceServerStatus = z.object({
   pendant: z
     .object({
       batteryPercent: z.number().nullish(),
@@ -134,18 +134,18 @@ export const LifelogStatus = z.object({
     })
     .nullish(),
 });
-export const lifelogStatus = async () =>
-  LifelogStatus.parse(await call("/status", 15));
+export const readVoiceServerStatus = async () =>
+  VoiceServerStatus.parse(await call("/status", 15));
 
 /**
  * The phone's zone, from its newest heartbeat; null when lifelog is not set up or that heartbeat names no zone Intl
  * knows. Throws when lifelog can't be read.
  */
 export async function readPhoneZone() {
-  if (lifelogMissing()) {
+  if (voiceServerMissing()) {
     return null;
   }
-  const beat = (await lifelogStatus()).phoneHeartbeat;
+  const beat = (await readVoiceServerStatus()).phoneHeartbeat;
   return beat?.timeZone && isTimeZone(beat.timeZone) ? beat.timeZone : null;
 }
 
@@ -442,7 +442,7 @@ export const nameOf = (
   byId: Map<string, string>
 ) => (personId && byId.get(personId)) || personName;
 
-export interface LifelogTurnRow {
+export interface VoiceTurnRow {
   conversation_id: string;
   end_at: string | null;
   is_owner: number;
@@ -463,13 +463,13 @@ export function readConversations(
   store: Store,
   since: Date,
   byId: Map<string, string> = new Map()
-): LifelogConversation[] {
+): VoiceConversation[] {
   const { db } = store;
   const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
-      .query<LifelogTurnRow, [string]>(
+      .query<VoiceTurnRow, [string]>(
         `select t.* from turns t where t.conversation_id in (select c.id ${live}) order by t.start_at, t.job_id, t.turn_index`
       )
       .all(from),
@@ -500,7 +500,7 @@ export function readConversations(
     .all(from)
     .flatMap((c) => {
       const said = (turns.get(c.id) ?? []).map((t) => {
-        const turn = lifelogTurn(t, byId);
+        const turn = voiceTurnOf(t, byId);
         const refs = marks.get(`${t.job_id}:${t.turn_index}`) ?? [];
         // A turn lifelog gave someone else, or a recording transcribed again (its wake ref no longer this turn's): no mark.
         const marked =
@@ -540,13 +540,13 @@ export function turnsBetween(
   start = "",
   end = "9999",
   byId: Map<string, string> = new Map()
-): LifelogTurn[] {
+): VoiceTurn[] {
   return store.db
-    .query<LifelogTurnRow, [string, string, string]>(
+    .query<VoiceTurnRow, [string, string, string]>(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
-    .map((t) => lifelogTurn(t, byId));
+    .map((t) => voiceTurnOf(t, byId));
 }
 
 /**
@@ -577,28 +577,28 @@ export function turnsOverlapping(
   from: string,
   to: string,
   byId: Map<string, string> = new Map()
-): LifelogTurn[] {
+): VoiceTurn[] {
   return store.db
-    .query<LifelogTurnRow, [string, string, string, string]>(
+    .query<VoiceTurnRow, [string, string, string, string]>(
       `select t.* from turns t where ${OVERLAPS} and t.conversation_id = ?4 order by t.start_at, t.job_id, t.turn_index`
     )
     .all(...overlapArgs(from, to), conversationId)
-    .map((t) => lifelogTurn(t, byId));
+    .map((t) => voiceTurnOf(t, byId));
 }
 
 /** Who spoke a turn, as lifelog names them: its person id (the directory may move it later), else its name; null for him or nobody. */
-export const authorOf = (t: LifelogTurn) =>
+export const authorOf = (t: VoiceTurn) =>
   t.owner ? null : (t.personId ?? t.name);
 
 /** Whose a turn is, as lifelog has it: his, someone lifelog named (by id or name), or nobody's. */
-export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
+export function whose(t: VoiceTurn): "me" | "unknown" | "other" {
   if (t.owner) {
     return "me";
   }
   return t.personId || t.name ? "other" : "unknown";
 }
 
-export const lifelogTurn = (t: LifelogTurnRow, byId: Map<string, string>) => ({
+export const voiceTurnOf = (t: VoiceTurnRow, byId: Map<string, string>) => ({
   at: t.start_at,
   end: t.end_at,
   jobId: t.job_id,
@@ -843,11 +843,11 @@ export async function forward(kind: string, a: Fix) {
   if (missing.length > 0) {
     throw new Error(`${kind} needs: ${missing.join(", ")}`);
   }
-  return await writeLifelog(...f.request(a));
+  return await writeVoiceServer(...f.request(a));
 }
 
 /** One write to lifelog, logged before and after: its body's field names, never their values or lifelog's answer. */
-export async function writeLifelog(...[method, path, body]: Write) {
+export async function writeVoiceServer(...[method, path, body]: Write) {
   const fields = body && typeof body === "object" ? Object.keys(body) : [];
   log("lifelog.write", { fields, method, path, phase: "before" });
   const after = await call(path, 60, body, method);

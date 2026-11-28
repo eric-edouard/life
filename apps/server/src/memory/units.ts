@@ -10,8 +10,8 @@ import type { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import {
   authorOf,
-  type LifelogConversation,
-  type LifelogTurn,
+  type VoiceConversation,
+  type VoiceTurn,
   liveConversations,
   parseTurnRef,
   type Store,
@@ -193,7 +193,7 @@ export const frozenBuilt = (unit: Unit): Built => ({
 
 /**
  * The stored chapter units among `units` whose conversation is live in the store: the one frozen set of both writers
- * (`gather`, `syncLifelogUnits`). A chapter of a conversation lifelog retired or dropped is not, so it goes.
+ * (`gather`, `syncVoiceUnits`). A chapter of a conversation lifelog retired or dropped is not, so it goes.
  */
 export const frozenUnits = (store: Store, units: Unit[]) => {
   const live = liveConversations(store);
@@ -210,7 +210,7 @@ export function conversationLabel(start: string, names: string[]) {
  * What a deletion did to a turn, folded into its unit's hash so the unit is read again: its ref when the turn is gone whole,
  * each cut's digest (never its words) for one he cut words out of.
  */
-const deletionKeysOf = (t: LifelogTurn, deletions: Deletions) => {
+const deletionKeysOf = (t: VoiceTurn, deletions: Deletions) => {
   const ref = turnRef(t.jobId, t.turnIndex, t.at);
   return isGone(ref, deletions)
     ? [`${ref} deleted`]
@@ -218,7 +218,7 @@ const deletionKeysOf = (t: LifelogTurn, deletions: Deletions) => {
 };
 
 /** A turn's identity: its ref and who lifelog says spoke it (his, its person id, else its name). */
-export const turnKey = (t: LifelogTurn) =>
+export const turnKey = (t: VoiceTurn) =>
   `${turnRef(t.jobId, t.turnIndex, t.at)} ${t.owner ? OWNER : (authorOf(t) ?? "")}`;
 
 /**
@@ -253,7 +253,7 @@ export function voiceTokensOf(keys: string[]) {
 }
 
 /** A conversation's turns by local day: one voice unit's turns each (`voiceUnitId(c.id, day)`). */
-export const turnsByDayOf = (c: LifelogConversation) =>
+export const turnsByDayOf = (c: VoiceConversation) =>
   Map.groupBy(c.turns, (t) => localDate(t.at));
 
 /**
@@ -265,8 +265,8 @@ export const turnsByDayOf = (c: LifelogConversation) =>
  * (29 Oct 2026: he named 96 voices, and their days kept the old names) or whose words he deleted has it read again.
  * ponytail: words transcribed again under the same turn refs keep the hash; hash the words if re-transcription matters.
  */
-export function lifelogUnits(
-  conversations: LifelogConversation[],
+export function voiceUnitsOf(
+  conversations: VoiceConversation[],
   frozenKeys: Set<string>,
   deletions: Deletions = NO_DELETIONS
 ): Built[] {
@@ -791,7 +791,7 @@ export function builtFor(
 }
 
 /** Lifelog person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
-export const lifelogNames = (truth: Truth) =>
+export const voiceNames = (truth: Truth) =>
   new Map(
     truth.people.flatMap((p) =>
       p.handles.lifelog ? [[p.handles.lifelog, p.name]] : []

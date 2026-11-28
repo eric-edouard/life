@@ -30,7 +30,7 @@ import { describeFilesOnArrival } from "../memory/message-files";
 import { writePersonPictures } from "../memory/person-pictures";
 import type { Truth } from "../memory/read-truth";
 import { listening, quietly, readySources } from "../memory/sources";
-import { publishTodayUnits, syncLifelogUnits } from "../memory/unit-writer";
+import { publishTodayUnits, syncVoiceUnits } from "../memory/unit-writer";
 import { embedderNow, embedNew } from "../memory/vectors";
 import { nameVoicesOnArrival } from "../memory/voice-naming-on-arrival";
 import { readPeople } from "../memory/who";
@@ -281,7 +281,7 @@ async function settle(
     return null;
   }
   const done = await locked(async () => {
-    const built = due ? await syncLifelogUnits(store, due) : null;
+    const built = due ? await syncVoiceUnits(store, due) : null;
     await reindexFor(built);
     return { built };
   });

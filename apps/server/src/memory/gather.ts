@@ -31,8 +31,8 @@ import {
   type Built,
   frozenBuilt,
   frozenUnits,
-  lifelogNames,
-  lifelogUnits,
+  voiceNames,
+  voiceUnitsOf,
   type Resolve,
   readEventsOf,
   sourceUnitsOf,
@@ -190,13 +190,13 @@ export async function readSourceEvents(
 }
 
 /**
- * The voice units from `since` on, composed once for both writers (`gather`, `syncLifelogUnits`): the conversations
+ * The voice units from `since` on, composed once for both writers (`gather`, `syncVoiceUnits`): the conversations
  * lifelog has that end at or after it, built into conversation-days; `have`, the stored voice units they replace (of a
  * conversation read, or ending at or after `since`), read from the earliest day either begins; the frozen chapters
  * among them (`frozenUnits`).
  */
 export async function voiceUnits(store: Store, since: Date, truth: Truth) {
-  const conversations = readConversations(store, since, lifelogNames(truth));
+  const conversations = readConversations(store, since, voiceNames(truth));
   const read = new Set(conversations.map((c) => c.id));
   const from = [since.toISOString(), ...conversations.map((c) => c.startedAt)]
     .map(localDate)
@@ -208,7 +208,7 @@ export async function voiceUnits(store: Store, since: Date, truth: Truth) {
   );
   const chapters = frozenUnits(store, have);
   return {
-    built: lifelogUnits(
+    built: voiceUnitsOf(
       conversations,
       new Set(chapters.map((u) => u.key)),
       deletionsNow()

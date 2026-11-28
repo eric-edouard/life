@@ -7,7 +7,7 @@ import { z } from "zod";
 import { AppleHealthPage } from "./apple-health";
 import {
   apply,
-  LifelogStatus,
+  VoiceServerStatus,
   newestTurn,
   openStore,
   ownerSpoke,
@@ -39,9 +39,9 @@ import {
 } from "./voice-speakers";
 import {
   conversation,
-  lifelogServer,
+  voiceServer,
   pageFixture,
-  lifelogStore as store,
+  voiceStore as store,
   turnFixture,
 } from "./store-fixtures";
 import { VoiceNoteWords } from "./voice-notes";
@@ -244,7 +244,7 @@ test("a turn's place in its conversation, and a person's conversations newest fi
 });
 
 test("search posts the words and the range with the device token and returns the hits", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     "/search": () => ({
       hits: [
         {
@@ -293,7 +293,7 @@ test("the owner flag is stored and read back; poll lists a turn as his once, a l
     "Anne-Sophie",
     "c1"
   );
-  const server = lifelogServer({
+  const server = voiceServer({
     "/changes": () =>
       pageFixture({
         conversations: [conversation("c1")],
@@ -352,7 +352,7 @@ test("a turn keeps its end and when the feed first brought it", () => {
 test("poll also lists a new turn nobody is named for, once", async () => {
   const s = store();
   const lost = turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1");
-  const server = lifelogServer({
+  const server = voiceServer({
     "/changes": () =>
       pageFixture({ conversations: [conversation("c1")], turns: [lost] }),
   });
@@ -550,7 +550,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       defs,
       "apple-health"
     ),
-    // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
+    // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so VoiceServerStatus takes each field as
     // optional and nullable (tested below) and there is nothing to compare.
   ]).toEqual([]);
 });
@@ -604,7 +604,7 @@ test("a feed page parses with or without lifelog's generated title, and a store 
 
 test("visits: lifelog's 404 (no place the phone named matches) is no stays", async () => {
   // No route: the test server answers 404, as lifelog does when nothing matches.
-  const server = lifelogServer({});
+  const server = voiceServer({});
   try {
     expect(await visits({ place: "Nowhere" })).toEqual([]);
   } finally {
@@ -693,15 +693,15 @@ test("a hearing replaces only the marks of turns holding a wake it knows: an old
 });
 
 test("lifelog's /status is read whatever its untyped objects hold: absent, null, or partly there", () => {
-  expect(LifelogStatus.parse({})).toEqual({});
+  expect(VoiceServerStatus.parse({})).toEqual({});
   expect(
-    LifelogStatus.parse({ other: 1, pendant: null, phoneHeartbeat: null })
+    VoiceServerStatus.parse({ other: 1, pendant: null, phoneHeartbeat: null })
   ).toEqual({
     pendant: null,
     phoneHeartbeat: null,
   });
   expect(
-    LifelogStatus.parse({
+    VoiceServerStatus.parse({
       pendant: { batteryPercent: 0, connection: null, recording: "recording" },
       phoneHeartbeat: { backlog: null },
     }).pendant?.batteryPercent
@@ -714,7 +714,7 @@ test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none
     observedAt: "2026-09-01T11:00:00.000Z",
     timeZone: "Asia/Jakarta",
   };
-  const server = lifelogServer({ "/status": () => ({ phoneHeartbeat: beat }) });
+  const server = voiceServer({ "/status": () => ({ phoneHeartbeat: beat }) });
   try {
     expect(await readPhoneZone()).toBe("Asia/Jakarta");
     beat = { observedAt: "2026-10-21T11:00:00.000Z", timeZone: "+07:00" };
@@ -747,7 +747,7 @@ test("the phone's zone comes from a field lifelog's heartbeat contract holds: `t
   const beat = api.components.schemas.HeartbeatUpload.properties;
   expect(beat.timeZone.type).toBe("string");
   expect(
-    LifelogStatus.parse({ phoneHeartbeat: { timeZone: "Asia/Jakarta" } })
+    VoiceServerStatus.parse({ phoneHeartbeat: { timeZone: "Asia/Jakarta" } })
       .phoneHeartbeat
   ).toEqual({ timeZone: "Asia/Jakarta" });
 });

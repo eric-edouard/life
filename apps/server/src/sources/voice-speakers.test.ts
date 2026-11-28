@@ -8,7 +8,7 @@ import {
   readNamingQueueNow,
   readVoiceNames,
 } from "./voice-speakers";
-import { lifelogServer } from "./store-fixtures";
+import { voiceServer } from "./store-fixtures";
 
 const DANA = "00000000-0000-4000-8000-000000000001";
 const KOFI = "00000000-0000-4000-8000-000000000002";
@@ -26,7 +26,7 @@ const item = {
   words: 400,
 };
 let queue: () => unknown = () => [item];
-const server = lifelogServer({
+const server = voiceServer({
   "/naming-queue": () => queue(),
   "/naming-queue/answer": () => ({ ok: true }),
 });

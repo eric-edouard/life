@@ -312,7 +312,7 @@ export async function reindex() {
 }
 
 /**
- * Rewrites the rows of `units` alone, units the watcher wrote (`syncLifelogUnits`): the observations on them stand as
+ * Rewrites the rows of `units` alone, units the watcher wrote (`syncVoiceUnits`): the observations on them stand as
  * they did, so the full rebuild's rows hold. A unit that went, or that a code rule dropped or took back, takes the full
  * `reindex`.
  */

@@ -4,8 +4,8 @@ import { apply } from "../sources/voice-server";
 import { readSpokenTurns } from "../sources/voice-server-conversations";
 import {
   conversation,
-  lifelogServer,
-  lifelogStore,
+  voiceServer,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -39,7 +39,7 @@ interface Kind {
   withOwner: boolean;
 }
 
-let server: ReturnType<typeof lifelogServer> | undefined;
+let server: ReturnType<typeof voiceServer> | undefined;
 afterAll(() => server?.close());
 
 /** A store holding `specs` as conversation c1 (turns numbered per job), lifelog answering its words and `kinds`. */
@@ -64,7 +64,7 @@ const sceneOf = (specs: Spec[], kinds: Kind[] = []) => {
     };
   });
   server?.close();
-  server = lifelogServer({
+  server = voiceServer({
     "/conversations/c1": () => ({
       latestRun: {
         result: {
@@ -81,7 +81,7 @@ const sceneOf = (specs: Spec[], kinds: Kind[] = []) => {
       ])
     ),
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(store, pageFixture({ conversations: [conversation("c1")], turns }));
   return readSpokenTurns(store, new Map());
 };

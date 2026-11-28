@@ -9,7 +9,7 @@ import { githubCopier, readGithub } from "../sources/github";
 import { apply } from "../sources/voice-server";
 import {
   conversation,
-  lifelogStore,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -44,7 +44,7 @@ const reads: SharedReads = {
   people: readsOnce().people,
 };
 const open = () => {
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({

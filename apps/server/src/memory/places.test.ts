@@ -5,7 +5,7 @@ import { OWNER_DATA_DIR } from "../core/paths";
 import { apply, type Stay } from "../sources/voice-server";
 import {
   conversation,
-  lifelogStore,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -20,7 +20,7 @@ test("places: a conversation's label names who spoke as the directory does, not 
   );
   try {
     const open = () => {
-      const store = lifelogStore();
+      const store = voiceStore();
       apply(
         store,
         pageFixture({

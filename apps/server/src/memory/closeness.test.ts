@@ -6,7 +6,7 @@ import type { SourceEvent } from "../records/source";
 import { apply } from "../sources/voice-server";
 import {
   conversation,
-  lifelogStore,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -216,7 +216,7 @@ test("the judgment is checked: a person not asked about, twice, or a level out o
 });
 
 test("voice days are the days someone spoke in a live recording since the window's start, by lifelog's own speakers", () => {
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
@@ -425,7 +425,7 @@ test("completed 1:1 calls of every source are voice days, never messages or extr
     mail: { got: 0, sent: 0 },
     voice: true,
   });
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({

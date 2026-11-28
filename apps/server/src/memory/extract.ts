@@ -12,7 +12,7 @@ import {
 } from "../records/observation";
 import { KEEP_AT, SEARCHABLE_AT } from "../records/unit";
 import { isActivity } from "../sources/contract";
-import type { LifelogConversation } from "../sources/voice-server";
+import type { VoiceConversation } from "../sources/voice-server";
 import { contextPeopleBy, levelsWith, personallyClose } from "./closeness";
 import type { Evidence } from "./gather";
 import {
@@ -74,7 +74,7 @@ const EPISODE_MAX = 20;
  * The ids of the conversations lifelog has settled (the contract's `closed`, its own signal, never a timing rule of
  * Life's): their units are final enough to read before the day is over.
  */
-export const closedConversations = (conversations: LifelogConversation[]) =>
+export const closedConversations = (conversations: VoiceConversation[]) =>
   new Set(conversations.filter((c) => c.closed).map((c) => c.id));
 
 const size = (s: Source) => s.lines.reduce((n, l) => n + l.text.length, 0);

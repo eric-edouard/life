@@ -4,7 +4,7 @@ import { payments } from "../payments/backend";
 import type { Payment } from "../payments/contract";
 import type { Episode } from "../records/episode";
 import type { Stay } from "../sources/voice-server";
-import { lifelogMissing } from "../sources/voice-server-call";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { bounds } from "./episode-span";
 import { episodesWhere } from "./memory-files";
 import { amountWordsOf } from "./needs";
@@ -131,7 +131,7 @@ export async function placedOn(
 
 /** His stays on each day `from` to `to` (none without lifelog, or when it cannot be read). */
 async function staysOn(from: string, to: string) {
-  if (lifelogMissing()) {
+  if (voiceServerMissing()) {
     return [];
   }
   const days: string[] = [];

@@ -8,8 +8,8 @@ import { apply, readConversations } from "../sources/voice-server";
 import type { NamingQueueItem } from "../sources/voice-speakers";
 import {
   conversation,
-  lifelogServer,
-  lifelogStore,
+  voiceServer,
+  voiceStore,
   pageFixture,
   turnFixture,
 } from "../sources/store-fixtures";
@@ -17,7 +17,7 @@ import { READ_REPLIES } from "./memory-files";
 import { READS, storeReply } from "./read-replies";
 import type { Truth } from "./read-truth";
 import { voiceUnitId } from "./unit-ids";
-import { type Built, lifelogUnits, unnamedTurnKey } from "./units";
+import { type Built, voiceUnitsOf, unnamedTurnKey } from "./units";
 import {
   conversationOf,
   voiceGuessesNow,
@@ -197,7 +197,7 @@ test("with the setting off nothing is shown; on, a sure or likely guess follows 
 // The guarantee: with the setting on and a stored guess, only `fetch`'s display shows it; the lines extraction and the
 // episodes read stay `unknown:` with no guess in their words.
 test("a guess shows in fetch only: the lines the other steps read never carry it", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     "/transcription-jobs/job-1/transcript": () => ({
       turns: ["Allo", "Salut"].map((text) => ({
         speakerId: "speaker_0",
@@ -206,7 +206,7 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
     }),
   });
   const open = () => {
-    const store = lifelogStore();
+    const store = voiceStore();
     apply(
       store,
       pageFixture({
@@ -268,7 +268,7 @@ test("a guess shows in fetch only: the lines the other steps read never carry it
     expect(read[0]?.speakerName).toBeUndefined();
     expect(JSON.stringify(read)).not.toContain("probably");
     // The episodes' read of the same conversation: his unnamed voice, no guess in its words.
-    const [day] = lifelogUnits(
+    const [day] = voiceUnitsOf(
       readConversations(open(), new Date(0)),
       new Set()
     );
@@ -316,12 +316,12 @@ test("a voice card asks about the one person the group's sure or likely guesses 
       ],
     } as unknown as NamingQueueItem;
     const months = async () => ["2026-08", "2026-10"];
-    const lifelogNames = { "lf-dana": "Dana", "lf-new": "Dana" };
+    const voiceNames = { "lf-dana": "Dana", "lf-new": "Dana" };
     const [guessed] = await withVoiceGuesses(
       [item],
       folder,
       months,
-      async () => lifelogNames
+      async () => voiceNames
     );
     expect(guessed?.guessed).toEqual(["person:dana", "person:kofi"]);
     // Each item keeps the names of its own ids only.
@@ -369,11 +369,11 @@ test("a voice card asks about the one person the group's sure or likely guesses 
     expect(
       voiceIdOf(
         who,
-        { likely: ["lf-new"], names: lifelogNames, personId: null },
+        { likely: ["lf-new"], names: voiceNames, personId: null },
         "person:dana"
       )
     ).toBe("lf-new");
-    expect(card({ name: null, names: lifelogNames, personId: "lf-new" })).toBe(
+    expect(card({ name: null, names: voiceNames, personId: "lf-new" })).toBe(
       "person:dana"
     );
     // A month file torn mid-line: the read throws (the inbox keeps lifelog's suggestion, an answer refuses).

@@ -13,7 +13,7 @@ import type { Unit } from "../records/unit";
 import { readAssistant } from "../sources/assistants";
 import {
   apply,
-  type LifelogConversation,
+  type VoiceConversation,
   openStore,
   readConversations,
   WATCH,
@@ -22,8 +22,8 @@ import { copyNotes, readNotes } from "../sources/notes";
 import {
   claudeExport,
   conversation as feedConversation,
-  lifelogServer,
-  lifelogStore,
+  voiceServer,
+  voiceStore,
   noteData,
   notesFixture,
   pageFixture,
@@ -38,13 +38,13 @@ import { loadTruth } from "./read-truth";
 import { SOURCES } from "./sources";
 import { normalizeTopics } from "./tags";
 import { unitId } from "./unit-ids";
-import { syncLifelogUnits, writeUnits } from "./unit-writer";
+import { syncVoiceUnits, writeUnits } from "./unit-writer";
 import {
   applyRules,
   conversationLabel,
   isFrozen,
   lifeChat,
-  lifelogUnits,
+  voiceUnitsOf,
   MARKED,
   messageUnits,
   oneToOne,
@@ -102,7 +102,7 @@ const said = (n: number, name: string | null, owner = false) => ({
   turnIndex: n,
 });
 
-const conversation: LifelogConversation = {
+const conversation: VoiceConversation = {
   closed: false,
   endedAt: "2026-10-25T10:40:00.000Z",
   id: "00000000-0000-8000-8000-01a1210b4bdf",
@@ -262,7 +262,7 @@ test("the same chat content seen twice hashes the same and the second unit is dr
 });
 
 test("a conversation's day is one unit, built from its turns alone: first and last turn refs, him and its names unresolved", () => {
-  const [b] = lifelogUnits([conversation], none);
+  const [b] = voiceUnitsOf([conversation], none);
   const unit = b?.unit;
   expect(unit?.id).toBe(unitId("lifelog", conversation.id, "2026-10-25"));
   expect(unit?.refs).toEqual([
@@ -288,13 +288,13 @@ test("a conversation's day is one unit, built from its turns alone: first and la
 });
 
 test("a voice given to someone else changes its unit's hash, so its day is read again (29 Oct 2026: 96 voices named, their days kept the old names)", () => {
-  const hashOf = (turns: LifelogConversation["turns"]) =>
-    lifelogUnits([{ ...conversation, turns }], none)[0]?.unit.hash;
+  const hashOf = (turns: VoiceConversation["turns"]) =>
+    voiceUnitsOf([{ ...conversation, turns }], none)[0]?.unit.hash;
   const before = hashOf(conversation.turns);
   const [mine, gaston, jean] = conversation.turns as [
-    LifelogConversation["turns"][number],
-    LifelogConversation["turns"][number],
-    LifelogConversation["turns"][number],
+    VoiceConversation["turns"][number],
+    VoiceConversation["turns"][number],
+    VoiceConversation["turns"][number],
   ];
   expect(hashOf([mine, { ...gaston, personId: "p-1" }, jean])).not.toBe(before);
   expect(hashOf([mine, { ...gaston, name: "Rose" }, jean])).not.toBe(before);
@@ -314,12 +314,12 @@ test("a conversation across midnight is two units; a conversation with a stored 
     turns: [said(12 * 60 + 50, null, true), said(13 * 60 + 10, "Gaston")],
   };
   expect(
-    lifelogUnits([late], none).map((b) => [b.unit.date, b.unit.end])
+    voiceUnitsOf([late], none).map((b) => [b.unit.date, b.unit.end])
   ).toEqual([
     ["2026-10-25", "2026-10-25T23:00:00.000Z"],
     ["2026-10-26", "2026-10-25T23:30:00.000Z"],
   ]);
-  expect(lifelogUnits([late], new Set([late.id]))).toEqual([]);
+  expect(voiceUnitsOf([late], new Set([late.id]))).toEqual([]);
   // A chapter unit carries lifelog's summary; a placeholder (never summarized) and a repo-day's summary don't freeze.
   expect(isFrozen({ source: "lifelog", summary: "A summary." })).toBe(true);
   expect(isFrozen({ source: "lifelog", summary: "" })).toBe(false);
@@ -328,8 +328,8 @@ test("a conversation across midnight is two units; a conversation with a stored 
 });
 
 test("a turn of one of his asks moves its unit's hash and its refs are kept; a turn added moves it too, a name given does not", () => {
-  const [plain] = lifelogUnits([conversation], none);
-  const [marked] = lifelogUnits(
+  const [plain] = voiceUnitsOf([conversation], none);
+  const [marked] = voiceUnitsOf(
     [
       {
         ...conversation,
@@ -343,12 +343,12 @@ test("a turn of one of his asks moves its unit's hash and its refs are kept; a t
   );
   expect(marked?.unit.marked).toEqual(["job-1:0@x", "job-1:1@x"]);
   expect(marked?.unit.hash).not.toBe(plain?.unit.hash);
-  const [grown] = lifelogUnits(
+  const [grown] = voiceUnitsOf(
     [{ ...conversation, turns: [...conversation.turns, said(35, null)] }],
     none
   );
   expect(grown?.unit.hash).not.toBe(plain?.unit.hash);
-  const [named] = lifelogUnits(
+  const [named] = voiceUnitsOf(
     [
       {
         ...conversation,
@@ -693,7 +693,7 @@ test("a conversation that moves to another day leaves its old day's file; other 
     stats: { chars: 40, fromMe: 1, items: 1 },
     title: "Team",
   };
-  const store = lifelogStore();
+  const store = voiceStore();
   const on = (day: string) =>
     pageFixture({
       conversations: [
@@ -706,14 +706,14 @@ test("a conversation that moves to another day leaves its old day's file; other 
     });
   try {
     await writeUnits([chat.date], [chat]);
-    await syncLifelogUnits(store, apply(store, on("2026-10-25")) as Date);
+    await syncVoiceUnits(store, apply(store, on("2026-10-25")) as Date);
     expect(await sourcesByDay()).toEqual({
       "2026-10-25": ["whatsapp", "lifelog"],
     });
     // Regrouped onto the next day: a new id, the old one leaves (unit ids are by conversation and day). The page
     // touched the old start, so the sync reads the old day too.
     expect(
-      await syncLifelogUnits(store, apply(store, on("2026-10-26")) as Date)
+      await syncVoiceUnits(store, apply(store, on("2026-10-26")) as Date)
     ).toMatchObject({
       added: 1,
       hasGoneOrBack: true,
@@ -755,7 +755,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
   expect(existsSync(UNITS)).toBe(false);
   const chapter = storedVoice("unit_00000000000c", "c1", "A summary.");
   const placeholder = storedVoice("unit_00000000000e", "c2");
-  const store = lifelogStore();
+  const store = voiceStore();
   const at = "2026-10-20T10:00:00.000Z";
   apply(
     store,
@@ -769,7 +769,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
   );
   try {
     await writeUnits([chapter.date], [chapter, placeholder]);
-    expect(await syncLifelogUnits(store, new Date(0))).toMatchObject({
+    expect(await syncVoiceUnits(store, new Date(0))).toMatchObject({
       added: 1,
       removed: 1,
     });
@@ -789,7 +789,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
         turns: [turnFixture(0, at, null, null, "c3")],
       })
     );
-    expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
+    expect(await syncVoiceUnits(store, touched as Date)).toMatchObject({
       added: 1,
       removed: 1,
     });
@@ -804,7 +804,7 @@ test("a stored chapter unit stays as stored while its conversation is live, and 
 
 test("a sync reads from where the page touched: only those days' files are rewritten, a voice unit there it did not read stays, and a page that changes nothing writes nothing", async () => {
   expect(existsSync(UNITS)).toBe(false);
-  const store = lifelogStore();
+  const store = voiceStore();
   const talk = (id: string, start: string, end: string) =>
     feedConversation(id, { endAt: end, startAt: start });
   apply(
@@ -823,7 +823,7 @@ test("a sync reads from where the page touched: only those days' files are rewri
     })
   );
   try {
-    expect(await syncLifelogUnits(store, new Date(0))).toMatchObject({
+    expect(await syncVoiceUnits(store, new Date(0))).toMatchObject({
       added: 3,
     });
     // An older day changed by hand: a sync that never reads it leaves it.
@@ -839,7 +839,7 @@ test("a sync reads from where the page touched: only those days' files are rewri
         turns: [turnFixture(3, "2026-10-25T10:20:00.000Z", null, null, "c2")],
       })
     );
-    const synced = await syncLifelogUnits(store, touched as Date);
+    const synced = await syncVoiceUnits(store, touched as Date);
     expect(synced).toMatchObject({
       added: 0,
       changed: 1,
@@ -852,7 +852,7 @@ test("a sync reads from where the page touched: only those days' files are rewri
       ["c3", conversationLabel("2026-10-14T07:00:00.000Z", [])],
       ["c2", conversationLabel("2026-10-15T09:00:00.000Z", [])],
     ]);
-    expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
+    expect(await syncVoiceUnits(store, touched as Date)).toMatchObject({
       added: 0,
       changed: 0,
       removed: 0,
@@ -864,7 +864,7 @@ test("a sync reads from where the page touched: only those days' files are rewri
       ["2026-10-25"],
       units.map((u) => (u.key === "c2" ? { ...u, drop: "duplicate" } : u))
     );
-    expect(await syncLifelogUnits(store, touched as Date)).toMatchObject({
+    expect(await syncVoiceUnits(store, touched as Date)).toMatchObject({
       changed: 1,
       hasGoneOrBack: true,
     });
@@ -875,7 +875,7 @@ test("a sync reads from where the page touched: only those days' files are rewri
 
 test("a conversation from 23:40 to 00:30 at the window start is read whole: its 00:10 turn is on the window's first day", () => {
   // Lagos, UTC+1: 23:40 on the 25th is 22:40Z, the window starts at 00:00 on the 26th (23:00Z).
-  const store = lifelogStore();
+  const store = voiceStore();
   apply(
     store,
     pageFixture({
@@ -892,7 +892,7 @@ test("a conversation from 23:40 to 00:30 at the window start is read whole: its 
     })
   );
   expect(
-    lifelogUnits(readConversations(store, dayStart("2026-10-26")), none).map(
+    voiceUnitsOf(readConversations(store, dayStart("2026-10-26")), none).map(
       (b) => [b.unit.date, b.unit.start]
     )
   ).toEqual([
@@ -965,7 +965,7 @@ test("a processing run reads a stored chapter unit as stored, a marked one still
     marked: ["job-1:0@x"],
   };
   // lifelog set up, its store holding conv-1 live (no words: no conversation-day either way).
-  const server = lifelogServer({});
+  const server = voiceServer({});
   const store = openStore();
   apply(store, pageFixture({ conversations: [feedConversation("conv-1")] }));
   store.db.close();

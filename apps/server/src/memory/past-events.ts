@@ -24,7 +24,7 @@ import {
 } from "./memory-files";
 import { stayOf, where } from "./places";
 import { loadTruth } from "./read-truth";
-import { clip, conversationLabel, lifelogNames } from "./units";
+import { clip, conversationLabel, voiceNames } from "./units";
 import { readPeople } from "./who";
 import { time } from "./zones";
 
@@ -184,7 +184,7 @@ export async function wanted(now: Date, since?: Date) {
 /** Each draft with the description and location it is written with, one at a time (stays are read as it comes). */
 export async function* described(fresh: Draft[]) {
   // The store is read before any network call, so it is never held open across them.
-  const byId = lifelogNames(await loadTruth());
+  const byId = voiceNames(await loadTruth());
   const talks = await withStore((store) =>
     fresh.map((d) =>
       d.allDay ? [] : conversationsBetween(store, d.from, d.to, byId)
