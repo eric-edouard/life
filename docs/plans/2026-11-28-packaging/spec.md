@@ -98,10 +98,14 @@ already known.
 5. **What Life looks at.** The integrations of group `sources`, each with its icon, value line and one Connect.
    Google first for a Google user ("Connect Google" covers mail, calendar, contacts, tasks). Apple sources appear only
    on a Mac. Several at once: tick, then Connect all.
-6. **Backups.** Life finds the cloud folders on the computer (iCloud Drive, Google Drive, OneDrive) and offers the
+6. **How far back.** For each source just connected, what it holds, counted with no model: "48,000 messages since
+   2014". One choice for all: the last 3 months, the last year, or everything, each with its cost and time on the
+   chosen AI (measured: about $1 per dense month of chats on OpenRouter; Claude: the subscription's usage). The user's
+   pick is the approval of that import. It runs in the background from here on; setup never waits on it.
+7. **Backups.** Life finds the cloud folders on the computer (iCloud Drive, Google Drive, OneDrive) and offers the
    first one: an encrypted restic copy goes there each night (`host/backup.ts`). The recovery key is shown once, to keep
    in a password manager. Neither the cloud provider nor the developer can read the copy.
-7. **Your phone.** "Get the app": the TestFlight invite (sent by email; the screen shows what it looks like), then
+8. **Your phone.** "Get the app": the TestFlight invite (sent by email; the screen shows what it looks like), then
    the pairing QR. The window closes when the phone pairs.
 
 Messaging apps are not here: they are signed in from the phone, where the sheet already exists.
@@ -195,6 +199,31 @@ then A2; `scripts/app.ts`: D; `apps/mac`: the one-Mac-app bundles 3–4, then M.
 - New: a Gmail reader source (`sources/gmail.ts` is send-only today), Google Contacts into
   `memory/contact-people.ts`'s input, Google Calendar read (#1377).
 
+### H. History imports (~+900; needs A1, A2; Gmail's history with G)
+Code does it all; no agent. An agent would only drive a wizard, and the one thing worth an agent, mending a parser on
+the user's computer, is refused: an export holds other people's words, and letting them steer code that writes the
+append-only memory breaks "Content never runs Life's code". Parsers are mended upstream instead (last bullet).
+- **Counts.** One pure count per source beside its `earliest()` (iMessage `chat.db`, the archives' tables, Mail's
+  Envelope Index, `readShown` in `sources/photos.ts:367`, which already counts, git `rev-list --count`, Gmail's
+  `messagesTotal`), shown in the integration's value line. The export `--dry` readers already count.
+- **The estimate.** Tokens per day of data from the count, times `core/prices.ts`; one function, shown in setup step 6.
+- **Catch-up from a day.** One job runs what is now run by hand, in order, over the chosen range: `hear-voice-notes`,
+  `historical-units`, then the model steps with their `--from` (episodes, extract, matters and the rest), the newest
+  month first, resumable, drained over nights within the existing nightly caps. `backfillEngine` defaults to the
+  chosen engine. Its progress is the source's integration line ("reading 2021, about 2 hours left"), so the phone
+  and the menu bar show it with nothing new.
+- **Zones.** A fresh install with no photos or sent mail seeds the computer's zone as the nearest known day
+  (`memory/historical-zones.ts`).
+- **One new parser:** a WhatsApp chat export (the `.txt` the phone shares per chat), the only chat history a Windows
+  user can bring; kept as an import copy in `imports/whatsapp/` like the assistants' exports, so no new archive file.
+  Instagram, ChatGPT and Claude exports already parse (`memory/imports.ts`); setup takes any of them dropped on its
+  window.
+- **Rules.** AGENTS.md and `docs/operations.md:160` gain one line each: for a new user, the pick in setup step 6 is
+  the yes that "ask first" and "no scheduled backfill until prompts are frozen" call for, within its shown cost.
+- **When a parser fails.** It throws a shape report: file names, keys and column names, counts, never a line's words.
+  The caretaker offers it as its usual card, a mail draft to the developer sent only on the user's Send. The fix ships
+  to everyone through the auto-update; the import resumes on the new version.
+
 ### T. Trust (~+400, mostly docs; needs A1 for the privacy lines)
 - Section 5: the privacy-line test, README "Security and privacy", SECURITY.md completed, the release workflow with
   attestations (on the owner's yes), the pre-release audit run.
@@ -225,9 +254,9 @@ then A2; `scripts/app.ts`: D; `apps/mac`: the one-Mac-app bundles 3–4, then M.
 
 ## Debt plan
 Tier: hard: a trust boundary (Google OAuth, the relay), strict paths (`host/http/`), a new concept (integration).
-Inventory: sources `sources/contract.ts:117,145`, `memory/sources.ts:325,350,370`; health `host/status/snapshot.ts:59,317,481,540,1103`, `host/messaging-status.ts:38,73,154`, `host/health.ts:24`, `host/voice.ts:467,491`, `host/agent-health.ts:73`; networks `sources/networks.ts:45`; engines `models/llm.ts:82,499,544`; access in #1561. rg: `missing\(\)|connectorHealths|polling\(|voiceStatus|isOnline|toneOf`.
+Inventory: sources `sources/contract.ts:117,145`, `memory/sources.ts:325,350,370`; health `host/status/snapshot.ts:59,317,481,540,1103`, `host/messaging-status.ts:38,73,154`, `host/health.ts:24`, `host/voice.ts:467,491`, `host/agent-health.ts:73`; networks `sources/networks.ts:45`; engines `models/llm.ts:82,499,544`; access in #1561. rg: `missing\(\)|connectorHealths|polling\(|voiceStatus|isOnline|toneOf`. Imports: `memory/imports.ts:61,249,340`, `memory/historical-collection.ts:34`, `host/command.ts:342,358`, `core/settings.ts:100`, `docs/operations.md:160`.
 Shape: an integration's static facts on the registry entry that already exists; its state from one pure `integrationHealthOf`; one read, `integrationsNow`, served to both apps; acting through the doors that exist.
 State: none new stored; keys through `writeSecret`; the setup window's progress is the integrations' state itself.
 Deletes: duplicate health in the snapshot, messaging-status and the second `polling`; the Mac Settings and Status windows; `go` builds on the user's machine; Tailscale as default; the engine default; the fixed backup path.
-Net lines: about +7,000 / −2,200 across the bundles (the phone onboarding and Windows are new surfaces).
+Net lines: about +7,900 / −2,200 across the bundles (the phone onboarding and Windows are new surfaces).
 Plan review: one fresh Fable review, reshaped: A split into A1 (the read), A2 (core) and G (Google); names `Requirement` and `waiting_on_user` (clashes with a card's need and a matter's state); the name asked at `init` on the host; #1561 and gog bundling as dependencies; tokens kept out of the Keychain; OpenRouter credits; the language mode with three values; shared files given owners; getting to know you and the first task moved to I2; R's fallback; the Windows setup screen put to the owner; the owner's contact and LaunchAgent labels kept.
