@@ -298,12 +298,19 @@ export const buildOf = async () =>
 
 /**
  * The link the phone opens (`lifelog://pair?life=<origin>&code=<code>`), with voice's address and the phone's device
- * token (`url`, `token`) when given: one QR pairs both.
+ * token (`url`, `token`) when given: one QR pairs both. `mac` and `relay` are the Mac's iroh address (`macAddressOf`),
+ * which the phone reaches Life through whatever its origin is.
  */
-export const pairLinkOf = (origin: string, code: string, token?: string) =>
+export const pairLinkOf = (
+  origin: string,
+  code: string,
+  token?: string,
+  mac?: { mac: string; relay: string }
+) =>
   `lifelog://pair?${new URLSearchParams({
     code,
     life: origin,
+    ...(mac && { mac: mac.mac, relay: mac.relay }),
     ...(token && { token, url: `${origin}/voice` }),
   })}`;
 

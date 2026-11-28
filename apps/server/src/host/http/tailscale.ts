@@ -38,6 +38,14 @@ export async function tailnetName() {
   return s.Self.DNSName.replace(TRAILING_DOT, "");
 }
 
+/** The connector's origin, kept in the settings: the one write `connect` and `connect --local` share. */
+export function rememberOrigin(origin: string) {
+  setSettings({
+    connector: { ...settings().connector, origin },
+  });
+  return origin;
+}
+
 /**
  * Serves Life on this Mac's tailnet name (port 443): on his tailnet only, or `public` through Funnel for ChatGPT and
  * Claude.ai. Its origin becomes the connector's.
@@ -55,9 +63,5 @@ export async function connect(publicToo: boolean) {
     "--https=443",
     SERVER,
   ]);
-  const origin = `https://${name}`;
-  setSettings({
-    connector: { ...settings().connector, origin },
-  });
-  return origin;
+  return rememberOrigin(`https://${name}`);
 }

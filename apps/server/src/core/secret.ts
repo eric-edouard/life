@@ -25,6 +25,11 @@ export const SECRETS = {
   gogKeyring: join(LIFE_STATE_DIR, "gog-keyring"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
   /**
+   * The Mac's iroh secret key (32 bytes, hex): the endpoint id the phone's pairing link names (`macAddressOf`,
+   * host/http/iroh.ts). A restored Mac makes a new key, and the phone pairs again.
+   */
+  macKey: join(LIFE_STATE_DIR, "mac.key"),
+  /**
    * His account on the bridges' homeserver (`sources/matrix.ts`): `{password, token}`, written when `bun life bridge`
    * sets the homeserver up. Beside the homeserver, which every install on this Mac shares (`MACHINE_DIR`).
    */
@@ -73,7 +78,9 @@ const KEY = /^[0-9a-f]{64}$/;
  * A random secret in its file, made once, then read: written whole to a file of its own, then linked in place, which
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
-export function secretIn(name: "deskKey" | "localKey" | "pushIdKey"): string {
+export function secretIn(
+  name: "deskKey" | "localKey" | "macKey" | "pushIdKey"
+): string {
   const path = SECRETS[name];
   if (existsSync(path)) {
     const key = readFileSync(path, "utf8");

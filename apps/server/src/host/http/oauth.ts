@@ -44,7 +44,12 @@ const DOCUMENT_HOSTS = new Set(["chatgpt.com", "claude.ai", "claude.com"]);
 const Stored = z.object({
   clients: z.record(
     z.string(),
-    z.object({ name: z.string(), redirects: z.array(z.string()) })
+    z.object({
+      name: z.string(),
+      // The phone that signed in as this client: its endpoint id, once the pairing's code was spent here.
+      phone: z.string().optional(),
+      redirects: z.array(z.string()),
+    })
   ),
   key: z.record(z.string(), z.unknown()).optional(),
   pairing: z
@@ -52,6 +57,8 @@ const Stored = z.object({
       agent: z.string().optional(),
       expires: z.number(),
       hash: z.string(),
+      // The one phone that proved this code (`provePairing`); it stays until it expires or a new `pair()` replaces it.
+      phone: z.string().optional(),
       tries: z.number(),
     })
     .optional(),
@@ -103,7 +110,7 @@ export function pair(agent?: string, now = clock().getTime()) {
   return code;
 }
 
-/** The pairing `code` is the live one of, or none; a right one is spent, a wrong one spends a try. */
+/** The pairing `code` is the live one of, or none; a right one is spent, a wrong one spends a try. Its phone goes with it. */
 function paired(code: string, now: number) {
   const p = read().pairing;
   if (!p || p.expires < now || p.tries >= PAIRING_TRIES) {
@@ -114,7 +121,66 @@ function paired(code: string, now: number) {
     ...s,
     pairing: ok ? undefined : { ...p, tries: p.tries + 1 },
   }));
-  return ok ? { agent: p.agent } : undefined;
+  return ok ? { agent: p.agent, phone: p.phone } : undefined;
+}
+
+/**
+ * The phone's proof of the pairing code (`life/pair/1`, host/http/iroh.ts): the live pairing's rules, and the first
+ * right proof binds that phone's endpoint id to it — the code itself stays for the sign-in. The same id again is ok;
+ * another id is refused; a wrong code spends a try; a pairing made for an agent binds nothing, a phone reaching Life
+ * with its own tokens instead.
+ */
+export function provePairing(
+  code: string,
+  id: string,
+  now = clock().getTime()
+) {
+  const p = read().pairing;
+  if (!p || p.agent || p.expires < now || p.tries >= PAIRING_TRIES) {
+    return false;
+  }
+  if (!same(hash(code.trim().toUpperCase()), p.hash)) {
+    update((s) => ({ ...s, pairing: { ...p, tries: p.tries + 1 } }));
+    return false;
+  }
+  if (p.phone === id) {
+    return true;
+  }
+  if (p.phone) {
+    return false;
+  }
+  update((s) => ({ ...s, pairing: { ...p, phone: id } }));
+  return true;
+}
+
+/**
+ * Whether `id` is a phone Life paired: the live pairing's, or one a sign-in moved onto the client it approved. No other
+ * endpoint id is piped a byte.
+ */
+export function isPairedPhone(id: string, now = clock().getTime()) {
+  const state = read();
+  const live = state.pairing;
+  return (
+    (live?.phone === id && live.expires >= now) ||
+    Object.values(state.clients).some((client) => client.phone === id)
+  );
+}
+
+/**
+ * The sign-in that spends a pairing's code gives its phone to the client it approves (none bound, nothing to move);
+ * revoking the client takes it too (the app's list, later).
+ */
+function approving(client: string, known: Client, phone: string | undefined) {
+  if (!phone) {
+    return;
+  }
+  update((s) => ({
+    ...s,
+    clients: {
+      ...s.clients,
+      [client]: { ...(s.clients[client] ?? known), phone },
+    },
+  }));
 }
 
 /** The signing key, made once and kept with the rest of Life's sign-in state; loaded once per process. */
@@ -141,6 +207,8 @@ const publicJwk = ({ d: _, ...pub }: Record<string, unknown>) => pub as JWK;
 
 interface Client {
   name: string;
+  /** The phone a sign-in approved here (`approving`): its endpoint id, never a secret. */
+  phone?: string;
   redirects: string[];
 }
 const parsed = (raw: string): unknown => {
@@ -324,6 +392,8 @@ export function createIssuer(
         clients: { ...s.clients, [a.data.client_id]: registered },
       }));
     }
+    // The pairing's phone, if one proved it, is this client's from now on: only it connects over iroh as that client.
+    approving(a.data.client_id, client, pairing.phone);
     const code = randomBytes(24).toString("base64url");
     codes.set(code, {
       agent: pairing.agent,

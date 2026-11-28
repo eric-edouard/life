@@ -8,6 +8,7 @@ import { connector, settings } from "../../core/settings";
 import { VOICE_URL } from "../../sources/voice-server-call";
 import { ownerTokens } from "./auth";
 import { HEADERS, LOCAL_PORT, PUBLIC_PORT } from "./http";
+import { serveOverIroh } from "./iroh";
 import { keyRefusal } from "./local-key";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
@@ -45,6 +46,10 @@ export function serve() {
   }
   // Bun's own cap only: Life's routes keep theirs (`bodyLimit`), and the voice server caps its own.
   listen(PUBLIC_PORT, publicPortRoutes());
+  // The phone's own way in, beside the tunnel: a start failure leaves Tailscale serving (logged like the app's port).
+  serveOverIroh().catch((e: Error) => {
+    console.error(`Life: iroh is off: ${e.message}`);
+  });
 }
 
 /** Any path a port's app has no route for. */

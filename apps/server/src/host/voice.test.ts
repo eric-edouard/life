@@ -336,6 +336,15 @@ test("only his own Life's helper reads voice's secrets: a checkout or a second L
     expect(pairLinkOf("https://life.example", "ABC234", "tok")).toContain(
       "token=tok&url=https%3A%2F%2Flife.example%2Fvoice"
     );
+    // The Mac's iroh address rides in the same link, so one QR pairs the sign-in, voice and the phone's way in.
+    expect(
+      pairLinkOf("https://life.example", "ABC234", undefined, {
+        mac: "a".repeat(64),
+        relay: "https://aps1-1.relay.n0.iroh.link./",
+      })
+    ).toBe(
+      `lifelog://pair?code=ABC234&life=https%3A%2F%2Flife.example&mac=${"a".repeat(64)}&relay=https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F`
+    );
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
     setSettings({ lifelog });
@@ -442,5 +451,38 @@ test("a server.env others can read is the status line, never a status stuck on C
     });
   } finally {
     rmSync(support, { force: true, recursive: true });
+  }
+});
+
+/** `lifelog://pair`'s query as the phone reads it: a link's parameters, in any order. */
+const linkParams = (link: string) =>
+  Object.fromEntries(new URL(link).searchParams);
+
+test("the pairing link is the phone's, the Mac's `mac` and `relay` included (fixtures/wire/pairing-links.json)", () => {
+  const file = join(
+    import.meta.dir,
+    "../../../lifelog/fixtures/wire/pairing-links.json"
+  );
+  const cases = JSON.parse(readFileSync(file, "utf8")) as {
+    case: string;
+    life?: { code: string; mac?: string; origin: string; relay?: string };
+    link: string;
+    pairing: unknown;
+  }[];
+  // The links one QR makes for Life itself: the origin and code, and the Mac's address when it names one.
+  const life = cases.flatMap((c) =>
+    c.life && !c.pairing ? [{ life: c.life, link: c.link, name: c.case }] : []
+  );
+  expect(life.length).toBeGreaterThan(1);
+  expect(life.some((c) => c.life.mac && c.life.relay)).toBe(true);
+  for (const c of life) {
+    const { code, mac, origin, relay } = c.life;
+    const built = pairLinkOf(
+      origin,
+      code,
+      undefined,
+      mac && relay ? { mac, relay } : undefined
+    );
+    expect(linkParams(built)).toEqual(linkParams(c.link));
   }
 });

@@ -48,11 +48,12 @@ import {
 } from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
-import { LOCAL_PORT } from "./http/http";
+import { LOCAL_PORT, PUBLIC_PORT } from "./http/http";
+import { macAddressOf } from "./http/iroh";
 import { localKey } from "./http/local-key";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
-import { connect } from "./http/tailscale";
+import { connect, rememberOrigin } from "./http/tailscale";
 import { init, started } from "./init";
 import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
@@ -223,9 +224,14 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log(`${done.id} ${done.result}: ${entryLine(done)}`);
     return done.result === "failed" ? 1 : 0;
   },
-  /** Puts Life on this Mac's tailnet name: `connect` for his own devices, `connect --public` for ChatGPT and Claude.ai too. */
+  /**
+   * Puts Life on this Mac's tailnet name (`connect` for his own devices, `connect --public` for ChatGPT and Claude.ai
+   * too), or — with no tunnel at all — on its own loopback for a phone that reaches it over iroh (`connect --local`).
+   */
   async connect() {
-    const origin = await connect(process.argv.includes("--public"));
+    const origin = process.argv.includes("--local")
+      ? rememberOrigin(`http://127.0.0.1:${PUBLIC_PORT}`)
+      : await connect(process.argv.includes("--public"));
     console.log(`Life: ${origin}/mcp`);
     return 0;
   },
@@ -400,7 +406,7 @@ const commands: Record<string, () => number | Promise<number>> = {
       return Promise.resolve(0);
     }
     const { origin } = connector();
-    console.log(pairLinkOf(origin, code, pairTokenOf()));
+    console.log(pairLinkOf(origin, code, pairTokenOf(), macAddressOf()));
     return Promise.resolve(0);
   },
   /**

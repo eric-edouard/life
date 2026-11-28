@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { SECRETS } from "../../core/secret";
 import { ownerTokens } from "./auth";
-import { createIssuer, pair } from "./oauth";
+import { createIssuer, isPairedPhone, pair, provePairing } from "./oauth";
 
 const ORIGIN = "https://life.example.test";
 const RESOURCE = `${ORIGIN}/mcp`;
@@ -222,4 +224,67 @@ test("a code serves once and only with its verifier; an unpaired registration is
   }
   expect(await signIn(ids[0] ?? "", pair())).toHaveProperty("page");
   expect(await signIn(ids[20] ?? "", pair())).toHaveProperty("access_token");
+});
+
+/** Life's sign-in state as it is on disk: what `pairing.phone` and a client's `phone` are read from. */
+/** Life's sign-in state as it is on disk: what `pairing.phone` and a client's `phone` are read from. */
+const stateNow = () =>
+  JSON.parse(readFileSync(SECRETS.oauth, "utf8")) as {
+    clients: Record<string, { phone?: string }>;
+    pairing?: { phone?: string; tries: number };
+  };
+
+test("a right proof binds the phone and leaves the code for the sign-in", async () => {
+  const code = pair();
+  expect(provePairing(code, "phone-bound")).toBe(true);
+  expect(isPairedPhone("phone-bound")).toBe(true);
+  expect(stateNow().pairing?.phone).toBe("phone-bound");
+  expect(stateNow().pairing?.tries).toBe(0);
+  // The code is still the sign-in's: the very same code approves the app.
+  expect(await signIn(DOC, code)).toHaveProperty("access_token");
+});
+
+test("a wrong proof spends one of the pairing's tries", () => {
+  pair();
+  expect(provePairing("WRONG1", "phone-wrong")).toBe(false);
+  expect(stateNow().pairing?.tries).toBe(1);
+  expect(stateNow().pairing?.phone).toBeUndefined();
+  expect(isPairedPhone("phone-wrong")).toBe(false);
+});
+
+test("one pairing binds one phone: the same id again is ok, another is refused", () => {
+  const code = pair();
+  expect(provePairing(code, "phone-first")).toBe(true);
+  expect(provePairing(code, "phone-second")).toBe(false);
+  expect(isPairedPhone("phone-second")).toBe(false);
+  expect(provePairing(code, "phone-first")).toBe(true);
+  expect(stateNow().pairing?.phone).toBe("phone-first");
+});
+
+test("a pairing made for an agent binds no phone", () => {
+  const code = pair("claude");
+  expect(provePairing(code, "phone-agent")).toBe(false);
+  expect(stateNow().pairing?.tries).toBe(0);
+  expect(isPairedPhone("phone-agent")).toBe(false);
+});
+
+test("signing in moves the phone onto the client it approves", async () => {
+  const id = "phone-signing-in";
+  const code = pair();
+  expect(provePairing(code, id)).toBe(true);
+  await signIn(DOC, code);
+  expect(stateNow().pairing).toBeUndefined();
+  expect(stateNow().clients).toMatchObject({ [DOC]: { phone: id } });
+  expect(isPairedPhone(id)).toBe(true);
+});
+
+test("an expired, unspent pairing's id is refused", () => {
+  const at = Date.now();
+  const code = pair(undefined, at);
+  expect(provePairing(code, "phone-late", at + 6 * 60_000)).toBe(false);
+  expect(isPairedPhone("phone-late", at + 6 * 60_000)).toBe(false);
+  // Within its five minutes it still binds.
+  expect(provePairing(code, "phone-late", at + 60_000)).toBe(true);
+  // And its phone is refused once the pairing passed.
+  expect(isPairedPhone("phone-late", at + 6 * 60_000)).toBe(false);
 });

@@ -59,12 +59,14 @@
     "pairing": null
   },
   {
-    "case": "Life only",
-    "link": "lifelog://pair?life=https%3A%2F%2Flife.example.ts.net&code=ABC234",
+    "case": "Life only, with the Mac's iroh key and its relay",
+    "link": "lifelog://pair?life=https%3A%2F%2Flife.example.ts.net&code=ABC234&mac=56229760d41db2765745bb773d7b49b9c7f55898762dcec483d18ec3d275da8d&relay=https%3A%2F%2Faps1-1.relay.n0.iroh.link.%2F",
     "pairing": null,
     "life": {
       "origin": "https://life.example.ts.net",
-      "code": "ABC234"
+      "code": "ABC234",
+      "mac": "56229760d41db2765745bb773d7b49b9c7f55898762dcec483d18ec3d275da8d",
+      "relay": "https://aps1-1.relay.n0.iroh.link./"
     }
   },
   {
