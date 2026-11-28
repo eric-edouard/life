@@ -103,35 +103,49 @@ export function requirementsOf(d: Descriptor): readonly Requirement[] {
   ];
 }
 
+/** Whether one of the AI's requirements is met, by the engine check (unread: taken as met). */
+function isEngineDoneOf(r: Requirement, e: IntegrationReads["engine"]) {
+  if (!e) {
+    return true;
+  }
+  switch (r.kind) {
+    case "key":
+      return e.key?.set !== false;
+    case "install":
+      return e.claudeFound;
+    case "sign_in":
+      return e.claudeSignedIn;
+    case "credits":
+      return e.credits === null || e.credits > 0;
+    default:
+      return true;
+  }
+}
+
 /** Whether one of integration `name`'s requirements is met, from the reads alone. */
 export function isDoneOf(
   r: Requirement,
   name: string,
   reads: IntegrationReads
 ): boolean {
-  const { engine } = reads;
+  if (name === "ai") {
+    return isEngineDoneOf(r, reads.engine);
+  }
   switch (r.kind) {
     case "permission":
       // Free space is the step's own to judge (`accessStepsOf`).
-      if (r.check === "disk_free") {
-        return true;
-      }
-      return r.check === "full_disk_access"
-        ? reads.fullDiskAccess === "done"
-        : reads.access[r.check] === "done";
+      return (
+        r.check === "disk_free" ||
+        (r.check === "full_disk_access"
+          ? reads.fullDiskAccess
+          : reads.access[r.check]) === "done"
+      );
     case "sign_in":
-      if (r.with === "network") {
-        return reads.bridges.get(name)?.signedIn !== false;
-      }
-      return r.with === "claude" ? engine?.claudeSignedIn !== false : true;
-    case "install":
-      return engine?.claudeFound !== false;
-    case "credits":
-      return !engine || engine.credits === null || engine.credits > 0;
+      return (
+        r.with !== "network" || reads.bridges.get(name)?.signedIn !== false
+      );
     case "key":
-      return name === "ai"
-        ? engine?.key?.set !== false
-        : reads.bridges.get(name)?.needsKeys !== true;
+      return reads.bridges.get(name)?.needsKeys !== true;
     case "device":
       return r.what === "phone"
         ? !reads.missing.get(name)
