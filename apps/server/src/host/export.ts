@@ -68,7 +68,7 @@ const KEPT_OUT = [
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
 /** One-off projects' work folders (`projects/<id>/`) in an export's `state/`. */
-export const PROJECTS_IN_STATE = pathIn(LIFE_STATE_DIR, PROJECT_WORK_FOLDERS);
+const PROJECTS_IN_STATE = pathIn(LIFE_STATE_DIR, PROJECT_WORK_FOLDERS);
 /** Inside a project's work folder, never exported: its `.git` (history is not backed up: life#1607), its secret files (any name starting `.env`) and its installed packages and build caches (its agent reinstalls packages after a restore; the owner, 28 Nov 2026). */
 const PROJECT_KEPT_OUT =
   /(^|\/)(node_modules|\.git|\.cache|\.turbo|\.next|\.env[^/]*)(\/|$)/;
@@ -89,35 +89,40 @@ const isDb = (file: string) => {
   }
 };
 
-/**
- * Whether the state file `p` (inside Life's state) is copied: never a kept-out one; in a project's work folder, only
- * folders and plain files it can read (a link could carry a secret file out; a socket, a pipe or an unreadable file
- * would stop the whole backup), the others named in `notCopied`.
- */
-function isCopied(p: string, from: string, notCopied: string[]) {
-  if (KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`))) {
-    return false;
-  }
-  if (!p.startsWith(`${PROJECTS_IN_STATE}/`)) {
-    return true;
-  }
-  if (PROJECT_KEPT_OUT.test(p.slice(PROJECTS_IN_STATE.length))) {
-    return false;
-  }
-  const f = lstatSync(from);
+/** Whether the state file `p` (inside Life's state) is in a one-off project's work folder. */
+const isInProject = (p: string) => p.startsWith(`${PROJECTS_IN_STATE}/`);
+
+const isReadable = (from: string) => {
   try {
     accessSync(from, constants.R_OK);
+    return true;
   } catch {
-    notCopied.push(`state/${p}`);
     return false;
   }
-  if (f.isFile() || f.isDirectory()) {
-    return true;
+};
+
+/**
+ * What staging does with the state file `p` (inside Life's state): never a kept-out one (`skip`); in a project's work
+ * folder, only folders and plain files it can read, a link skipped (it could carry a secret file out), anything else
+ * (a socket, a pipe, an unreadable file, which would stop the whole backup) left out and named (`leftOut`).
+ */
+function stagingOf(p: string, from: string) {
+  if (KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`))) {
+    return "skip";
   }
-  if (!f.isSymbolicLink()) {
-    notCopied.push(`state/${p}`);
+  if (!isInProject(p)) {
+    return "copy";
   }
-  return false;
+  if (PROJECT_KEPT_OUT.test(p.slice(PROJECTS_IN_STATE.length))) {
+    return "skip";
+  }
+  const f = lstatSync(from);
+  if (f.isSymbolicLink()) {
+    return "skip";
+  }
+  return (f.isFile() || f.isDirectory()) && isReadable(from)
+    ? "copy"
+    : "leftOut";
 }
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
@@ -203,7 +208,7 @@ interface StagedFile {
 
 const ENV_KEY = /^([A-Z0-9_]+)=/;
 /** What a new install is given by hand, named only: never their values. */
-function leftOut() {
+function leftOut(projectFiles: string[]) {
   const env = join(LIFE_CODE_DIR, ".env");
   return {
     codex:
@@ -215,6 +220,8 @@ function leftOut() {
       : [],
     keychain:
       "every item of the service Life (the app keeps its secrets there)",
+    /** A project's files that could not be copied (a socket, an unreadable file, a store that won't open). */
+    projectFiles,
     secrets:
       "the secret files (SECRETS: Life's sign-in, the ask cursor, the app's key, the bridges' account, gog's keyring password): apps pair again and the bridges' account logs in again, unless they are copied by hand",
   };
@@ -248,10 +255,10 @@ export function stateInDataOf(data: string, state: string) {
 }
 
 /** Each staged state file: a store's side files and Life's leftovers removed, each store copied whole by SQLite. */
-function stageStateFiles(dir: string, notCopied: string[]) {
+function stageStateFiles(dir: string, projectFilesLeftOut: string[]) {
   for (const p of filesUnder(join(dir, "state"))) {
     const staged = join(dir, "state", p);
-    const inProject = p.startsWith(`${PROJECTS_IN_STATE}/`);
+    const inProject = isInProject(p);
     if (
       DB_SIDE_FILES.some((e) => p.endsWith(e)) ||
       (!inProject && KEPT_OUT_END.some((e) => p.endsWith(e)))
@@ -269,7 +276,7 @@ function stageStateFiles(dir: string, notCopied: string[]) {
           throw e;
         }
         rmSync(staged, { force: true });
-        notCopied.push(`state/${p}`);
+        projectFilesLeftOut.push(`state/${p}`);
       }
     }
   }
@@ -306,13 +313,20 @@ export async function stage(
     throw new Error("a run holds memory's lock: try again when it is done");
   }
   rmSync(join(dir, "data", basename(LOCK)), { force: true });
-  const notCopied: string[] = [];
+  const projectFilesLeftOut: string[] = [];
   cpSync(LIFE_STATE_DIR, join(dir, "state"), {
-    // Never copied: a kept-out folder (a work folder's packages) would cost a copy only to be removed.
-    filter: (from) => isCopied(pathIn(LIFE_STATE_DIR, from), from, notCopied),
+    // Never copied: a kept-out folder (the index, a project's packages) would cost a copy only to be removed.
+    filter: (from) => {
+      const p = pathIn(LIFE_STATE_DIR, from);
+      const staging = stagingOf(p, from);
+      if (staging === "leftOut") {
+        projectFilesLeftOut.push(`state/${p}`);
+      }
+      return staging === "copy";
+    },
     recursive: true,
   });
-  stageStateFiles(dir, notCopied);
+  stageStateFiles(dir, projectFilesLeftOut);
   stageNotes(dir);
   const watch = join(dir, "state", relative(LIFE_STATE_DIR, WATCH));
   mkdirSync(watch, { recursive: true });
@@ -351,9 +365,7 @@ export async function stage(
     createdAt: clock().toISOString(),
     files,
     format: FORMAT,
-    leftOut: leftOut(),
-    /** A project's files that could not be copied (a socket, an unreadable file, a store that won't open): left out. */
-    notCopied,
+    leftOut: leftOut(projectFilesLeftOut),
   };
   writeFileSync(
     join(dir, "manifest.json"),

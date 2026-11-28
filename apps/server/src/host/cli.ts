@@ -268,7 +268,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     const m = await stage(dir);
     const bytes = m.files.reduce((n, f) => n + f.size, 0);
     console.log(
-      `${dir}: ${m.files.length} files, ${(bytes / 1e9).toFixed(1)} GB. Not in it, give them by hand: ${[...m.leftOut.env, "Life's Keychain items"].join(", ")}`
+      `${dir}: ${m.files.length} files, ${(bytes / 1e9).toFixed(1)} GB. Not in it, give them by hand: ${[...m.leftOut.env, "Life's Keychain items", ...m.leftOut.projectFiles].join(", ")}`
     );
     return 0;
   },

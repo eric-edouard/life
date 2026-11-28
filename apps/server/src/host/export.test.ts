@@ -235,7 +235,7 @@ test("a project's store mid-write comes whole, without its rollback journal; a f
     expect(m.counts.rows["state/projects/bakery-page/shop.sqlite"]).toEqual({
       t: 1,
     });
-    expect(m.notCopied.sort()).toEqual([
+    expect(m.leftOut.projectFiles.sort()).toEqual([
       "state/projects/bakery-page/app.sock",
       "state/projects/bakery-page/broken.db",
     ]);

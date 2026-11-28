@@ -67,8 +67,9 @@ export async function backup() {
   // Last night's hashes, read before its staging goes: a file of the same size and mtime is not hashed again.
   const last = readJson<Manifest>(join(STAGING, "manifest.json"))?.files;
   rmSync(STAGING, { force: true, recursive: true });
+  let leftOut: string[];
   try {
-    await stage(STAGING, undefined, last);
+    leftOut = (await stage(STAGING, undefined, last)).leftOut.projectFiles;
   } catch (e) {
     // No snapshot of half a staging: the day's tries go on (the lock is free again soon), the report says why.
     writeFileSync(
@@ -105,7 +106,14 @@ export async function backup() {
       okAt: sum.backup_end,
       snapshot: sum.snapshot_id.slice(0, 8),
     }),
-    error: missed.join("; ") || undefined,
+    // A project's file left out is said, not a failure: the night's tries don't run again for it.
+    error:
+      [
+        ...missed,
+        ...(leftOut.length > 0
+          ? [`project files left out: ${leftOut.join(", ")}`]
+          : []),
+      ].join("; ") || undefined,
   };
   writeFileSync(STATUS, `${JSON.stringify(status)}\n`);
   // The nightly's launchd log keeps every run's errors; the status only the last.
