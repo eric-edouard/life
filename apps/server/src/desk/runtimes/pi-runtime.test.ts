@@ -376,15 +376,18 @@ test("every role's agent on pi gets the same powers: its door, the connector's r
   }
 });
 
-test("the connector's reader gets Life's values as they are: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
-  process.env.LIFE_MADE_UP = "!a$b";
+test("the connector's reader gets its Life's place as it is, never another of Life's variables: pi's `$NAME` and leading `!` escaped, in Life's state folder", () => {
+  process.env.LIFE_NOW = "!a$b";
+  process.env.LIFE_DESK_KEY = "a-made-up-key";
   try {
     const entry = piReadsOf();
-    expect((entry.env as Record<string, string>).LIFE_MADE_UP).toBe("$!a$$b");
+    expect((entry.env as Record<string, string>).LIFE_NOW).toBe("$!a$$b");
+    expect(entry.env.LIFE_DESK_KEY).toBeUndefined();
     expect(entry.env.BUN_BE_BUN).toBe("");
     expect(entry.args.at(-1)).toBe("connector-reads");
   } finally {
-    delete process.env.LIFE_MADE_UP;
+    delete process.env.LIFE_NOW;
+    delete process.env.LIFE_DESK_KEY;
   }
 });
 

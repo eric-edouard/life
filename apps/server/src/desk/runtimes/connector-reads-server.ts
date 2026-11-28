@@ -18,6 +18,15 @@ export const isSecondLifeReading = () => isFrozenCopy();
 
 /** The secrets the connector's reads use, from the desk's own environment: never on a command line (`connectorReadsOf`). */
 const READER_SECRETS = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN"];
+/** What places the reads in their Life and its time: its folders, its frozen instant and the test switch. Never a key: they may end up on a command line. */
+const READER_PLACE = [
+  "LIFE_BRIDGES_DIR",
+  "LIFE_MACHINE_DIR",
+  "LIFE_NOW",
+  "LIFE_OWNER_DATA_DIR",
+  "LIFE_STATE_DIR",
+  "NODE_ENV",
+];
 const envOf = (keep: (name: string) => boolean) =>
   Object.fromEntries(
     Object.entries(process.env).filter(
@@ -27,13 +36,13 @@ const envOf = (keep: (name: string) => boolean) =>
 
 /**
  * The connector's reads as a stdio MCP server (`life connector-reads`): the compiled helper itself in the app, the CLI's
- * entry in a checkout, with Life's paths (`LIFE_*`) and the test switch in `env`, and the secrets its reads use apart in
+ * entry in a checkout, with its Life's place (`READER_PLACE`) in `env`, and the secrets its reads use apart in
  * `secrets`, values as they are: a runtime that writes its MCP servers into its program's arguments (Claude Code's
  * `--mcp-config`) gives them to the program's environment instead, which its servers inherit. A runtime runs it with
  * its own environment beside this one, so the helper is told it is not bun (`BUN_BE_BUN`).
  */
 export const connectorReadsOf = () => {
-  const env = envOf((n) => n.startsWith("LIFE_") || n === "NODE_ENV");
+  const env = envOf((n) => READER_PLACE.includes(n));
   return {
     args: [
       ...(IS_COMPILED_HELPER
