@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, setSystemTime, test } from "bun:test";
-import { cpSync, existsSync, rmSync } from "node:fs";
+import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { BUILT_IN_RUNTIME, DESK_AGENT } from "../core/names";
@@ -170,6 +170,7 @@ test("a one-off project gets one agent, never on his words, holding his entry; n
       .get(agent?.id ?? "")
   ).toEqual({ folder: work });
   expect(existsSync(join(work, ".git"))).toBe(true);
+  expect(readFileSync(join(work, ".gitignore"), "utf8")).toContain(".env*");
   expect([agentsOn(t, "old-shelf"), agentsOn(t, "garden")]).toEqual([[], []]);
   expect(handedRows(t)).toEqual([
     { assignment_id: ownOf(t, "bakery-page").id, entry_id: 3 },

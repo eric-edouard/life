@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256Of } from "../core/hash";
 import { PROJECT_WORK_FOLDERS } from "../core/paths";
+import { gitOut } from "../core/proc";
 import { SECRETS, writeSecret } from "../core/secret";
 import { PASSAGES } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
@@ -69,6 +70,19 @@ test("an export holds everything with its checksum and counts, and never a secre
     writeFileSync(join(project, "notes.sqlite"), "not a database");
     writeFileSync(join(project, ".env.local"), "KEY=made-up");
     writeFileSync(join(project, "node_modules", "pkg.js"), "z");
+    gitOut(project, ["init", "-q"]);
+    gitOut(project, ["add", "PLAN.md"]);
+    gitOut(project, [
+      "-c",
+      "user.name=a",
+      "-c",
+      "user.email=a@b.c",
+      "commit",
+      "-qm",
+      "one",
+    ]);
+    mkdirSync(join(PROJECT_WORK_FOLDERS, "unborn"), { recursive: true });
+    gitOut(join(PROJECT_WORK_FOLDERS, "unborn"), ["init", "-q"]);
     const live = new Database(join(project, "live.sqlite"));
     live.run("pragma journal_mode = wal");
     live.run("create table t (a)");
@@ -84,11 +98,15 @@ test("an export holds everything with its checksum and counts, and never a secre
     live.close();
     rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
-    // A project's files, odd names kept, links left out; its secret files and packages left out.
+    // A project's files, odd names kept, links left out, its history one bundle (none for a repo with no commits, never its .git); its secret files and packages left out.
     expect(paths.filter((p) => p.startsWith("state/projects/")).sort()).toEqual(
-      ["PLAN.md", "live.sqlite", "notes.sqlite", "result.tmp"].map(
-        (f) => `state/projects/bakery-page/${f}`
-      )
+      [
+        "PLAN.md",
+        "history.bundle",
+        "live.sqlite",
+        "notes.sqlite",
+        "result.tmp",
+      ].map((f) => `state/projects/bakery-page/${f}`)
     );
     expect(paths).toContain("archive/whatsapp.sqlite");
     expect(paths).toContain("archive/phone.sqlite");

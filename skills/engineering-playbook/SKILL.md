@@ -12,7 +12,7 @@ The aim: a result that looks and feels great (the approved preview), works with 
 - Your folder is the project's work folder, with its own git. Work there; nothing of yours goes elsewhere.
 - Packages missing (`package.json`, no `node_modules`: a restore leaves them out): run `bun install`.
 - Read `PLAN.md` first; tick a box only after its step is checked.
-- Keys and secrets live in the macOS Keychain (`security add-generic-password`, synchronizable where possible), read at run time; never in `.env` or any file: a backup leaves those out.
+- Never commit a secret (a key, token or password); `.env*` is ignored and left out of the backup.
 - One commit per checked step. No GitHub, no PR, no remote.
 - Weigh every step's token cost: small command outputs, files read by range, no full logs.
 

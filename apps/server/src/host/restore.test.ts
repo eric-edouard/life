@@ -18,6 +18,7 @@ import {
   OWNER_DATA_DIR,
   PROJECT_WORK_FOLDERS,
 } from "../core/paths";
+import { gitOut } from "../core/proc";
 import { linesIn, rowsIn, stage } from "./export";
 import { started } from "./init";
 import { putNotes, restore } from "./restore";
@@ -249,6 +250,17 @@ test("a project's files come back, never over another file of the same place, an
   const project = join(PROJECT_WORK_FOLDERS, "bakery-page");
   mkdirSync(join(project, "node_modules"), { recursive: true });
   writeFileSync(join(project, "PLAN.md"), "plan");
+  gitOut(project, ["init", "-q", "-b", "trunk"]);
+  gitOut(project, ["add", "PLAN.md"]);
+  gitOut(project, [
+    "-c",
+    "user.name=a",
+    "-c",
+    "user.email=a@b.c",
+    "commit",
+    "-qm",
+    "one",
+  ]);
   writeFileSync(
     join(project, "package.json"),
     '{"scripts":{"postinstall":"touch ran"}}'
@@ -264,4 +276,10 @@ test("a project's files come back, never over another file of the same place, an
   const back = join(to.state, "projects", "bakery-page");
   expect(readFileSync(join(back, "PLAN.md"), "utf8")).toBe("plan");
   expect(existsSync(join(back, "ran"))).toBe(false);
+  // Its history is back: the same branch and commit, no bundle left.
+  expect(gitOut(back, ["log", "--format=%s"])).toBe("one");
+  expect(gitOut(back, ["branch", "--show-current"])).toBe("trunk");
+  // Uncommitted work stays uncommitted.
+  expect(gitOut(back, ["status", "--porcelain"])).toBe("?? package.json");
+  expect(existsSync(join(back, "history.bundle"))).toBe(false);
 });

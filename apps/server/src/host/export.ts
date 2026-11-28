@@ -23,7 +23,7 @@ import {
   PROJECT_WORK_FOLDERS,
 } from "../core/paths";
 import { pathInside, slashed } from "../core/platform";
-import { execOk } from "../core/proc";
+import { execOk, git, gitOut } from "../core/proc";
 import { SECRETS } from "../core/secret";
 import { openReadOnly } from "../core/sqlite";
 import {
@@ -66,9 +66,11 @@ const KEPT_OUT = [
   PROJECT_WORK_FOLDERS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
-/** Inside a project's work folder, never exported: its secret files (its keys live in the Keychain) and its installed packages and build caches, which a restore reinstalls (the owner, 28 Nov 2026). */
+/** Inside a project's work folder, never exported: its `.git` (its history goes as a bundle, `PROJECT_BUNDLE`), its secret files and its installed packages and build caches (its agent reinstalls packages after a restore; the owner, 28 Nov 2026). */
 const PROJECT_LEFT_OUT =
-  /(^|\/)(node_modules|\.cache|\.turbo|\.next|\.env(\..*)?)(\/|$)/;
+  /(^|\/)(node_modules|\.git|\.cache|\.turbo|\.next|\.env(\..*)?)(\/|$)/;
+/** A project's whole history as one file, written in the staged folder: `git bundle` is one consistent snapshot, whatever a commit in progress; restore clones from it. */
+export const PROJECT_BUNDLE = "history.bundle";
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
 /** Whether `file` is a SQLite database, by its header: a live store (WAL) is copied by SQLite, whatever its name. */
@@ -101,6 +103,22 @@ function stageProjects(dir: string) {
       ),
     recursive: true,
   });
+  for (const id of readdirSync(PROJECT_WORK_FOLDERS)) {
+    const from = join(PROJECT_WORK_FOLDERS, id);
+    // A repo with no commits has no history to bundle.
+    if (
+      existsSync(join(from, ".git")) &&
+      git(from, ["rev-parse", "-q", "--verify", "HEAD"]).exitCode === 0
+    ) {
+      gitOut(from, [
+        "bundle",
+        "create",
+        "-q",
+        join(to, id, PROJECT_BUNDLE),
+        "--all",
+      ]);
+    }
+  }
   for (const p of filesUnder(to)) {
     if (existsSync(join(to, p)) && isDb(join(to, p))) {
       rmSync(join(to, p));

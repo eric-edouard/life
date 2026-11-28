@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
@@ -58,6 +58,8 @@ function makeWorkFolder(id: string) {
   if (!existsSync(join(folder, ".git"))) {
     mkdirSync(folder, { recursive: true });
     gitOut(folder, ["init", "-q"]);
+    // Never a secret in its history: its backup carries the history, not the secret files.
+    writeFileSync(join(folder, ".gitignore"), ".env*\nnode_modules/\n");
   }
 }
 

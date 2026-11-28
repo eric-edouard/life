@@ -207,6 +207,7 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
+- A one-off project's backup carries its git history (a bundle), and leaves `.env*` out of its files only. A secret an agent committed anyway is in the backup; no history scan runs. A vault for project secrets is life#1601.
 - Full Disk Access makes Life a high-value target on the Mac.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).
