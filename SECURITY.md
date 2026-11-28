@@ -44,6 +44,14 @@ a local model (llama.cpp, `describePhotos` setting): none of those images goes t
 message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
 when its message arrives or at night (his word of 19 Nov 2026).
 
+Every read of message, mail, note and file text that a model or a reader sees goes through `redact` (`core/redact.ts`):
+card numbers, IBANs, key blocks, lines that look like a password or code, long tokens. One exception (his yes of 28 Nov
+2026): on Life's own payment card (a your move card whose step names an amount), the payee's IBAN, exactly as the
+payee wrote it in that step's message or its file, sits in the card's `account` need, and only when his own app reads
+it (`read_inbox` and `read_matter` on his token: `withPayeeAccountsOf`). The checks every other reader shares (agents,
+the reads-only connector, complaints, the nightly, pushes, the CLI) never hold it. An app on his token that is a chat
+with a model (his Claude or ChatGPT) passes it to that model's provider. Life never pays: he does, in his bank's app.
+
 ## Agents
 
 The desk (off until his `desk` setting) starts and wakes his registered agents, created only on his word (a project's, or the Personal agent; the desk registers the Personal agent itself, one at most, for a confirmed arrival no matter's agent takes, Direction's ruling of 21 Nov 2026, and the caretaker on his complaint): with `desk.handOut` set it also gives one a matter itself, from the top of his ranking, within the pace he set (his word of 20 Nov 2026): Life picks the matter by its ranking and the agent that takes it by code (`agentForOf`), the agent reads the matter as data, and nothing outward goes without his yes on a card. A registered agent is started by
@@ -131,6 +139,15 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   read only, Life's own left out) that overlap it: each guest it offers as a possible speaker (a name, or an address no
   one is known by), with the event's title and time in their brief (his yes of 22 Nov 2026: that provider already gets his
   messages).
+- A new user's default model route, once packaging bundle M ships (not built yet): OpenRouter, model
+  `~deepseek/deepseek-flash-latest`, every request with `provider: {"zdr": true}`, so only providers that keep nothing
+  serve it (any such provider, wider than the two hosts of 22 Nov, on his words below); the key is made by OpenRouter's OAuth (PKCE) with a spending `limit` ($20 by default), about $5–20 a month.
+  His words of 28 Nov 2026: DeepSeek Flash latest, a zero data retention policy, flagged for audits as the default
+  route. Turn it off by choosing Claude in setup, or by asking Life.
+- Anonymous diagnostics to Life's developer: proposed, not built (issue #1599, his ask of 28 Nov 2026); nothing leaves
+  until it ships with its fields listed here and a way to turn it off.
+- With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
+  minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.

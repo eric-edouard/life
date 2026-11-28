@@ -5,8 +5,8 @@
 import { lexer, type Tokens } from "marked";
 
 export const ROOT = "docs/design/";
-/** Where the designs app asks for each design file's newest commit (`latestCommits` in vite.config.ts). */
-export const LATEST_URL = "/__design-latest";
+/** Where the designs app asks when each design file last changed (`readChangeStamps` in vite.config.ts). */
+export const STAMPS_URL = "/__design-stamps";
 
 export interface Entry {
   about: string;
@@ -109,28 +109,62 @@ export const newestCommitsOf = (log: string): [string, number][] => {
 const changedUnder = (path: string) =>
   path.endsWith("/index.html") ? path.slice(0, -"index.html".length) : path;
 
-/** The entries changed most recently, newest first, by their files' newest commits (paths under docs/design). */
+/** When a page last changed (unix seconds; 0 when nothing dates it): its files' newest stamp, from
+ *  `readChangeStamps` in vite.config.ts as [path under docs/design, unix seconds]. */
+export const changedAtOf = (path: string, stamps: [string, number][]) => {
+  const under = changedUnder(path);
+  return Math.max(
+    0,
+    ...stamps
+      .filter(([p]) => (under === path ? p === under : p.startsWith(under)))
+      .map(([, t]) => t)
+  );
+};
+
+/** The entries changed most recently, newest first. */
 export const latestOf = (
   entries: Entry[],
-  commits: [string, number][],
+  stamps: [string, number][],
   count = 3
 ) =>
   entries
-    .map((entry) => {
-      const under = changedUnder(entry.path);
-      const at = Math.max(
-        0,
-        ...commits
-          .filter(([p]) =>
-            under === entry.path ? p === under : p.startsWith(under)
-          )
-          .map(([, t]) => t)
-      );
-      return { at, entry };
-    })
+    .map((entry) => ({ at: changedAtOf(entry.path, stamps), entry }))
     .filter((e) => e.at > 0)
     .sort((a, b) => b.at - a.at)
     .slice(0, count);
+
+/** The paths that changed since the viewer last opened them (`seen`: path → the stamp it had then). */
+export const unseenOf = (
+  entries: Entry[],
+  stamps: [string, number][],
+  seen: Record<string, number>
+) =>
+  new Set(
+    entries
+      .filter((e) => changedAtOf(e.path, stamps) > (seen[e.path] ?? 0))
+      .map((e) => e.path)
+  );
+
+/** What was seen after opening a page, or null when nothing changes (no stamps yet, or already seen at its stamp).
+ *  The first visit (`seen` null) records every entry's stamp, so only changes made after it show. */
+export const seenAfter = (
+  seen: Record<string, number> | null,
+  entries: Entry[],
+  stamps: [string, number][],
+  opened: string
+) => {
+  const at = changedAtOf(opened, stamps);
+  if (stamps.length === 0 || seen?.[opened] === at) {
+    return null;
+  }
+  return {
+    ...(seen ??
+      Object.fromEntries(
+        entries.map((e) => [e.path, changedAtOf(e.path, stamps)])
+      )),
+    [opened]: at,
+  };
+};
 
 /** How long ago a time was, short: "just now", "12 min ago", "2 h ago", "3 d ago". */
 export const agoOf = (seconds: number, now = Date.now()) => {

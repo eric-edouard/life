@@ -11,7 +11,7 @@ session: linking its bridge signs LINE out of Beeper Desktop (and the Chrome ext
 ## One command
 
 ```sh
-bun life bridge                         # every messaging connector checked at once: ✓ or ✗, and why
+bun life bridge                         # every messaging network checked at once: ✓ or ✗, and why
 bun life bridge add <network>           # line, instagram, messenger, linkedin or telegram: adds it, then links it
 bun life bridge link <network> [flow]   # links it again, by its login flow (or another flow's id)
 bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays. With no bridge, a
