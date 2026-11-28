@@ -18,6 +18,7 @@ import {
   type MatterView,
   matterFinderOf,
   nextStepNow,
+  OWED_BY_HIM,
 } from "./matter-read";
 import { amountOf, type Need, needsShownOf, parseAmount } from "./needs";
 import type { People } from "./who";
@@ -28,13 +29,6 @@ import { dayStart } from "./zones";
 // work on it. Its age never hides it; only his words, or its being someone else's or his own work done elsewhere, put it
 // on its matter's page alone, and never a promise, a date or money without his words (`askOfStep`, his words of
 // 28 Nov 2026). A check of Life's like the others (`checks.ts`), worked out when read.
-
-/** The steps he owes, that a card asks: a task of his (`to_do`), a promise, an item open in his to-do list; never a wait on someone. */
-export const OWED_BY_HIM: MatterStepNow["kind"][] = [
-  "promise",
-  "to_do",
-  "todo_item",
-];
 
 /** The day a step is due: its `when` as a whole date (never a yearly one), past or ahead; none otherwise. */
 const dueOf = (when?: string) =>

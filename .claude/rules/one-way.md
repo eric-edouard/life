@@ -14,7 +14,7 @@ Before adding a helper, use the one that exists: search `docs/helpers.md` (the h
   in code first. Core steps have no switch; the only feature switches are the personal add-ons (`core/add-ons.ts`), beside the outputs (`core/outputs.ts`) and the voice naming's two flags; owner values are never defaults in code. Likewise **a new key in `truth/` lands in code first**: the
   schemas are `.strict()`, and a key the running code doesn't know stops the watcher, the nightly and the connector.
 
-Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`, given `systemZone()`) follow the Mac's clock.
+Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `host/integration-health.ts`, given `systemZone()`) follow the Mac's clock.
 Where he is (`zones.jsonl`) is the phone's latest zone, whatever its age (`readZoneHere`, his decision of 27 Oct): the
 phone is the source of truth and the Life server may run anywhere. The Mac's zone only when no phone ever named one;
 the voice server unreadable changes nothing. Life reads the newest heartbeat's zone (the phone app always sends one); the voice server's

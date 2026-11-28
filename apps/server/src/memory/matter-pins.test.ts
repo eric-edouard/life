@@ -246,6 +246,10 @@ test("one read of his corrections gives every pin: Life's drafts first, his part
     ["life", "The watch is back", "Call the shop"],
     ["owner", "Gran wears it again", undefined],
   ]);
+  expect(pins.directions.map((d) => d.prompt)).toEqual([
+    "memory-matter-directions.v1",
+    undefined,
+  ]);
   expect(pins.important.map((p) => p.important)).toEqual([true, false]);
   expect(pins.icons.map((p) => p.icon)).toEqual(["tools", null]);
   expect(pins.projects.map((p) => p.project)).toEqual(["watches"]);

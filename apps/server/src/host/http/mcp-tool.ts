@@ -42,7 +42,7 @@ export type Tool<S extends z.ZodObject> = (
   args: z.infer<S>,
   agent: string | undefined,
   call: ToolCall
-) => Promise<string | Record<string, unknown> | null>;
+) => Promise<string | Record<string, unknown> | readonly unknown[] | null>;
 
 const respond = (body: string, isError: boolean) => ({
   content: [{ text: body, type: "text" as const }],

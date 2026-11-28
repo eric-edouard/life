@@ -9,6 +9,8 @@
 // beside the products); the install and launch still run. Each step prints its time.
 // Devices: LIFELOG_PHONE_UDID and LIFELOG_WATCH_UDID, from the environment or the root checkout's .env
 // (nothing of the owner's is committed).
+
+import { buildNumber } from "@life/server/src/core/clock";
 import { $ } from "bun";
 import { archive, checkouts } from "./dsyms";
 
@@ -41,8 +43,8 @@ const lifelog = `${tree}/apps/lifelog`;
 const ios = `${lifelog}/apps/ios`;
 const derived = `${lifelog}/.build/device`;
 const products = `${derived}/Build/Products`;
-// The build number, the UTC build time: computed once, so the phone's and the watch's builds carry the same one.
-const stamp = (await $`date -u +%Y%m%d.%H%M`.text()).trim();
+// The build number, the UTC build time (`buildNumber`): computed once, so the phone's and the watch's builds carry the same one.
+const stamp = buildNumber();
 const build = (scheme: string, udid: string, ...extra: string[]) =>
   $`xcodebuild -project Lifelog.xcodeproj -scheme ${scheme} -configuration Release -destination ${`id=${udid}`} -derivedDataPath ${derived} -allowProvisioningUpdates ${extra} ${`CURRENT_PROJECT_VERSION=${stamp}`} -quiet build`.cwd(
     ios

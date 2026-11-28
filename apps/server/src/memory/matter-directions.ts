@@ -9,13 +9,9 @@ import {
   ONE_OF,
 } from "../records/matter";
 import { type Observation, ObservationId } from "../records/observation";
+import { DIRECTIONS_PROMPT, directionDueOf } from "./matter-direction-due";
 import { type Evidence, readEvidence } from "./matter-evidence";
-import {
-  directionDueOf,
-  laterShownOf,
-  type MatterView,
-  matterPeopleOf,
-} from "./matter-read";
+import { laterShownOf, type MatterView, matterPeopleOf } from "./matter-read";
 import {
   matterBookAgain,
   readMatterBookAndRecords,
@@ -36,7 +32,6 @@ import { dayNow } from "./zones";
 // a unit cited from its evidence (`readEvidence`) is not judged, like a draft whose own steps show it over). Each call is one appended line of memory/matter-directions.jsonl (its only writer), each direction pinned to the
 // matter's steps, so a re-group keeps it, with its id beside them for a tie (`PINNED`). His word (`matter-direction`, a correction) wins (`directionsOf`).
 
-const PROMPT = "memory-matter-directions.v5";
 /** The most characters of matters a night is shown, those with no direction first, then the newest (before their evidence, about 2k more each); and one call. */
 export const NIGHT_CHARS = 120_000;
 const CALL_CHARS = 30_000;
@@ -195,7 +190,9 @@ export async function matterDirections(
     CALL_CHARS,
     (m) => JSON.stringify(m.shown).length
   );
-  const step = await begin("matter-directions", "fast", { prompt: PROMPT });
+  const step = await begin("matter-directions", "fast", {
+    prompt: DIRECTIONS_PROMPT,
+  });
   let drafted = 0;
   await inBatches(calls, step, async (call, dir) => {
     await step.attempt(async () => {
@@ -204,7 +201,7 @@ export async function matterDirections(
         context: meContext(people.truth),
         dir: join(dir, "call"),
         input: { matters: call.map((m) => m.shown) },
-        prompt: PROMPT,
+        prompt: DIRECTIONS_PROMPT,
         // A payment is no source's unit: not counted.
         reads: readsOf(
           call.flatMap((m) => [
@@ -262,7 +259,7 @@ export async function matterDirections(
         {
           at: step.now.toISOString(),
           directions,
-          madeBy: step.madeBy(PROMPT),
+          madeBy: step.madeBy(DIRECTIONS_PROMPT),
           schemaVersion: 1,
         },
       ]);

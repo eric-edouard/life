@@ -46,6 +46,12 @@ if (import.meta.main) {
     env,
     stdio: "inherit",
   });
+  // The desk takes it back once he left it (SIGTERM): pi ends, said in his window. His window closed (SIGHUP): pi ends. Before the record, which says the launcher can be signalled: a signal in between would kill it with its record left.
+  process.on("SIGTERM", () => {
+    process.stdout.write("\nLife took it back: it continues there.\n");
+    pi.kill("SIGTERM");
+  });
+  process.on("SIGHUP", () => pi.kill("SIGHUP"));
   // Written once pi runs, so the desk's `pgrep` already sees it when the record says "open"; again each 15 s with the
   // session's last write as its quiet.
   mkdirSync(launch.records, { recursive: true });
@@ -72,12 +78,6 @@ if (import.meta.main) {
   };
   write();
   const timer = setInterval(write, 15_000);
-  // The desk takes it back once he left it (SIGTERM): pi ends, said in his window. His window closed (SIGHUP): pi ends.
-  process.on("SIGTERM", () => {
-    process.stdout.write("\nLife took it back: it continues there.\n");
-    pi.kill("SIGTERM");
-  });
-  process.on("SIGHUP", () => pi.kill("SIGHUP"));
   pi.on("exit", (code) => {
     clearInterval(timer);
     rmSync(record, { force: true });
