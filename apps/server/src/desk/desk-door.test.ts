@@ -254,6 +254,15 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
     expect(text).not.toContain("1Password");
     expect(text).not.toContain("Reaching him");
   }
+  process.env.LIFE_NOW = "2026-03-01T09:30:00.000Z";
+  try {
+    // A frozen copy's (a question case's) is told it reads that Life too.
+    expect(await readPacket(desk, on(desk, id), false)).toContain(
+      "You have your door's tools and this Life's reads (the `life_connector` server) only."
+    );
+  } finally {
+    delete process.env.LIFE_NOW;
+  }
   for (const text of [own, second]) {
     expect(text).toContain("The one gate");
     // No plan card (his yes of 25 Nov 2026): work first, ask only what is his; Life's voice on every card.

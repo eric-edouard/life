@@ -39,6 +39,7 @@ const HIS_ONLY = [
   "read_integrations",
   "read_resource_samples",
   "read_spending",
+  "read_thread",
 ];
 
 test("no token: 401 with the challenge that names the metadata", async () => {
