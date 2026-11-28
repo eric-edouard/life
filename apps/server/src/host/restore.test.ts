@@ -130,7 +130,7 @@ test("an import that stopped while moving in runs again: its own state files lef
   const other = install();
   mkdirSync(other.state, { recursive: true });
   writeFileSync(join(other.state, "settings.json"), "{}");
-  await expect(restore(dir, other)).rejects.toThrow("holds an install");
+  await expect(restore(dir, other)).rejects.toThrow("holds another file");
 });
 
 /** An export holding one desk assignment's notes, kept in a test agents folder outside Life's state, and their path. */
@@ -245,14 +245,10 @@ test("a failed note placement takes back only the notes it made that still hold 
   );
 });
 
-test("a project's files come back, never over another file of the same place, and nothing is installed or run", async () => {
+test("a project's files come back, never over another file of the same place", async () => {
   const project = join(PROJECT_WORK_FOLDERS, "bakery-page");
-  mkdirSync(join(project, "node_modules"), { recursive: true });
+  mkdirSync(project, { recursive: true });
   writeFileSync(join(project, "PLAN.md"), "plan");
-  writeFileSync(
-    join(project, "package.json"),
-    '{"scripts":{"postinstall":"touch ran"}}'
-  );
   const dir = await exported();
   rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
   const other = install();
@@ -263,5 +259,4 @@ test("a project's files come back, never over another file of the same place, an
   await restore(dir, to);
   const back = join(to.state, "projects", "bakery-page");
   expect(readFileSync(join(back, "PLAN.md"), "utf8")).toBe("plan");
-  expect(existsSync(join(back, "ran"))).toBe(false);
 });

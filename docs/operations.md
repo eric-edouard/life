@@ -327,7 +327,7 @@ everything…):
 - `state/`: Life's state without secrets or the rebuildable index, passages and vectors, with the watcher's store and cursor and the one-off projects' work folders (`projects/<id>/`) without files starting `.env`, `node_modules`, build caches or git history (life#1607; the project's agent reinstalls packages on its next wake, Life runs no install at import);
 - `archive/`: every archive store and its media;
 - `notes/`: each desk assignment's notes file kept outside Life's state (in `desk.agentsRepo`), as `<asg>.md`; an import puts each back at the path its store names, never over a file there;
-- `manifest.json`: every file's sha256, what each part holds, and the secrets left out, by name.
+- `manifest.json`: every file's sha256, what each part holds, the secrets left out, by name, and a project's files that could not be copied (`notCopied`: a socket, an unreadable file, a store that won't open), left out so one never stops the backup.
 
 Passages (`memory/passages.sqlite`) are derived source text, rebuilt with `bun life memory passages`; vectors are
 re-embedded. Neither is an archive store or a secret. Excluding these caches also excludes their WAL/SHM sidecars;

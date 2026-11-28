@@ -1,5 +1,7 @@
 import {
+  accessSync,
   closeSync,
+  constants,
   cpSync,
   existsSync,
   lstatSync,
@@ -53,7 +55,7 @@ export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
  * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own) and the
- * secrets. One-off projects' work folders (`state/projects/`) are copied apart by `stageProjects`.
+ * secrets.
  */
 const KEPT_OUT = [
   WATCH,
@@ -63,13 +65,17 @@ const KEPT_OUT = [
   EXCHANGE_COUNTS,
   MENTIONS,
   RECORDED_DAYS,
-  PROJECT_WORK_FOLDERS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
+/** One-off projects' work folders (`projects/<id>/`) in an export's `state/`. */
+export const PROJECTS_IN_STATE = pathIn(LIFE_STATE_DIR, PROJECT_WORK_FOLDERS);
 /** Inside a project's work folder, never exported: its `.git` (history is not backed up: life#1607), its secret files (any name starting `.env`) and its installed packages and build caches (its agent reinstalls packages after a restore; the owner, 28 Nov 2026). */
-const PROJECT_LEFT_OUT =
+const PROJECT_KEPT_OUT =
   /(^|\/)(node_modules|\.git|\.cache|\.turbo|\.next|\.env[^/]*)(\/|$)/;
-const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
+/** Life's own leftovers, never exported; a project's files of these names are its own, and kept. */
+const KEPT_OUT_END = [".bak", ".lock", ".tmp"];
+/** A store's files beside it: its copy (`copyDb`) is one whole file, and a rollback journal left beside it would be rolled onto that copy at its first open. */
+const DB_SIDE_FILES = ["-wal", "-shm", "-journal"];
 
 /** Whether `file` is a SQLite database, by its header: a live store (WAL) is copied by SQLite, whatever its name. */
 const isDb = (file: string) => {
@@ -84,31 +90,37 @@ const isDb = (file: string) => {
 };
 
 /**
- * One-off projects' work folders (the owner, 28 Nov 2026): plain files, nothing renamed or filtered by name but the
- * left-out ones. Links are left out (a link could carry a secret file out); a store is copied whole by SQLite, and a
- * failure stops the staging rather than keep a copy that may not be consistent.
+ * Whether the state file `p` (inside Life's state) is copied: never a kept-out one; in a project's work folder, only
+ * folders and plain files it can read (a link could carry a secret file out; a socket, a pipe or an unreadable file
+ * would stop the whole backup), the others named in `notCopied`.
  */
-function stageProjects(dir: string) {
-  if (!existsSync(PROJECT_WORK_FOLDERS)) {
-    return;
+function isCopied(p: string, from: string, notCopied: string[]) {
+  if (KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`))) {
+    return false;
   }
-  const to = join(dir, "state", "projects");
-  cpSync(PROJECT_WORK_FOLDERS, to, {
-    filter: (from) =>
-      !(
-        PROJECT_LEFT_OUT.test(pathIn(PROJECT_WORK_FOLDERS, from)) ||
-        lstatSync(from).isSymbolicLink()
-      ),
-    recursive: true,
-  });
-  for (const p of filesUnder(to)) {
-    if (existsSync(join(to, p)) && isDb(join(to, p))) {
-      rmSync(join(to, p));
-      copyDb(join(PROJECT_WORK_FOLDERS, p), join(to, p));
-      rmSync(join(to, `${p}-wal`), { force: true });
-      rmSync(join(to, `${p}-shm`), { force: true });
-    }
+  if (!p.startsWith(`${PROJECTS_IN_STATE}/`)) {
+    return true;
   }
+  if (PROJECT_KEPT_OUT.test(p.slice(PROJECTS_IN_STATE.length))) {
+    return false;
+  }
+  const f = lstatSync(from);
+  try {
+    accessSync(
+      from,
+      f.isDirectory() ? constants.R_OK | constants.X_OK : constants.R_OK
+    );
+  } catch {
+    notCopied.push(`state/${p}`);
+    return false;
+  }
+  if (f.isFile() || f.isDirectory()) {
+    return true;
+  }
+  if (!f.isSymbolicLink()) {
+    notCopied.push(`state/${p}`);
+  }
+  return false;
 }
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
@@ -178,9 +190,7 @@ export async function inventory(dir: string) {
     lines: linesIn(join(dir, "data")),
     rows: Object.fromEntries(
       filesUnder(dir)
-        .filter(
-          (p) => p.endsWith(".sqlite") && !p.startsWith("state/projects/")
-        )
+        .filter((p) => isDb(join(dir, p)))
         .map((p) => [p, rowsIn(join(dir, p))])
     ),
   };
@@ -258,38 +268,47 @@ export async function stage(
   const inData = stateInDataOf(OWNER_DATA_DIR, LIFE_STATE_DIR);
   mkdirSync(join(dir, "archive"), { recursive: true });
   const cloned = await locked(() => {
-    cpSync(OWNER_DATA_DIR, join(dir, "data"), { recursive: true });
+    // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
+    cpSync(OWNER_DATA_DIR, join(dir, "data"), {
+      recursive: true,
+      ...(inData && {
+        filter: (from: string) => pathIn(OWNER_DATA_DIR, from) !== inData,
+      }),
+    });
     return Promise.resolve(true);
   });
   if (cloned === null) {
     throw new Error("a run holds memory's lock: try again when it is done");
   }
   rmSync(join(dir, "data", basename(LOCK)), { force: true });
-  // Life's state inside his data (a test run's is): it goes to state/, through its filter, never with the data.
-  if (inData) {
-    rmSync(join(dir, "data", inData), { force: true, recursive: true });
-  }
+  const notCopied: string[] = [];
   cpSync(LIFE_STATE_DIR, join(dir, "state"), {
     // Never copied: a kept-out folder (a work folder's packages) would cost a copy only to be removed.
-    filter: (from) => {
-      const p = pathIn(LIFE_STATE_DIR, from);
-      return !KEPT_OUT.some((k) => p === k || p.startsWith(`${k}/`));
-    },
+    filter: (from) => isCopied(pathIn(LIFE_STATE_DIR, from), from, notCopied),
     recursive: true,
   });
-  stageProjects(dir);
   for (const p of filesUnder(join(dir, "state"))) {
-    if (p.startsWith("projects/")) {
-      continue;
-    }
     const staged = join(dir, "state", p);
-    if (KEPT_OUT_END.some((e) => p.endsWith(e))) {
+    const inProject = p.startsWith(`${PROJECTS_IN_STATE}/`);
+    if (
+      DB_SIDE_FILES.some((e) => p.endsWith(e)) ||
+      (!inProject && KEPT_OUT_END.some((e) => p.endsWith(e)))
+    ) {
       rmSync(staged, { force: true });
-    } else if (p.endsWith(".sqlite")) {
-      // A store kept in Life's state (the photo descriptions) is written meanwhile, in WAL: copied whole by SQLite
-      // like the archive's, never as a file without its -wal, which no reader opens.
+    } else if (isDb(staged)) {
+      // A store (the photo descriptions, a project's) is written meanwhile, in WAL: copied whole by SQLite like the
+      // archive's, never as a file without its -wal, which no reader opens.
       rmSync(staged);
-      copyDb(join(LIFE_STATE_DIR, p), staged);
+      try {
+        copyDb(join(LIFE_STATE_DIR, p), staged);
+      } catch (e) {
+        // A project's store that won't copy (corrupt, locked) is left out and named; Life's own stops the export.
+        if (!inProject) {
+          throw e;
+        }
+        rmSync(staged, { force: true });
+        notCopied.push(`state/${p}`);
+      }
     }
   }
   stageNotes(dir);
@@ -331,6 +350,8 @@ export async function stage(
     files,
     format: FORMAT,
     leftOut: leftOut(),
+    /** A project's files that could not be copied (a socket, an unreadable file, a store that won't open): left out. */
+    notCopied,
   };
   writeFileSync(
     join(dir, "manifest.json"),

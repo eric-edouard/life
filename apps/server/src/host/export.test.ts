@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { expect, test } from "bun:test";
+import { once } from "node:events";
 import {
   existsSync,
   mkdirSync,
@@ -9,6 +10,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256Of } from "../core/hash";
@@ -30,6 +32,7 @@ test("an export holds everything with its checksum and counts, and never a secre
   );
   writeSecret("oauth", "{}");
   writeSecret("localKey", "k");
+  let live: Database | undefined;
   try {
     const archive = mkdtempSync(join(tmpdir(), "life-archive-"));
     const db = new Database(join(archive, "whatsapp.sqlite"));
@@ -72,7 +75,7 @@ test("an export holds everything with its checksum and counts, and never a secre
     mkdirSync(join(project, ".git"));
     writeFileSync(join(project, ".git", "HEAD"), "ref");
     writeFileSync(join(project, ".envrc"), "KEY=made-up");
-    const live = new Database(join(project, "live.sqlite"));
+    live = new Database(join(project, "live.sqlite"));
     live.run("pragma journal_mode = wal");
     live.run("create table t (a)");
     live.run("insert into t values (1)");
@@ -84,10 +87,8 @@ test("an export holds everything with its checksum and counts, and never a secre
     expect(rowsIn(join(dir, "state/projects/bakery-page/live.sqlite"))).toEqual(
       { t: 1 }
     );
-    live.close();
-    rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
-    // A project's files, odd names kept, links left out, never its .git or a file starting .env; its secret files and packages left out.
+    // A project's files, odd names kept; never a link, its .git, its packages or a file starting .env.
     expect(paths.filter((p) => p.startsWith("state/projects/")).sort()).toEqual(
       ["PLAN.md", "live.sqlite", "notes.sqlite", "result.tmp"].map(
         (f) => `state/projects/bakery-page/${f}`
@@ -112,6 +113,8 @@ test("an export holds everything with its checksum and counts, and never a secre
     // A folder with something in it is never written into.
     await expect(stage(dir, archive)).rejects.toThrow("not empty");
   } finally {
+    live?.close();
+    rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     Object.values(SECRETS).forEach((p, i) => {
       const text = before[i];
       if (text === undefined) {
@@ -206,4 +209,38 @@ test("an export whose state is its data folder is refused before anything is sta
   expect(stateInDataOf("/test/life", "/test/life/state")).toBe("state");
   expect(stateInDataOf("/test/life", "/test/life/..state")).toBe("..state");
   expect(stateInDataOf("/test/life", "/test/state")).toBeNull();
+});
+
+test("a project's store mid-write comes whole, without its rollback journal; a file that won't copy is left out and named", async () => {
+  const project = join(PROJECT_WORK_FOLDERS, "bakery-page");
+  mkdirSync(project, { recursive: true });
+  // A rollback-mode store as a project's app leaves it: its journal beside it, never beside the copy (a hot one would be
+  // rolled onto it at its first open).
+  const store = new Database(join(project, "shop.sqlite"));
+  store.run("create table t (a)");
+  store.run("insert into t values (1)");
+  store.close();
+  writeFileSync(join(project, "shop.sqlite-journal"), "");
+  writeFileSync(join(project, "broken.db"), "SQLite format 3\0 then nothing");
+  const server = createServer().listen(join(project, "app.sock"));
+  await once(server, "listening");
+  try {
+    const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
+    const m = await stage(dir, mkdtempSync(join(tmpdir(), "life-archive-")));
+    const paths = m.files.map((f) => f.path);
+    expect(paths).toContain("state/projects/bakery-page/shop.sqlite");
+    expect(paths).not.toContain(
+      "state/projects/bakery-page/shop.sqlite-journal"
+    );
+    expect(m.counts.rows["state/projects/bakery-page/shop.sqlite"]).toEqual({
+      t: 1,
+    });
+    expect(m.notCopied.sort()).toEqual([
+      "state/projects/bakery-page/app.sock",
+      "state/projects/bakery-page/broken.db",
+    ]);
+  } finally {
+    server.close();
+    rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
+  }
 });

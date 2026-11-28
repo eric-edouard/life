@@ -145,20 +145,6 @@ export async function putNotes(
   }
 }
 
-/** A project's file is never written over: one there that is not the export's own refuses the import. */
-async function refuseProjectsOver(listed: Map<string, string>, to: Install) {
-  for (const [p, sha] of listed) {
-    const at = join(to.state, p.slice("state/".length));
-    if (!(p.startsWith("state/projects/") && existsSync(at))) {
-      continue;
-    }
-    // biome-ignore lint/performance/noAwaitInLoops: one file at a time
-    if ((await sha256Of(at)) !== sha) {
-      throw new Error(`${at} holds another file: nothing was changed`);
-    }
-  }
-}
-
 /**
  * Refuses at once when the import would write over something; whether the archive is there already (then kept, never
  * written to). A state file left by an earlier try that failed while moving in passes when it is the export's own.
@@ -173,19 +159,22 @@ async function refusal(m: Manifest, to: Install) {
     throw new Error(`${to.data} is not empty: nothing was changed`);
   }
   const listed = new Map(m.files.map((f) => [f.path, f.sha256]));
-  const marks = [SETTINGS, ...Object.values(storeFiles())].map((p) =>
-    pathIn(LIFE_STATE_DIR, p)
+  // A state file is never written over: one there that is not the export's own refuses the import, and so does any
+  // of an install's marks (its settings, the watcher's store and cursor) even when the export has none.
+  const marks = [SETTINGS, ...Object.values(storeFiles())].map(
+    (p) => `state/${pathIn(LIFE_STATE_DIR, p)}`
   );
-  for (const p of marks) {
-    const at = join(to.state, p);
-    // biome-ignore lint/performance/noAwaitInLoops: three files at most
-    if (existsSync(at) && (await sha256Of(at)) !== listed.get(`state/${p}`)) {
-      throw new Error(
-        `${to.state} holds an install already: nothing was changed`
-      );
+  const states = new Set([
+    ...marks,
+    ...m.files.map((f) => f.path).filter((p) => p.startsWith("state/")),
+  ]);
+  for (const p of states) {
+    const at = join(to.state, p.slice("state/".length));
+    // biome-ignore lint/performance/noAwaitInLoops: one file at a time, streamed
+    if (existsSync(at) && (await sha256Of(at)) !== listed.get(p)) {
+      throw new Error(`${at} holds another file: nothing was changed`);
     }
   }
-  await refuseProjectsOver(listed, to);
   const there = ARCHIVED.some((s) => existsSync(archiveDb(s.name, to.archive)));
   if (!(there || isEmpty(to.archive))) {
     throw new Error(
