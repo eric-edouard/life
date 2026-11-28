@@ -9,7 +9,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isCollection, isMap, isSeq, parseDocument, type YAMLMap } from "yaml";
+import {
+  isCollection,
+  isMap,
+  isSeq,
+  parse,
+  parseDocument,
+  type YAMLMap,
+} from "yaml";
 import { z } from "zod";
 import { writeWhole } from "../core/files";
 import { oneAtATimeAcross } from "../core/lock";
@@ -34,7 +41,7 @@ import { listRow } from "./init";
 // change-directory-entry`: the one place code writes truth/ for him. It edits text, never reserializes a
 // file: a person, an organization or an area is one entry of its list (added at the end, or that one entry edited in
 // place: only its fields that change are set, through the `yaml` package's Document, so his comments and spacing stay;
-// Bun.YAML only parses and prints, with no document to edit), a project is its
+// `yaml` is the one YAML parser, here and wherever Life reads YAML), a project is its
 // own file (new, or its frontmatter lines that change; the notes below are never touched), a goal is one numbered line
 // of me.md, and what Life may keep is that one section. The result is checked by the same `integrity` as
 // `bun life validate` on a copy of truth/ first; if it fails, nothing is written. Left out on purpose: deleting
@@ -300,10 +307,7 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
     ] as const;
   }
   const text = read(path);
-  const old = Bun.YAML.parse(text.match(FRONT)?.[1] ?? "") as Record<
-    string,
-    unknown
-  >;
+  const old = parse(text.match(FRONT)?.[1] ?? "") as Record<string, unknown>;
   return [
     path,
     withFrontmatter(text, {

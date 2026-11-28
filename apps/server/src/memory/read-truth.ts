@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { parse } from "yaml";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { git, gitOut } from "../core/proc";
 import { CONTACT_PREFIX, INFERRED_PREFIX } from "../records/observation";
@@ -81,7 +82,7 @@ export const readMe = (text: string): Truth["me"] => ({
 });
 
 async function yaml(path: string): Promise<unknown> {
-  return Bun.YAML.parse(await Bun.file(path).text());
+  return parse(await Bun.file(path).text());
 }
 
 function frontmatter(text: string, path: string) {
@@ -89,7 +90,7 @@ function frontmatter(text: string, path: string) {
   if (head === undefined) {
     throw new Error(`${path}: missing --- frontmatter ---`);
   }
-  return { body: (body ?? "").trim(), data: Bun.YAML.parse(head) };
+  return { body: (body ?? "").trim(), data: parse(head) };
 }
 
 /** His truth/ folder. */
@@ -370,9 +371,8 @@ export interface Entry {
 
 /** A directory file's entries as written (no defaults); none when the text holds none. */
 export const entriesOf = (text: string, key: string) =>
-  (((text ? Bun.YAML.parse(text) : null) as Record<string, unknown[]> | null)?.[
-    key
-  ] ?? []) as Entry[];
+  (((text ? parse(text) : null) as Record<string, unknown[]> | null)?.[key] ??
+    []) as Entry[];
 
 /**
  * What of his directory was added or changed since `since`: each person's and organization's id, and each

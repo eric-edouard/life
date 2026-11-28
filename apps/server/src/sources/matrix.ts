@@ -1,6 +1,7 @@
 import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { parse } from "yaml";
 import { MIN } from "../core/clock";
 import { MACHINE_DIR } from "../core/platform";
 import { SECRETS } from "../core/secret";
@@ -31,7 +32,7 @@ export const userOn = (localpart: string) => `@${localpart}:${SERVER}`;
 
 /** A YAML file's content, the one reader of bridge and homeserver configs. */
 export const readYaml = (path: string) =>
-  Bun.YAML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 
 /** A bridge's own config (`config.yaml`), the one place its settings are read from: never copied. */
 export const configOf = (bridge: string) =>
