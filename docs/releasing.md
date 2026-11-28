@@ -31,6 +31,22 @@ bun scripts/release.ts
 
 Set `LIFELOG_HOST_APP` to also put Lifelog Host in the DMG.
 
+Before each release, a fresh agent with no memory of the work runs the audit on the release's commit: "Audit this
+project: will any of my data leak? Is it safe?" (README, "Security and privacy"). Its answer must be "safe"; it goes
+in the release's notes.
+
+## From GitHub's runner, attested
+
+`.github/workflows/release.yml`, the repository's one workflow, runs `scripts/release.ts` on GitHub's macOS runner for
+each pushed `v*` tag, then attests the zip and the DMG (`actions/attest-build-provenance`), so anyone can check that a
+file was built from that tag by that workflow: `gh attestation verify Life-<version>.dmg --repo eric-edouard/life`.
+Running it by hand (`workflow_dispatch`, a version) is a dry run. It needs, in the repository's settings:
+
+- Secrets: `DEVELOPER_ID_P12_BASE64` and `DEVELOPER_ID_P12_PASSWORD` (the Developer ID Application certificate, exported
+  from the release keychain), `APPLE_ID`, `APPLE_TEAM_ID` and `APPLE_APP_PASSWORD` (notarytool's credentials),
+  `SPARKLE_ED_PRIVATE_KEY` (`generate_keys -x <file>` exports it).
+- Variable: `LIFE_SPARKLE_KEY`, the public key.
+
 A release whose voice server contract changed (`apps/lifelog/apps/server/openapi.json`) updates Lifelog Host first, then
 Life: Life reads the voice server only through that contract, and an older Host refuses the new calls.
 

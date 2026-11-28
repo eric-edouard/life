@@ -1,0 +1,93 @@
+# A release built from a tagged commit on GitHub's runner, with a build provenance attestation: verify a downloaded file
+# with `gh attestation verify <file> --repo eric-edouard/life`. The secrets it reads are listed in docs/releasing.md;
+# scripts/release.ts does the building, signing, notarizing and publishing.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version to build, sign and notarize; nothing is published.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+
+      # The keychain scripts/release.ts signs and notarizes from, made for this run alone.
+      - name: Release keychain
+        env:
+          DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          KEYCHAIN="$HOME/Library/Keychains/life-signing.keychain-db"
+          PASSWORD=$(openssl rand -hex 24)
+          mkdir -p "$(dirname "$KEYCHAIN")"
+          security create-keychain -p "$PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$PASSWORD" "$KEYCHAIN"
+          echo "$DEVELOPER_ID_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/id.p12"
+          security import "$RUNNER_TEMP/id.p12" -k "$KEYCHAIN" -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$PASSWORD" "$KEYCHAIN"
+          # The runner's own keychains stay in the search list beside it.
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | xargs)
+          rm -f "$RUNNER_TEMP/id.p12"
+          xcrun notarytool store-credentials life-notary --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" --keychain "$KEYCHAIN"
+          # generate_appcast signs the appcast with this file; a runner has no Sparkle Keychain item.
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle.key"
+          chmod 600 "$RUNNER_TEMP/sparkle.key"
+
+      # A tag's name without its leading "v"; a manual run's input, published nothing.
+      - name: Version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "LIFE_VERSION=$INPUT_VERSION" >> "$GITHUB_ENV"
+            echo "LIFE_RELEASE_DRY=1" >> "$GITHUB_ENV"
+          else
+            echo "LIFE_VERSION=${REF_NAME#v}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build, sign, notarize, publish
+        env:
+          LIFE_RELEASES_REPO: ${{ github.repository }}
+          LIFE_SPARKLE_KEY: ${{ vars.LIFE_SPARKLE_KEY }}
+          SPARKLE_ED_KEY_FILE: ${{ runner.temp }}/sparkle.key
+          GH_TOKEN: ${{ github.token }}
+        run: bun scripts/release.ts
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/Life-*.zip
+            dist/Life-*.dmg
+
+      - name: Remove the release keychain and the Sparkle key
+        if: always()
+        run: |
+          security delete-keychain "$HOME/Library/Keychains/life-signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP/sparkle.key"
