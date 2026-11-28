@@ -14,7 +14,7 @@ such as `[photo IMG_2910.HEIC, described by Life: … | text: …]` or `[video c
 step, search and the connector see them. Each file on this Mac is read once, when its message arrives (else at night), into `memory/files.jsonl`: a document's text
 (`textutil`) and a PDF's text layer (`pdftotext`) by code, a photo or a scanned PDF's first page (`sips`, as JPEG) by
 the fast model (`prompts/message-file-description.v1.md`), 8 per call, and a voice note (a chat message's audio; mail's and Notes' stay tags, `asChatOrNot`)
-by lifelog's speech pipeline (`POST /voice-notes/transcript`, `sources/voice-notes.ts`; Thai turns through Scribe, as the
+by lifelog's speech pipeline (`POST /voice-notes/transcript`, `sources/chat-voice-notes.ts`; Thai turns through Scribe, as the
 pendant's; anything not Ogg Opus made so by `ffmpeg` first), its words kept as its `text`. No model call reads a voice
 note, so it is read offline too; without lifelog set up it stays a tag; lifelog busy, it is asked again after 5 minutes. The event reader hears a page's voice notes
 before it matches (`hearVoiceNotes`), so a wait on words wakes on what was said. Video stays a tag. Originals stay in their app (or
