@@ -167,6 +167,8 @@ export function replayProxy(
       });
     },
     hostname: "127.0.0.1",
+    // A model's answer can take minutes before its first byte; 255 s is Bun's longest wait.
+    idleTimeout: 255,
     port: 0,
   });
   return {
