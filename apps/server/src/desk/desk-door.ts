@@ -425,7 +425,7 @@ function doorServer(desk: Desk, id: string) {
   }
   door(
     "change_setting",
-    "The main session only, on his words (`said`, his own words of this ask, verbatim): the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count; past it, background work slows; one piece of work stops and asks at 2% of it), or the edge's look (`aura`, every value whole, as his halo settings save it). Returns the settings as they now stand.",
+    "The main session only, on his words (`said`, his own words of this ask, verbatim): the monthly amount Life may spend, in billed dollars (`monthlyUsd`; his subscriptions don't count; past it, background work slows; one piece of work stops and asks at 2% of it), or the edge's look (`aura`, every value whole, as his halo settings save it), or the apps he pays with (`payWith`, the whole list, his current ones kept unless he changed them: each `{currency, app: {name, url}, payer?}`, `url` an https link into the app, `payer` a `project:` or `person:` ref of his directory when he pays as it, absent for himself). Returns the settings as they now stand.",
     SettingChange.extend({ said: z.string().min(1).max(2000) }),
     ({ said, ...change }, _, turn) => {
       hisWordsOf(turn, said);

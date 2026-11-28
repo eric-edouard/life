@@ -44,6 +44,14 @@ a local model (llama.cpp, `describePhotos` setting): none of those images goes t
 message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
 when its message arrives or at night (his word of 19 Nov 2026).
 
+Every read of message, mail, note and file text that a model or a reader sees goes through `redact` (`core/redact.ts`):
+card numbers, IBANs, key blocks, lines that look like a password or code, long tokens. One exception (his yes of 28 Nov
+2026): on Life's own payment card (a your move card whose step names an amount), the payee's IBAN, exactly as the
+payee wrote it in that step's message or its file, sits in the card's `account` need, and only when his own app reads
+it (`read_inbox` and `read_matter` on his token: `withPayeeAccountsOf`). The checks every other reader shares (agents,
+the reads-only connector, complaints, the nightly, pushes, the CLI) never hold it. An app on his token that is a chat
+with a model (his Claude or ChatGPT) passes it to that model's provider. Life never pays: he does, in his bank's app.
+
 ## Agents
 
 The desk (off until his `desk` setting) starts and wakes his registered agents, created only on his word (a project's, or the Personal agent; the desk registers the Personal agent itself, one at most, for a confirmed arrival no matter's agent takes, Direction's ruling of 21 Nov 2026, and the caretaker on his complaint): with `desk.handOut` set it also gives one a matter itself, from the top of his ranking, within the pace he set (his word of 20 Nov 2026): Life picks the matter by its ranking and the agent that takes it by code (`agentForOf`), the agent reads the matter as data, and nothing outward goes without his yes on a card. A registered agent is started by
@@ -94,8 +102,11 @@ A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his paymen
 
 The connector (`/mcp`) is served by the Mac, behind Life's own OAuth (pairing codes,
 PKCE). Its origin also forwards `/voice/…` to the voice server on loopback, as it came, behind the voice server's own tokens
-(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
-optionally a tunnel he controls.
+(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. The connector is
+on unless set off (`connector: false`); without a tunnel its origin is this Mac's loopback. Exposure is through the Mac
+link (`host/http/mac-link.ts`: an iroh endpoint by the Mac's own key, `LIFE_STATE_DIR/mac-link.key`, made at the first
+pairing, which starts the link; no public discovery; each stream piped to the connector's port, so the same tokens gate
+it as any caller; the pairing QR carries the Mac's id), his tailnet, optionally a tunnel he controls.
 
 Life's helper reads voice's `secrets.json` (owner-only; `host/voice.ts` its one writer): to start voice's launchd jobs
 with their keys and to read voice with the phone's device token. His own Life.app's "Pair an app" QR (never a checkout's or a second
@@ -108,6 +119,10 @@ key`, on stdin, never an argument).
 The one list; nothing else leaves. The voice server (`apps/lifelog`), its own process, keeps its own in
 [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
+- To n0's public iroh relay in Singapore, from the first phone pairing on, with the connector on: the Mac link's
+  metadata (both devices' IP addresses, their endpoint ids, when they connect and how much moves), never content,
+  encrypted end to end between the two keys. An install that never pairs a phone sends it nothing. Off with the
+  connector (`connector: false`).
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
   prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
   call lines do (who, when, how long; no content), so nothing new leaves the Mac. With the `apple-health` source on,
@@ -124,6 +139,13 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   read only, Life's own left out) that overlap it: each guest it offers as a possible speaker (a name, or an address no
   one is known by), with the event's title and time in their brief (his yes of 22 Nov 2026: that provider already gets his
   messages).
+- A new user's default model route, once packaging bundle M ships (not built yet): OpenRouter, model
+  `~deepseek/deepseek-flash-latest`, every request with `provider: {"zdr": true}`, so only providers that keep nothing
+  serve it (any such provider, wider than the two hosts of 22 Nov, on his words below); the key is made by OpenRouter's OAuth (PKCE) with a spending `limit` ($20 by default), about $5–20 a month.
+  His words of 28 Nov 2026: DeepSeek Flash latest, a zero data retention policy, flagged for audits as the default
+  route. Turn it off by choosing Claude in setup, or by asking Life.
+- Anonymous diagnostics to Life's developer: proposed, not built (issue #1599, his ask of 28 Nov 2026); nothing leaves
+  until it ships with its fields listed here and a way to turn it off.
 - With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
   minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
 - A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another
@@ -209,10 +231,10 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
-- The iroh relay (planned, `docs/plans/2026-11-27-private-relay.md`; Life doesn't use it yet) forwards the iPhone
-  app's traffic when a direct path fails. It is encrypted end to end between the Mac's and the phone's keys, so the
-  relay can't read it. It sees metadata: the devices' IP addresses, when they connect and how much data moves.
-  n0's public relays during development, Life's own before launch.
+- The Mac link's relay forwards the iPhone app's traffic when a direct path fails. It is encrypted end to end between
+  the Mac's and the phone's keys, so the relay can't read it. It sees metadata: the devices' IP addresses, when they
+  connect and how much data moves. n0's public relay during development, Life's own before launch. Anyone holding the
+  Mac's id reaches the connector's port as an internet caller reaches a tunnel: Life's tokens still gate every route.
 - Full Disk Access makes Life a high-value target on the Mac.
 - A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
   every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility

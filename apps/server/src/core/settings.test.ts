@@ -155,3 +155,30 @@ test("his halo settings are saved whole beside his amount; a value past its safe
   refused({ ...AURA, states: { ...AURA.states, still: undefined } });
   expect(() => changeSetting({})).toThrow("Not done");
 });
+
+test("his word sets the apps he pays with, the whole list, keeping his payments' source; an http link or a payer outside his directory's refs is refused", () => {
+  const before = readSettings();
+  const payWith = [
+    {
+      app: { name: "Test Bank", url: "https://bank.example.com/open" },
+      currency: "EUR",
+      payer: "project:shop",
+    },
+  ];
+  try {
+    expect(changeSetting({ payWith }).payWith).toEqual(payWith);
+    const { payments, ...rest } = readSettings();
+    expect(payments).toEqual({ ...before.payments, payWith });
+    expect(rest).toEqual(before);
+  } finally {
+    setSettings({ payments: before.payments ?? null });
+  }
+  const refused = (entry: object) =>
+    expect(
+      SettingChange.safeParse({ payWith: [{ ...payWith[0], ...entry }] })
+        .success
+    ).toBe(false);
+  refused({ app: { name: "Test Bank", url: "http://bank.example.com" } });
+  refused({ payer: "Shop Ltd" });
+  refused({ currency: "euro" });
+});

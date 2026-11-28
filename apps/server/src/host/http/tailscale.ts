@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { z } from "zod";
 import { execOk } from "../../core/proc";
-import { setSettings, settings } from "../../core/settings";
+import { setSettings } from "../../core/settings";
 import { OWN_PORT, PUBLIC_PORT } from "./http";
 
 // How the connector is reached with no domain of his own: Tailscale. `serve` puts Life's server on his tailnet, for
@@ -57,7 +57,7 @@ export async function connect(publicToo: boolean) {
   ]);
   const origin = `https://${name}`;
   setSettings({
-    connector: { ...settings().connector, origin },
+    connector: { origin },
   });
   return origin;
 }
