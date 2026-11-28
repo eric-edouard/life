@@ -113,6 +113,14 @@ function withoutGroups(
 
 export const DANA_ID = "00000000-0000-4000-8000-000000000001";
 
+/** A step reading of his own work done elsewhere, nothing protecting it: its your move card is hidden (`askOfStep`). */
+export const ELSEWHERE = {
+  by: null,
+  handledBy: "owner_elsewhere",
+  money: "none",
+  urgency: "normal",
+} as const;
+
 /** A matter's steps, made up: each on 1 Oct with a quote. */
 export const stepsOf = (...refs: string[]) =>
   refs.map((ref) => ({

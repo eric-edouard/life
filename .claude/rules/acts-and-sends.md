@@ -117,7 +117,7 @@ local key on the public port (`docs/architecture.md`, "Pages").
 ## Life signs its own tokens
 
 `oauth.ts` is the one source of the issuer's address and the owner's subject; an app is approved by a pairing code from
-the Mac. lifelog signs nothing for Life (24 Oct 2026).
+the Mac. The voice server signs nothing for Life (24 Oct 2026).
 
 ## The ledger is the truth
 

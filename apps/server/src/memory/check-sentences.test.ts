@@ -99,7 +99,7 @@ test("a name's sentence is the unit's own line holding it, who said it and where
   }
 });
 
-test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the sentence, and a unit that cannot be read leaves no context", async () => {
+test("a spoken sentence carries its clip; a clip the voice server cannot give leaves the sentence, and a unit that cannot be read leaves no context", async () => {
   let held = [
     unit({ hash: "h3", key: "conv-1", source: "voice", title: "conv-1" }),
   ];

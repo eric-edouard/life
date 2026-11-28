@@ -747,7 +747,7 @@ export const Fix = z.object({
     .string()
     .optional()
     .describe(
-      "title: a conversation id; rename_person, merge_people: a lifelog person id"
+      "title: a conversation id; rename_person, merge_people: a voice server person id"
     ),
   jobId: z.string().optional().describe("speaker: the recording's id"),
   label: z.string().optional().describe("speaker: the voice's label"),
@@ -765,7 +765,7 @@ export const Fix = z.object({
   to: z
     .string()
     .optional()
-    .describe('speaker: a lifelog person id, "unknown" or "media"'),
+    .describe('speaker: a voice server person id, "unknown" or "media"'),
   turnIndex: z
     .int()
     .min(0)
