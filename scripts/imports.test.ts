@@ -44,7 +44,7 @@ const CAPS: Record<string, number> = {
   "apps/lifelog/apps/server/src/people.test.ts": 988,
   "apps/lifelog/apps/server/src/people.ts": 1177,
   "apps/lifelog/packages/db/src/schema/index.ts": 1065,
-  "apps/server/src/host/status/snapshot.ts": 974,
+  "apps/server/src/host/status/snapshot.ts": 970,
   "apps/server/src/memory/units.test.ts": 1186,
 };
 

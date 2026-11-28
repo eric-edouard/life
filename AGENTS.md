@@ -69,9 +69,10 @@ step with its regression case, never a `correct` line, even when he confirms it.
 
 ## Anything a person sees
 
-Anything a person sees (the iPhone app, the Mac app, notifications, mail, Ask Life's answers, cards) starts from
-`docs/design/sources-of-truth.md` and follows its order: product rules, philosophy and guidelines, App v4 and its
-rulebook, the brand, the glossary; then what the system really does; then what is built. Decisions in
+Anything a person sees (the iPhone app, the Mac app, notifications, mail, Ask Life's answers, cards) starts from the
+life-design skill (`.claude/skills/life-design/SKILL.md`, the rules in force; every design brief names it), then
+`docs/design/sources-of-truth.md` when it needs more, in its order: product rules, philosophy and guidelines, App v4
+and its rulebook, the brand, the glossary; then what the system really does; then what is built. Decisions in
 `docs/design/philosophy.md` are never asked again or designed away. Designs and "done means ran live":
 `.claude/rules/surfaces.md`.
 
@@ -111,7 +112,7 @@ doc named.
 - **Nothing leaves the Mac but what `SECURITY.md` lists** ("What leaves the Mac"). Add nothing without him.
 - **The audit test: a fresh agent asked "will any of my data leak?" must answer "safe"** (packaging spec, `docs/plans/2026-11-28-packaging/spec.md` §5). Every third party Life talks
   to is named in `SECURITY.md` "What leaves the Mac" and at its code (a privacy line: what leaves, to whom, how to turn
-  it off), updated in the same PR that adds it. Nothing leaves that the user can't own or turn off; anything hosted for
+  it off), updated in the same PR that adds it (`scripts/what-leaves.test.ts` fails on a host it doesn't name). Nothing leaves that the user can't own or turn off; anything hosted for
   users (the relay, push) can't read their data: end-to-end encrypted, ids only.
 - **The connector writes only what `acts-and-sends.md` lists; never add a tool that sends or edits anything else.**
   Life serves no page and signs its own tokens.

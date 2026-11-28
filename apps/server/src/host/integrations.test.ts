@@ -7,6 +7,7 @@ import { NETWORKS } from "../sources/networks";
 import type { HeldSource } from "./backfill";
 import { integrationHealthOf } from "./integration-health";
 import {
+  aiFactsOf,
   backfillLineOf,
   holdsLineOf,
   howFarBackOf,
@@ -20,7 +21,6 @@ import {
 
 /** Made-up reads: Telegram on, nothing read, nothing failing, no permission given, no bridge checked. */
 const reads = (over: Partial<IntegrationReads> = {}): IntegrationReads => ({
-  access: {},
   bridges: new Map(),
   failingStores: new Map(),
   fullDiskAccess: "missing",
@@ -267,4 +267,55 @@ test("how far back: three ranges, priced on what the ready sources hold, the ear
       today: "2026-11-28",
     }).picked
   ).toBeUndefined();
+});
+
+test("the Pendant before the phone's first heartbeat is not red: the voice server answers, it just has none yet", () => {
+  const facts = integrationFactsOf(
+    sourceOf("voice"),
+    reads({
+      life: {
+        ok: true,
+        value: { pendant: null } as unknown as Extract<
+          IntegrationReads["life"],
+          { ok: true }
+        >["value"],
+      },
+      on: new Set(["voice"]),
+    })
+  );
+  expect(integrationHealthOf(facts).tone).not.toBe("bad");
+});
+
+test("the AI on OpenRouter alone is working: allmodels' key is an optional fallback, listed but never waited on", () => {
+  const facts = aiFactsOf(
+    {
+      claudeFound: true,
+      claudeSignedIn: true,
+      credits: 5,
+      host: "openrouter.ai",
+      keys: [
+        {
+          name: "OPENROUTER_API_KEY",
+          opens: "https://openrouter.ai",
+          set: true,
+        },
+        {
+          name: "ALLMODELS_API_KEY",
+          opens: "https://allmodels.io",
+          optional: true,
+          set: false,
+        },
+      ],
+      online: true,
+    },
+    providerOf("openrouter").integration
+  );
+  expect(facts.requirements).toContainEqual(
+    expect.objectContaining({
+      done: false,
+      name: "ALLMODELS_API_KEY",
+      optional: true,
+    })
+  );
+  expect(integrationHealthOf(facts).state).toBe("working");
 });

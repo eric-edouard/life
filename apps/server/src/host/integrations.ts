@@ -10,7 +10,6 @@ import { clock, daysBefore, MIN } from "../core/clock";
 import type { Engine } from "../core/names";
 import { systemZone } from "../core/platform";
 import { settings } from "../core/settings";
-import { readAccessStatuses } from "../memory/access";
 import {
   appHere,
   enabledSources,
@@ -76,9 +75,8 @@ export async function readIntegrationReads(now: Date) {
       cached("lifelog", 30_000, () => safe(readVoiceServerStatus)),
       newestOf(),
       cached("turn", 3000, () => safe(newestTurn)),
-      // What each source still lacks and the Mac's permissions: each a disk read, so read once per window.
+      // What each source still lacks and Full Disk Access: each a disk read, so read once per window.
       cached("integration mac", 5000, () => ({
-        access: readAccessStatuses().statuses,
         fullDiskAccess: readFullDiskAccess(),
         missing: new Map(SOURCES.map((d) => [d.name as string, d.missing?.()])),
         on: new Set(enabledSources().map((d) => d.name as string)),
@@ -95,12 +93,7 @@ export async function readIntegrationReads(now: Date) {
     turn,
   };
 }
-export type IntegrationReads = Awaited<
-  ReturnType<typeof readIntegrationReads>
-> & {
-  /** The AI's engine check, read only for the integration list. */
-  engine?: Awaited<ReturnType<typeof readEngineCheck>>;
-};
+export type IntegrationReads = Awaited<ReturnType<typeof readIntegrationReads>>;
 
 /** What a source takes as an integration: its network's requirements first (its keys, its sign-in), else its own terms. */
 export function requirementsOf(d: Descriptor): readonly Requirement[] {
@@ -119,14 +112,12 @@ export function requirementsOf(d: Descriptor): readonly Requirement[] {
   ];
 }
 
-/** Whether one of the AI's requirements is met, by the engine check (unread: taken as met). */
-function isEngineDoneOf(r: Requirement, e: IntegrationReads["engine"]) {
-  if (!e) {
-    return true;
-  }
+/** Whether one of the AI's terms' requirements is met, by the engine check. */
+function isEngineDoneOf(
+  r: Requirement,
+  e: Awaited<ReturnType<typeof readEngineCheck>>
+) {
   switch (r.kind) {
-    case "key":
-      return e.key?.set !== false;
     case "install":
       return e.claudeFound;
     case "sign_in":
@@ -144,18 +135,9 @@ export function isDoneOf(
   name: string,
   reads: IntegrationReads
 ): boolean {
-  if (name === "ai") {
-    return isEngineDoneOf(r, reads.engine);
-  }
   switch (r.kind) {
     case "permission":
-      // Free space is the step's own to judge (`accessStepsOf`).
-      return (
-        r.check === "disk_free" ||
-        (r.check === "full_disk_access"
-          ? reads.fullDiskAccess
-          : reads.access[r.check]) === "done"
-      );
+      return reads.fullDiskAccess === "done";
     case "sign_in":
       return (
         r.with !== "network" || reads.bridges.get(name)?.signedIn !== false
@@ -423,24 +405,71 @@ const linesOf = (o: {
   return { ...(backfill ? { backfill } : {}), ...(holds ? { holds } : {}) };
 };
 
+/** Each messaging network as an integration: each is a source by name, its own entry holding its terms. */
+export const networkIntegrationsOf = (
+  reads: IntegrationReads,
+  linesFor: (d: Descriptor) => {
+    backfill?: string;
+    holds?: string;
+  } = () => ({})
+) =>
+  NETWORKS.map((n) => ({ d: SOURCES.find((s) => s.name === n.name), n }))
+    .filter(
+      (x): x is { d: Descriptor; n: Network } =>
+        x.d !== undefined && appHere(x.d)
+    )
+    .map(({ d, n }) =>
+      integrationOf({
+        ...linesFor(d),
+        facts: integrationFactsOf(d, reads),
+        group: "messaging",
+        icon: n.name,
+        id: `network:${n.name}`,
+        name: n.label,
+        terms: n.integration,
+      })
+    );
+
+/** The AI's facts, from its engine check and terms: the keys he makes first, then what its terms ask. */
+export function aiFactsOf(
+  check: Awaited<ReturnType<typeof readEngineCheck>>,
+  terms: IntegrationTerms
+): IntegrationFacts {
+  return {
+    host: check.host,
+    kind: "ai",
+    on: true,
+    online: check.online,
+    requirements: [
+      ...check.keys.map(({ set, ...key }) => ({
+        ...key,
+        done: set,
+        kind: "key" as const,
+      })),
+      ...terms.requirements.map((r) => ({
+        ...r,
+        done: isEngineDoneOf(r, check),
+      })),
+    ],
+  };
+}
+
 /**
  * Every integration now, in the order a user meets them: the AI, voice, each source on this system, then each messaging
- * network. Served to the host app's setup window, the phone and `bun life bridge`.
+ * network. Served to the host app's setup window and the phone.
  */
 export async function integrationsNow(now = clock()): Promise<Integration[]> {
   const engine = readEngine();
   const { integration: aiTerms, label } = providerOf(engine);
   const today = localDate(now.toISOString());
   const from = settings().backfillFrom;
-  const [integrationReads, engineCheck, state, heldSources, paused] =
-    await Promise.all([
-      readIntegrationReads(now),
-      cached("engine check", MIN, () => readEngineCheck(engine)),
-      readBackfillState(),
-      heldSourcesOf(),
-      pausedImportsNow(),
-    ]);
-  const reads: IntegrationReads = { ...integrationReads, engine: engineCheck };
+  const [reads, engineCheck, state, heldSources, paused] = await Promise.all([
+    readIntegrationReads(now),
+    cached(`engine check:${engine}`, MIN, () => readEngineCheck(engine)),
+    readBackfillState(),
+    heldSourcesOf(),
+    pausedImportsNow(),
+  ]);
   const held = new Map(heldSources.map((s) => [s.name, s.held]));
   const pausedNames = new Set(paused.map((p) => p.source));
   const linesFor = (d: Descriptor) =>
@@ -454,22 +483,8 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
       state,
       today,
     });
-  const { key } = engineCheck;
-  // Its router's key first (the one he makes), then what its terms ask.
-  const aiRequirements: MetRequirement[] = [
-    ...(key
-      ? [{ kind: "key" as const, name: key.name, opens: key.opens }]
-      : []),
-    ...aiTerms.requirements,
-  ].map((r) => ({ ...r, done: isDoneOf(r, "ai", reads) }));
   const ai: Integration = integrationOf({
-    facts: {
-      host: engineCheck.host,
-      kind: "ai",
-      on: true,
-      online: engineCheck.online,
-      requirements: aiRequirements,
-    },
+    facts: aiFactsOf(engineCheck, aiTerms),
     group: "ai",
     howFarBack: howFarBackOf({
       engine,
@@ -509,25 +524,5 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
       terms: d.integration as IntegrationTerms,
     })
   );
-  // Each network is a source by name; its own entry holds its terms.
-  const networks = NETWORKS.map((n) => ({
-    d: SOURCES.find((s) => s.name === n.name),
-    n,
-  }))
-    .filter(
-      (x): x is { d: Descriptor; n: Network } =>
-        x.d !== undefined && appHere(x.d)
-    )
-    .map(({ d, n }) =>
-      integrationOf({
-        ...linesFor(d),
-        facts: integrationFactsOf(d, reads),
-        group: "messaging",
-        icon: n.name,
-        id: `network:${n.name}`,
-        name: n.label,
-        terms: n.integration,
-      })
-    );
-  return [ai, voice, ...sources, ...networks];
+  return [ai, voice, ...sources, ...networkIntegrationsOf(reads, linesFor)];
 }
