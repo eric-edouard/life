@@ -32,7 +32,6 @@ function metaCallOf(text: string): CallNotice | undefined {
 
 /**
  * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
- * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
  * what he calls it, the bridge's repository, its release tag (`tag`, the one it is built from) and command to build, how
  * its notices say a call (`callOf`), the config keys he must fill in himself (`appKeys`), the bridge's login flow he signs
  * in with, from his phone or the CLI (`loginFlow`, required: `networks.test.ts`), and whether its app is what Life reads
