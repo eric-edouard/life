@@ -219,7 +219,7 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
 - The encrypted backup, when `backup` is set, to the folder he chose.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 - The connector's sign-in page (`host/http/oauth.ts`, where an assistant is paired) loads Life's font from Google
-  Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`): the browser that opens it tells Google its IP address and
+  Fonts (its stylesheet starts with `assets/brand/tokens.css`, which imports it: `fonts.googleapis.com`, `fonts.gstatic.com`): the browser that opens it tells Google its IP address and
   the font, nothing of his.
 - Downloads, which carry nothing of his but the Mac's IP address: the describer's model files from Hugging Face
   (`huggingface.co`, once, when `describePhotos` is on); RemCTL from its GitHub release (`github.com`, once, when

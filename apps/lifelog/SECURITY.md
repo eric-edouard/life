@@ -18,7 +18,7 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | Instant dictation (`POST /live-words/token`), only while his `dictationHeard` switch is `instant` (off by default; the token is refused otherwise) | A field's dictation goes from the phone straight to ElevenLabs Scribe (realtime) over a WebSocket opened with a single-use token (15 minutes, spent on connect) this Mac mints; the ElevenLabs key stays on the Mac. A run whose stream fails is heard on the Mac instead (the dictation row), so its Thai turns may reach Scribe twice | Their terms (zero retention is enterprise-only, so not asked); lifelog keeps no audio, no words and never logs the token (`live_words.token_failed` only) |
 | Push alerts' text (the voices-to-name count, "open lifelog", Life's "heard you" notices, its new-card notices: a count and an opaque id; never what was said) | Apple's push service, on its way to the phone | Apple's terms; silent pushes carry no text |
 | Text sent for summaries | Your ChatGPT or Claude account, through Codex or Claude Code | Your subscription's consumer terms |
-| Audio for the speaker re-split (11 Nov 2026), once and only with the owner's OK | Modal's GPUs, in a container's memory for its call | Kept nowhere: no Volume, logs print counts only |
+| Audio for the speaker re-split (11 Nov 2026), once and only with the owner's OK; a one-off step since removed, so no code sends audio to Modal now | Modal's GPUs, in a container's memory for its call | Kept nowhere: no Volume, logs print counts only |
 
 The phone reads sleep and workouts from Apple Health
 only after the Settings permission request. It writes nothing to Health. Measurements go to the paired server,
