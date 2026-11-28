@@ -23,15 +23,21 @@ interface Recording {
 const ANTHROPIC = "https://api.anthropic.com";
 /** What Claude Code adds of its own to a message's text (the date, its folder, its reminders), outside Life's part. */
 const REMINDER = /<system-reminder>[\s\S]*?<\/system-reminder>\s*/g;
+/** A file Claude Code saved a long tool answer to: its path names the case's agent folder and a fresh id. */
+const SAVED_FILE = /\/\S*?\/\.claude\/projects\/[^\s"]*/g;
+/** A block's tool call, when it is a tool's answer: answers to calls made at once come back in the order they ended. */
+const answeredOf = (b: unknown) =>
+  (b as { tool_use_id?: string } | null)?.tool_use_id ?? "";
 
 /** Drops what is Claude Code's own and changes from run to run: its reminders and cache marks. */
 const lifePartOf = (v: unknown): unknown => {
   if (typeof v === "string") {
-    return v.replace(REMINDER, "");
+    return v.replace(REMINDER, "").replace(SAVED_FILE, "<saved file>");
   }
   if (Array.isArray(v)) {
     return v
       .map(lifePartOf)
+      .sort((a, b) => answeredOf(a).localeCompare(answeredOf(b)))
       .filter(
         (b) =>
           !(
@@ -55,8 +61,9 @@ const lifePartOf = (v: unknown): unknown => {
 /**
  * A request's fingerprint: its method, path and body. A model request's body counts everything that shapes the answer
  * (model, messages, Life's tools `mcp__…`, thinking, effort, streaming, limits), without what Claude Code adds of its own
- * and changes from run to run: its system prompt, metadata, built-in tools, reminders, and its environment message
- * (`role: "system"`, which names the agent's folder). So a Claude Code update alone asks nothing again.
+ * and changes from run to run: its system prompt, metadata, built-in tools, reminders, its environment message
+ * (`role: "system"`, which names the agent's folder), the paths of long answers it saved, and the order answers to calls
+ * made at once came back in. So a Claude Code update alone asks nothing again.
  */
 export function fingerprintOf(method: string, path: string, body: string) {
   const r = (body.startsWith("{") ? JSON.parse(body) : null) as {
@@ -125,9 +132,16 @@ export function replayProxy(
           join(seen, `${fp}.txt`),
           `${req.method} ${url.pathname}${url.search}\n${body}`
         );
+        // A 400, which Claude Code never retries: a miss stays a miss.
         return Response.json(
-          { error: { message: `no recording for ${fp}`, type: "replay_miss" } },
-          { status: 599 }
+          {
+            error: {
+              message: `no recording for ${fp}`,
+              type: "invalid_request_error",
+            },
+            type: "error",
+          },
+          { status: 400 }
         );
       }
       const headers = new Headers(req.headers);

@@ -66,7 +66,7 @@ test("a reply is recorded once, replayed without the provider, and a changed ask
   const changed = await ask(replay.url, [
     { content: "Who is Ana?", role: "user" },
   ]);
-  expect(changed.status).toBe(599);
+  expect(changed.status).toBe(400);
   replay.stop();
   upstream.stop(true);
   expect(upstreamCalls).toBe(1);
@@ -107,6 +107,26 @@ test("a fingerprint leaves out Claude Code's reminders, cache marks, built-in to
       "/v1/messages",
       JSON.stringify({ ...JSON.parse(plain), ...extra })
     );
+  const answers = (order: string[], folder: string) =>
+    fingerprintOf(
+      "POST",
+      "/v1/messages",
+      JSON.stringify({
+        messages: [
+          {
+            content: order.map((id) => ({
+              content: `Output has been saved to /Users/x/.claude/projects/${folder}/tool-results/${id}.txt`,
+              tool_use_id: id,
+              type: "tool_result",
+            })),
+            role: "user",
+          },
+        ],
+        model: "m",
+      })
+    );
+  // Answers to calls made at once, in the order they ended; a long one saved under the case's own folder.
+  expect(answers(["t1", "t2"], "agt-1")).toBe(answers(["t2", "t1"], "agt-2"));
   expect(
     new Set([
       shaped({}),
@@ -161,6 +181,6 @@ test("a REST read is replayed by its method, path and query, its content type ke
   const hit = await fetch(`${replay.url}/search?q=ana`);
   expect(hit.headers.get("content-type")).toContain("application/json");
   expect(await hit.json()).toEqual({ path: "?q=ana" });
-  expect((await fetch(`${replay.url}/search?q=bo`)).status).toBe(599);
+  expect((await fetch(`${replay.url}/search?q=bo`)).status).toBe(400);
   replay.stop();
 });
