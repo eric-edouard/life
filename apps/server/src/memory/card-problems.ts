@@ -254,21 +254,28 @@ function lookProblemOf(
       ask.doneSeenBy !== "payment" &&
       ask.doneSeenBy !== "access" &&
       'a `looks` option needs `doneSeenBy: "payment"` (fetch("ask/payment")) or `"access"` (fetch("ask/access"))') ||
-    ((ask.doneSeenBy === "access") !== (accessOf(ask.needs) !== undefined) &&
-      '`doneSeenBy: "access"` goes with one `access` need, and an `access` need with it (fetch("ask/access"))') ||
-    (ask.doneSeenBy === "access" &&
-      (ask.needs?.filter((n) => n.kind === "access").length !== 1 ||
-        looks.length !== 1) &&
-      '`doneSeenBy: "access"` needs one `access` need and one `looks` option, "I\'m at my Mac" (fetch("ask/access"))') ||
-    (ask.doneSeenBy === "access" &&
-      !macHelperPath() &&
-      "Life can't check or ask anything on this Mac (no Life.app helper)") ||
+    accessProblemOf(ask, looks.length) ||
     (ask.doneSeenBy === "payment" &&
       ask.needs?.filter((n) => n.kind === "amount").length !== 1 &&
       '`doneSeenBy: "payment"` needs one `amount` need (fetch("ask/payment"))') ||
     (ask.doneSeenBy === "payment" &&
       payeeWordsOf(ask.needs).length === 0 &&
       '`doneSeenBy: "payment"` needs the payee\'s name as the bank shows it: the `account`\'s `holder` or the `link`\'s `vendor` (fetch("ask/payment"))')
+  );
+}
+
+/** What breaks an access card's rules (`doneSeenBy: "access"`, `fetch("ask/access")`); false when nothing does. */
+function accessProblemOf(ask: z.infer<typeof Ask>, looks: number) {
+  if ((ask.doneSeenBy === "access") !== (accessOf(ask.needs) !== undefined)) {
+    return '`doneSeenBy: "access"` goes with one `access` need, and an `access` need with it (fetch("ask/access"))';
+  }
+  return (
+    ask.doneSeenBy === "access" &&
+    (((ask.needs?.filter((n) => n.kind === "access").length !== 1 ||
+      looks !== 1) &&
+      '`doneSeenBy: "access"` needs one `access` need and one `looks` option, "I\'m at my Mac" (fetch("ask/access"))') ||
+      (!macHelperPath() &&
+        "Life can't check or ask anything on this Mac (no Life.app helper)"))
   );
 }
 
