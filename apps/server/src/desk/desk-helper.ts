@@ -9,6 +9,7 @@ import { dayNow } from "../memory/zones";
 import { tick } from "./desk-clock";
 import { openDoor } from "./desk-door";
 import { type Desk, openDesk, postReportLine } from "./desk-store";
+import { catchUpHandoffs } from "./one-off-projects";
 import { acpRuntime } from "./runtimes/acp-runtime";
 import type { Runtime } from "./runtimes/contract";
 import { piRuntime } from "./runtimes/pi-runtime";
@@ -95,6 +96,10 @@ export async function desk() {
   }
   const d: Desk = { db: openDesk(), runtimes: RUNTIMES };
   endTurnsCutByRestart(d);
+  // Before the door opens and any agent wakes: each one-off project's agent holds its handoff.
+  await catchUpHandoffs(d).catch((error: unknown) =>
+    log("desk.one_off_project", { ...errorOf(error), ok: false })
+  );
   openDoor(d);
   let since = performance.now();
   setInterval(() => {
