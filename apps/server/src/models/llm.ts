@@ -644,7 +644,7 @@ async function claudeSignedInNow(program: string) {
 
 /**
  * What the AI integration's requirements read, once for the integration read. It checks that the Claude Code program is
- * on this Mac and signed in (only when `engine`'s terms ask for them), that a router's key is set, that the OpenRouter
+ * on this Mac and signed in (only when `engine`'s terms ask for them), that each key it takes is set, that the OpenRouter
  * balance is above zero (only when its terms ask for it) and that its host answers. The credits call carries only the
  * key, to the provider already in use.
  */
@@ -658,7 +658,6 @@ export async function readEngineCheck(engine = readEngine()) {
   const wantsCredits = integration.requirements.some(
     (r) => r.kind === "credits"
   );
-  const router = engine in ROUTERS ? ROUTERS[engine as Router] : undefined;
   // readProgram gives a bare name back when `Bun.which` finds nothing.
   const program = isClaude ? readProgram("claude") : "claude";
   return {
@@ -666,12 +665,12 @@ export async function readEngineCheck(engine = readEngine()) {
     claudeSignedIn: !isClaude || (await claudeSignedInNow(program)),
     credits: wantsCredits ? await creditsNow() : null,
     host,
-    // A router's key, the page where it is made, and whether it is set.
-    key: router && {
-      name: router.key,
-      opens: router.keysAt,
-      set: Boolean(process.env[router.key]),
-    },
+    // Each key it takes (`Provider.keys`), the page where its router's key is made, and whether it is set.
+    keys: PROVIDERS[engine].keys.map((name) => ({
+      name,
+      opens: Object.values(ROUTERS).find((r) => r.key === name)?.opens ?? "",
+      set: Boolean(process.env[name]),
+    })),
     online: await isOnline(engine),
   };
 }

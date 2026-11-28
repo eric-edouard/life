@@ -16,7 +16,6 @@ import {
 
 /** Made-up reads: Telegram on, nothing read, nothing failing, no permission given, no bridge checked. */
 const reads = (over: Partial<IntegrationReads> = {}): IntegrationReads => ({
-  access: {},
   bridges: new Map(),
   failingStores: new Map(),
   fullDiskAccess: "missing",
@@ -126,4 +125,21 @@ test("Telegram with no keys yet waits on him, with the key's words; signed in wi
   });
   const [key] = requirementsOf(telegram);
   expect(key && isDoneOf(key, "telegram", reads())).toBe(true);
+});
+
+test("the Pendant before the phone's first heartbeat is not red: the voice server answers, it just has none yet", () => {
+  const facts = integrationFactsOf(
+    sourceOf("voice"),
+    reads({
+      life: {
+        ok: true,
+        value: { pendant: null } as unknown as Extract<
+          IntegrationReads["life"],
+          { ok: true }
+        >["value"],
+      },
+      on: new Set(["voice"]),
+    })
+  );
+  expect(integrationHealthOf(facts).tone).not.toBe("bad");
 });

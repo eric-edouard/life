@@ -4,7 +4,7 @@
 
 import { daysBefore, HOUR } from "../core/clock";
 import { dayStart, wall } from "../memory/zones";
-import type { AccessCheck, Requirement } from "../records/integration";
+import type { Requirement } from "../records/integration";
 import type { Newest } from "../sources/contract";
 import type { Tone } from "./status/card";
 
@@ -108,7 +108,10 @@ export function integrationHealthOf(f: IntegrationFacts): IntegrationHealth {
   if (!f.on) {
     return { state: "off", tone: "idle", word: "off" };
   }
-  const unmet = f.requirements.find((r) => !r.done);
+  // A device is no step of its own to wait on: the voice server's own `missing` and the phone's silence judge it.
+  const unmet = f.requirements.find(
+    (r): r is MetRequirement & StepRequirement => r.kind !== "device" && !r.done
+  );
   if (unmet) {
     return {
       state: "waiting_on_user",
@@ -180,7 +183,7 @@ function pendantHealthOf(f: PendantFacts): IntegrationHealth {
     return {
       state: "broken",
       tone: "bad",
-      why: "Your phone hasn't reported to this computer for 12 hours.",
+      why: `Your phone hasn't reported to this computer for ${PHONE_SILENT_MS / HOUR} hours.`,
       word: "phone not reporting",
     };
   }
@@ -199,7 +202,7 @@ function pendantHealthOf(f: PendantFacts): IntegrationHealth {
   if (f.recording) {
     return { state: "working", tone: "ok", word: "recording" };
   }
-  if (quiet.word === "nothing yet") {
+  if (f.heardAt === null) {
     return { state: "connecting", tone: quiet.tone, word: quiet.word };
   }
   return { state: "working", tone: quiet.tone, word: quiet.word };
@@ -224,27 +227,19 @@ function voiceHealthOf(f: VoiceFacts): IntegrationHealth {
     : { state: "broken", tone: "bad", why: f.line, word: "not answering" };
 }
 
-/** What each permission's requirement asks him to do, in plain words. */
-const PERMISSION_WHY: Record<AccessCheck, string> = {
-  accessibility: "Turn on Accessibility for Life in System Settings.",
-  calendars: "Allow Life to use Calendars.",
-  contacts: "Allow Life to use Contacts.",
-  disk_free: "Free some disk space on this computer.",
-  full_disk_access: "Turn on Full Disk Access for Life in System Settings.",
-  photos: "Allow Life to use Photos.",
-};
-
 /** What each sign-in's requirement asks him to do, in plain words. */
-const SIGN_IN_WHY: Record<"google" | "network" | "claude", string> = {
+const SIGN_IN_WHY: Record<"network" | "claude", string> = {
   claude: "Sign in to Claude.",
-  google: "Sign in with Google.",
   network: "Sign in from your phone.",
 };
 
+/** A requirement he meets by a step of his own: every kind but a device. */
+type StepRequirement = Exclude<Requirement, { kind: "device" }>;
+
 /** A requirement not met, in plain words: what he does to meet it. */
-function requirementWhyOf(r: Requirement): string {
+function requirementWhyOf(r: StepRequirement): string {
   if (r.kind === "permission") {
-    return PERMISSION_WHY[r.check];
+    return "Turn on Full Disk Access for Life in System Settings.";
   }
   if (r.kind === "sign_in") {
     return SIGN_IN_WHY[r.with];
@@ -255,10 +250,5 @@ function requirementWhyOf(r: Requirement): string {
   if (r.kind === "credits") {
     return "Add credits on OpenRouter.";
   }
-  if (r.kind === "install") {
-    return "Install Claude Code.";
-  }
-  return r.what === "phone"
-    ? "Pair your phone with this computer."
-    : "Pair your pendant in the phone app.";
+  return "Install Claude Code.";
 }

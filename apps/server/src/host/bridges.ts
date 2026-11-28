@@ -445,7 +445,9 @@ export function afterLinked(n: Network) {
 async function link(n: Network, flow?: string) {
   const pending = await pendingAppKeys(n);
   if (pending.length > 0) {
-    console.log(`${n.label} needs your own keys. ${n.appKeys?.hint}`);
+    console.log(
+      `${n.label} needs your own keys, from ${n.appKeys?.opens}. ${n.appKeys?.hint}`
+    );
     const values = Object.fromEntries(
       pending.map(({ isNumber, path }) => {
         const key = path.split(".").pop() as string;

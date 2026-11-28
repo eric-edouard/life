@@ -105,7 +105,7 @@ export const NETWORKS = [
   {
     // Its bridge exits until its config holds his own keys from my.telegram.org (`bun life bridge link`).
     appKeys: {
-      hint: "Get them at https://my.telegram.org → API development tools (log in with your phone number).",
+      hint: "Log in with your phone number, then open API development tools.",
       opens: "https://my.telegram.org",
       paths: ["network.api_id", "network.api_hash"],
       secret: ["network.api_hash"],
