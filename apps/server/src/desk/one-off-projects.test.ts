@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, expect, setSystemTime, test } from "bun:test";
-import { cpSync, rmSync } from "node:fs";
+import { cpSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { clock } from "../core/clock";
 import { BUILT_IN_RUNTIME, DESK_AGENT } from "../core/names";
-import { OWNER_DATA_DIR } from "../core/paths";
+import { OWNER_DATA_DIR, PROJECT_WORK_FOLDERS } from "../core/paths";
 import { ask } from "../host/asks";
 import { changeDirectoryEntry } from "../host/change-directory-entry";
 import { assignmentOf } from "../host/desk-read";
@@ -11,8 +11,9 @@ import { estimateOf } from "../host/desk-turn-reads";
 import { areaHold } from "../memory/pages";
 import { loadTruth } from "../memory/read-truth";
 import { openAssignment, register } from "./agent-actions";
+import { start } from "./agent-changes";
 import { recordHandedWork } from "./desk-store";
-import { firstTurnOf, handedProjectOf } from "./first-turns";
+import { firstTurnOf, handedProjectOf, PLAYBOOK } from "./first-turns";
 import {
   catchUpHandoffs,
   openOneOffProject,
@@ -161,6 +162,14 @@ test("a one-off project gets one agent, never on his words, holding his entry; n
   const [agent] = agentsOn(t, "bakery-page");
   expect(agentsOn(t, "bakery-page")).toHaveLength(1);
   expect(agent?.brief).not.toContain(goal);
+  // Its sessions run in its own work folder, its own repo, outside his agents repo.
+  const work = join(PROJECT_WORK_FOLDERS, "bakery-page");
+  expect(
+    t.desk.db
+      .query("select folder from agent where id = ?")
+      .get(agent?.id ?? "")
+  ).toEqual({ folder: work });
+  expect(existsSync(join(work, ".git"))).toBe(true);
   expect([agentsOn(t, "old-shelf"), agentsOn(t, "garden")]).toEqual([[], []]);
   expect(handedRows(t)).toEqual([
     { assignment_id: ownOf(t, "bakery-page").id, entry_id: 3 },
@@ -175,6 +184,17 @@ test("a one-off project gets one agent, never on his words, holding his entry; n
     error: expect.stringContaining("dropped"),
   });
   expect(agentsOn(t, "bakery-page")).toHaveLength(1);
+  // His word starts a new one: it runs in the same work folder, by every door.
+  const again = start(
+    t.desk,
+    { action: "start", project: "bakery-page" },
+    "Start the bakery page again"
+  );
+  expect(
+    t.desk.db
+      .query("select folder from agent where id = ?")
+      .get("id" in again ? again.id : "")
+  ).toEqual({ folder: work });
 });
 
 test("an agent already on the project takes its handoff on the poll; a delivery that fails registers no agent", async () => {
@@ -359,6 +379,10 @@ test("promote writes the project from his told words, never the agent's; a retry
   );
   expect(first).toContain("`read_handed_conversation` with `entry: 5`");
   expect(first).toContain("Mostly old installers.");
+  expect([first.includes(PLAYBOOK), existsSync(PLAYBOOK)]).toEqual([
+    true,
+    true,
+  ]);
   expect(readHandedConversation(t.desk, taken, 5)).toEqual({
     entries: [
       {

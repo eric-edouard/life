@@ -1,6 +1,10 @@
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { clock } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import { PROJECT_WORK_FOLDERS } from "../core/paths";
+import { gitOut } from "../core/proc";
 import {
   addedIdOf,
   changeDirectoryEntry,
@@ -48,6 +52,15 @@ const hasEverHadAgent = (db: Desk["db"], project: string) =>
   db.query("select 1 from agent where project = ? limit 1").get(project) !==
   null;
 
+/** Makes one-off project `id`'s work folder (`PROJECT_WORK_FOLDERS`), with its own repo, when missing; never removed, so it is kept after its agent ends. `start` runs its agent there. */
+function makeWorkFolder(id: string) {
+  const folder = join(PROJECT_WORK_FOLDERS, id);
+  if (!existsSync(join(folder, ".git"))) {
+    mkdirSync(folder, { recursive: true });
+    gitOut(folder, ["init", "-q"]);
+  }
+}
+
 /** Project `id`'s active agent, if any. */
 const activeOf = (db: Desk["db"], id: string) =>
   db
@@ -77,7 +90,7 @@ const isWaitingFor = (db: Desk["db"], p: Project) => {
 
 /**
  * One-off project `id`'s active agent and its own assignment, holding his entry (`handed_work`, kind `project`) when the
- * project came from an ask. With none, registers one (`start`, its runtime checked first) while the project is under way,
+ * project came from an ask. With none, registers one (`start`, its runtime checked first; in its work folder) while the project is under way,
  * its goal still his words (`handedProjectOf`) and it never had one. The agent, its delivery and the handoff marked
  * taken are one transaction: a crash leaves all or nothing. Why not, as `{error}`; throws while the desk keeps its most
  * agents.
@@ -100,6 +113,9 @@ export async function openOneOffProject(
   const refused = refusalOf(db, p, active);
   if (refused) {
     return { error: `Not done: project ${id}: ${refused}.` };
+  }
+  if (!active) {
+    makeWorkFolder(id);
   }
   const opened = db.transaction(() => {
     const started = active
