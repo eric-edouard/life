@@ -5,6 +5,10 @@ be, an earlier source wins over a later one, and within one the newest dated lin
 (6, 7) bounds what can be built, so a design it can't carry proposes the change, marked "new block". Every design or component brief names this page (`AGENTS.md`,
 Workflow); nothing else is put in front of an agent on its own.
 
+Composed, never bespoke: a screen is built only from these components filled with data, a missing one proposed as a
+general component with its data shape (marked "new component"), and checked by swapping its example for a very
+different one ([philosophy](philosophy.md), "How a design is done").
+
 ## What it must follow
 
 1. [Product rules](../product.md): what any screen, notification or mail shows, and when. The owner's rules about what
