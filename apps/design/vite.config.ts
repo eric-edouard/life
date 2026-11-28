@@ -88,6 +88,16 @@ function servedFolders(): Plugin {
           server.ws.send({ type: "full-reload" });
         }
       });
+      // Cloudflare rewrites "no-cache" on .css and .js to its 4-hour browser cache; "no-store" it leaves alone.
+      server.middlewares.use((_req, res, next) => {
+        const set = res.setHeader.bind(res);
+        res.setHeader = (name, value) =>
+          set(
+            name,
+            name.toLowerCase() === "cache-control" ? "no-store" : value
+          );
+        next();
+      });
       server.middlewares.use((req, res, next) => {
         if (req.url === LATEST_URL) {
           // Read at each ask (the sheet opening), so a fast-forward of the checkout shows with no restart.
@@ -105,7 +115,6 @@ function servedFolders(): Plugin {
           "Content-Type",
           TYPES[extname(path)] ?? "application/octet-stream"
         );
-        res.setHeader("Cache-Control", "no-cache");
         createReadStream(join(REPO, path)).pipe(res);
       });
     },
