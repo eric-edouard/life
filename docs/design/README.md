@@ -25,7 +25,7 @@ is baked into it.
 
 | Design | What it is |
 |---|---|
-| [App v4](2026-11-23-chat-first/2026-11-25-app-v4.html) | The interactive phone, every scenario in its side panel |
+| [App v4](2026-11-23-chat-first/2026-11-25-app-v4.html) | The interactive phone, every scenario in its side panel, played turn by turn (28 Nov): each turn a page, his words pinned, Life's answer under them |
 | [Rulebook](2026-11-23-chat-first/2026-11-26-original-components.md) | What each of its parts is and does |
 
 ## Parity

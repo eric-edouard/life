@@ -9,6 +9,8 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap">
 <link rel="stylesheet" href="../components.css">
+<script src="2026-11-26-design-lab/card-blocks.js" charset="utf-8"></script>
+<script>document.head.insertAdjacentHTML("beforeend","<style>"+CB.css.cards+"</style>");</script>
 <style>
 :root{--bg:#121316;--fg:#fff8ea;--muted:#b9b4aa;--chip:#1d1e23;--on:#000;color-scheme:dark}
 body{background:var(--bg);color:var(--fg);font-family:'Manrope',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
@@ -117,19 +119,6 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 
 .td{font-style:normal;color:var(--flag)}
 .stl.wait i{background:var(--muted)}
-.chat{display:flex;flex-direction:column;gap:6px;margin-top:4px}
-.chead{display:flex;align-items:center;gap:10px;padding:8px 0 10px;color:var(--fg);text-decoration:none}
-.appm{width:28px;height:28px;border-radius:14px;background:#1f3a2e;color:#7fd6a3;display:flex;align-items:center;justify-content:center;flex:none}
-.appm svg{width:17px;height:17px}
-.chead b{font-size:15px;font-weight:650}
-.chead small{font-size:12.5px;color:var(--muted)}
-.chead .chev{margin-left:auto;color:var(--muted);font-size:20px}
-.cm{max-width:80%;padding:8px 12px 7px;border-radius:16px;font-size:15px;line-height:1.4;position:relative}
-.cm.in{align-self:flex-start;background:#17181c;border-top-left-radius:5px}
-.cm.out{align-self:flex-end;background:#1f3a2e;border-top-right-radius:5px}
-.cm .tm{display:inline-block;margin-left:8px;font-size:11px;color:var(--muted);vertical-align:-1px}
-.cm.draft{background:none;outline:1.5px dashed rgba(255,248,234,.45);outline-offset:-1.5px;margin-top:6px}
-.unrel{align-self:center;font-size:12px;color:var(--muted);padding:2px 0}
 .acts{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:4px}
 .send{width:48px;height:48px;border-radius:24px;background:var(--fg)!important;color:#000!important;display:flex!important;align-items:center;justify-content:center}
 .send svg{width:20px;height:20px}
@@ -380,8 +369,6 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .seg.mode button{font-size:13px}
 
 .why{font-size:14.5px;line-height:1.45;color:#b9b4aa;margin:-4px 0 12px}
-.att{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.25);font-size:12.5px;color:var(--fg)}
-.att svg{width:16px;height:16px;flex:none}
 .opt.rich{align-items:flex-start}
 .opt.rich .rd{margin-top:2px}
 .opt.rich b{display:block;font-size:15.5px;font-weight:650}
@@ -433,16 +420,6 @@ main{padding-block:24px 40px;padding-left:max(16px,env(safe-area-inset-left,0px)
 .opt.on{background:var(--fg)!important;color:#000!important}
 .opt.on .rd{box-shadow:inset 0 0 0 5px #000}
 .reopen{align-self:flex-start;height:40px;padding:0 16px!important;border-radius:20px;background:var(--tint)!important;font-size:14px!important;font-weight:600}
-.chead{display:flex;align-items:center;gap:10px;padding:4px 0 8px;text-decoration:none;color:var(--fg)}
-.chead .appm{width:26px;height:26px;background:none;display:flex}
-.chead .appm svg{width:26px;height:26px}
-.chead b{font-size:14.5px;font-weight:650;white-space:nowrap}
-.cnt{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-weight:400;font-size:12.5px;color:var(--muted)}
-.openw{margin-left:auto;height:30px;padding:0 10px 0 12px;border-radius:15px;background:rgba(37,211,102,.12);color:#4fdc8a;font-size:12.5px;font-weight:650;display:flex;align-items:center;gap:4px;white-space:nowrap;text-decoration:none}
-.openw svg{width:14px;height:14px}
-.cm.out{background:rgba(37,211,102,.16)!important}
-.cm.draft{background:rgba(37,211,102,.08)!important;outline:1.5px dashed rgba(37,211,102,.55)!important;transition:outline-color .6s ease}
-.cm.draft.gone{outline-color:transparent!important;background:rgba(37,211,102,.16)!important}
 .fc .fr.leaving{transition:opacity .25s ease,height .3s ease,padding .3s ease,margin .3s ease;overflow:hidden}
 body{margin:0}main{padding-block:20px!important;flex-direction:row!important;align-items:center!important;justify-content:center;gap:40px!important;min-height:100vh;box-sizing:border-box}.side{display:flex;flex-direction:column;gap:10px;width:300px;flex:none;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}.side .seg{flex-direction:column;align-items:stretch;border-radius:20px}.side .seg button{text-align:left;border-radius:16px}.side .hint{text-align:left;max-width:none;margin-top:8px}.lbl{font-size:12px;font-weight:650;color:var(--muted);margin-top:6px}.fitbox{flex:none;position:relative}.fitbox .ph{transform-origin:0 0}@media (max-width:820px){main{flex-direction:column!important}.side{width:min(390px,100%)}}@media (max-width:500px){.fitbox{width:auto!important;height:auto!important}.fitbox .ph{transform:none!important}main{padding:0} .ph{width:100vw;height:100dvh;--r:0px} .hint{padding:0 16px}}
 /* ---- app v4 ---- */
@@ -483,14 +460,9 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 .qe{height:30px;padding:0 12px!important;border-radius:15px;background:var(--tint)!important;font-size:13px!important;font-weight:600;color:#b9b4aa!important;display:inline-flex!important;align-items:center;gap:6px}
 .qe.ic{width:30px;padding:0!important;justify-content:center}.qe.ic svg{width:15px;height:15px}
 .qe:disabled{opacity:1}
-.cm.draft{transition:filter .3s ease,opacity .3s ease,outline-color .6s ease}
-.cm.draft.rw{filter:blur(5px);opacity:.3}
+.cb-cd{transition:filter .3s ease,opacity .3s ease,outline-color .6s ease}
+.cb-cd.rw{filter:blur(5px);opacity:.3}
 .fr.old{opacity:.4;cursor:default}
-/* iMessage drafts take Messages' colours */
-.chat.im .cm.out{background:rgba(10,132,255,.24)!important}
-.chat.im .cm.draft{background:rgba(10,132,255,.1)!important;outline-color:rgba(10,132,255,.6)!important}
-.chat.im .cm.draft.gone{outline-color:transparent!important}
-.chat.im .openw{background:rgba(10,132,255,.14);color:#64b0ff}
 /* undo after a send: what the other side will see, then the choice */
 .ucf{display:flex;flex-direction:column;gap:10px;padding:4px 0 8px 58px;font-size:14px;line-height:1.45;color:#b9b4aa;animation:rise .3s ease-out}
 .ucf .xyn{display:flex;gap:8px}
@@ -558,7 +530,7 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 .palt b{font-size:11px;font-weight:600;text-align:center;padding:5px 2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ofr{display:flex;gap:8px}.ofr button{flex:1;height:44px;border-radius:22px;background:var(--tint)!important;font-size:14.5px!important;font-weight:650}.ofr button.rec{background:var(--fg)!important;color:#000!important}
 .hd.settledr{opacity:.45}
-@media (prefers-reduced-motion:reduce){.rx,.rxbar{animation:none}.cm.draft.rw{filter:none}}
+@media (prefers-reduced-motion:reduce){.rx,.rxbar{animation:none}.cb-cd.rw{filter:none}}
 /* voice naming asks (proposal): one short moment, its words lit as they play; answers on one line */
 .vclip{display:flex;gap:12px;align-items:flex-start;background:#111214;border-radius:18px;padding:12px 14px;margin-top:4px}
 .vplay{width:36px;height:36px;border-radius:18px;background:var(--tint);color:var(--fg);display:flex;align-items:center;justify-content:center;flex:none;border:0;cursor:pointer}
@@ -593,9 +565,47 @@ body{margin:0}main{padding-block:20px!important;flex-direction:row!important;ali
 .lkp>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}
 .lkp small{font-size:12.5px;font-weight:650;color:var(--muted)}.lkp b{font-size:18px;font-weight:700;letter-spacing:-.01em;line-height:1.3}
 .lkp em{font-style:normal;font-size:13.5px;color:#b9b4aa;line-height:1.35}.lkp>svg{width:15px;height:15px;flex:none;color:var(--muted);margin-top:3px}
-.dayv .kv{justify-content:flex-start;padding:6px 10px;margin:0 -10px;border-radius:12px;transition:background .4s ease}.dayv .kv span{width:52px;flex:none}.dayv .kv b{text-align:left}
-.dayv .kv.new{background:var(--tint)}.dayv .dh{font-weight:700}
+.dayv .dh{font-weight:700}
 .pills2{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+/* turn by turn (owner, 28 Nov 2026): the thread is a pager of turns. A turn is his words, pinned at the top under a soft
+   blurred edge, then Life's answer flowing under it as long as it needs, centred when short; a turn is at least one
+   screen, and the thread snaps gently from turn to turn, never in the middle of an answer. A turn Life starts (a card
+   that arrives) has no question. The parts inside are App v4's, unchanged. */
+.thread{gap:0!important;padding-bottom:0!important;scroll-snap-type:y proximity}
+.thread .sp{display:none}
+.turn{flex:none;min-height:100%;display:flex;flex-direction:column;gap:12px;scroll-snap-align:start;padding-bottom:16px}
+.turn>.ans{flex:1;display:flex;flex-direction:column;gap:12px;justify-content:safe center;padding:16px 0 8px}
+.turn>.ans:has(>.hi){justify-content:flex-start}
+.turn>.more,.turn>.histb{margin-top:8px}
+/* his words: the turn's title, its size stepping down with its length; pinned, a long one clamps to two lines */
+.turn>.bm{position:sticky!important;top:0;z-index:2;align-self:stretch;max-width:none;margin:0;padding:10px 2px 12px;border-radius:0;background:none!important;font-weight:650!important;letter-spacing:-.015em;line-height:1.2;animation:none;text-wrap:pretty}
+.turn>.bm{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.turn>.bm .rx{position:relative;left:auto;bottom:auto}
+.turn>.bm.qs{font-size:26px}.turn>.bm.qm{font-size:19px;line-height:1.28}.turn>.bm.ql{font-size:16px;line-height:1.35}
+.turn>.bm::before{content:"";position:absolute;left:-16px;right:-16px;top:-40px;bottom:-22px;z-index:-1;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);-webkit-mask:linear-gradient(#000 calc(100% - 30px),transparent);mask:linear-gradient(#000 calc(100% - 30px),transparent);opacity:0;transition:opacity .25s ease;pointer-events:none}
+.turn>.bm.stuck::before{opacity:1}
+.turn>.bm.stuck .qt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.turn>.bmk{align-self:flex-start;margin-top:-12px}
+/* every answer opens with one headline sentence that answers directly */
+.ans>.bt:first-child:not(.wide),.ans>.bt.wide:first-child>.xmd:first-child>p:first-child{font-size:19px;font-weight:650;line-height:1.3;letter-spacing:-.01em}
+/* no scroll inside a card: a chat shows its messages that matter whole */
+.cb-cl{max-height:none!important;-webkit-mask:none!important;mask:none!important}
+/* new component: follow-ups, up to three asks he is likely to make next, as quiet pills under the latest answer */
+.fups{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;animation:rise .35s ease-out}
+.fups button{min-height:36px;padding:7px 14px!important;border-radius:18px;background:var(--tint)!important;font-size:13.5px!important;font-weight:600;line-height:1.3;text-align:left}
+/* new component: a day as a timeline: the time, a dot on a thread, the event and where; a new slot on a faint wash */
+.tl{display:flex;flex-direction:column}
+.tle{display:grid;grid-template-columns:50px 20px 1fr;align-items:start;border-radius:12px;margin:0 -8px;padding:0 8px;transition:background .4s ease}
+.tle .at{font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;line-height:1.35}
+.tle i{align-self:stretch;position:relative}
+.tle i::before{content:"";position:absolute;left:4px;top:6px;width:9px;height:9px;border-radius:5px;background:var(--muted)}
+.tle i::after{content:"";position:absolute;left:7.5px;top:19px;bottom:-3px;width:2px;border-radius:1px;background:var(--tint)}
+.tle:last-child i::after{display:none}
+.tle>span:last-child{padding-bottom:14px}
+.tle b{display:block;font-size:15px;font-weight:650;line-height:1.35}
+.tle small{display:block;font-size:13.5px;color:var(--muted);line-height:1.35}
+.inplace .cb-ch{padding-right:40px}
+.tle.new{background:var(--tint)}.tle.new i::before{background:var(--fg)}
 </style>
 </head>
 <body>
@@ -640,12 +650,11 @@ var TICK='<svg class="d" viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 /* every ask has: who asks (face), one sentence of what they need, when, its kind's body, and one wide action */
 var PIN='<svg viewBox="0 0 24 24" '+S+'><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11Z"/><circle cx="12" cy="10" r="2.3"/></svg>';
 var GMAPS='<svg viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="pinc"><path d="M12 22.5s-7.5-7.2-7.5-13a7.5 7.5 0 0 1 15 0c0 5.8-7.5 13-7.5 13Z"/></clipPath></defs><g clip-path="url(#pinc)"><rect x="0" y="0" width="24" height="24" fill="#34A853"/><path d="M12 0h12v12H12Z" fill="#EA4335"/><path d="M0 0h12v10.5L4.5 18 0 14Z" fill="#4285F4"/><path d="M12 9.5 24 12v4L13 22 7 15Z" fill="#FBBC04"/></g><circle cx="12" cy="9.5" r="2.8" fill="#fff"/></svg>';
-var DOC='<svg viewBox="0 0 24 24" '+S+'><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>';
 var M={
  ben:{person:'ben',after:['Did Ben answer?','Remind me tomorrow if he hasn’t','What else is waiting?'],sugg:['Make it shorter','Leave out the internal talk','Write it in French'],ask:'Send Ben the call recap',t:'Send Ben the call recap',who:'B',sub:'Ben',when:'tonight',kind:'message',
   why:'He was promised the transcript on today’s call. It also holds your internal talk, so the recap alone is a fair pick.',
   chat:{name:'Fernway',size:'3',items:[{t:'yes',at:'15:32'},{me:1,t:'Alright',at:'15:32'}],
-   draft:'Hey Ben, thanks for the call man<br>What’s on your side:<br>- access to all the business pages, we clean up the duplicates<br>- approve the website PRs when they land<br>- exclude the 41 search terms in Ads, that’s the 400€ wasted<br>- one contact name + phone per location<br>- your Claude subscription, I send the script to plug it in<br>Transcript attached<br>Tell me if I got anything wrong',
+   draft:'Hey Ben, thanks for the call man\nWhat’s on your side:\n- access to all the business pages, we clean up the duplicates\n- approve the website PRs when they land\n- exclude the 41 search terms in Ads, that’s the 400€ wasted\n- one contact name + phone per location\n- your Claude subscription, I send the script to plug it in\nTranscript attached\nTell me if I got anything wrong',
    file:'2026-11-23-call-transcript.md · 52 KB'},
   act:'Send both',icon:UP,alt:'Recap only',doing:'Sending…',ok:'Sent',ended:'Sent to Ben.',defer:'Not now'},
  clinic:{after:['Why Dr. Ink over Smooth?','What else is waiting?','Tell Nora it’s booked'],sugg:['Which one has the better reviews?','Ask both for their prices','Find one closer to home'],ask:'Pick a clinic for the tattoo',t:'Pick a clinic for the tattoo',who:PIN,sub:'For you and Nora',when:'Tue',kind:'pick',
@@ -704,15 +713,15 @@ function previewHTML(id){return '<div class="fr pvc'+(isInert(id)?' settled':'')
 /* the page opens with exactly the row: the same face, name and line, in the same roles, only larger */
 function heroHTML(id){var m=M[id];
   return '<div class="hero">'+disc(id)+'<div><div class="htitle">'+m.ask+'</div><div class="hline">'+(m.done?'<span class="okt">Done</span> · '+m.ended:lineHTML(id))+'</div></div></div>';}
-function chatHTML(c,draft){var im=c.app==='imessage';var h='<div class="chat'+(im?' im':'')+'"><a class="chead" href="'+(im?'https://www.apple.com/messages/':'https://wa.me/')+'" target="_blank" rel="noopener"><span class="appm">'+(im?IMSG:WA)+'</span><b>'+c.name+(c.size?'<span class="cnt"> · '+c.size+'</span>':'')+'</b><span class="openw">Open '+(im?'Messages':'WhatsApp')+' '+OPEN+'</span></a>';
-  c.items.forEach(function(it){ if(it.u)h+='<div class="unrel">'+it.u+' unrelated message'+(it.u>1?'s':'')+'</div>'; else h+='<div class="cm '+(it.me?'out':'in')+'">'+it.t+'<span class="tm">'+it.at+'</span></div>';});
-  if(draft)h+='<div class="cm out draft">'+draft+'</div>';return h+'</div>';}
+/* a chat is the one global chat (CB.chat): its head (initials, name, app, the arrow that opens it), the messages that
+   matter, the rest one quiet count, then the draft in the app's sent colour, dashed, with the file it sends; a draft's why goes under its head */
+function chatHTML(c,file,why){return CB.chat({to:c.name,app:c.app||'wa',why:why,chat:c.items.map(function(it){return it.u?{unrelated:it.u}:{me:it.me,who:c.name,t:it.t,at:it.at};}),draft:c.draft,file:file});}
 function bodyHTML(id){var m=M[id];
   if(m.done)return '';
   if(m.state==='waiting')return '<div class="nx">'+m.next+'</div><div class="sec">Last from '+m.sub+'</div>'+chatHTML({name:m.sub,items:[m.last]});
   var why=m.why?'<div class="why">'+m.why+'</div>':'';
   if(m.body)return why+m.body(id);
-  if(m.kind==='message')return why+chatHTML(m.chat,m.chat.draft+(m.chat.file?'<span class="att">'+DOC+m.chat.file+'</span>':''))+qesHTML(id);
+  if(m.kind==='message')return chatHTML(m.chat,m.chat.file,m.why)+qesHTML(id);
   if(m.kind==='spend')return why+'<div class="spend">'+m.spend+'</div>';
   if(m.kind==='pick'){var h=why;m.picks.forEach(function(c,i){h+='<div role="button" tabindex="0" class="oc'+(m.picked===i?' on':'')+'" data-pick="'+id+'" data-i="'+i+'"><div class="n"><span class="rd"></span>'+c.n+(c.best?' <em class="best">Life\u2019s pick</em>':'')+'</div><div class="f">'+c.d+'</div>'+(c.map?'<a class="gm" href="'+c.map+'" target="_blank" rel="noopener"><span class="lg">'+GMAPS+'</span>Google Maps<span class="ar">'+OPEN+'</span></a>':'')+'</div>';});var pl=m.picked!=null&&m.picks[m.picked].link;return h+(pl?lkpHTML(pl):'')+'<div class="foot">'+m.after+'</div>';}
   if(m.kind==='payment')return '<div class="box"><div class="amt">'+m.pay.amount+'</div><div class="kv"><span>To</span><b>'+m.pay.to+'</b></div><div class="kv"><span>IBAN</span><b class="mono">'+m.pay.iban+'</b></div><div class="kv"><span>Reference</span><b>'+m.pay.ref+'</b></div></div><a class="ext" href="#" onclick="return false">Open your bank '+OPEN+'</a>';
@@ -733,10 +742,64 @@ function barHTML(id,inline){var m=M[id];applyFix(id);if(m.done||m.state==='waiti
    away, its main answer is to be reminded on arriving home */
 var LOC='home';
 function applyFix(id){var m=M[id];if(m.kind!=='fix')return;var v=m[LOC]||m.home;['why','act','doing','ok','defer','alt','remind'].forEach(function(k){m[k]=v[k];});m.steps=v.steps;}
-function pageHTML(id){applyFix(id);var n=M[id].note;return heroHTML(id)+bodyHTML(id)+(n&&!M[id].done?'<div class="foot">'+n+'</div>':'');}
-function scrollDown(){if(holdScroll)return;thread.scrollTop=thread.scrollHeight;}
+/* a draft's header is its chat's head (the face, the name, the app, the arrow: 28 Nov), so it has no other */
+function pageHTML(id){applyFix(id);var n=M[id].note,draft=M[id].kind==='message'&&!M[id].done;return (draft?'':heroHTML(id))+bodyHTML(id)+(n&&!M[id].done?'<div class="foot">'+n+'</div>':'');}
+/* a new turn: the thread turns the page to it */
+function scrollDown(){if(holdScroll)return;var t=thread.lastElementChild;thread.scrollTo({top:t?t.offsetTop:thread.scrollHeight,behavior:reduceMotion?'auto':'smooth'});}
 function retire(){thread.querySelectorAll('.lt,.answers:not(.inplace .answers)').forEach(function(b){b.style.transition='opacity .25s ease';b.style.opacity='0';setTimeout(function(){b.remove();},260);});}
-function add(cls,html){if(cls!=='line'&&cls!=='mk'&&cls!=='bmk')focus='thread';if(cls==='bm'){holdScroll=false;var dp=document.getElementById('downp');if(dp)dp.remove();}if(cls!=='line'&&cls!=='mk')retire();var d=document.createElement('div');d.className=cls;d.innerHTML=html;thread.appendChild(d);reveal(d);return d;}
+function add(cls,html){if(cls!=='line'&&cls!=='mk'&&cls!=='bmk')focus='thread';if(cls==='bm'){holdScroll=false;var dp=document.getElementById('downp');if(dp)dp.remove();thread.querySelectorAll('.fups').forEach(function(f){f.remove();});}if(cls!=='line'&&cls!=='mk')retire();var d=document.createElement('div');d.className=cls;d.innerHTML=html;thread.appendChild(d);group();reveal(d);return d;}
+/* turn by turn: the thread's parts are grouped into turns as they arrive (group, also on any other change of the thread):
+   a turn opens with what heads it (a day separator, his words, the bell of an answer from a notification), then its
+   answer (.ans). Show earlier rides at the top of the turn after it. Nothing else in the prototype changes: the parts
+   still go to the thread, and land in their turn. */
+function ansOf(t){return t.querySelector(':scope>.ans');}
+function hasQ(t){return !!t.querySelector(':scope>.bm');}
+function isHead(n){var c=n.classList;return c.contains('sep')||c.contains('bm')||c.contains('bmk');}
+function isPre(n){var c=n.classList;return c.contains('sp')||c.contains('histb')||(c.contains('more')&&!n.dataset.more);}
+function mkTurn(before){var t=document.createElement('section');t.className='turn';t.innerHTML='<div class="ans"></div>';thread.insertBefore(t,before);return t;}
+/* his words' size steps down with their length; the text is wrapped so a pinned title can clamp to two lines */
+function titled(b){if(b.querySelector(':scope>.qt'))return;var q=document.createElement('span');q.className='qt';
+  [].slice.call(b.childNodes).forEach(function(n){if(n.nodeType===3||!n.classList.contains('rx')&&!n.classList.contains('q'))q.appendChild(n);});b.insertBefore(q,b.firstChild);
+  var n=q.textContent.trim().length;b.classList.add(n<=30?'qs':n<=64?'qm':'ql');}
+function group(){var kids=[].slice.call(thread.childNodes);
+  if(kids.every(function(n){return n.nodeType===1&&n.classList.contains('turn');}))return;
+  var cur=null,pre=[];
+  function lead(t){var f=t.firstChild;pre.forEach(function(p){t.insertBefore(p,f);});pre=[];}
+  kids.forEach(function(n){
+    if(n.nodeType!==1){n.remove();return;}
+    if(n.classList.contains('turn')){cur=n;lead(n);return;}
+    if(isPre(n)){pre.push(n);return;}
+    var a=cur&&ansOf(cur),open=cur&&!a.children.length&&!hasQ(cur);
+    if(isHead(n)&&!n.classList.contains('bmk')&&!open){cur=mkTurn(n);a=ansOf(cur);}
+    else if(!cur){cur=mkTurn(n);a=ansOf(cur);}
+    lead(cur);
+    if(isHead(n))cur.insertBefore(n,a);else a.appendChild(n);
+    if(n.classList.contains('bm'))titled(n);});
+  if(pre.length)lead(mkTurn(null));}
+new MutationObserver(group).observe(thread,{childList:true});
+/* a turn Life starts itself (a card it brings, a late result): a new page, with no question */
+function newTurn(){var t=thread.lastElementChild;if(!(t&&!hasQ(t)&&!ansOf(t).children.length))t=mkTurn(null);
+  if(!holdScroll)thread.scrollTo({top:t.offsetTop,behavior:reduceMotion?'auto':'smooth'});}
+/* pinned: his words clamp once his turn is scrolled into; at its top they show whole */
+function pinQ(){pinQ.raf=0;var top=thread.getBoundingClientRect().top;thread.querySelectorAll(':scope>.turn>.bm').forEach(function(b){b.classList.toggle('stuck',b.parentNode.getBoundingClientRect().top<top-4);});}
+thread.addEventListener('scroll',function(){if(!pinQ.raf)pinQ.raf=requestAnimationFrame(pinQ);},{passive:true});
+/* the room his pinned words take at the top of the turn holding el */
+function topPad(el){var t=el&&el.closest&&el.closest('.turn'),b=t&&t.querySelector(':scope>.bm');return b?b.offsetHeight+12:28;}
+/* the last thing shown: the latest turn's last part, else his words */
+function lastPart(){var t=thread.lastElementChild,a=t&&ansOf(t),last=a&&a.lastElementChild;
+  while(last&&['line','mk','bmk','fups'].some(function(c){return last.classList.contains(c);}))last=last.previousElementSibling;
+  return last||(t&&t.querySelector(':scope>.bm'));}
+/* the opening screen is untouched while no turn of his came after it */
+function untouched(){group();var h=thread.querySelector('.hi');if(!h)return false;for(var n=h.closest('.turn').nextElementSibling;n;n=n.nextElementSibling)if(hasQ(n))return false;return true;}
+/* follow-ups: up to three asks he is likely to make next (the field's suggestions), as pills under the latest answer */
+function paintFups(c){var t=thread.lastElementChild,a=t&&ansOf(t),key=c&&c.list&&state==='rest'?c.k:null;
+  thread.querySelectorAll('.fups').forEach(function(f){if(f.parentNode!==a||f.dataset.k!==key)f.remove();});
+  if(!key||!a||!a.children.length||a.querySelector(':scope>.fups,.hi'))return;
+  var q=t.querySelector(':scope>.bm .qt'),list=c.list.filter(function(x){return !q||x!==q.textContent;});
+  var f=document.createElement('div');f.className='fups';f.dataset.k=key;
+  f.innerHTML=list.slice(0,3).map(function(x){return '<button type="button" data-fup>'+esc(x)+'</button>';}).join('');a.appendChild(f);}
+ph.addEventListener('click',function(e){var b=e.target.closest('[data-fup]');if(!b)return;e.stopImmediatePropagation();send(b.textContent);},true);
+
 /* whatever Life adds comes in progressively, like dictated words: text word by word, blocks one by one, each from blurred
    to sharp; the thread follows as it grows, and stops with the new block's top in view */
 function follow(d){if(holdScroll)return;var t=Math.min(thread.scrollHeight-thread.clientHeight,d.offsetTop-70);if(t>thread.scrollTop)thread.scrollTo({top:t,behavior:'smooth'});}
@@ -744,16 +807,16 @@ function wordsIn(el){var walk=document.createTreeWalker(el,NodeFilter.SHOW_TEXT)
   nodes.forEach(function(t){if(!t.nodeValue.trim())return;var f=document.createDocumentFragment();t.nodeValue.split(/(\s+)/).forEach(function(w){if(!w)return;if(/^\s+$/.test(w)){f.appendChild(document.createTextNode(w));return;}var sp=document.createElement('span');sp.className='w';sp.textContent=w;f.appendChild(sp);out.push(sp);});t.parentNode.replaceChild(f,t);});return out;}
 /* the thread follows a reveal in batches, never word by word: everything to come is already laid out (hidden), so
    when the revealed part reaches the bottom edge the thread makes one smooth move that leaves room for the next
-   stretch (about half the view), never so far that the message's top passes under the top's blurred edge */
-var TOP_PAD=28,BOTTOM_PAD=14;
+   stretch (about half the view), never so far that the answer's headline passes under his pinned words */
+var BOTTOM_PAD=14;
 function batchFollow(d,el){if(holdScroll)return;var tr=thread.getBoundingClientRect();
   var front=el.getBoundingClientRect().bottom-tr.top+thread.scrollTop,view=thread.scrollTop+thread.clientHeight-BOTTOM_PAD;
-  if(front<=view)return;var dTop=d.getBoundingClientRect().top-tr.top+thread.scrollTop;
-  var target=Math.min(front-thread.clientHeight*0.5,dTop-TOP_PAD,thread.scrollHeight-thread.clientHeight);
-  target=Math.max(target,front-thread.clientHeight+BOTTOM_PAD);
+  if(front<=view)return;var a=d.closest('.ans'),lead=a&&a.firstElementChild||d,dTop=lead.getBoundingClientRect().top-tr.top+thread.scrollTop;
+  var target=Math.max(front-thread.clientHeight*0.5,front-thread.clientHeight+BOTTOM_PAD);
+  target=Math.min(target,dTop-topPad(d),thread.scrollHeight-thread.clientHeight);
   if(target>thread.scrollTop+4)thread.scrollTo({top:target,behavior:'smooth'});}
 function reveal(d){d.classList.add('rv');
-  if(d.classList.contains('bm')||d.classList.contains('mk')){scrollDown();return;}
+  if(d.classList.contains('bm')||d.classList.contains('mk')||d.classList.contains('sep')){scrollDown();return;}
   if(reduceMotion){follow(d);return;}
   var plain=!d.querySelector('div,button,a');
   if(plain){var ws=wordsIn(d);batchFollow(d,ws[0]||d);ws.forEach(function(w,i){setTimeout(function(){w.classList.add('on');batchFollow(d,w);},i*28);});return;}
@@ -824,7 +887,7 @@ ph.addEventListener('click',function(e){if(e.target.closest('a'))return;var t=e.
   else if(t.matches('[data-reask]')){var rid=t.dataset.reask;t.closest('.line,small').innerHTML=lineHTML(rid);openAsk(rid,null);}
   else if(t.matches('[data-open]')){var oid=t.dataset.open;if(isInert(oid))return;if(M[oid].later){M[oid].later=null;ASKS.push(oid);setCount();refreshLive(oid);}openAsk(oid,t.closest('.fr'));}
   else if(t.matches('.more'))showEarlier(t);});
-function showEarlier(btn){var f=document.createElement('div');f.innerHTML='<div class="sep">Monday</div><div class="bm">Is someone coming for the boiler?</div><div class="bt">Paul can come on Tuesday morning. I asked him for a quote.</div>';var a=btn.nextSibling;while(f.firstChild)thread.insertBefore(f.firstChild,a);btn.remove();}
+function showEarlier(btn){var f=document.createElement('div');f.innerHTML='<div class="sep">Monday</div><div class="bm">Is someone coming for the boiler?</div><div class="bt">Paul can come on Tuesday morning. I asked him for a quote.</div>';var host=btn.closest('.turn')||btn;while(f.firstChild)thread.insertBefore(f.firstChild,host);btn.remove();}
 function setEdge(s){if(s==='rest'&&(SYSD.offline||SYSD.mac))s='still';edgeS=s;edgeEl.className='edge js s-'+s;goal=GOALS[s];document.querySelectorAll('.seg:not(.mode):not(.skip):not(.nseg):not(.sysb):not(.locb):not(.tryb):not(.v4b) button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.s===s));});}
 function idleField(){
   cmp.innerHTML='<div class="crow"><span class="fwrap"><input class="fld" id="fld" type="text" placeholder="Ask Life or hold to talk" aria-label="Ask Life" autocomplete="off"><span class="sugg" id="sugg" hidden><span class="stx" id="stx"></span><button type="button" class="ssend" id="ssend" aria-label="Ask this">'+UP+'</button></span></span><span class="keys"><button type="button" class="k mic" id="mic" aria-label="Dictate">'+MIC+'</button><button type="button" class="k snd off" id="snd" aria-label="Send">'+UP+'</button></span></div>';
@@ -843,7 +906,7 @@ var suggIdx=0,lastSuggFor=null;
    from what is shown (here a stand-in by context): an open ask's follow-ups, what usually comes after an item that
    just settled, what to do with a list, or the day's usual first asks. Each shows in the empty field in turn. */
 function currentAsk(){var c=suggNow();return c&&c.ask?c.ask:null;}
-function lastShown(){var last=thread.lastElementChild;while(last&&(last.classList.contains('line')||last.classList.contains('mk')||last.classList.contains('bmk')||last.classList.contains('sp')))last=last.previousElementSibling;return last;}
+function lastShown(){return lastPart();}
 /* the suggested asks follow his latest action: an item he unfolded, an item he just answered there, or else what his
    last action brought to the bottom of the thread */
 function suggNow(){
@@ -855,7 +918,7 @@ function suggNow(){
   if(last&&lc&&(last===lc||last.contains(lc)||last.classList.contains('bm'))){var i3=lc.dataset.open;var st=stateOf(i3);
     if((st==='settled'||st==='underway')&&M[i3].after)return {k:'after:'+i3+':'+st,list:M[i3].after};}
   /* the clean screen (first screen, 26 Nov): what is on it picks the first suggestion */
-  if(thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm')){var fx=thread.querySelector('.hi ~ .bt .fr:not(.settled):not(.outdated)[data-open]');
+  if(untouched()){var fx=thread.querySelector('.hi ~ .bt .fr:not(.settled):not(.outdated)[data-open]');
     if(fx&&M[fx.dataset.open].kind==='fix')return {k:'clean:broken',list:['Why did it sign out?','What didn’t go meanwhile?','What’s waiting on me?']};
     if(thread.querySelector('[data-more]'))return {k:'clean:waiting',list:['Start with the most urgent','What can wait until next week?','What’s on today?']};
     if(fx)return {k:'clean:all',list:['What can wait until next week?','Start with the most urgent','What’s on today?']};
@@ -868,7 +931,7 @@ function paintSugg(){var box=document.getElementById('sugg'),f=document.getEleme
   if(c.k!==lastSuggFor){suggIdx=0;lastSuggFor=c.k;}
   box.hidden=false;f.placeholder='';var t=document.getElementById('stx');var next=c.list[suggIdx%c.list.length];
   if(t.textContent!==next){t.innerHTML='';var words=next.split(' '),d=0;words.forEach(function(wd,wi){if(wi){t.appendChild(document.createTextNode(' '));d+=90;}for(var j=0;j<wd.length;j++){var c=document.createElement('span');c.className='ink';c.style.animationDelay=(d+j*28)+'ms';c.textContent=wd[j];t.appendChild(c);}d+=wd.length*28;});var sb=document.getElementById('ssend');sb.classList.remove('ink');void sb.offsetWidth;sb.style.animationDelay=(d+60)+'ms';sb.classList.add('ink');}}
-setInterval(function(){if(state==='rest')paintSugg();},400);
+setInterval(function(){if(state==='rest')paintSugg();paintFups(suggNow());},400);
 setInterval(function(){if(state==='rest'){suggIdx++;paintSugg();}},3000);
 function listen(){clear();state='listen';setEdge('listen');typed='';
   cmp.innerHTML='<div class="words" id="words"></div><div class="crow"><button type="button" class="k x" id="cx" aria-label="Cancel dictation">'+X+'</button><span class="stream">'+BARS+'</span><span class="keys"><button type="button" class="k mic live" id="mic" aria-label="Stop dictating">'+MIC+'</button><button type="button" class="k snd" id="snd" aria-label="Send">'+UP+'</button></span></div>';
@@ -900,7 +963,7 @@ function nowHM(){return '9:41';}
 function notifyAsk(){var box=document.getElementById('nbox');if(!box)return;
   var id=ASKS.filter(function(x){return M[x].kind==='message';})[0]||ASKS[0];
   if(!id){box.innerHTML='<div class="nnone">No notification: nothing waits on you.</div>';return;}var m=M[id];
-  var body=m.kind==='message'?m.chat.draft.replace(/<br>/g,' ')+(m.chat.file?' + '+m.chat.file:''):esc(m.why||'');
+  var body=m.kind==='message'?m.chat.draft.replace(/\n/g,' ')+(m.chat.file?' + '+m.chat.file:''):esc(m.why||'');
   box.innerHTML='<div class="nban" data-nopen="'+id+'" role="button" tabindex="0" aria-label="Open the notification"><div class="nh"><span class="nai">L</span><span>Life</span>now</div><b>'+esc(m.ask)+'</b><small>'+m.sub+(m.when?' · '+m.when:'')+'</small><p>'+body+'</p></div>'+
     '<div class="nacts"><button type="button" data-nact="'+id+'">'+esc(m.act)+'</button><button type="button" data-nlater="'+id+'">'+esc(m.defer||'Later')+'</button></div>';}
 function closeNotif(){}
@@ -912,8 +975,7 @@ function fromNotifOpen(id){clear();var sk=SKIP?openAskId():null;collapseLatest()
   thread.querySelectorAll('.fc .fr[data-open="'+id+'"]').forEach(function(r){r.classList.add('opened');});
   var e=add('pg expanded ask',pageHTML(id)+barHTML(id,true));e.dataset.m=id;}
 function answeredOnNotif(id,later){var m=M[id];clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);
-  add('nfc',previewHTML(id));
-  add('bm',esc(later?(m.defer||'Later'):m.act));add('bmk','<span class="mk">'+BELL+'</span>'+nowHM());
+  add('bm',esc(later?(m.defer||'Later'):m.act));add('bmk','<span class="mk">'+BELL+'</span>'+nowHM());add('nfc',previewHTML(id));
   if(later){putOff(id);return;}
   if(m.followUp){m.busy=m.underway||'Life is on it';finish(id);refreshLive(id);followUpOf(m.followUp);return;}
   m.done=true;finish(id);refreshLive(id);}
@@ -927,7 +989,7 @@ function followUpOf(id){if(ASKS.indexOf(id)>=0||M[id].done)return;
   if(state==='rest')setEdge('work');
   setTimeout(function(){if(state==='rest')setEdge('rest');var par=Object.keys(M).filter(function(k){return M[k].followUp===id;})[0];if(par&&!M[par].busy)return;ASKS.push(id);if(par){M[par].busy=null;M[par].done=true;M[par].ended=M[par].settledAs||M[par].ended;refreshLive(par);}setCount();pending.push(id);landPending();},2800);}
 function landPending(){if(!pending.length)return;if(!isFree())return;var id=pending.shift();
-  var up=thread.scrollHeight-thread.clientHeight-thread.scrollTop>140;holdScroll=up;
+  var up=thread.scrollHeight-thread.clientHeight-thread.scrollTop>140;holdScroll=up;newTurn();
   add('bt',M[id].leadHTML||esc(M[id].lead||'Next:'));var e=add('pg expanded ask',pageHTML(id)+barHTML(id,true));e.dataset.m=id;
   if(up)showDownPill();}
 setInterval(landPending,600);
@@ -950,7 +1012,7 @@ function inPlace(id,row){focus='ip:'+id;
   e.style.cssText='position:absolute;visibility:hidden;left:0;width:'+row.offsetWidth+'px';row.parentNode.appendChild(e);
   var H=e.offsetHeight+6,rowH=row.offsetHeight;e.remove();e.style.cssText='';
   var rowTop=row.getBoundingClientRect().top-thread.getBoundingClientRect().top+thread.scrollTop;
-  var want=Math.max(thread.scrollTop,rowTop+H-(thread.clientHeight-BOTTOM_PAD));want=Math.min(want,rowTop-TOP_PAD);
+  var want=Math.max(thread.scrollTop,rowTop+H-(thread.clientHeight-BOTTOM_PAD));want=Math.min(want,rowTop-topPad(row));
   var pad=parseFloat(getComputedStyle(thread).paddingBottom)||0,extra=Math.max(0,H-rowH);
   thread.style.paddingBottom=(pad+extra)+'px';
   var dist=Math.abs(want-thread.scrollTop);if(dist>2)thread.scrollTo({top:want,behavior:reduceMotion?'auto':'smooth'});
@@ -968,8 +1030,8 @@ function closeInPlace(e){if(!e||!e.parentNode||e.classList.contains('folding'))r
   e.style.height=e.offsetHeight+'px';e.style.overflow='hidden';e.classList.add('folding');e.offsetHeight;
   e.style.transition='height 300ms cubic-bezier(.4,0,.2,1)';e.style.height=rh+'px';
   setTimeout(function(){row.style.display='';e.remove();},310);}
-function isAtBottom(el){var top=el;while(top&&top.parentNode!==thread)top=top.parentNode;if(!top)return true;
-  for(var n=top.nextElementSibling;n;n=n.nextElementSibling){if(!n.classList.contains('line')&&!n.classList.contains('mk'))return false;}return true;}
+function isAtBottom(el){var t=el.closest('.turn'),top=el;if(!t)return true;if(t.nextElementSibling)return false;while(top.parentNode&&top.parentNode.parentNode!==t)top=top.parentNode;
+  for(var n=top.nextElementSibling;n;n=n.nextElementSibling){if(!n.classList.contains('line')&&!n.classList.contains('mk')&&!n.classList.contains('fups'))return false;}return true;}
 function decidedAway(id,what){var es=thread.querySelectorAll('.inplace[data-m="'+id+'"]');if(!es.length)return;focus='after:'+id;var away=Array.prototype.every.call(es,function(e){return !isAtBottom(e);});es.forEach(closeInPlace);
   if(away)add('line','You '+what+' <button type="button" class="goto" data-goto="'+id+'">'+esc(M[id].t)+'</button>');}
 function gotoItem(id){var r=Array.prototype.filter.call(thread.querySelectorAll('.fr[data-open="'+id+'"]'),function(x){return x.style.display!=='none';})[0];if(!r)return;
@@ -1025,8 +1087,8 @@ function openAsk(id,row){
   closeSkipped(sk);add('bm',esc(M[id].ask));var e=add('pg expanded ask',pageHTML(id)+barHTML(id,true));e.dataset.m=id;}
 /* an answer with a single item: Life's words, then the item already unfolded in place (its row kept hidden above it,
    so folding it gives back the row); several items come as rows */
-var SHOWN={dentist:'Bright Dental moved your cleaning and still owes you a <b>new time</b>. They said by Friday.',
-  boiler:'Paul still owes you his <b>quote</b>. He said by Thursday.',jade:'Jade is waiting on your <b>answer</b> about Saturday.'};
+var SHOWN={dentist:'Bright Dental still owes you a <b>new time</b>, by Friday.',
+  boiler:'Paul still owes you his <b>quote</b>, by Thursday.',jade:'Jade is waiting on your <b>answer</b> about Saturday.'};
 function expand(id){var w=SHOWN[id]||'Here it is:';add('bt',w);var tmp=document.createElement('div');tmp.innerHTML=previewHTML(id);
   var r=tmp.firstChild;r.style.display='none';thread.appendChild(r);
   var e=document.createElement('div');e.className='pg expanded ask inplace pend';e.dataset.m=id;
@@ -1037,18 +1099,21 @@ function send(text,queued){if(!queued&&!SYSD.offline&&v4Route(text))return;clear
   if(SYSD.offline&&!queued){var sk0=SKIP?openAskId():null;collapseLatest();closeSkipped(sk0);var qb=add('bm',esc(text)+'<span class="q">'+CLOCKI+'when you’re back</span>');QUEUE.push({text:text,el:qb});sysOffline();rest();return;}
   var tr=queued?null:TRY.filter(function(x){return x.me.toLowerCase()===text.trim().toLowerCase();})[0];if(tr){tryAsk(tr.id);return;}
   STEPS.ask=[['t',1100],['d',1400,'Looking for','“'+(text.trim().replace(/[?.!]+$/,'').length>26?text.trim().slice(0,24).trim()+'…':text.trim().replace(/[?.!]+$/,''))+'”'],['t',900]];
-  if(queued){working();var l0=lfLine();lfRun(l0,'lune',function(){add('bt','Done. I asked Café Rive for a table for two on Friday at 8 pm.');land();});return;}
+  if(queued){working();var l0=lfLine();lfRun(l0,'lune',function(){add('bt','Done: I asked Café Rive for a table for two, Friday at 8 pm.');land();});return;}
   var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);add('bm',esc(text));working();
   var l=lfLine(),key=/boiler/i.test(text)?'boiler':/dentist/i.test(text)?'dentist':/jade/i.test(text)?'jade':/\?$/.test(text.trim())?'ask':'lune';
   lfRun(l,key,function(){
     if(/boiler/i.test(text))expand('boiler');else if(/dentist/i.test(text))expand('dentist');else if(/jade/i.test(text))expand('jade');
-    else add('bt','Done. I asked Café Rive for a table for two on Friday at 8 pm. You’ll get a card if they answer with another time.');
+    else add('bt wide','<div class="xmd"><p>Done: I asked Café Rive for a table for two, Friday at 8 pm.</p><p>You’ll get a card if they answer with another time.</p></div>');
     land();});}
 function land(){rest();pulse=1;}
 function rest(){clear();state='rest';setEdge('rest');idleField();}
-function waiting(){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);add('bm','What’s waiting on me?');
+function waiting(text){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);add('bm',esc(text||'What’s waiting on me?'));
   if(!ASKS.length){add('bt','Nothing waits on you.');rest();return;}
-  add('bt wide','<div class="fc">'+ASKS.map(rowHTML).join('')+'</div>');rest();}
+  add('bt wide','<div class="xmd"><p>'+waitLead()+'</p></div><div class="fc">'+ASKS.map(rowHTML).join('')+'</div>');rest();}
+/* the headline of what waits: how many, and the first, in words */
+function waitLead(){var n=ASKS.length,w=['','One thing waits','Two things wait','Three things wait','Four things wait','Five things wait','Six things wait'][n]||n+' things wait';
+  return w+' on you'+(n>1?'; first, '+M[ASKS[0]].ask.replace(/^./,function(c){return c.toLowerCase();}):'')+'.';}
 document.querySelector('[data-act="waiting"]').addEventListener('click',function(e){e.stopPropagation();waiting();});
 document.querySelector('[data-act="pendant"]').addEventListener('click',function(e){e.stopPropagation();openProfile('pendant',this);});
 notifyAsk();
@@ -1076,6 +1141,8 @@ var XB={
  table:function(v){var h='<table class="xtable">';v.groups.forEach(function(g,gi){h+='<tr><th'+(gi?' class="xg"':'')+'>'+g.label+'</th><th>'+(gi?'':v.unit)+'</th></tr>';g.rows.forEach(function(r){h+='<tr><td>'+r[0]+(r[2]?' <span class="xnote">· '+r[2]+'</span>':'')+'</td><td>'+r[1]+'</td></tr>';});});return h+'<tr class="xtot"><td>Total</td><td>'+v.total+'</td></tr></table>';},
  phrase:function(v){return '<div class="xsay"><div class="xsay-t" lang="'+v.lang+'">'+v.text+'</div><div class="xsay-m">'+v.mine+'</div><div class="xsay-k"><button type="button" class="xib" aria-label="Say it">'+XSPK+'</button><button type="button" class="xib" data-xfull="say" aria-label="Show it">'+XFULL+'</button></div></div>';},
  document:function(v){return '<div class="xrc"><span class="xsrc">'+v.src+'</span><b>'+v.title+'</b><br>'+v.lines.join('<br>')+'<br><b>'+v.total+'</b></div>';},
+ day:function(v){return dayTL(v);},
+ asks:function(){return ASKS.length?'<div class="xmd"><p>You also have '+ASKS.length+' waiting on you.</p></div><div class="fc">'+ASKS.map(rowHTML).join('')+'</div>':'';},
  place:function(v){return '<div class="fc"><div class="fr"><span class="disc"'+(v.org?' data-person="'+v.org+'"':'')+'>'+XPIN+'</span><span class="tx"><b>'+v.name+'</b><small>'+v.address+'</small></span><span class="xmaps">'+XGM+'Maps ↗</span></div></div>';}
 };
 /* the seven kinds, each its own control; an answer with work carries a small lit mark */
@@ -1086,40 +1153,47 @@ function xq(d){var q=d.q,a=q.answers;function b(i,inner,cls){return '<button typ
   if(q.kind==='person')return '<div class="answers xfaces">'+a.map(function(x,i){return b(i,'<span class="disc"'+(x.p?' data-person="'+x.p+'"':'')+'>'+x.f+'</span><b>'+x.t+'</b><small>'+x.s+'</small>');}).join('')+'</div>';
   if(q.kind==='options')return '<div class="answers xopts">'+a.map(function(x,i){return b(i,'<span class="xrd"></span><span><b>'+mv(x)+x.t+(x.best?'<span class="xbest">Life’s pick</span>':'')+'</b><small>'+x.s+'</small></span>');}).join('')+'</div>';
   return '';}
+/* new component: a day as a timeline, each event its time, a dot on the day's thread, what and where; a new slot lit */
+function dayTL(evs){return '<div class="tl">'+evs.map(function(e){return '<div class="tle'+(e.isNew?' new':'')+'"><span class="at">'+e.at+'</span><i></i><span><b>'+e.t+'</b>'+(e.where?'<small>'+e.where+'</small>':'')+'</span></div>';}).join('')+'</div>';}
 var TRY=[
+ {id:'today',me:'What’s on today?',blocks:[
+   ['text','<p>Three things today, the last at 19:30.</p>'],
+   ['day',[{at:'9:00',t:'Call with Ben',where:'Google Meet'},{at:'12:30',t:'Lunch with Nora',where:'Café Rive'},{at:'19:30',t:'Dinner with Jade',where:'At home'}]],
+   ['asks']],
+   sugg:['Start with the most urgent','What’s on tomorrow?','Move lunch to 13:00']},
  {id:'house',me:'Where are we regarding the house?',blocks:[
-   ['text','<p>Tomas has gone <b>silent</b> since his question yesterday at 9:42, even after your two marked-up photos at 10:49 and your dad’s spirit-level photos at 14:20.</p><p>The work goes on: Ana’s photos last night show the ceilings painted and the ceiling air conditioners in.</p>'],
+   ['text','<p>Tomas has gone <b>silent</b>, but the work goes on.</p><p>Nothing from him since his question yesterday at 9:42, even after your marked-up photos and your dad’s spirit-level photos. Ana’s photos last night show the ceilings painted and the air conditioners in.</p>'],
    ['pictures',{shown:['Ana · 18:39','Ana · 18:39',''],more:4}],
    ['text','<p>The rest hasn’t moved:</p>'],
    ['items',[['T','Where the rail ends','Waiting on Tomas · since yesterday','tomas'],[XDOC,'Send the Article 23 letter','Not sent yet'],['C','The lawyer’s answer','Waiting on Oak Law']]]],
    sugg:['Nudge Tomas about the rail','Show me Ana’s photos','Draft the Article 23 letter']},
  {id:'order',me:'What was the order for Maya’s beads?',blocks:[
-   ['text','<p><b>33 bags</b> of glass at Bead House, ordered on 20 Nov for <b>11,161 ฿</b> (about 299 €, inside Maya’s 300 €).</p>'],
+   ['text','<p><b>33 bags</b> of glass beads at Bead House, for <b>11,161 ฿</b>.</p><p>Ordered on 20 Nov: about 299 €, inside Maya’s 300 €.</p>'],
    ['table',{unit:'Bags',groups:[{label:'seed',rows:[['#420',3],['#455',3],['#592',3],['#2021',3],['#2311',3],['#2315',4]]},{label:'Half seed',rows:[['#455',3],['#2021',5],['#2315',3,'all they had'],['#593',3]]}],total:33}],
    ['text','<p>Nothing to do until you pick them up, before Maya takes them at Christmas.</p>'],['items',[['A','Pick up Maya’s beads','Bead House · before Christmas','maya']]]],
    sugg:['What do I say when I get there?','Tell Maya they’re ordered','When is the shop open?']},
  {id:'shop',me:'What do I say to the guy at the bead shop?',blocks:[
-   ['text','<p>Show him this:</p>'],
+   ['text','<p>Show him this, then pay <b>11,161 ฿</b>.</p>'],
    ['phrase',{lang:'th',text:'สวัสดีครับ มารับของที่สั่งทาง Messenger ครับ ชื่อ Sam ลูกปัด glass 33 ถุง 11,161 บาท',mine:'Hello, I’m here to pick up my Messenger order, name Sam, 33 bags of glass, 11,161 baht.'}],
    ['text','<p>and their receipt:</p>'],
    ['document',{src:'Messenger · 15 Nov',title:'Bead House',lines:['ORD-0000-1234','33 × 10 g glass seed beads, half seeds'],total:'Total 11,161 ฿'}],
-   ['text','<p>You haven’t paid yet, so <b>pay 11,161 ฿ there</b>, and count the bags: <b>33</b>, with only 3 of Half seed #2315.</p>'],
+   ['text','<p>You haven’t paid yet. Count the bags: <b>33</b>, with only 3 of Half seed #2315.</p>'],
    ['place',{name:'Bead House',address:'Harbour Road 32/1, the river market',org:'beads'}]],
    sugg:['How do I get there from home?','Is it open on Sunday?','Tell Maya I’m picking them up']},
  {id:'nora',me:'What keeps coming up between Nora and me lately?',blocks:[
-   ['text','<p>Mostly <b>jealousy</b>:</p><ul><li>the dating app match on 30 Oct</li><li>your hour-long call with Victor on 10 Nov</li><li>the talk about exes on 22 Nov, when she also said you’ve been less close lately</li></ul><p>Under it run money and her work (her site, her invoice, wanting 100,000 baht a month from writing), and since 9 Nov the “slow down” you agreed on marriage and children.</p>']],
+   ['text','<p>Mostly <b>jealousy</b>.</p><ul><li>the dating app match on 30 Oct</li><li>your hour-long call with Victor on 10 Nov</li><li>the talk about exes on 22 Nov, when she also said you’ve been less close lately</li></ul><p>Under it run money and her work (her site, her invoice, wanting 100,000 baht a month from writing), and since 9 Nov the “slow down” you agreed on marriage and children.</p>']],
    sugg:['When did it start?','What do I do that sets it off?','How was it before October?']},
  {id:'bill',me:'Did I pay the condo electricity bill?',blocks:[
-   ['text','<p><b>Yes</b>: 3,364.21 ฿ to City Power from City Bank on 9 Nov, a week before it was due.</p>']],
+   ['text','<p><b>Yes</b>, a week before it was due.</p><p>3,364.21 ฿ to City Power from City Bank, on 9 Nov.</p>']],
    q:{kind:'offer',ask:'Want me to watch for next month’s?',answers:[{t:'Yes, watch for it',rec:1},{t:'No need'}],ack:['I’ll bring it when it arrives.','Fine.']}},
  {id:'hugo',me:'What does Hugo still need from me?',blocks:[
-   ['text','<p>Two things block him. Issue #286 waits for your yes on <b>#301 and #303</b> before wave 1 starts, and the hub needs a way for its chats to reach Claude.</p>']],
+   ['text','<p>Two things block him.</p><ul><li>Issue #286 waits for your yes on <b>#301 and #303</b> before wave 1 starts.</li><li>The hub needs a way for its chats to reach Claude.</li></ul>']],
    after:['Approve #301 and #303','What else is Hugo waiting on?','Tell Hugo it’s decided'],q:{kind:'options',ask:'For the hub, which way?',answers:[{t:'A small connector',s:'Hugo and the build session recommend it',best:1,work:{face:'H',title:'The hub reaches Claude',doing:'Telling the hub’s agent: the connector',settled:'The hub’s agent has it · hub#43',next:{lead:'That unblocks the hub. The other thing Hugo waits on:',face:'H',title:'Approve #301 and #303',line:'Hugo · <em class="td">today</em>'}}},{t:'Claude’s own app',s:'Nothing to host, but each chat needs your login'}],ack:[null,'Told Hugo: Claude’s own app.']}},
  {id:'lawyer',me:'Has the lawyer answered about the letter?',blocks:[
-   ['text','<p>Not yet. Oak Law Firm has been silent since <b>Thursday</b>, and the Article 23 letter still isn’t sent.</p>']],
+   ['text','<p>Not yet: Oak Law Firm has been silent since <b>Thursday</b>.</p><p>The Article 23 letter still isn’t sent.</p>']],
    after:['Make it firmer','Write it in Thai','When did we last write them?'],q:{kind:'confirm',ask:'Shall I remind them now?',answers:[{t:'Remind them',rec:1,work:{face:'O',title:'Remind Oak Law Firm',doing:'Drafting the reminder',becomes:{lead:'Here it is, for your yes:',line:'Oak Law Firm · <em class="td">today</em>'}}},{t:'Not yet'}],ack:[null,'I’ll leave it.']}},
  {id:'which',me:'What did Ben say on the call today?',blocks:[
-   ['text','<p>Yesterday’s Meet at 16:32 is the latest: Ben rated the direction <b>9 out of 10</b>, flagged new Business pages made without verification, and owes you page access, the 41 search terms and the PR approvals.</p>']],
+   ['text','<p>Ben rated the direction <b>9 out of 10</b>.</p><p>That’s yesterday’s Meet at 16:32, the latest. He flagged new Business pages made without verification, and owes you page access, the 41 search terms and the PR approvals.</p>']],
    q:{kind:'which',ask:'Is that the call you meant?',answers:[{t:'Yes, that one',rec:1},{t:'There was one today'}],ack:['Good. Nothing newer from Ben since.','I’ll look for it in your calls.']}},
  {id:'person',me:'Text Ben that I’m running late',blocks:[['text','<p>You write to two Bens.</p>']],
    q:{kind:'person',ask:'Which one?',answers:[{t:'Ben Martin',f:'B',p:'ben',s:'Northwind, WhatsApp'},{t:'Ben from the gym',f:'B',s:'LINE, last week'}],ack:['Drafting it to Ben Martin, for your yes.','Drafting it to Ben from the gym, for your yes.']}},
@@ -1130,18 +1204,18 @@ var TRY=[
 ];
 TRY.push(
  {id:'p-ben-owe',me:'What do I owe Ben for Fernway?',blocks:[
-   ['text','<p>Nothing is settled yet. On 19 Nov you told Ben that <b>Blue Pine LLC</b> has to be closed and asked him what you owe him. He hasn’t answered, and the company is still open.</p>'],
+   ['text','<p>Nothing is settled yet.</p><p>On 19 Nov you told Ben that <b>Blue Pine LLC</b> has to be closed and asked him what you owe him. He hasn’t answered, and the company is still open.</p>'],
    ['items',[['L','What you owe him for Fernway','Waiting on Ben · asked 19 Nov','ben']]]],
    q:{kind:'confirm',ask:'Shall I ask him again?',answers:[{t:'Ask him',rec:1,work:{face:'B',title:'Ask Ben what you owe him',doing:'Drafting it',becomes:{lead:'Here it is, for your yes:',line:'Ben · <em class="td">today</em>'}}},{t:'Not yet'}],ack:[null,'I’ll leave it with him.']},
    after:['Make it shorter','Ask on our call instead','What else is open with Ben?']},
  {id:'p-tomas-toilet',me:'Confirm the toilet move with my dad',blocks:[
-   ['text','<p>On 10 Nov Tomas asked you to confirm with your dad that the toilets move away from the bathtub. You had sent him the timeline: the tub sizes went for checking on <b>29 May</b> and the architect never answered.</p>']],
+   ['text','<p>Tomas wants your dad’s yes to move the toilets away from the bathtub.</p><p>He asked on 10 Nov. You had sent him the timeline: the tub sizes went for checking on <b>29 May</b> and the architect never answered.</p>']],
    q:{kind:'confirm',ask:'Shall I ask your dad?',answers:[{t:'Ask him',rec:1,work:{face:'E',title:'Ask your dad about the toilets',doing:'Drafting it',becomes:{lead:'Here it is, for your yes:',line:'Your dad · <em class="td">today</em>'}}},{t:'I’ll call him'}],ack:[null,'I’ll keep it open until you’ve talked.']}},
  {id:'p-tomas-rail',me:'Has Tomas answered about the rail?',blocks:[
-   ['text','<p>No. He asked where the rail ends yesterday at 9:42; you answered with two marked-up photos at 10:49 (it ends at the red point, at the wall footing) and your dad added spirit-level photos at 14:20. Nothing from him since.</p>']],
+   ['text','<p>No, nothing from Tomas since yesterday.</p><p>He asked where the rail ends at 9:42; you answered with two marked-up photos at 10:49 (it ends at the red point, at the wall footing) and your dad added spirit-level photos at 14:20. Nothing from him since.</p>']],
    q:{kind:'offer',ask:'Want me to nudge him tomorrow morning if he’s still quiet?',answers:[{t:'Yes, nudge him',rec:1},{t:'No need'}],ack:['I’ll bring you a draft tomorrow at 9 if he hasn’t written.','Fine.']}},
  {id:'p-tomas-plans',me:'Where are the wastewater and rainwater plans?',blocks:[
-   ['text','<p>Still with Tomas. You asked for them in <b>August</b>, and on 15 Oct you were still waiting, along with the scanned permit plans.</p>']],
+   ['text','<p>Still with Tomas.</p><p>You asked for them in <b>August</b>, and on 15 Oct you were still waiting, along with the scanned permit plans.</p>']],
    q:{kind:'confirm',ask:'Shall I ask him again, firmly this time?',answers:[{t:'Ask firmly',rec:1,work:{face:'T',title:'Ask Tomas for the plans',doing:'Drafting it',becomes:{lead:'Here it is, for your yes:',line:'Tomas · <em class="td">today</em>'}}},{t:'Not yet'}],ack:[null,'I’ll leave it.']}},
  {id:'p-maya-beads',me:'Pick up Maya’s beads',blocks:[
    ['text','<p>They’re ready at Bead House: <b>33 bags</b>, and you pay <b>11,161 ฿</b> there.</p>'],
@@ -1154,6 +1228,7 @@ TRY.push(
    step turns the spinner; thinking turns the thinking mark, its word shimmering. Steps: ['t',ms] thinking,
    ['d',ms,verb,object,face] a read or an act, ['s',ms] a retry */
 var STEPS={
+ today:[['d',1100,'Reading','your day'],['d',1200,'Checking','what waits on you'],['t',700]],
  house:[['t',1300],['d',1500,'Opening','the house'],['d',1700,'Reading your chat with','Tomas','T'],['d',1300,'Looking at','Ana’s photos','W'],['d',1200,'Checking','the lawyer’s mail'],['t',1500]],
  order:[['d',1200,'Looking for','“Maya beads order”'],['d',1300,'Opening','Maya’s beads'],['d',1600,'Reading your chat with','Bead House','B'],['t',1100]],
  shop:[['d',1100,'Opening','Maya’s beads'],['d',1300,'Reading','the receipt'],['d',1200,'Checking','your payments'],['t',1700]],
@@ -1321,7 +1396,6 @@ document.addEventListener('click',function(e){var it=e.target.closest('.pov [dat
    Long work handed off, redrafts, reactions both ways, "How am I doing?", Undo after a send, settings with no page,
    asks held while he's busy, the spending stop. Every new piece is an item with a state, a fenced block in Life's
    Markdown (settings), or a mark on a message (reactions). */
-var IMSG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="6" fill="#34C759"/><path fill="#fff" d="M12 5.5c-4.1 0-7.5 2.7-7.5 6.1 0 1.9 1 3.6 2.7 4.7-.1 1-.6 1.9-1.3 2.6 1.5 0 2.8-.6 3.7-1.3.8.2 1.6.3 2.4.3 4.1 0 7.5-2.7 7.5-6.2S16.1 5.5 12 5.5Z"/></svg>';
 var UNDOI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>';
 var CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9.5 6 6 6-6 6"/></svg>';
 function pieSVG(p){var c=37.7;return '<svg class="pie" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width="2.2"/><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-dasharray="'+(c*p).toFixed(1)+' '+c+'" transform="rotate(-90 8 8)" stroke-linecap="round"/></svg>';}
@@ -1365,7 +1439,7 @@ M.jade.qe=JQE.slice();M.budgetfix.altEnded='Kept at €50';
 
 function fresh(id){var m=M[id];m.done=false;m.busy=null;m.later=null;m.outdated=null;m.queued=false;m.unsent=false;m.pie=null;if(ASKS.indexOf(id)<0)ASKS.push(id);setCount();}
 /* Life brings an ask to the bottom, with its lead */
-function bring(id,lead){fresh(id);clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);if(lead)add('bt',lead);
+function bring(id,lead){fresh(id);clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);newTurn();if(lead)add('bt',lead);
   var e=add('pg expanded ask',pageHTML(id)+barHTML(id,true));e.dataset.m=id;rest();return e;}
 function lifeSays(me,steps,then){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);var b=add('bm',esc(me));
   if(!steps){then(b);return b;}STEPS.v4=steps;working();var l=lfLine();lfRun(l,'v4',function(){then(b);rest();});return b;}
@@ -1402,7 +1476,7 @@ function v4Async(){stopAsyncTimers();var m=M.physio;
   ASKS=ASKS.filter(function(x){return x!=='physio'&&x!=='physiopick';});setCount();
   lifeSays('Find me a physio for my shoulder who can see me this week',[['t',1100],['d',1200,'Checking','your calendar'],['d',1000,'Reading','your insurance card'],['t',700]],function(b){
     ASYNC.bubble=b;react(b,'👀');m.busy='About 20 min';m.pie=.06;
-    add('bt wide','<div class="xmd"><p>I’m on it. It takes a few calls, so I’ll come back to you with the best times.</p></div><div class="fc">'+rowHTML('physio')+'</div>');
+    add('bt wide','<div class="xmd"><p>I’m on it, and it takes a few calls.</p><p>I’ll come back to you with the best times.</p></div><div class="fc">'+rowHTML('physio')+'</div>');
     focus='after:physio';
     ASYNC.t1=setTimeout(function(){if(m.busy&&m.kind==='task'){m.busy='About 10 min left';m.pie=.55;refreshLive('physio');}},9000);});}
 function v4AsyncDone(){var m=M.physio;if(!m.busy&&m.kind!=='spend'){v4Async();ASYNC.t2=setTimeout(v4AsyncDone,7000);return;}
@@ -1411,7 +1485,7 @@ function v4AsyncDone(){var m=M.physio;if(!m.busy&&m.kind!=='spend'){v4Async();AS
   var p=M.physiopick;p.picked=0;fresh('physiopick');pending.push('physiopick');landPending();}
 function v4Peek(){var m=M.physio;
   lifeSays('How’s the physio search going?',[['d',1000,'Checking','the physio search'],['t',600]],function(){
-    if(m.busy&&m.kind==='task')add('bt wide','<div class="xmd"><p>Three called back so far. <b>Harbour Physio</b> can see you Thursday at 17:30; I’m still waiting on two others before I bring you the best.</p></div><div class="fc">'+rowHTML('physio')+'</div>');
+    if(m.busy&&m.kind==='task')add('bt wide','<div class="xmd"><p><b>Harbour Physio</b> can see you Thursday at 17:30.</p><p>Three called back so far; I’m still waiting on two others before I bring you the best.</p></div><div class="fc">'+rowHTML('physio')+'</div>');
     else if(m.done)add('bt','It’s done: two can see you Thursday. They’re in the booking just above.');
     else add('bt','Nothing is under way for a physio. Want me to look?');});}
 /* the spending stop: the ask is about the work; the money is one small line */
@@ -1432,8 +1506,8 @@ function stopAsync(btn){var l=btn.closest('small');l.innerHTML='<span class="spi
 function qesHTML(id){var m=M[id];if(!m.qe||m.done)return '';
   var h=(m.hist&&m.hist.length?'<button type="button" class="qe ic" data-qback="'+id+'" aria-label="Back to the last version">'+UNDOI+'</button>':'')+m.qe.map(function(q,i){return '<button type="button" class="qe" data-qe="'+id+'" data-i="'+i+'">'+q.t+'</button>';}).join('');
   return h?'<div class="qes">'+h+'</div>':'';}
-function swapDraft(pg,id,text,ms){var dr=pg.querySelector('.cm.draft');if(!dr)return;dr.classList.add('rw');
-  setTimeout(function(){M[id].chat.draft=text;dr.innerHTML=text;dr.classList.remove('rw','ink-in');void dr.offsetWidth;dr.classList.add('ink-in');var q=pg.querySelector('.qes');var nh=qesHTML(id);if(q)q.outerHTML=nh;else if(nh)dr.closest('.chat').insertAdjacentHTML('afterend',nh);},ms);}
+function swapDraft(pg,id,text,ms){var dr=pg.querySelector('.cb-cd');if(!dr)return;dr.classList.add('rw');
+  setTimeout(function(){M[id].chat.draft=text;dr.firstChild.nodeValue=text;dr.classList.remove('rw','ink-in');void dr.offsetWidth;dr.classList.add('ink-in');var q=pg.querySelector('.qes');var nh=qesHTML(id);if(q)q.outerHTML=nh;else if(nh)dr.closest('.cb-cc').insertAdjacentHTML('afterend',nh);},ms);}
 function quickEdit(id,i,btn){var m=M[id],q=m.qe[i],pg=btn.closest('.pg');btn.disabled=true;btn.innerHTML='<span class="spin sm"></span>'+esc(q.t);
   m.hist=(m.hist||[]).concat([{d:m.chat.draft,qe:m.qe}]);m.qe=m.qe.filter(function(x,j){return j!==i;});swapDraft(pg,id,q.d,1100);}
 function quickBack(id,btn){var m=M[id],h=m.hist.pop();m.qe=h.qe;swapDraft(btn.closest('.pg'),id,h.d,350);}
@@ -1489,16 +1563,16 @@ function repair(btn){var sm=btn.closest('.setr').querySelector('small');
   if(SYSD.offline){sm.innerHTML='<span class="qk">'+CLOCKI+'</span>Goes when you’re back';return;}
   sm.innerHTML='<span class="spin sm"></span>Showing a code on your Mac…';setTimeout(function(){sm.innerHTML='<span class="okt">'+TICK+'</span>Paired';},1600);}
 function v4SetNews(){SET.news.v=false;lifeSays('Stop notifying me about newsletters',[['d',1100,'Looking at','your notifications'],['t',600]],function(b){
-  add('bt wide','<div class="xmd"><p>Done. Newsletters still come in; they wait quietly, with no notification.</p></div>'+setBlock(['news']));});}
+  add('bt wide','<div class="xmd"><p>Done: no more notifications for newsletters.</p><p>They still come in, and wait quietly.</p></div>'+setBlock(['news']));});}
 function v4SetAll(){lifeSays('What can I change?',[['t',900]],function(){
-  add('bt wide','<div class="xmd"><p>All of it is here. For anything else, just tell me, like “don’t notify me about newsletters”.</p></div>'+setBlock(['#Sending','faceid','#Spending','spend','#Aura','auracol','#This phone','appear']));});}
-function v4SetOffer(){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);
+  add('bt wide','<div class="xmd"><p>All of it is here.</p><p>For anything else, just tell me, like “don’t notify me about newsletters”.</p></div>'+setBlock(['#Sending','faceid','#Spending','spend','#Aura','auracol','#This phone','appear']));});}
+function v4SetOffer(){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);newTurn();
   add('bt wide','<div class="xmd"><p>You’ve moved your last four reminders to the evening yourself.</p><p class="xask">Should Later mean this evening from now on?</p></div><div class="xyn ofr"><button type="button" data-offer="0">Keep 9:00</button><button type="button" class="rec" data-offer="1">This evening</button></div>');rest();}
 function v4SetOff(){var b=document.querySelector('.sysb [data-k="offline"]');if(b.getAttribute('aria-pressed')!=='true')b.click();}
 
 /* ---- how am I doing: at most once a day, after something settled; three marks and a cross ---- */
 var RATE=[['👎','Not good'],['👍','Good'],['🤩','Great']];
-function v4Rate(){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);var h=M.hedge;fresh('hedge');h.done=true;finish('hedge');
+function v4Rate(){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);newTurn();var h=M.hedge;fresh('hedge');h.done=true;finish('hedge');
   add('bt',esc('Sam asked about the hedge:'));add('bt wide','<div class="fc">'+rowHTML('hedge')+'</div>');
   add('hd','<span class="q">How am I doing?</span>'+RATE.map(function(r,i){return '<button type="button" class="m" data-rate="'+i+'" aria-label="'+r[1]+'">'+emo(r[0])+'</button>';}).join('')+'<button type="button" class="x" data-rate="x" aria-label="Not now">'+X+'</button>');rest();}
 function rate(btn){var hd=btn.closest('.hd'),v=btn.dataset.rate;
@@ -1522,6 +1596,7 @@ function v4Route(text){var t=text.trim(),oid=openAskId();
   if(/newsletter/i.test(t)){v4SetNews();return true;}
   if(/what can i change/i.test(t)){v4SetAll();return true;}
   if(/physio/i.test(t)&&/going|how|done|where/i.test(t)){v4Peek();return true;}
+  if(/what(’|')?s waiting|what else is waiting/i.test(t)){waiting(t);return true;}
   if(/^remind me/i.test(t)){lifeSays(t,null,function(b){setTimeout(function(){react(b,'👍');add('bt','Sunday at 10:00.');},900);});return true;}
   if(/^(thanks|thank you|merci)/i.test(t)){lifeSays(t,null,function(b){setTimeout(function(){react(b,'👍');},600);});return true;}
   return false;}
@@ -1547,7 +1622,7 @@ ph.addEventListener('click',function(e){var t=e.target.closest('[data-offer],[da
 var V4={async:v4Async,asyncdone:v4AsyncDone,peek:function(){send('How’s the physio search going?');},budget:v4Budget,
   draft:v4Draft,redraft:function(){if(openAskId()!=='jade'){v4Draft();setTimeout(function(){send('Make it warmer, and say I’ll bring wine');},1600);}else send('Make it warmer, and say I’ll bring wine');},
   thanks:function(){send('Thanks!');},remind:function(){send('Remind me to call Mum on Sunday');},
-  hold:function(){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);var e=add('bt','Your passport renewal went through. The new one arrives by post on Monday.');rest();setTimeout(function(){openRx(e);},1400);},
+  hold:function(){clear();var sk=SKIP?openAskId():null;collapseLatest();closeSkipped(sk);newTurn();var e=add('bt','Your passport renewal went through. The new one arrives by post on Monday.');rest();setTimeout(function(){openRx(e);},1400);},
   rate:v4Rate,wa:function(){bring('lena','Lena asked for Sunday’s photos:');},im:function(){bring('nora2','Nora asked about dinner:');},
   setnews:v4SetNews,setall:v4SetAll,setoffer:v4SetOffer,setoff:v4SetOff,
   meet:null,auraknobs:function(){send('Show me my aura’s knobs');},auraset:function(){send('Make it teal');},aurared:function(){send('Make it more red');},auraactive:function(){send('Make it more active');},auracrazy:function(){send('Make idle crazier');},aurapal:function(){send('Which colours can it be?');},meetend:function(b){v4Held('While you were in your meeting · 14:00 to 15:00',b);},sleep:function(){v4Held('While Sleep was on');}};
@@ -1656,8 +1731,8 @@ function awayAndBack(then){var o=document.createElement('div');o.className='appa
   setTimeout(function(){then();o.classList.remove('on');setTimeout(function(){o.remove();},320);},reduceMotion?50:900);}
 function cleanScreen(redraw){clear();closeRx&&closeRx();
   /* the sitting he leaves becomes history; a greeting in it stays only as its time */
-  var kept=document.createDocumentFragment();if(!redraw)[].slice.call(thread.childNodes).forEach(function(n){if(n.classList&&(n.classList.contains('sp')||n.classList.contains('histb')))return;
-    if(n.classList&&n.classList.contains('hi')){var s=document.createElement('div');s.className='sep';s.textContent='Today · '+n.dataset.at;kept.appendChild(s);return;}kept.appendChild(n);});
+  var kept=document.createDocumentFragment();if(!redraw)[].slice.call(thread.children).forEach(function(t){t.querySelectorAll('.sp,.histb,.fups').forEach(function(x){x.remove();});
+    t.querySelectorAll('.hi').forEach(function(h){var s=document.createElement('div');s.className='sep';s.textContent='Today · '+h.dataset.at;h.replaceWith(s);});kept.appendChild(t);});
   if(kept.childNodes.length&&!redraw)HIST.unshift(kept);
   var fixes=ASKS.filter(isBroken),waits=ASKS.filter(function(id){return !isBroken(id)&&stateOf(id)==='needs';}),top=waits.slice(0,OPEN_CAP),rest=waits.slice(OPEN_CAP);
   var oldHi=thread.querySelector('.hi'),at=redraw&&oldHi?oldHi.dataset.at:hm();var hi='<div class="hi" data-at="'+at+'">'+('Hi '+OWNER_FIRST).split(' ').map(function(w,i){return '<span class="w on" style="animation-delay:'+(150+i*180)+'ms">'+w+'</span>';}).join(' ')+'</div>';
@@ -1670,19 +1745,20 @@ var rest_=rest;
 function comeBack(long){tick(long?18:3);awayAndBack(function(){if(long)cleanScreen();});}
 function showMoreRows(btn){var ids=btn.dataset.more.split(','),fc=btn.previousElementSibling&&btn.previousElementSibling.querySelector('.fc');if(!fc)return;
   fc.insertAdjacentHTML('beforeend',riseRows(ids,0));btn.remove();}
-function showHistory(btn){var chunk=HIST.shift();if(!chunk)return;var hi=thread.querySelector('.hi');
+/* the last sitting's turns go before the opening turn, which now starts with its time; the page turns back one */
+function showHistory(btn){var chunk=HIST.shift();if(!chunk)return;var hi=thread.querySelector('.hi'),host=btn.closest('.turn');
   var at=document.createElement('div');at.className='sep';at.textContent='Today · '+(hi?hi.dataset.at:hm());
-  var nodes=[].slice.call(chunk.childNodes);nodes.forEach(function(n){if(n.classList)n.classList.add('cs-drop');btn.parentNode.insertBefore(n,btn);});
-  btn.parentNode.insertBefore(at,btn);
-  if(HIST.length){var nb=document.createElement('button');nb.type='button';nb.className='more histb';nb.textContent='Show earlier';thread.insertBefore(nb,nodes[0]||at);}
-  btn.remove();var y=(hi||at).offsetTop-thread.clientHeight+200;thread.scrollTo({top:Math.max(0,y),behavior:reduceMotion?'auto':'smooth'});}
+  var nodes=[].slice.call(chunk.childNodes);nodes.forEach(function(n){n.classList.add('cs-drop');thread.insertBefore(n,host);});
+  host.insertBefore(at,host.firstChild);
+  if(HIST.length){var nb=document.createElement('button');nb.type='button';nb.className='more histb';nb.textContent='Show earlier';thread.insertBefore(nb,nodes[0]||host);}
+  btn.remove();group();var prev=host.previousElementSibling;thread.scrollTo({top:prev?prev.offsetTop:0,behavior:reduceMotion?'auto':'smooth'});}
 /* LINE and Messenger sign Life out: the fixes rank first and count; they show on the next opening (and at once if the
    clean screen is what he is looking at). Fixed on their own, they settle where they are. */
 function setBroken(btn){var on=btn.getAttribute('aria-pressed')!=='true';btn.setAttribute('aria-pressed',String(on));
   ['msgrfix','linefix'].forEach(function(id){var m=M[id];
     if(on){m.done=false;m.outdated=null;m.later=null;m.busy=null;m.queued=false;if(ASKS.indexOf(id)<0)ASKS.unshift(id);}
     else if(stateOf(id)==='needs'){m.outdated='Fixed on its own';finish(id);refreshLive(id);}});
-  setCount();if(on&&CLEAN&&thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm'))cleanScreen(true);}
+  setCount();if(on&&CLEAN&&untouched())cleanScreen(true);}
 ph.addEventListener('click',function(e){var t=e.target.closest('[data-more],.histb');if(!t)return;e.stopImmediatePropagation();
   if(t.dataset.more)showMoreRows(t);else showHistory(t);},true);
 /* the artifact opens the way the app does after a while away: on the clean screen, the last sitting behind Show earlier */
@@ -1707,7 +1783,7 @@ function rowsDemo(mode,btn){document.querySelectorAll('[data-v4^="rows"]').forEa
   ['notice','finalpay','hostcard'].forEach(function(id){var m=M[id];m.ask=m.t=mode==='one'?m.short:m.long;m.done=false;m.later=null;m.outdated=null;ASKS=ASKS.filter(function(x){return x!==id;});});
   var nf=ASKS.filter(isBroken).length;ASKS.splice(nf,0,'notice','finalpay','hostcard');
   ph.classList.toggle('rows2',mode!=='today');
-  if(CLEAN&&thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm'))cleanScreen(true);else cleanScreen();}
+  if(CLEAN&&untouched())cleanScreen(true);else cleanScreen();}
 Object.assign(V4,{rowstoday:function(b){rowsDemo('today',b);},rowstwo:function(b){rowsDemo('two',b);},rowsone:function(b){rowsDemo('one',b);}});
 /* ---- voice naming asks (proposal, 26 Nov 2026). Voices to name never stack as one row each: they fold into one
    row ("Name 4 voices"), ranked after the asks that block him, led by a voice mark, never a guessed face. Opened,
@@ -1787,7 +1863,7 @@ var _v4Route=v4Route;v4Route=function(text){if(VS.mode==='else'&&thread.querySel
   vNamed(ex?ex.n+': named':q+', a new person: named',null);return true;}return _v4Route(text);};
 function voiceDemo(start,opts){vStop();VS.i=start;VS.clip=0;VS.mode='';VS.typed='';VS.done=[];M.voices.done=false;M.voices.later=null;vTitle();
   ASKS=ASKS.filter(function(x){return x!=='voices';});ASKS.push('voices');
-  if(opts&&opts.list){cleanScreen(CLEAN&&!!thread.querySelector('.hi')&&!thread.querySelector('.hi ~ .bm'));var mb=thread.querySelector('[data-more]');if(mb)showMoreRows(mb);setTimeout(function(){thread.scrollTo({top:thread.scrollHeight,behavior:'smooth'});},200);return;}
+  if(opts&&opts.list){cleanScreen(CLEAN&&untouched());var mb=thread.querySelector('[data-more]');if(mb)showMoreRows(mb);setTimeout(function(){thread.scrollTo({top:thread.scrollHeight,behavior:'smooth'});},200);return;}
   cleanScreen(true);var mb2=thread.querySelector('[data-more]');if(mb2)showMoreRows(mb2);
   setTimeout(function(){var r=thread.querySelector('.fr[data-open="voices"]');if(r)openAsk('voices',r);if(opts&&opts.typed)setTimeout(function(){vElse();var f=document.getElementById('fld');f.value=opts.typed;f.dispatchEvent(new Event('input',{bubbles:true}));},UNFOLD_MS+500);},300);}
 Object.assign(V4,{vlist:function(){voiceDemo(0,{list:1});},vguess:function(){voiceDemo(0);},vme:function(){voiceDemo(1);},vnone:function(){voiceDemo(2);},vtyped:function(){voiceDemo(3,{typed:'Clara'});}});
@@ -1821,7 +1897,7 @@ function tileHTML(id){var m=M[id];return '<div class="ltc"><div class="ltt">'+di
   '<div class="answers"><button type="button" class="prim">'+m.act+'</button><div class="two"><button type="button" class="sec lt">Later</button></div></div></div>';}
 function listVsTiles(mode,n,btn){document.querySelectorAll('[data-v4^="lt"]').forEach(function(b){b.setAttribute('aria-pressed',String(b===btn));});
   clear();thread.innerHTML='';var ids=LTD.slice(0,n).map(function(_,i){return 'lt'+i;});
-  add('bm','What’s waiting on me?');var lead=n+' things wait on you:';
+  add('bm','What’s waiting on me?');var lead='<div class="xmd"><p>'+n+' things wait on you.</p></div>';
   if(mode==='list'||mode==='capped'){var top=mode==='capped'?ids.slice(0,LIST_CAP):ids,rest=ids.slice(top.length);add('bt wide',lead+'<div class="fc">'+top.map(rowHTML).join('')+'</div>');
     if(rest.length){var mb=document.createElement('button');mb.type='button';mb.className='more cs-in';mb.dataset.more=rest.join(',');mb.textContent=rest.length+' more';thread.appendChild(mb);}}
   else{var d=add('bt wide',lead+'<div class="ltw">'+ids.map(tileHTML).join('')+'</div><div class="ltn">'+ids.map(function(_,i){return '<i'+(i?'':' class="on"')+'></i>';}).join('')+'<span>1 of '+n+'</span></div>');
@@ -1845,7 +1921,7 @@ function evPills(id){return '<span class="pills2">'+remOf(M[id]).map(function(r,
 ph.addEventListener('click',function(e){var t=e.target.closest('[data-evp]');if(!t)return;var m=M[t.dataset.evp],i=+t.dataset.i;m.rem[i]=(m.rem[i]+1)%REM[i].length;
   t.innerHTML='';REM[i][m.rem[i]].split('').forEach(function(ch,j){var c=document.createElement('span');c.className='ink';c.style.animationDelay=(j*20)+'ms';c.textContent=ch;t.appendChild(c);});});
 /* his Thursday, with the new slot */
-function dayHTML(id){return '<div class="box dayv"><div class="dh">Thursday</div><div class="kv"><span>17:00</span><b>Free</b></div><div class="kv new"><span>18:00</span><b>Parents’ meeting</b></div><div class="kv"><span>19:30</span><b>Dinner with Jade</b></div><div class="foot">Reminders · '+remOf(M[id]).join(' · ')+'</div></div>';}
+function dayHTML(id){return '<div class="box dayv"><div class="dh">Thursday</div>'+dayTL([{at:'17:00',t:'Free'},{at:'18:00',t:'Parents’ meeting',where:'Linden School, room 4',isNew:1},{at:'19:30',t:'Dinner with Jade'}])+'<div class="foot">Reminders · '+remOf(M[id]).join(' · ')+'</div></div>';}
 function none(){return '';}
 function paul(o){return Object.assign({},M.plumber,{after:null,sugg:null},o);}
 /* a scene's ask declares its answer's result: a title for the settled row, a busy line on a still ring, what it adds

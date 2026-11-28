@@ -263,7 +263,7 @@ Beyond principles 1, 7 and 10 (no "more details", no word where a mark says it, 
 | A card behind a row | `background:none!important;padding:7px 0!important` (`:289`) | Spec, "No cards (owner, 23 Nov 2026)". |
 | A chevron on a row | none in `rowHTML` (`:639`) | The row unfolds in place; a chevron would promise another screen. The only chevron is a settings action ("Pair again with your Mac", `:1391`). |
 | A badge or count on a row | none | brand.md: no number he cannot act on. The one count is the round button at the top. |
-| A headline over a list | `waiting()` adds only the rows (`:976`) | Memory "No prose titles"; log. |
+| A heading over a list | the list's lead is the answer's headline sentence ("Six things wait on you; first, send Ben the call recap."), never a label | Memory "No prose titles"; the owner's 28 Nov ask: every answer opens with one headline sentence. |
 | A border or ring on any surface | the row flash is a wash (`:297-301`) | brand.md "No borders". Exceptions drawn: the draft's dashed outline, radio rings, the reaction's black cut-out ring, the glass hairline. |
 
 ### Faces versus marks
@@ -299,7 +299,7 @@ Beyond principles 1, 7 and 10 (no "more details", no word where a mark says it, 
 | The unfolded header is the row, larger: face 48, title 19, line 14 | `.inplace .hero` (`:292-295`) | Log: "The page repeats the row… only larger". |
 | Room above and below, a faint wash of light (cream 6 %, radial), no edge, bleeding to the screen's sides | `.inplace` (`:291`) | Spec, "No cards": "space and scale". |
 | A ⌃ fold button, top right, quiet | `.ipx` (`:298`) | Spec: "each folds by its ⌃ or when answered". |
-| No ink: measure, scroll just enough to fit it (never its header under the top), then one height reveal of 380 ms | `UNFOLD_MS=380`, `TOP_PAD=28` (`:871-889`) | Log: "Unfolding has its own motion… no ink, which is for what Life says". |
+| No ink: measure, scroll just enough to fit it (never its header under his pinned words), then one height reveal of 380 ms | `UNFOLD_MS=380`, `topPad` (`inPlace`) | Log: "Unfolding has its own motion… no ink, which is for what Life says". |
 | Several may be open at once; typing or speaking leaves them open | nothing in `send` folds an in-place item (`openAskId` skips them, `:816`) | Spec, "several at once if he likes". The comment at `:864` still says "one at a time"; the code and the spec say several. |
 | Answered, it folds back to its row in its new state; away from the bottom, Life's line says so with a link back that lights the row | `decidedAway` (`:898-899`), `gotoItem` flash (`:900-902`) | Spec, "Unfolding". |
 | A single item in an answer arrives already unfolded, its row hidden above so it can fold | `expand` (`:955-960`) | Spec, "Answers to his questions" (owner, 24 Nov). |
@@ -414,16 +414,45 @@ kind (`bodyHTML`, `:648-660`), the answers (`barHTML`, `:661-667`).
 
 ## Other components
 
-### His bubble
+### Turns (turn by turn, 28 Nov)
+
+The thread is a pager of turns (`group`, `.turn`): each turn is one page, at least a screen tall, and the thread snaps
+gently from turn to turn (`scroll-snap-type:y proximity`), never inside an answer.
+
+- **Anatomy:** what heads the turn (a day separator, his words, the bell of an answer given on a notification), then
+  Life's answer (`.ans`), flowing as long as it needs and centred when it is shorter than the page. Show earlier rides
+  at the top of the turn after it. A turn Life starts itself (a card it brings, a result that lands, a held list) is a
+  page with no question (`newTurn`). The opening screen is the first turn, top-aligned.
+- **Rules:** a new turn turns the page to it; while Life's answer comes in, the thread follows it but never lets the
+  answer's headline go under his pinned words. Every answer opens with **one headline sentence** that answers
+  directly (19 px 650, the answer's first line), then blocks rather than prose, then up to three follow-ups. No card
+  scrolls inside: a chat shows its messages whole.
+- **Why:** the owner's ask of 28 Nov 2026, "bake in the turn by turn into the validated prototype".
+
+### Follow-ups (new component, 28 Nov)
+
+`.fups` (`paintFups`): up to three quiet `tint` pills, 36 px, 13.5 px 600, wrapping, under the latest answer only.
+They are the field's suggested asks for what is on screen (`suggNow`), less the question he just asked; a tap asks it
+as his words. Not on the opening screen. **Open:** the field still rotates the same asks, so they show twice.
+
+### A day (new component, 28 Nov)
+
+`dayTL`: a timeline, one row per event: its time (15 px 650, tabular), a 9 px dot on a 2 px thread, then what and where
+(15 px 650 and 13.5 px muted). A new slot sits on a faint `tint` wash with a cream dot. The one format for a day
+("What's on today?", his Thursday after an event is added), then "You also have N waiting on you" and their rows.
+
+### His words (his bubble)
 
 `.bm` (`:63`, `:331`), with the queue mark (`:278`) and the notification mark (`:328`).
 
-- **Anatomy:** right-aligned, max 286 px, 10/14 padding, radius 20 with a 6 px bottom-right corner (the tail side),
-  fill cream at 11 %, cream text 15 px 450.
+- **Anatomy:** in a turn, his words are its title, pinned at its top (sticky) with no bubble: cream 650, 26 px when
+  short (up to 30 characters), 19 px up to 64, 16 px beyond. Pinned once his turn is scrolled into, a soft blurred edge
+  shows under them and a long question clamps to two lines; at the turn's top it shows whole. (Before 28 Nov: a
+  right-aligned bubble, cream at 11 %.)
 - **Rules:** his words appear at once, never inked (`:692`). It is quiet because "the full cream bubble was too loud"
   (log, 23 Nov). A tap made outside the thread (a notification's answer) enters as his bubble in the card's words with
   a bell and the time under it (`:841`). Offline, a small clock and "when you're back" under it (`:962`).
-- **States:** sent; queued; Life's reaction on its bottom-left corner (below).
+- **States:** sent; queued; Life's reaction under it (below).
 
 ### Life's words
 
@@ -432,7 +461,8 @@ kind (`bodyHTML`, `:648-660`), the answers (`barHTML`, `:661-667`).
 - **Anatomy:** no bubble, left-aligned, max 310 px (a list or a block stretches it full width, `.bt.wide`), 15.5 px,
   line 1.45, bold 650 for the one or two words that answer ("Paul still owes you his **quote**").
 - **Rules:** words ink in one by one (28 ms apart, blurred to sharp), blocks one after another (110 ms); the thread
-  follows in batches, never word by word, keeping the top in view (`batchFollow`, `:685-690`). Under Reduce Motion it
+  follows in batches, never word by word, keeping the answer's headline in view under his pinned words (`batchFollow`).
+  The answer's first line is its headline (Turns, above). Under Reduce Motion it
   appears whole. Markdown: paragraphs, lists, bold (`.xmd`, `:233`). A short lead introduces an item Life brings
   ("Jade asked about Saturday:").
 - **Why no bubble:** unsure; the spec only says Life's words are full Markdown "as he knows it from AI chat apps",
@@ -489,12 +519,14 @@ answers.
 - **Header** (`.hero`): see the item row, unfolded.
 - **Why** (`.why`, `:380`): at most one line, 14.5 px, lighter muted. The rest of a card's context stays reachable by
   asking, not shown.
-- **A reply's chat** (`chatHTML`, `:645-647`; `:434-443`): a head with the app's own logo (26 px), the chat's name and
-  its size in mono ("Fernway · 3"), and a trailing pill in the app's colour, "Open WhatsApp ↗". Their messages on the
-  left (dark, a 5 px top-left corner), his on the right in the app's colour, each with its time; messages in between
-  that are not the matter's as one quiet centred count ("3 unrelated messages"). The draft: the app's colour at 8 %
-  with a dashed 1.5 px outline in that colour, which fades once sent; a file under it as a small row. The dashed
-  outline is the owner's one exception to no borders (brand.md, decision 82).
+- **A reply's chat** (`chatHTML`, drawn by the one global chat, `CB.chat` in `2026-11-26-design-lab/card-blocks.js`,
+  since 28 Nov): its head is the draft's header, so a draft has no other: the person's or group's picture (initials
+  when none), the name, the app's name, and an arrow in the app's colour that opens the chat; the card's one line of
+  why under it. Their messages on the left (a 5 px top-left corner), his on the right in the app's colour, each with
+  its time; messages in between that are not the matter's as one quiet centred count ("3 unrelated messages"); whole,
+  never scrolling inside the card. The draft: the app's sent colour at 8 % with a dashed 1.5 px outline in that colour,
+  which fades once sent; a file inside it as a small row. The dashed outline is the owner's one exception to no
+  borders (brand.md, decision 82).
 - **Quick edits** (`qesHTML`, `:1357-1359`): up to three 30 px `tint` chips, right-aligned under the draft
   ("Warmer", "Shorter", "In French"), and a round back arrow once one was used. A tap blurs the draft and inks the new
   one in place. A typed change ("Make it warmer…") folds the old version to a faded "Earlier draft" row and lands the
