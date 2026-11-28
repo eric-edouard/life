@@ -1,4 +1,4 @@
-/* Turn by turn v3's shell, forked from v2's (needs v2's edge.js, this folder's data.js and chat.js, which needs card-blocks.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
+/* Turn by turn v3's shell, forked from v2's (needs v2's edge.js, this folder's data.js, card-blocks.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
    draws the phone and the side panel; Shell.run(id) plays a scene (also on postMessage({scene:id}) and on #scene=id); postMessage({vary:{topic:value}})
    hands the variations to opts.onVary, then plays the current scene again, with no reload.
    A scene is run(ctx), async, with ctx = {phone, stage, field, edge, wait, type, speak, cancelled, lock, notify}. Starting a scene
@@ -10,20 +10,20 @@
    the pendant (a tap opens its page over whatever shows, ctx.pendant()). The count is worked out, never set: what waits
    on him (DATA.waiting) and every card drawn since, less what he settled.
    ctx.cards(items) makes the cards: one per item, side by side, swiped sideways. What a card holds is drawn here only
-   (cardHtml; a draft's head and chat by chat.js), so it changes in one place; the scene places the row. */
+   (cardHtml; a draft's head and chat by card-blocks.js (CB.chat)), so it changes in one place; the scene places the row. */
 window.Shell=(function(){
   var MIC='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>';
   var UP='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/><path d="M12 8v10"/></svg>';
   var BACK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>';
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   var CANCEL={cancelled:true},run=0,last='idle',scenes=[],opts,phone,stage,field,lock,count,pend,buttons={},kept=new WeakMap(),open=new Set();
-  var esc=Chat.esc;
+  var esc=CB.esc;
 
   /* a card, as App v4 draws it: who (face or initial), what, its line, its one sentence of why, one wide action, then
-     its outcome; a draft is its chat (chat.js: the head, the messages that matter, the draft), its quick edits, Later
+     its outcome; a draft is its chat (CB.chat: the head, the messages that matter, the draft), its quick edits, Later
      and Send side by side, Send on the right */
   function cardHtml(k){var draft=k.draft!=null;
-    return '<article class="s-card">'+(draft?Chat.html(k):'<div class="s-hd"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(k.who.charAt(0)))+'</span>'+
+    return '<article class="s-card">'+(draft?CB.chat(k):'<div class="s-hd"><span class="s-disc">'+(k.face?'<img alt="" src="'+k.face+'">':esc(k.who.charAt(0)))+'</span>'+
       '<span class="s-tx"><b>'+esc(k.t)+'</b><small>'+esc(k.sub+' · '+k.when)+'</small></span></div>'+(k.why?'<p class="s-why">'+esc(k.why)+'</p>':''))+
       (k.edits?'<div class="s-edits">'+k.edits.map(function(x){return '<button type="button">'+esc(x)+'</button>';}).join('')+'</div>':'')+
       '<div class="s-act" aria-live="polite"></div></article>';}

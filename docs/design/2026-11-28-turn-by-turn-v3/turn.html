@@ -14,7 +14,6 @@
 <link rel="stylesheet" href="../../../assets/brand/tokens.css">
 <link rel="stylesheet" href="../2026-11-27-turn-by-turn-v2/edge.css">
 <link rel="stylesheet" href="shell.css">
-<link rel="stylesheet" href="chat.css">
 <style>
 /* the title card may rise from under the field and the pager covers the phone, so the stage lets them out */
 .stage:has(> .a){overflow:visible}
@@ -128,7 +127,7 @@ b{font-weight:650}
 <script src="../2026-11-27-turn-by-turn-v2/edge.js"></script>
 <script src="data.js"></script>
 <script src="../2026-11-23-chat-first/2026-11-26-design-lab/card-blocks.js" charset="utf-8"></script>
-<script src="chat.js"></script>
+<script>document.head.insertAdjacentHTML("beforeend","<style>"+CB.css.cards+"</style>");</script>
 <script src="shell.js"></script>
 <script>
 var D=DATA,R=matchMedia('(prefers-reduced-motion: reduce)').matches,asked=null;
@@ -138,7 +137,7 @@ var V={day:'rows',pager:'snap'};
 (location.hash.match(/(day|pager)=\w+/g)||[]).forEach(function(x){x=x.split('=');V[x[0]]=x[1];});
 var SPRING='cubic-bezier(.2,1.15,.32,1)',SOFT='cubic-bezier(.2,.8,.2,1)',OUT='cubic-bezier(.4,0,1,1)';
 function el(p,cls,html){var e=document.createElement('div');e.className=cls;if(html!=null)e.innerHTML=html;p.appendChild(e);return e;}
-var esc=Chat.esc;
+var esc=CB.esc;
 function cap(s){return s.replace(/^./,function(ch){return ch.toUpperCase();});}
 /* animates from one state to another and leaves the element in the second; under Reduce Motion, a cross-fade only */
 function mv(e,from,to,ms,ease,delay){var fin=to;

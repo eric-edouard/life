@@ -4,7 +4,7 @@
    first step line (real median 5.7 s), each step's `ms` how long its line shows before the next replaces it; the whole
    answer arrives at once when the last step ends (real median 15 s for a plain question). Steps never say what they found.
    A day (`days`) is one standard format wherever it shows: its events, then the decisions waiting on him (owner, 28 Nov).
-   The edits buttons (Warmer, Shorter) only show, they do nothing. A chat (`chat`) is drawn by chat.js only: the messages that matter, the rest one quiet count. */
+   The edits buttons (Warmer, Shorter) only show, they do nothing. A chat (`chat`) is drawn by CB.chat only: the messages that matter, the rest one quiet count. */
 window.DATA=(function(){
   var face='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3c48f"/><stop offset="1" stop-color="#a3345e"/></linearGradient></defs><rect width="96" height="96" fill="url(#g)"/><circle cx="48" cy="40" r="17" fill="#f6dcc4"/><path d="M29 38c0-14 9-22 19-22s19 8 19 22c-5-7-11-10-19-10s-14 3-19 10Z" fill="#3b2418"/><path d="M18 96c3-18 15-28 30-28s27 10 30 28Z" fill="#126e66"/></svg>');
   /* an item that waits on him, drawn as a card (an `items` block): a draft an agent or the main session asked (Send one
