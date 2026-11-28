@@ -16,7 +16,7 @@
 .cv{position:absolute;inset:0;overflow:hidden}
 .cq{position:absolute;top:10px;left:36px;right:36px;display:flex;justify-content:center;text-align:center;pointer-events:none}
 .cq-t{font-size:var(--text-body);font-weight:600;line-height:1.35;color:color-mix(in srgb,var(--fg) 56%,transparent);text-wrap:balance}
-.cd{position:absolute;top:58px;bottom:214px;left:20px;right:20px}
+.cd{position:absolute;top:46px;bottom:170px;left:20px;right:20px}
 .cg{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;gap:12px}
 .cs,.ct,.clive-a{position:absolute;left:24px;right:24px;bottom:30px;height:0}
 /* a line of the answer: its words settle in fast; earlier lines shrink, dim and drift up */
@@ -56,27 +56,14 @@ a.place:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 /* a face (new block) and a quoted message (new block) */
 .who{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
 .face{width:72px;height:72px;border-radius:50%;object-fit:cover}
-.face.s{width:44px;height:44px}
 .qt{align-self:flex-start;max-width:300px}
 .bub{padding:12px 16px;border-radius:var(--block-radius);border-bottom-left-radius:6px;background:var(--tile);line-height:1.4}
 .qt .meta{display:block;padding:6px 0 0 6px}
 .qt .nb{text-align:left;padding-left:6px}
 .wait-row{display:flex;gap:12px;align-items:flex-start}
-/* a draft card (an items block): the draft dashed while it is a draft (the brand's one outline), Send his one tap */
-.dc{display:flex;flex-direction:column;gap:10px}
-.dc [hidden]{display:none!important}
-.dc-h{display:flex;flex-direction:column;gap:1px;padding-left:2px}
-.draft{align-self:flex-end;max-width:290px;padding:12px 16px;border-radius:var(--block-radius);border-bottom-right-radius:6px;background:var(--paper);outline:1.5px dashed color-mix(in srgb,var(--fg) 42%,transparent);outline-offset:-1.5px;transition:outline-color .6s ease}
-.draft.sent{outline-color:transparent}
-.edits{display:flex;gap:8px;justify-content:flex-end}
-.edits button{padding:6px 14px;border-radius:999px;background:var(--wash);font-size:var(--text-line);font-weight:600;color:var(--muted)}
-.send{width:100%;height:50px;border-radius:999px;background:var(--fg);color:var(--on);font-weight:650;font-size:var(--text-title);display:flex;align-items:center;justify-content:center;gap:10px}
-.send:disabled{cursor:default}
-.spin{width:16px;height:16px;border-radius:50%;border:2px solid color-mix(in srgb,var(--on) 25%,transparent);border-top-color:var(--on);animation:sp .8s linear infinite}
-@keyframes sp{to{transform:rotate(360deg)}}
-.done{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:50px;font-size:var(--text-line);font-weight:600;color:var(--ok)}
-.done.undone{color:var(--muted)}
-.done button{padding:6px 14px;border-radius:999px;background:var(--wash);color:var(--fg)}
+/* the cards (the shell's) sit at the bottom of the things, above Life's lines */
+.cg>.s-cards{--s-pad:20px}
+.c-k{font-size:var(--text-line);font-weight:600;color:var(--muted);margin-bottom:-2px}
 /* earlier turns, a quiet chronology */
 .hist{position:absolute;left:28px;right:28px;bottom:30px;display:flex;flex-direction:column;gap:28px;text-align:center}
 .hist .ha{font-size:var(--text-line);font-weight:600;color:var(--muted);margin-top:4px}
@@ -100,7 +87,6 @@ a.place:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 var D=DATA,reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 var SPRING='cubic-bezier(.22,1.25,.36,1)',GLIDE='cubic-bezier(.16,1,.3,1)',OUT='cubic-bezier(.55,0,.85,.35)';
 var PIN='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
-var TICK='<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.6 2.5L10 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function esc(s){return String(s).replace(/[&<>"]/g,function(ch){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
 function h(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;}
 function anim(el,kf,dur,ease,delay){if(!el||!el.animate)return Promise.resolve();
@@ -108,7 +94,6 @@ function anim(el,kf,dur,ease,delay){if(!el||!el.animate)return Promise.resolve()
 function enter(el,delay,dy){return anim(el,[{opacity:0,transform:'translateY('+(dy||26)+'px) scale(.96)'},{opacity:1,transform:'none'}],760,SPRING,delay);}
 function leave(el,dur){return anim(el,[{opacity:1,transform:'none'},{opacity:0,transform:'translateY(-22px) scale(.97)'}],dur||220,OUT).then(function(){el.remove();});}
 function scaleOf(c){return c.phone.getBoundingClientRect().width/c.phone.offsetWidth;}
-function cancelled(e){if(!e||!e.cancelled)throw e;}
 /* the quiet tag on a proposed block */
 function nb(p){return p.block==='new'?'<i class="nb">new block · '+esc(p.kind)+'</i>':'';}
 /* an answer's words cut into its sentences (a colon inside a sentence stays) */
@@ -197,34 +182,24 @@ function group(html){return function(){return h('div','',html);};}
 function eventsHTML(evs){return '<div><div class="tile ev">'+evs.map(function(e){return '<b>'+esc(e.at)+'</b><div><div class="ttl">'+esc(e.t)+'</div><div class="mut">'+esc(e.where)+'</div></div>';}).join('')+'</div>'+nb(evs[0])+'</div>';}
 function placeHTML(p){return '<a class="tile place" href="https://maps.apple.com/?q='+encodeURIComponent(p.address)+'" target="_blank" rel="noopener">'+PIN+'<div><div class="ttl">'+esc(p.name)+'</div><div class="mut">'+esc(p.address)+'</div></div></a>';}
 function payHTML(p){return '<div><div class="tile pay"><div><div class="ttl">'+esc(p.t)+'</div><div class="mut">Due '+esc(p.due)+'</div></div><div class="amt">'+esc(p.amount)+'</div></div>'+nb(p)+'</div>';}
-function faceHTML(f,small){return '<div class="who ctr"><img class="face'+(small?' s':'')+'" alt="" src="'+f.face+'"><div class="ttl">'+esc(f.name)+'</div>'+nb(f)+'</div>';}
+function faceHTML(f){return '<div class="who ctr"><img class="face" alt="" src="'+f.face+'"><div class="ttl">'+esc(f.name)+'</div>'+nb(f)+'</div>';}
 function quoteHTML(q){return '<div class="qt"><div class="bub">'+esc(q.t)+'</div><span class="meta">'+esc((q.who?q.who+', ':'')+q.at+' on '+q.app)+'</span>'+nb(q)+'</div>';}
 /* the day's waiting item (an items block): who, what about, their last words */
 function waitingHTML(w){return '<div class="tile"><div class="ttl">'+esc(w.who)+' waits on you: '+esc(w.about)+'</div><div class="mut" style="margin-top:4px">“'+esc(w.last)+'”</div><div class="meta" style="margin-top:6px">'+esc(w.at)+'</div></div>';}
 
-/* a draft card: Send his one tap, then Sent and Undo; its state lives in `st` so a recalled card stays as he left it */
-function cardEl(c,k,st){var g=h('div','dc');
-  if(k.context)g.appendChild(h('div','',quoteHTML(k.context)));
-  g.appendChild(h('div','dc-h','<div class="ttl">To '+esc(k.to)+' on '+esc(k.app)+'</div><div class="meta">'+esc(k.made)+'</div>'));
-  var d=h('div','draft',esc(k.draft));g.appendChild(d);
-  if(k.edits){var e=h('div','edits');k.edits.forEach(function(x){var b=h('button','',esc(x));b.type='button';e.appendChild(b);});g.appendChild(e);}
-  var b=h('button','send',esc(k.send)),done=h('div','done');b.type='button';g.append(b,done);
-  function paint(){if(st.sent!=='sent'){b.disabled=false;b.textContent=k.send;}d.classList.toggle('sent',st.sent==='sent');b.hidden=st.sent==='sent';done.hidden=!st.sent;done.className='done'+(st.sent==='undone'?' undone':'');
-    if(st.sent==='sent'){done.innerHTML=TICK+'<span>'+esc(k.sent)+'</span>';var u=h('button','',esc(k.undo));u.type='button';u.onclick=function(){st.sent='undone';paint();};done.appendChild(u);}
-    if(st.sent==='undone')done.textContent='Deleted for everyone';}
-  b.onclick=function(){b.disabled=true;b.innerHTML='<i class="spin"></i>'+esc(k.sending);
-    c.wait(k.sendMs).then(function(){st.sent='sent';paint();enter(done,0,6);c.edge.set('landed');},cancelled);};
-  paint();return g;}
+/* the cards: the shell's, one per item, swiped sideways; the shell keeps what he did, so a recalled card stays as he left it */
+function cardEl(c,items){return c.cards(items);}
 
 /* ---------- each answer, as lines and the things they bring ---------- */
 function dayLines(){var a=D.asks.day.answer,s=sentences(a.lead);return [
   {t:s[0],props:group(eventsHTML(a.events)+placeHTML(a.place)+payHTML(a.payment))},
   {t:s[1],props:group(waitingHTML(a.waiting))}];}
-function jadeLines(c){var a=D.asks.jade.answer,s=sentences(a.lead),st={};return [
+function jadeLines(c){var a=D.asks.jade.answer,s=sentences(a.lead);return [
   {t:s[0],props:group(faceHTML(a.who)+quoteHTML(a.reply))},
-  /* her ready reply joins her words: the face steps down to make room */
-  {t:s[1],then:function(el,now){var f=el.querySelector('.face');if(f)f.classList.add('s');var k=cardEl(c,a.card,st);el.appendChild(k);if(!now)enter(k,80);}}];}
-function tellLines(c){var a=D.asks.tell.answer,st={};return [{t:a.lead,props:function(){var g=h('div','');g.appendChild(cardEl(c,a.card,st));return g;}}];}
+  /* her ready reply joins her words: the card carries her face, so the big face leaves to make room */
+  {t:s[1],then:function(el,now){var f=el.querySelector('.who');if(f)f.remove();var k=cardEl(c,[a.card]);el.appendChild(k);if(!now)enter(k,80);}}];}
+function tellLines(c){var a=D.asks.tell.answer;return [{t:a.lead,props:function(){var g=h('div','');g.appendChild(cardEl(c,[a.card]));return g;}}];}
+function waitingLines(c){return [{t:D.waitingLead,props:function(){var g=h('div','');g.appendChild(cardEl(c,D.waiting));return g;}}];}
 function plain(t,props){return sentences(t).map(function(s,i){return {t:s,props:i?null:props};});}
 
 /* ---------- scenes ---------- */
@@ -233,14 +208,18 @@ async function turn(V,a,lines,how){if(how==='voice')await askVoice(V,a.ask);else
 
 Shell.mount({title:'Turn by turn v2: C, face to face',scenes:[
   {id:'idle',label:'Idle',run:async function(c){var V=view(c);await c.wait(500);await greet(V);}},
+  {id:'home-waiting',label:'Opens with matters waiting',run:async function(c){var V=view(c);await c.wait(300);
+    swap(V,function(){var g=h('div','','<div class="c-k">Waiting on you</div>');g.appendChild(cardEl(c,D.waiting.slice(0,3)));return g;});await greet(V);}},
+  {id:'waiting-list',label:'Waiting on you',run:async function(c){var V=view(c);setQ(V,D.waitingAsk,true);c.edge.set('landed');await c.wait(300);await tell(V,waitingLines(c));}},
+  {id:'pendant',label:'Pendant status',run:async function(c){var V=view(c);greet(V);c.pendant();}},
   {id:'type-send',label:'He types an ask',run:async function(c){var V=view(c);await askTyped(V,D.asks.day.ask);await work(V,D.asks.day,{stopAtThinking:true});}},
   {id:'voice-send',label:'He holds to talk',run:async function(c){var V=view(c);await askVoice(V,D.asks.jade.ask);await work(V,D.asks.jade,{stopAtThinking:true});}},
   {id:'working',label:'Life works',run:async function(c){var V=view(c);setQ(V,D.asks.day.ask,true);await c.wait(400);await work(V,D.asks.day);await tell(V,dayLines());}},
   {id:'answer-day',label:'Answer: the day',run:function(c){return turn(view(c),D.asks.day,dayLines());}},
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(view(c),D.asks.jade,jadeLines(c),'voice');}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return turn(view(c),D.asks.tell,tellLines(c));}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var V=view(c),st={};await greet(V);await c.wait(Math.max(0,D.arrives.arriveMs-1300));
-    var g=h('div','cg');g.appendChild(cardEl(c,D.arrives.card,st));V.d.appendChild(g);
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var V=view(c);await greet(V);await c.wait(Math.max(0,D.arrives.arriveMs-1300));
+    var g=h('div','cg');g.appendChild(cardEl(c,[D.arrives.card]));V.d.appendChild(g);
     anim(g,[{opacity:0,transform:'translateY(48px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'blur(0)'}],1100,GLIDE);}},
   {id:'slow',label:'A slow ask',run:function(c){var a=D.slow.answer;return turn(view(c),D.slow,plain(a.lead,group(placeHTML(a.place))));}},
   {id:'failure',label:'A read fails',run:function(c){return turn(view(c),D.failure,plain(D.failure.error.t));}},
