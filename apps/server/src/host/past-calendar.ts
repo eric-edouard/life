@@ -144,7 +144,7 @@ export async function syncPast(since: Date | undefined, now = clock()) {
   if (!(past && isOn("pastCalendar"))) {
     return null;
   }
-  // On: an account, else the app's EventKit tool.
+  // On: an account, else the app's permissions helper.
   const cal = past.account
     ? pastCalendar(past.calendar, past.account)
     : appleCalendar(past.calendar, permissionsHelperPath() as string);

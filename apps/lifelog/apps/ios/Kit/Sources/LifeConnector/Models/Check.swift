@@ -327,8 +327,8 @@ public struct Check: Decodable, Sendable, Equatable, Identifiable {
     public let needs: [Need]?
     /// Life's outcome when it sees the step done itself (a payment it looks for); nil when it does not.
     public let doneSeen: DoneSeen?
-    /// How Life sees a decision's step done now: `payment`, it looks in his accounts while the card is open; `tap`, only
-    /// his word; nil on every other kind.
+    /// How Life sees a decision's step done now: `payment`, it looks in his accounts while the card is open; `access`, it
+    /// checks his Mac for each step; `tap`, only his word; nil on every other kind.
     public let doneSeenBy: DoneSeenBy?
 
     public enum DoneSeenBy: String, UnknownTolerant, Sendable {
