@@ -1,10 +1,13 @@
 import {
+  closeSync,
   cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -68,33 +71,42 @@ const PROJECT_LEFT_OUT =
   /(^|\/)(node_modules|\.cache|\.turbo|\.next|\.env(\..*)?)(\/|$)/;
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
 
+/** Whether `file` is a SQLite database, by its header: a live store (WAL) is copied by SQLite, whatever its name. */
+const isDb = (file: string) => {
+  const fd = openSync(file, "r");
+  try {
+    const head = Buffer.alloc(16);
+    readSync(fd, head, 0, 16, 0);
+    return head.toString("latin1") === "SQLite format 3\0";
+  } finally {
+    closeSync(fd);
+  }
+};
+
 /**
- * One-off projects' work folders, as plain files (the owner, 28 Nov 2026): links followed (a broken one skipped), nothing
- * renamed, filtered or opened as a store, so a `.bak` result or a `.sqlite` file of a project is kept as it is.
+ * One-off projects' work folders (the owner, 28 Nov 2026): plain files, nothing renamed or filtered by name but the
+ * left-out ones. Links are left out (a link could carry a secret file out); a store is copied whole by SQLite, and a
+ * failure stops the staging rather than keep a copy that may not be consistent.
  */
 function stageProjects(dir: string) {
   if (!existsSync(PROJECT_WORK_FOLDERS)) {
     return;
   }
-  cpSync(PROJECT_WORK_FOLDERS, join(dir, "state", "projects"), {
-    dereference: true,
+  const to = join(dir, "state", "projects");
+  cpSync(PROJECT_WORK_FOLDERS, to, {
     filter: (from) =>
-      !PROJECT_LEFT_OUT.test(pathIn(PROJECT_WORK_FOLDERS, from)) &&
-      existsSync(from),
+      !(
+        PROJECT_LEFT_OUT.test(pathIn(PROJECT_WORK_FOLDERS, from)) ||
+        lstatSync(from).isSymbolicLink()
+      ),
     recursive: true,
   });
-  // A live store of a project (bun:sqlite, WAL) is copied whole by SQLite; a file that is not a store stays as copied.
-  for (const p of filesUnder(PROJECT_WORK_FOLDERS)) {
-    const staged = join(dir, "state", "projects", p);
-    if (p.endsWith(".sqlite") && existsSync(staged)) {
-      try {
-        rmSync(staged);
-        copyDb(join(PROJECT_WORK_FOLDERS, p), staged);
-        rmSync(`${staged}-wal`, { force: true });
-        rmSync(`${staged}-shm`, { force: true });
-      } catch {
-        cpSync(join(PROJECT_WORK_FOLDERS, p), staged);
-      }
+  for (const p of filesUnder(to)) {
+    if (isDb(join(to, p))) {
+      rmSync(join(to, p));
+      copyDb(join(PROJECT_WORK_FOLDERS, p), join(to, p));
+      rmSync(join(to, `${p}-wal`), { force: true });
+      rmSync(join(to, `${p}-shm`), { force: true });
     }
   }
 }

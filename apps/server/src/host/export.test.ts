@@ -73,7 +73,7 @@ test("an export holds everything with its checksum and counts, and never a secre
     live.run("pragma journal_mode = wal");
     live.run("create table t (a)");
     live.run("insert into t values (1)");
-    symlinkSync(join(project, "PLAN.md"), join(project, "link.md"));
+    symlinkSync(join(project, ".env.local"), join(project, "config"));
 
     const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
     const m = await stage(dir, archive);
@@ -84,9 +84,9 @@ test("an export holds everything with its checksum and counts, and never a secre
     live.close();
     rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
-    // A project's files, links followed, odd names kept; its secret files and packages left out.
+    // A project's files, odd names kept, links left out; its secret files and packages left out.
     expect(paths.filter((p) => p.startsWith("state/projects/")).sort()).toEqual(
-      ["PLAN.md", "link.md", "live.sqlite", "notes.sqlite", "result.tmp"].map(
+      ["PLAN.md", "live.sqlite", "notes.sqlite", "result.tmp"].map(
         (f) => `state/projects/bakery-page/${f}`
       )
     );
