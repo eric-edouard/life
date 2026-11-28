@@ -463,8 +463,8 @@ interface Provider {
   host: string;
   /** Its terms as an integration (`records/integration.ts`): what leaves the computer and what it takes. */
   integration: IntegrationTerms;
-  /** The keys it takes, one per router of its routes. */
-  keys: string[];
+  /** The keys it takes, one per router of its routes, each with the page where it is made. */
+  keys: { name: string; opens: string }[];
   /** What he calls it. */
   label: string;
   models: Record<Tier, string>;
@@ -498,7 +498,10 @@ function apiEngine(
     contextTokens,
     host: new URL(ROUTERS[engine].url).host,
     integration,
-    keys: routers.map((r) => ROUTERS[r].key),
+    keys: routers.map((r) => ({
+      name: ROUTERS[r].key,
+      opens: ROUTERS[r].opens,
+    })),
     label,
     models,
   };
@@ -665,11 +668,10 @@ export async function readEngineCheck(engine = readEngine()) {
     claudeSignedIn: !isClaude || (await claudeSignedInNow(program)),
     credits: wantsCredits ? await creditsNow() : null,
     host,
-    // Each key it takes (`Provider.keys`), the page where its router's key is made, and whether it is set.
-    keys: PROVIDERS[engine].keys.map((name) => ({
-      name,
-      opens: Object.values(ROUTERS).find((r) => r.key === name)?.opens ?? "",
-      set: Boolean(process.env[name]),
+    // Each key it takes, the page where it is made, and whether it is set.
+    keys: PROVIDERS[engine].keys.map((k) => ({
+      ...k,
+      set: Boolean(process.env[k.name]),
     })),
     online: await isOnline(engine),
   };
@@ -677,7 +679,9 @@ export async function readEngineCheck(engine = readEngine()) {
 
 /** The keys each engine takes, by engine: the app asks for each by this name. */
 export const engineKeys = () =>
-  Object.fromEntries(Object.entries(PROVIDERS).map(([e, p]) => [e, p.keys]));
+  Object.fromEntries(
+    Object.entries(PROVIDERS).map(([e, p]) => [e, p.keys.map((k) => k.name)])
+  );
 
 /**
  * Whether this process's calls (on `engine`, his setting unless a bench says) go to an engine with a quota to read (his

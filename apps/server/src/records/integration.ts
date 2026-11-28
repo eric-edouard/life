@@ -3,7 +3,7 @@
 // server, which keeps that name), an output (`core/outputs.ts`) or an add-on (`core/add-ons.ts`), which are settings with
 // no step for the user (`docs/plans/2026-11-28-packaging/spec.md`, section 1).
 
-/** What Life checks silently for an access card's step or a permission requirement: a permission of Life's, Full Disk Access, or free disk space. */
+/** What Life checks silently for an access card's step: a permission of Life's, Full Disk Access, or free disk space. A permission requirement is Full Disk Access alone. */
 export const ACCESS_CHECKS = [
   "accessibility",
   "calendars",
