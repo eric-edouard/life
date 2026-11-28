@@ -278,7 +278,8 @@ outside the lock, schemaVersion 3, by `kind`:
   (redacted; a mail's: the one message it replies to, its first body line, since Mail's thread key can mix threads; empty for a new chat or mail; cards asked
   before 21 Nov 2026 have none, which is true of them); `people`, how many people a group chat holds, him included, as its
   network keeps them (absent for a 1:1 chat, one its network can't count, and cards asked before 21 Nov 2026). A mail draft has no `chat`: `from`, `to`, `cc` and `subject` as given are what it sends. Life sends exactly
-  what is stored), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
+  what is stored), `drafts` (a batch, since 28 Nov 2026: 2 or more drafts, each as `draft` is stored, each into its own
+  chat; never with `draft`, which a one-draft card keeps; read together as `drafts` by `draftsOf`), `options` (2 to 4 `{id, label, icon?, outgoing?, ends?, looks?, adds?, takes?}`, 3 at most since 22 Nov 2026 (`answersProblemOf`), `icon` an answer icon (`records/answer-icon.ts`), labels one line, the
   recommended one first; `outgoing: true` when it acts outside Life (sends, pays, books, deletes or changes something);
   `ends` (`step` or `matter`, never with `outgoing`) when his pick of it alone is his word that the subject step, or
   its whole matter, is done (on a matter's id, stored as its newest open step); lines before it have none), `context` (4,000 chars), `links`, `deadline` (1 hour to 14
@@ -293,10 +294,11 @@ outside the lock, schemaVersion 3, by `kind`:
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
   key for one tap, kept on every repeat of it; lines before it have none). The first answer stands, unless its send
   ended `not sent:`.
-- `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone): `id`, `at`, and the
+- `sent` / `send-failed` (`answerDecision`, when his answer was the draft's outgoing option alone; one per draft, a batch's
+  past the first with its `draftIndex`, its place in `drafts`, since 28 Nov 2026): `id`, `at`, and the
   `eventId` (the sent message's id: Life's own event id where it knows it, else the network's) once its network took it,
   or the `error` (which says whether it may have gone, or began `not sent:`: nothing went), and `canRetry: false` when the same draft
-  can never go (the file gone or changed, no chat, the channel off). A `not sent:` line voids the answer before it: the
+  can never go (the file gone or changed, no chat, the channel off). A `not sent:` line (on a batch, once every draft's line is in and all are `not sent:`) voids the answer before it: the
   decision is open again and the next answer is the first (`notSent` holds it, `voided` every answer one voided, each with its outcome, so a repeat of any of those taps by its `answerKey` finds its own); any other
   outcome belongs to the answer it follows. With no outcome 5 minutes after his answer, the send never ended (worked out
   when read). A lapse a late `not sent:` voided settles at that line's `at`.

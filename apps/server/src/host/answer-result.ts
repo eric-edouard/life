@@ -15,6 +15,7 @@ import {
   rateDecision,
   withdrawAnswer,
 } from "../memory/decision-after-answer";
+import { sendOf } from "../memory/decision-fold";
 import {
   type Decision,
   doneSeenShownOf,
@@ -28,6 +29,7 @@ import {
   type EndByHisWord,
   LOOK_LIMIT_MS,
 } from "../memory/decisions";
+import { onlyDraftOf, type StoredDraft } from "../memory/draft";
 import {
   sendLimitMs,
   sendStepsOf,
@@ -135,7 +137,7 @@ function tapOf(d: Decision, key?: string) {
       answer: d.answer,
       doneSeen: d.doneSeen,
       notSent: undefined,
-      send: d.send,
+      sends: d.sends,
     };
   }
   const v = key
@@ -145,33 +147,44 @@ function tapOf(d: Decision, key?: string) {
     answer: v?.answer,
     doneSeen: v?.doneSeen,
     notSent: v?.notSent,
-    send: undefined,
+    sends: [] as Decision["sends"],
   };
 }
 
-/** What a tap's send did, as the app shows it: none when it sends nothing. */
+/** What a tap's send did, as the app shows it: none when it sends nothing; a batch's, each draft's in order (`sends`). */
 function sendResultOf(d: Decision, tap: ReturnType<typeof tapOf>) {
   if (tap.notSent) {
-    return { ...notSentOf(d, tap.notSent), state: "not_sent" };
+    return { send: { ...notSentOf(d, tap.notSent), state: "not_sent" } };
   }
-  if (tap.send?.kind === "sent") {
+  if (!(tap.answer && actDueOf(d) === "send")) {
+    return { send: null };
+  }
+  const sends = d.drafts.map((draft, i) =>
+    draftSentOf(draft, sendOf(tap.sends, i))
+  );
+  return d.drafts.length > 1 ? { send: null, sends } : { send: sends[0] };
+}
+
+/** One draft's send as the app shows it: sent, may have gone, not sent (a batch's), or pending while it runs. */
+function draftSentOf(draft: StoredDraft, line?: Decision["sends"][number]) {
+  if (line?.kind === "sent") {
     return {
-      at: tap.send.at,
-      channel: d.draft?.channel,
-      eventId: tap.send.eventId,
+      at: line.at,
+      channel: draft.channel,
+      eventId: line.eventId,
       state: "sent",
-      to: d.draft?.to,
+      to: draft.to,
     };
   }
-  if (tap.send) {
+  if (line) {
     return {
-      at: tap.send.at,
+      at: line.at,
       canRetry: false,
-      reason: tap.send.error,
-      state: "may_have_gone",
+      reason: line.error,
+      state: line.error.startsWith("not sent:") ? "not_sent" : "may_have_gone",
     };
   }
-  return tap.answer && actDueOf(d) === "send" ? { state: "pending" } : null;
+  return { state: "pending" };
 }
 
 /** An act's outcome line as the proof shows it: when, and its error or what it made, without its line's bookkeeping. */
@@ -189,8 +202,12 @@ const shownOutcomeOf = <L extends { at: string; error?: string }>(
 async function decisionResult(ref: string, key?: string) {
   let d = decisionsNow().find((x) => x.id === ref) as Decision;
   // A repeat arrives while the first call's send still runs (a dropped stream): wait for its outcome, never send.
-  const end = performance.now() + (d.draft ? sendLimitMs(d.draft) : 0);
-  while (actDueOf(d) === "send" && !d.send && performance.now() < end) {
+  const end = performance.now() + sendLimitMs(d.drafts);
+  while (
+    actDueOf(d) === "send" &&
+    !actOutcomeOf(d, "send") &&
+    performance.now() < end
+  ) {
     // biome-ignore lint/performance/noAwaitInLoops: polling the decisions' lines
     await Bun.sleep(POLL_MS);
     d = decisionsNow().find((x) => x.id === ref) as Decision;
@@ -212,7 +229,8 @@ async function decisionResult(ref: string, key?: string) {
     },
     done: [
       tap.answer,
-      tap.notSent ?? tap.send,
+      tap.notSent,
+      ...tap.sends,
       tap.doneSeen,
       ended,
       added,
@@ -221,7 +239,7 @@ async function decisionResult(ref: string, key?: string) {
     doneSeen: doneSeenShownOf(tap.doneSeen, d.needs),
     kind: "decision",
     ref,
-    send: sendResultOf(d, tap),
+    ...sendResultOf(d, tap),
     start: null,
   };
 }
@@ -320,7 +338,7 @@ function planOf(
   if (known) {
     return [
       "recorded",
-      ...(act === "send" && known.draft ? sendStepsOf(known.draft) : []),
+      ...(act === "send" ? sendStepsOf(known.drafts) : []),
       ...(act === "end" && closing.some((s) => s.kind === "todo_item")
         ? [closedStepOf(false)]
         : []),
@@ -405,7 +423,7 @@ async function decisionActOf(
         report({ at: at(), done: ticked, key, of, step: closedStepOf(false) })
     );
   };
-  const sendMs = act === "send" && known?.draft ? sendLimitMs(known.draft) : 0;
+  const sendMs = act === "send" && known ? sendLimitMs(known.drafts) : 0;
   const lookMs = act === "look" ? LOOK_LIMIT_MS : 0;
   const addMs = act === "add" ? ADD_LIMIT_MS : 0;
   const runMs = act === "run" ? RUN_LIMIT_MS : 0;
@@ -625,10 +643,13 @@ export function undoOf(d: Decision, now = clock()) {
   ) {
     return null;
   }
-  if (d.send) {
+  const [send] = d.sends;
+  if (send) {
+    // A batch's sends are never undone: only a one-draft card's message, deleted.
+    const draft = onlyDraftOf(d);
     const line =
-      d.send.kind === "sent" && d.draft
-        ? unsendLineOf(d.draft, d.send.at, now)
+      send.kind === "sent" && draft
+        ? unsendLineOf(draft, send.at, now)
         : undefined;
     return line && !isTakenOf(d) ? { line } : null;
   }
@@ -693,15 +714,17 @@ async function undo(ref: string) {
   }
   if (!undoOf(d)) {
     throw new Error(
-      d.send
+      d.sends.length > 0
         ? "Not done: the message went, and its chat doesn't let Life delete it now."
         : "Not done: what your answer started is under way, or its agent already acted on it."
     );
   }
   let unsent: string | undefined;
-  if (d.send?.kind === "sent" && d.draft) {
-    await unsendDraft(d.draft, d.send.eventId, d.send.at);
-    unsent = d.send.eventId;
+  const [send] = d.sends;
+  const draft = onlyDraftOf(d);
+  if (send?.kind === "sent" && draft) {
+    await unsendDraft(draft, send.eventId, send.at);
+    unsent = send.eventId;
   }
   const line = withdrawAnswer(ref, unsent);
   return {

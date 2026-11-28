@@ -181,7 +181,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_resource_samples()",
     "read_spending(month)",
     "read_thread(before,ifNot)",
-    "request_decision(ask,changed,context,deadline,doneSeenBy,draft,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
+    "request_decision(ask,changed,context,deadline,doneSeenBy,draft,drafts,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
     "search(from,query,to)",
     "sign_in_to_network(answers,loginId,network,stepId,type)",
     "tell_life(asked,said)",

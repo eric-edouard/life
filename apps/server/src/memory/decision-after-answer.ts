@@ -94,7 +94,12 @@ export function withdrawAnswer(id: string, unsent?: string, now = clock()) {
       `Not done: his answer already ${done.kind === "done-seen" ? "had Life look for the step" : `${done.kind} (${done.at})`}.`
     );
   }
-  if (d.send && !(d.send.kind === "sent" && d.send.eventId === unsent)) {
+  // Only a one-draft card's sent message, deleted, is undone: a batch's sends are never.
+  const [send, ...more] = d.sends;
+  if (
+    send &&
+    !(more.length === 0 && send.kind === "sent" && send.eventId === unsent)
+  ) {
     throw new Error(
       "Not done: his answer sent the draft; only deleting that message undoes it."
     );

@@ -585,13 +585,13 @@ export function readCard({ db }: Desk, s: AssignmentRow, id: string) {
   if (!(d && (mine.has(d.id) || mine.has(d.contests ?? "")))) {
     throw new Error(`Not done: ${id} is in no contest with a card of ${s.id}.`);
   }
-  const { agent, asker, context, contests, draft, kept, options } = d;
+  const { agent, asker, context, contests, kept, options } = d;
   const { question, replaces, state, title } = d;
   return {
     asker: agent ?? asker,
     contests: contests ?? null,
     context,
-    draft: draft ?? null,
+    draft: d.drafts[0] ?? null, // A card that waits has one draft: a batch never waits.
     id,
     kept: kept?.why ?? null,
     options: options.map((o) => o.label),

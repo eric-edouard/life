@@ -163,16 +163,21 @@ const outgoingOf = (d: StoredDraft, bytes?: Uint8Array): Outgoing => ({
 });
 
 /**
- * The steps a send of `draft` reports, in order, the one place that decides them: a chat is checked for anyone
- * writing since (`chat_checked`), a mail has no chat; then the network takes it (`handed`) and it is seen (`confirmed`).
+ * The steps a send of `drafts` reports, in order, draft after draft, the one place that decides them: a chat is checked
+ * for anyone writing since (`chat_checked`), a mail has no chat; then the network takes it (`handed`) and it is seen
+ * (`confirmed`).
  */
-export const sendStepsOf = (draft: StoredDraft, sources = enabledSources()) => [
-  ...(isChat(sources.find((x) => x.name === draft.channel))
-    ? [STEP.chatChecked]
-    : []),
-  STEP.handed,
-  STEP.confirmed,
-];
+export const sendStepsOf = (
+  drafts: readonly StoredDraft[],
+  sources = enabledSources()
+) =>
+  drafts.flatMap((draft) => [
+    ...(isChat(sources.find((x) => x.name === draft.channel))
+      ? [STEP.chatChecked]
+      : []),
+    STEP.handed,
+    STEP.confirmed,
+  ]);
 
 /** The names of a send's steps, as `onStep` hears them and the progress plan lists them: written here only. */
 const STEP = {
@@ -432,7 +437,7 @@ async function readySend(
 }
 
 /**
- * Sends a stored draft once per `txn` (its decision), exactly as the card showed it: a file's bytes are read now and
+ * Sends a stored draft once per `txn` (its decision's id; `<id>.<i>` for a batch's later drafts), exactly as the card showed it: a file's bytes are read now and
  * must hash to its stamp, and a chat nobody wrote in since `since` (the card's asking, or his last attempt that went
  * nowhere; his own messages count) else nothing goes. `onStep` hears `chat_checked` (a chat only), `handed` (the
  * network took it) and `confirmed` (with the event id). Returns the sent message's id (Life's own where the path knows it). Throws why not:
@@ -520,12 +525,19 @@ export async function unsendDraft(
   });
 }
 
-/** How long sending this card's draft may take, at most (its send path's own waits), 0 for a source that doesn't send. */
-export function sendLimitMs(draft: StoredDraft, sources = enabledSources()) {
-  return (
-    sources
-      .find((x) => x.name === draft.channel)
-      ?.send?.limitMs(outgoingOf(draft, draft.file && new Uint8Array())) ?? 0
+/** How long sending this card's drafts may take, at most, one after another (their send paths' own waits), 0 for a source that doesn't send. */
+export function sendLimitMs(
+  drafts: readonly StoredDraft[],
+  sources = enabledSources()
+) {
+  return drafts.reduce(
+    (ms, draft) =>
+      ms +
+      (sources
+        .find((x) => x.name === draft.channel)
+        ?.send?.limitMs(outgoingOf(draft, draft.file && new Uint8Array())) ??
+        0),
+    0
   );
 }
 
