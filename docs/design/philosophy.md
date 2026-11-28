@@ -393,6 +393,14 @@ line links there.
   blocking: "I just want things to be fast" (owner, 27 Nov 2026).
 - Done means ran live on his real Life, then a screenshot compared element by element with the prototype
   (owner, 26 Nov 2026).
+- Composed, never bespoke: every screen is built only from Life's fixed set of components (the answer blocks, the card
+  parts, App v4's components); agents and designs fill them with data and never draw new UI for one case, since agents
+  can't write UI at runtime (owner, 28 Nov 2026: "we won't be able to cater for all of the multitudes of projects that
+  people are gonna do… we have to build up all of the components in advance").
+- A missing part becomes a general component: a design that needs something new proposes one component usable by any
+  matter or project, with its data shape, marked "new component"; never a screen made for one example (owner, 28 Nov 2026).
+- The review test: swap the example for a very different one (a photo cleanup for a CV, a trip for a party); if the
+  screen breaks, it's bespoke (owner, 28 Nov 2026).
 
 ### Not doing
 
@@ -440,6 +448,9 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 ### 28 Nov 2026
 
+- Composed, never bespoke ([mini projects][mini]): screens use only Life's fixed components filled with data; a missing
+  part is proposed as one general component with its data shape; a screen that breaks when the example is swapped for
+  a very different one is bespoke. Mini projects was redone this way, every scene on a photo cleanup and party invites.
 - Turn by turn review ([turn by turn][tbt]): variation A is the base: its idle, typing, hold to talk, Life works, slow
   ask, failed read and the "Hey Life" notification replaced in place are kept as they are; B's answer flow for "Did
   Jade answer?" wins. Earlier turns: a full-screen pager with magnetic snapping, not every turn shown at once. The
@@ -456,7 +467,7 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 - The turn by turn prototypes play the real flow ([real flow][realflow]): one quiet step line while Life works
   ([product][product-rules]); a question about a message an agent already drafted a reply to brings that card, Send one
-  tap away; new answer blocks may be proposed, marked "new block"; Life never speaks aloud.
+  tap away; new answer blocks may be proposed, marked "new component" (once "new block"); Life never speaks aloud.
 
 ### 27 Nov 2026
 
@@ -605,6 +616,7 @@ Reversed later:
 [turns]: ../handoff/2026-11-27-turn-by-turn.md
 [realflow]: 2026-11-28-turn-by-turn-v3/2026-11-28-real-flow.md
 [tbt]: https://github.com/eric-edouard/life/blob/040db13018a0272148422c3a6de4d35aea305fa7/docs/design/2026-11-27-turn-by-turn-v2/index.html
+[mini]: 2026-11-28-mini-projects/index.html
 [spec]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md
 [log]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-design-decisions.md
 [inventory]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-component-inventory.md
