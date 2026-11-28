@@ -5,7 +5,7 @@ import type { SourceName } from "../core/names";
 import { redact } from "../core/redact";
 import { settings } from "../core/settings";
 import type { SourceEvent } from "../records/source";
-import type { Person } from "../records/truth";
+import { type Person, voiceHandleOf } from "../records/truth";
 import type { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import {
@@ -308,7 +308,7 @@ export function voiceUnitsOf(
               (r): r is string => !!r
             ),
             schemaVersion: 1,
-            source: "lifelog",
+            source: "voice",
             start: first.at,
             stats: {
               chars: 0,
@@ -790,10 +790,11 @@ export function builtFor(
   }
 }
 
-/** The voice server's person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
+/** The voice server's person id -> the name in the directory, for the people `truth/people.yaml` holds a `voice` handle for. */
 export const voiceNames = (truth: Truth) =>
   new Map(
-    truth.people.flatMap((p) =>
-      p.handles.lifelog ? [[p.handles.lifelog, p.name]] : []
-    )
+    truth.people.flatMap((p) => {
+      const id = voiceHandleOf(p.handles);
+      return id ? [[id, p.name]] : [];
+    })
   );

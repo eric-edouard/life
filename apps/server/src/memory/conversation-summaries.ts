@@ -279,9 +279,7 @@ function pendingOf(
             words: maxWordsOf(part.chars),
           },
           keys: part.keys,
-          reads: readsOf(
-            part.units.map((unit) => ({ source: "lifelog", unit }))
-          ),
+          reads: readsOf(part.units.map((unit) => ({ source: "voice", unit }))),
           starts: [0],
         },
         read: SUMMARY_READ,

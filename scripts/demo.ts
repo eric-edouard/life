@@ -139,7 +139,7 @@ interface Demo {
   key: string;
   observations: DemoObservation[];
   ref: string;
-  source: "git" | "lifelog" | "mail" | "whatsapp";
+  source: "git" | "mail" | "voice" | "whatsapp";
   title: string;
 }
 /** The new matter's day: two days before the demo is made, so it is offered for five more. */
@@ -239,7 +239,7 @@ const DEMO: Demo[] = [
       ],
     ],
     ref: "job-demo-1:4@2026-10-17T09:05:00.000Z",
-    source: "lifelog",
+    source: "voice",
     title: "Kitchen sink repair with the plumber",
   },
   {
@@ -252,7 +252,7 @@ const DEMO: Demo[] = [
     key: "conv-demo-run-1",
     observations: [],
     ref: "job-demo-2:0@2026-10-15T06:30:00.000Z",
-    source: "lifelog",
+    source: "voice",
     title: "Morning run",
   },
   {
@@ -333,7 +333,7 @@ const DEMO: Demo[] = [
     key: "conv-demo-run-2",
     observations: [],
     ref: "job-demo-3:0@2026-10-21T06:40:00.000Z",
-    source: "lifelog",
+    source: "voice",
     title: "Morning run",
   },
   {

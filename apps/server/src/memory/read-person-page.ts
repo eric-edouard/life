@@ -3,6 +3,7 @@ import { newestDays, within } from "../core/lists";
 import { readOwnerName } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
+import { voiceHandleOf } from "../records/truth";
 import { speakers, withStore } from "../sources/voice-server";
 import { conversationsWith } from "../sources/voice-server-conversations";
 import { noMatterChecksByPartyOf } from "./checks";
@@ -257,7 +258,7 @@ export async function person(
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
   const mapped = truth.people.find((p) => p.id === id);
-  const voicePersonId = mapped?.handles.lifelog;
+  const voicePersonId = voiceHandleOf(mapped?.handles);
   const episodes = await readEpisodesWith(ref, refOf);
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;

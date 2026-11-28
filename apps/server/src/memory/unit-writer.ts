@@ -2,7 +2,7 @@ import { mkdir, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { clock, daysBefore } from "../core/clock";
 import { appendJsonl } from "../core/files";
-import type { SourceName } from "../core/names";
+import { SourceName } from "../core/names";
 import { Published } from "../records/publication";
 import { Unit } from "../records/unit";
 import type { Store } from "../sources/voice-server";
@@ -45,7 +45,7 @@ export async function publishUnits(evidence: Evidence, passages?: () => void) {
       at: clock().toISOString(),
       from: evidence.window.from,
       schemaVersion: 1,
-      sources: Object.keys(evidence.read) as SourceName[],
+      sources: SourceName.options.filter((s) => s in evidence.read),
       to: evidence.window.to,
     },
   ]);

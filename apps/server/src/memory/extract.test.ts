@@ -511,21 +511,21 @@ test("a chat of today is read at once; an open lifelog conversation of today wai
   ).toBe(true);
   expect(
     isReadable(
-      day({ date: today, key: "open-key", source: "lifelog" }),
+      day({ date: today, key: "open-key", source: "voice" }),
       today,
       closed
     )
   ).toBe(false);
   expect(
     isReadable(
-      day({ date: today, key: "closed-key", source: "lifelog" }),
+      day({ date: today, key: "closed-key", source: "voice" }),
       today,
       closed
     )
   ).toBe(true);
   expect(
     isReadable(
-      day({ date: "2026-10-15", key: "open-key", source: "lifelog" }),
+      day({ date: "2026-10-15", key: "open-key", source: "voice" }),
       today,
       closed
     )
