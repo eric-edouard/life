@@ -31,6 +31,12 @@
       "issue": 1411
     },
     {
+      "kind": "option flag: raises",
+      "lacks": ["fixture", "decode", "view"],
+      "reason": "drawn as a plain option until Life's general components draw the spending stop's card (the owner's direction of 28 Nov 2026)",
+      "issue": 1590
+    },
+    {
       "kind": "option flag: takes",
       "lacks": ["view"],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
