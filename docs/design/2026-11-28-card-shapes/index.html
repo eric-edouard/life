@@ -163,8 +163,8 @@
 .vplay svg{width:16px;height:16px}
 .vtx{flex:1;font-size:var(--text-body);line-height:1.5;color:var(--muted)}
 .vtx small{display:block;font-size:12px;margin-top:4px}
-.vtx.on .w{animation:lit .25s forwards;animation-delay:calc(var(--i) * 160ms)}
-@keyframes lit{to{color:var(--fg)}}
+.vtx.on .w{animation:word-lit .25s forwards;animation-delay:calc(var(--i) * 160ms)}
+@keyframes word-lit{to{color:var(--fg)}}
 .guess{display:flex;align-items:center;gap:12px}
 .guess .disc{width:52px;height:52px;border-radius:26px;font-size:20px}
 .guess b{display:block;font-size:var(--text-title);font-weight:650}
@@ -366,7 +366,7 @@ function showCount(){var n=CARDS.filter(function(k){return !ans[k.id];}).length;
 function press(bar,v){document.querySelectorAll('#'+bar+' button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.v===v));});}
 function render(){var keep=list?list.scrollLeft:0;
   stage.innerHTML='<div class="me">What’s waiting on me?</div><p class="lead">'+CARDS.length+' things wait on you, Jade first.</p>';
-  row=document.createElement('div');row.className='s-cards many';list=document.createElement('div');list.className='s-row';row.appendChild(list);
+  row=document.createElement('div');row.className='s-cards';list=document.createElement('div');list.className='s-row';row.appendChild(list);
   list.innerHTML=CARDS.map(cardHtml).join('');
   var dots=document.createElement('div');dots.className='s-dots';dots.setAttribute('aria-hidden','true');dots.innerHTML=CARDS.map(function(){return '<i></i>';}).join('');row.appendChild(dots);
   stage.appendChild(row);list.scrollLeft=keep;
