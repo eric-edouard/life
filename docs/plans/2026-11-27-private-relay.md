@@ -34,13 +34,18 @@ only carries encrypted bytes.
    sent) and picks a random id. It asks Let's Encrypt for a certificate for `<random id>.hostedbyme.app` with the
    TLS-ALPN-01 challenge, which arrives through the relay still encrypted, so the Mac answers it itself. Renewal is the
    same, every 60 days. The relay and the developer never see the key.
-3. **Life's iPhone app pins the Mac's key.** Pairing happens next to the Mac (a QR code shown by the Mac, or the same
-   network), and the code carries the key's fingerprint. From then on the app refuses any other key, even under a valid
-   certificate. This closes the one real hole: the developer owns the domain's DNS and could get a second certificate
-   for a user's address. With the pin, that certificate is useless against the app.
+3. **Life's iPhone app doesn't use the web address: it talks to the Mac over iroh.** iroh
+   ([n0-computer/iroh](https://github.com/n0-computer/iroh), Apache-2.0, 1.0 with Swift bindings; chosen 28 Nov 2026)
+   is a library inside both apps: the phone dials the Mac's public key, connects directly whenever it can (iroh reports
+   about 95% of data direct), and falls back to a relay that forwards bytes it can't read. Pairing happens next to the
+   Mac (a QR code), and the code carries the Mac's key and how to reach it. No certificate authority is involved, so
+   owning the domain gives the developer no way in, and the heavy traffic (voice audio) mostly never touches our relay.
+   Two settings: our own iroh relay beside OpenTunnel's (never n0's public ones, which would add a third party), and
+   no public discovery (pairing already says where the Mac is).
 4. **The Mac watches the public certificate logs.** Every public certificate is published in Certificate Transparency
    logs. Life checks them for its own address and warns the user when a certificate it did not request appears. This
-   protects what cannot pin: Claude.ai and ChatGPT connectors, which call from their makers' servers, and browsers.
+   protects what can't use iroh: Claude.ai and ChatGPT connectors, which call from their makers' servers, and
+   browsers opening shared artifacts. These are the web address's only users.
 5. **Shared artifacts are encrypted with a key in the link.** An artifact shared with someone else is encrypted on the
    Mac, and its key goes after the `#` in the link, which browsers never send to any server. The page that decrypts it
    is served by the Mac through the relay, so its code is the repository's.
@@ -137,7 +142,7 @@ mesh and limits OpenTunnel has).
 - [x] OpenTunnel self-hosted on Fly (Singapore), a test tunnel served end to end (28 Nov 2026).
 - [ ] Keypair ownership patch; TLS-ALPN-01 from the Mac tested; two more regions.
 - [ ] Mac side: key, random id, outbound connection, TLS-ALPN-01 certificate and renewal.
-- [ ] iPhone app: key fingerprint in the pairing code, pinning.
+- [ ] iroh in both apps: the Mac's key and relay in the pairing code, our own iroh relay on Fly, discovery off.
 - [ ] Certificate log watch and its warning.
 - [ ] Encrypted shared artifacts (with the artifacts work).
 - [ ] Bring your own: the relay routes a user's verified domain to their tunnel; the Mac's setting for a domain or a

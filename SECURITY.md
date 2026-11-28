@@ -207,11 +207,12 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
-- The hostedbyme.app relay (`apps/relay`; Life doesn't use it yet, `docs/plans/2026-11-27-private-relay.md`) passes
-  TLS through and can't decrypt it. It does see metadata: which install is online, visitors' IP addresses, when, and
-  how much data moves. A user who wants none of that runs their own relay.
-- The developer owns hostedbyme.app, so they could get a certificate for a user's address. The iPhone app will refuse it
-  once it pins the Mac's key from pairing (planned). A browser opening a shared artifact, and Claude.ai or ChatGPT
+- Our relays (`apps/relay`; Life doesn't use them yet, `docs/plans/2026-11-27-private-relay.md`): hostedbyme.app
+  passes TLS through, and the iroh relay forwards the iPhone app's end-to-end encrypted traffic when a direct path
+  fails. Neither can decrypt. They see metadata: which install is online, IP addresses, when, and how much data
+  moves. A user who wants none of that runs their own relay.
+- The developer owns hostedbyme.app, so they could get a certificate for a user's address. The iPhone app is unaffected: it
+  reaches the Mac over iroh by the Mac's own key, with no certificate (planned). A browser opening a shared artifact, and Claude.ai or ChatGPT
   reaching the connector, would accept it. Every certificate is public in Certificate Transparency logs, and the Mac is
   to warn on one it didn't request (planned): detected, not prevented. Only the user's own domain or relay removes this.
 - Full Disk Access makes Life a high-value target on the Mac.
