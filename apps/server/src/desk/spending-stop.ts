@@ -28,15 +28,13 @@ export interface SpendingStop {
   line: string;
 }
 
-/** What a stop counts: one assignment's turns, or a capped project's (every assignment of its agents). */
-type Spender = { assignment: string } | { project: string };
-
 /**
- * What `of`'s turns were billed, how many asked at its stop (a wake at it, or a turn it ended inside,
- * `stopped_spending`), and the last of those and of his answers (one the stop ended inside answers nothing).
+ * What assignment `id`'s turns were billed (with `project`, a capped project's: every assignment of its agents), how
+ * many of its own turns asked at its stop (a wake at it, or a turn it ended inside, `stopped_spending`), and the last
+ * of those and of his answers (one the stop ended inside answers nothing): his answer to a stop is the assignment's own.
  */
-const spentOf = (db: Desk["db"], of: Spender) =>
-  db
+function spentOf(db: Desk["db"], id: string, project?: string) {
+  const own = db
     .query<
       {
         answered: number | null;
@@ -46,23 +44,29 @@ const spentOf = (db: Desk["db"], of: Spender) =>
       },
       [string, string]
     >(
-      `select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd, coalesce(sum(cause = ?1 or stopped_spending is not null), 0) as stops, max(case when cause = ?1 or stopped_spending is not null then id end) as asked, max(case when cause = 'answer' and stopped_spending is null then id end) as answered from turn where ${"project" in of ? "assignment_id in (select s.id from assignment s join agent a on a.id = s.agent_id where a.project = ?2)" : "assignment_id = ?2"}`
+      "select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd, coalesce(sum(cause = ?1 or stopped_spending is not null), 0) as stops, max(case when cause = ?1 or stopped_spending is not null then id end) as asked, max(case when cause = 'answer' and stopped_spending is null then id end) as answered from turn where assignment_id = ?2"
     )
-    .get(SPENDING_STOP, "project" in of ? of.project : of.assignment);
+    .get(SPENDING_STOP, id);
+  const pooled =
+    project &&
+    db
+      .query<{ usd: number }, [string]>(
+        "select coalesce(sum(cost_usd), 0) + coalesce(sum(search_usd), 0) as usd from turn where assignment_id in (select s.id from assignment s join agent a on a.id = s.agent_id where a.project = ?)"
+      )
+      .get(project);
+  return own && pooled ? { ...own, usd: pooled.usd } : own;
+}
 
-/** The `budget` instruction assignment `s`'s work answers to: its matter's, else, on no matter, its agent's project's cap; who it counts over. */
+/** The `budget` instruction assignment `s`'s work answers to: its matter's, else its agent's project's cap (then counted over the project). */
 function budgetOf(db: Desk["db"], s: AssignmentRow) {
-  if (s.matter_id) {
-    const text = instructionsFor({ matter: s.matter_id }).find(
-      (i) => i.effect === "budget"
-    )?.text;
-    return { of: { assignment: s.id }, text };
-  }
-  const project = agentOf(db, s.agent_id)?.project;
-  const cap = project ? projectBudgetOf(project) : undefined;
-  return cap && project
-    ? { of: { project }, text: cap.text }
-    : { of: { assignment: s.id }, text: undefined };
+  const text = s.matter_id
+    ? instructionsFor({ matter: s.matter_id }).find(
+        (i) => i.effect === "budget"
+      )?.text
+    : undefined;
+  const project = text ? undefined : agentOf(db, s.agent_id)?.project;
+  const cap = project ? projectBudgetOf(project)?.text : undefined;
+  return cap ? { project: project ?? undefined, text: cap } : { text };
 }
 
 /**
@@ -77,8 +81,8 @@ export async function spendingStopNow(
   monthly: number | undefined,
   turnUsd = 0
 ): Promise<SpendingStop | "waits" | null> {
-  const { of, text: budget } = budgetOf(db, s);
-  const spent = spentOf(db, of);
+  const { project, text: budget } = budgetOf(db, s);
+  const spent = spentOf(db, s.id, project);
   if (!spent) {
     return null;
   }

@@ -221,6 +221,10 @@ function doorServer(desk: Desk, id: string) {
       },
       name.startsWith("read_") ? READ_ONLY : WRITES
     );
+  // The caretaker's work is his complaints: like its notes, it shows no quiet line.
+  const writeQuietLineOf = (s: AssignmentRow, line: QuietLine) =>
+    agentOf(desk.db, s.agent_id)?.role !== "caretaker" &&
+    writeQuietLine(desk.db, s.id, line);
   door(
     "set_wait",
     `Set what you wait for before you stop: \`events\` (filters on new messages, any one matching wakes you: \`person\`, \`channels\`, \`chat\`, \`from_me\`, \`text_matches\`, a regular expression on the text, any case, 200 characters at most: keep it to plain words, such as \`zort|invitation\`; a filter with only \`text_matches\` matches a message from anyone but him), \`until\` (5 minutes to 7 days ahead, ISO), \`reason\`. The desk wakes you at \`until\`, on a matching message, on a call that ended in a chat or with a person a filter names, on his answer to your decision, or on its withdrawal when he answered in its draft's chat himself (read the chat again). A wake names the message, never its text: read it yourself. Other channels wake you only when a filter names them: ${EVENT_CHANNELS.map((c) => `\`${c.name}\` (${c.quantities.length ? `quantities ${c.quantities.map((q) => `\`${q}\``).join(", ")}; ` : ""}${c.about})`).join(", ")}. \`quantity\` with \`above\` and/or \`below\` compares. A channel that is off or unknown is refused. A wake hands facts and quantities, never text. ${QUIET_LINE}`,
@@ -228,7 +232,7 @@ function doorServer(desk: Desk, id: string) {
     async ({ doing, eta, ...w }, s) => {
       const r = await setWait(desk, s, w);
       if (!("error" in r)) {
-        writeQuietLine(desk.db, s.id, { doing, eta });
+        writeQuietLineOf(s, { doing, eta });
       }
       return r;
     }
@@ -245,7 +249,7 @@ function doorServer(desk: Desk, id: string) {
     z.object({ text: z.string().min(1) }).extend(QuietLine.shape),
     ({ doing, eta, text: notes }, s) => {
       writeNotes(desk, s, notes);
-      writeQuietLine(desk.db, s.id, { doing, eta });
+      writeQuietLineOf(s, { doing, eta });
     }
   );
   door(

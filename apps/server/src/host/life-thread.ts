@@ -110,7 +110,7 @@ function entriesOf(db: Database, from: string, to: string) {
   >(
     // A project runs until its assignment closes; other work, until the first turn after its hand-over ends.
     `select h.kind, h.handed_at, q.doing, q.eta, a.project, case when h.kind = 'project' then s.closed_at is null else not exists (select 1 from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null) end as running
-      from handed_work h join assignment s on s.id = h.assignment_id join agent a on a.id = s.agent_id left join quiet_line q on q.assignment_id = h.assignment_id where h.entry_id = ? order by h.handed_at`
+      from handed_work h join assignment s on s.id = h.assignment_id join agent a on a.id = s.agent_id left join quiet_line q on q.assignment_id = h.assignment_id and q.at >= h.handed_at where h.entry_id = ? order by h.handed_at`
   );
   const noRoom = readProjectsWithoutRoom(db);
   const isOlder = Boolean(
@@ -122,7 +122,8 @@ function entriesOf(db: Database, from: string, to: string) {
       handed: handed.all(e.id).map((h) => {
         // Its agent's quiet line (what it does now, its eta as the time from the hand-over, else the kind's estimate),
         // or, for a project waiting for room in the month, that it waits.
-        const isWaitingForRoom = h.project !== null && noRoom.has(h.project);
+        const isWaitingForRoom =
+          Boolean(h.running) && h.project !== null && noRoom.has(h.project);
         const eta = isWaitingForRoom ? null : h.eta;
         return {
           doing: isWaitingForRoom ? WAITS_FOR_ROOM : h.doing,

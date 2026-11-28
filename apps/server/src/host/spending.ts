@@ -322,8 +322,10 @@ export function projectsWithoutRoomOf(
       : caps
           .toSorted((x, y) => x.at.localeCompare(y.at))
           .flatMap((c) => {
-            if (used + c.usd <= monthly) {
-              used += c.usd;
+            // In cents, so caps that fit exactly fit (0.1 + 0.2 is not 0.3 in floats).
+            const cents = Math.round(c.usd * 100);
+            if (used + cents <= Math.round(monthly * 100)) {
+              used += cents;
               return [];
             }
             return [c.project];

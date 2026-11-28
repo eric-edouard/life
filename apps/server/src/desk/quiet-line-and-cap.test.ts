@@ -69,6 +69,19 @@ test("the quiet line: the door's set_wait and write_notes write it when given `d
     doing: "Checking the photos",
     eta: null,
   });
+  // The caretaker's work is his complaints: no quiet line, as no notes, on its read.
+  const caretaker = register(t.desk, {
+    brief: "Test: the caretaker",
+    folder: t.dir,
+    role: "caretaker",
+    runtime: "fake",
+    steps: ["obs_000000000001"],
+  });
+  await callDoorOf(t, caretaker, "write_notes", {
+    doing: "Fixing the complaint",
+    text: "notes",
+  });
+  expect(lineOf(t.desk.db, caretaker).doing).toBeNull();
 });
 
 test("room: caps add up within the month, oldest first; one that does not fit waits, a smaller later one still fits; no amount, no limit", () => {
@@ -79,6 +92,12 @@ test("room: caps add up within the month, oldest first; one that does not fit wa
   ];
   expect([...projectsWithoutRoomOf(caps, 10)]).toEqual(["big"]);
   expect([...projectsWithoutRoomOf(caps, undefined)]).toEqual([]);
+  // Caps that fit exactly fit, whatever floats say.
+  const cents = [
+    { at: "2026-11-01T00:00:00.000Z", project: "a", usd: 0.1 },
+    { at: "2026-11-02T00:00:00.000Z", project: "b", usd: 0.2 },
+  ];
+  expect([...projectsWithoutRoomOf(cents, 0.3)]).toEqual([]);
 });
 
 test("a capped project's stop counts all its agents' work against its cap; a project with no cap keeps the per-assignment 2%", async () => {
@@ -108,6 +127,11 @@ test("a capped project's stop counts all its agents' work against its cap; a pro
   // No cap: 2% of 100 is 2, and this assignment alone is at 1.5 + 0.4.
   expect(await spendingStopInTurn(t.desk, second, 0.4)).toBeNull();
   cap("test-bakery", "3 dollars");
+  // A matter it was handed, with no budget of its own, still answers to the project's cap.
+  t.desk.db.run(
+    "update assignment set matter_id = 'matter_aaaaaaaaaaaa' where id = ?",
+    [on(t.desk, second).id]
+  );
   expect(await spendingStopInTurn(t.desk, second, 0.4)).toContain(
     "past its spending stop of 3.00"
   );
