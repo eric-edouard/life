@@ -1,7 +1,7 @@
 // swift-tools-version: 6.0
-// Life.app: the menu-bar app that runs Life's helper (updated by Sparkle); life-eventkit, the Past calendar on an
-// Apple calendar through EventKit; and life-foundation-model, Apple's on-device model for the arrival reader
-// (`scripts/app.ts` assembles the bundle around them).
+// Life.app: the menu-bar app that runs Life's helper (updated by Sparkle); life-eventkit, the permissions helper an
+// access card checks and asks through, and the Past calendar on an Apple calendar through EventKit; and
+// life-foundation-model, Apple's on-device model for the arrival reader (`scripts/app.ts` assembles the bundle).
 import PackageDescription
 
 let package = Package(

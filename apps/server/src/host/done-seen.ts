@@ -1,14 +1,14 @@
 import { clock, MIN } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import type { Decision } from "../memory/decision-lines";
+import { nextAccessStepOf } from "../memory/access";
+import { type Decision, doneSeenByOf } from "../memory/decision-lines";
 import {
   decisionsNow,
-  doneSeenByOf,
   type LookForDone,
   recordDoneSeen,
 } from "../memory/decisions";
-import { amountOf, isToPayee, payeeWordsOf } from "../memory/needs";
+import { accessOf, amountOf, isToPayee, payeeWordsOf } from "../memory/needs";
 import { dayStart, localDate } from "../memory/zones";
 import type { EventFilter } from "../records/registered-agent";
 import {
@@ -18,11 +18,13 @@ import {
   isOnOrAfter,
 } from "./event-channels";
 import { matcherOf } from "./events";
+import { readAccessNow, showAccessStepOnMac } from "./mac-access";
 
 // Life seeing a card's step done itself (`doneSeenBy`, the asks contract): the card's filter, built from its needs, is
 // tested by the one matcher (`matcherOf`) over the payments channel's events, never a second matcher (amendment 1). Two
 // callers: his pick of the card's `looks` option (`lookForDone`, given to `answerDecision`) and the watcher's look
 // while a card is open (`lookForPaymentsDone`), which writes `seen` only: a statement imported days late still ends it.
+// An access card is seen on the Mac instead (`lookAtMac`, `lookForAccessDone`): its steps all done.
 
 /** An amount in a bank's currency is exact to the cent: half a cent either side. */
 const HALF_CENT = 0.005;
@@ -96,9 +98,34 @@ export async function readSeenDone(
   );
 }
 
-/** His answer's look: the payment that shows `d`'s step done, or none. */
-export const lookForDone: LookForDone = async (d) =>
-  (await readSeenDone([d])).get(d.id);
+/**
+ * His "I'm at my Mac" on access card `d`: every step done, the card is seen; else its first step not done is shown
+ * on his Mac (`showAccessStepOnMac`) and nothing is seen: his answer is voided and the card stays open, ticking.
+ */
+export async function lookAtMac(
+  d: Pick<Decision, "id" | "needs">,
+  read = readAccessNow,
+  show = showAccessStepOnMac
+) {
+  const need = accessOf(d.needs);
+  if (!need) {
+    return;
+  }
+  const next = nextAccessStepOf(need.steps, await read());
+  if (!next) {
+    return {};
+  }
+  await show(next.check, next.status);
+}
+
+/** His answer's look: on an access card, his Mac (`lookAtMac`); else the payment that shows `d`'s step done, or none. */
+export const lookForDone: LookForDone = async (d) => {
+  if (doneSeenByOf(d) === "access") {
+    return lookAtMac(d);
+  }
+  const eventId = (await readSeenDone([d])).get(d.id);
+  return eventId ? { eventId } : undefined;
+};
 
 let lookedAt = Number.NEGATIVE_INFINITY;
 let looking = false;
@@ -127,5 +154,33 @@ export async function lookForPaymentsDone(now = clock().getTime()) {
     log("run.error", { ...errorOf(e), step: "watch.done-seen" });
   } finally {
     looking = false;
+  }
+}
+
+let accessLooking = false;
+
+/**
+ * The watcher's minute for access cards: while one is open, one read of the Mac (`readAccessNow`, which also keeps the
+ * statuses the cards show), and a `seen` line for each card whose steps are all done. A step refused or ignored
+ * writes nothing: the card stays asked, never chased.
+ */
+export async function lookForAccessDone(read = readAccessNow) {
+  const open = decisionsNow().filter(
+    (d) => d.state === "open" && doneSeenByOf(d) === "access"
+  );
+  if (accessLooking || open.length === 0) {
+    return;
+  }
+  accessLooking = true;
+  try {
+    const statuses = await read();
+    for (const d of open) {
+      const need = accessOf(d.needs);
+      if (need && !nextAccessStepOf(need.steps, statuses)) {
+        recordDoneSeen(d.id, { state: "seen" });
+      }
+    }
+  } finally {
+    accessLooking = false;
   }
 }
