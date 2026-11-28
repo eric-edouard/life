@@ -286,8 +286,8 @@ struct RootView: View {
         .buttonStyle(.glass).buttonBorderShape(.circle).padding(.horizontal, Metrics.Spacing.l)
     }
 
-    /// The iPhone Duo's controls: the pendant, then what waits on him as numbers only (all, then the urgent in red),
-    /// a group of its own whose numbers each list theirs.
+    /// The iPhone Duo's controls, as WhatsApp and Instagram draw theirs there: the pendant on its own, then one capsule
+    /// of two icons with their counts (what waits on him, neutral; the important, red), each listing its asks.
     @ToolbarContentBuilder private var rightControls: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) { pendantButton }
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
@@ -296,17 +296,17 @@ struct RootView: View {
                 Button {
                     thread.showWaiting(life.openRefs ?? [])
                 } label: {
-                    Text("\(life.openCount ?? 0)").monospacedDigit()
+                    BadgedIcon(
+                        title: "Waiting on you", symbol: "hand.raised", count: life.openCount ?? 0, color: Palette.muted
+                    )
                 }
-                .accessibilityLabel("Waiting on you: \(life.openCount ?? 0)")
             }
             if urgent > 0 {
                 Button {
                     thread.showWaiting(life.waitingRefs ?? [])
                 } label: {
-                    Text("\(urgent)").monospacedDigit().foregroundStyle(Palette.flag)
+                    BadgedIcon(title: "Important", symbol: "exclamationmark", count: urgent, color: Palette.flag)
                 }
-                .accessibilityLabel("Urgent: \(urgent)")
             }
         }
     }
@@ -345,5 +345,26 @@ private struct SideBarReader: ViewModifier {
         @Environment(\.toolbarVerticalEdge) private var shown
         @Binding var edge: HorizontalEdge?
         func body(content: Content) -> some View { content.onChange(of: shown, initial: true) { edge = shown } }
+    }
+}
+
+/// An icon with its count in a small badge, drawn here: the toolbar's own badge is always red, and it keeps only a
+/// label's symbol.
+private struct BadgedIcon: View {
+    let title: String
+    let symbol: String
+    let count: Int
+    let color: Color
+
+    var body: some View {
+        Image(systemName: symbol)
+            .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
+            .overlay(alignment: .topTrailing) {
+                Text("\(count)").font(.caption2.bold()).monospacedDigit().foregroundStyle(.white)
+                    .padding(.horizontal, 5).frame(minWidth: 18, minHeight: 18).background(color, in: .capsule)
+                    .fixedSize()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title), \(count)")
     }
 }
