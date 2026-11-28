@@ -60,6 +60,7 @@ Proposals: none is built until the owner bakes it into the prototype.
 
 | Design | What it is |
 |---|---|
+| [The chat, one component](2026-11-28-chat-component/index.html) | The one chat Life shows wherever a chat shows, in three variations side by side (as the app, as Life's thread, as a transcript): pick the app (WhatsApp, iMessage, Telegram, Instagram, Messenger, LINE, LinkedIn, mail) and the draft (text, reply, mention, reaction, photo, voice note, as each app's capability grid allows), try the quick edits and Send |
 | [Turn by turn: five directions](2026-11-27-turn-by-turn-v2/index.html) | Five ways the turn by turn could look and move (cinema, living page, face to face, cards on the table, path of work), on App v4's edge glow and top controls (tap the waiting count or the pendant); cards swipe sideways, one per item; play the same moment in each, the home with matters waiting included |
 | [Turn by turn: the real flow](2026-11-27-turn-by-turn-v2/2026-11-28-real-flow.md) | What really happens when you ask Life, with measured timings and your decisions of 28 Nov; the five directions follow it |
 | [Hey Life, turn by turn](2026-11-23-chat-first/2026-11-27-hey-life-turns.html) | “Hey Life” from your words to the answer: heard, the tap, Life working, the answer; not heard, offline, slow, couldn’t do it, heard late |
