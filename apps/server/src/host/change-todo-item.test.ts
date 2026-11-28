@@ -81,7 +81,7 @@ const mine = {
   state: "active",
 };
 
-test("the auto-add permission adds his own current importance-3 to-do from a turn lifelog credits to him, on a list nobody shares", () => {
+test("the auto-add permission adds his own current importance-3 to-do from a turn the voice server credits to him, on a list nobody shares", () => {
   expect(autoAddRefusal(mine)).toBeUndefined();
   expect(
     autoAddRefusal({ ...mine, o: { ...mine.o, type: "promise" } })

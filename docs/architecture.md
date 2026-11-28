@@ -197,7 +197,7 @@ someone else is capped at 0.6 confidence.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../assets/readme/stack-dark.png">
-  <img src="../assets/readme/stack-light.png" alt="Where Life runs. On the owner: the recorder and the voice app on the phone. On the Mac: Life.app, Lifelog Host, the speech models, the embedder, the bridges and the memory. Outside the Mac: the model, the assistant over Tailscale, Google for the calendars or Tasks, ElevenLabs Scribe, the encrypted backup and Life's mail to the owner.">
+  <img src="../assets/readme/stack-light.png" alt="Where Life runs. On the owner: the recorder and the phone app. On the Mac: Life.app, Lifelog Host, the speech models, the embedder, the bridges and the memory. Outside the Mac: the model, the assistant over Tailscale, Google for the calendars or Tasks, ElevenLabs Scribe, the encrypted backup and Life's mail to the owner.">
 </picture>
 
 | Part | What it is |
@@ -209,7 +209,7 @@ someone else is capped at 0.6 confidence.
 | Photos | Qwen3.5-9B under llama.cpp, on the Mac, describes each photo when `describePhotos` is set (`models/describer.ts`). |
 | Arrivals | Apple's on-device model (Foundation Models, never Private Cloud Compute), through the Mac app's helper `life-foundation-model` (`models/foundation-model.ts`), sieves today's arriving mail (the arrival trigger): what it calls a person's goes to his engine, a conversation (chats, closed voice conversations he spoke in) goes to his engine straight (`memory/arrival-reader.ts`). |
 | Server | Bun, Hono and TypeScript; the connector is an MCP server with its own OAuth sign-in and pairing codes. |
-| Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; the voice iPhone and Watch apps in Swift 6, and its Android capture app in Kotlin. |
+| Apps | Life.app, a SwiftUI menu-bar app that keeps it all running; Lifelog Host on the Mac; the phone app and its Watch app in Swift 6, and its Android capture app in Kotlin. |
 | Memory | Plain text (Markdown and JSON lines) in a git repository with no remote; SQLite for the archive, the search index and the vectors. |
 | Bridges | A local Matrix server (Synapse) with mautrix bridges, one background job, for the networks with no Mac app. |
 | Voice | The pendant pipeline's processes (the voice server, the Mac helper, speaker recognition, the embedder), each a launchd job Life's helper installs (`host/voice.ts`): they outlive a Life crash, quit or update, since the server holds the only copy of the pendant's audio. Each job runs `life voice run <child>`, which works out the child's environment (token hashes, never tokens) and replaces itself with it; `life voice start` rewrites a job only when its plist changed. Lifelog Host ran them until the cut-over. |

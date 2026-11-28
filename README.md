@@ -147,10 +147,10 @@ summary of each long conversation, the places you stayed, Apple Health from your
 Host runs the model Life searches with; without it, search is by words), and "hey" plus your agent's name to
 hand it a request out loud.
 
-It is the heaviest part to set up today. You need an iPhone on iOS 27, with Life's voice app built in Xcode under your
+It is the heaviest part to set up today. You need an iPhone on iOS 27, with the phone app built in Xcode under your
 own Apple developer team (or an Android phone and the capture app's debug build), Lifelog Host built on a Mac on
 macOS 15, and an [ElevenLabs](https://elevenlabs.io) key for transcription, billed by the hour of speech.
-[The voice README](apps/lifelog/README.md) has the steps; then [set up voice](docs/use/voice.md).
+[The voice server's README](apps/lifelog/README.md) has the steps; then [set up voice](docs/use/voice.md).
 
 ## Install
 

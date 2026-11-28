@@ -4,12 +4,11 @@ A self-running memory of one person's life (the owner), built on his Mac from hi
 Notes, git and imported assistant chats: sources → units → episodes → observations → people and area pages, plus an
 always-on archive of deleted messages and old note versions. Shipped as Life.app; a checkout is for development.
 
-Voice, Life's voice layer (the pendant pipeline: the iPhone app, the voice server, the Mac helper, Lifelog Host), lives
+Voice, Life's voice layer (the pendant pipeline: the phone app, the voice server, the Mac helper, Lifelog Host), lives
 in `apps/lifelog`, with its own `AGENTS.md`. The voice server runs as its own process; Life reads it only through its
 REST contract (`apps/lifelog/apps/server/openapi.json`), never its code or its database; the voice server may use
-Life's `core/`. Only instants
-cross that contract: a local day is Life's to bound (`zoneAt`). The iPhone app is a client of Life's connector, paired
-like any app; it holds no second API. One gate, `bun run check` at the root, covers both.
+Life's `core/`. Only instants cross that contract: a local day is Life's to bound (`zoneAt`). The phone app is a client
+of Life's connector, paired like any app; it holds no second API. One gate, `bun run check` at the root, covers both.
 
 ## Where to look
 

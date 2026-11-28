@@ -17,5 +17,5 @@ Before adding a helper, use the one that exists: search `docs/helpers.md` (the h
 Only `schedule.ts`'s schedules and the status snapshot's waking hours (`waking`, `snapshot.ts`, given `systemZone()`) follow the Mac's clock.
 Where he is (`zones.jsonl`) is the phone's latest zone, whatever its age (`readZoneHere`, his decision of 27 Oct): the
 phone is the source of truth and the Life server may run anywhere. The Mac's zone only when no phone ever named one;
-The voice server unreadable changes nothing. Life reads the newest heartbeat's zone (the phone app always sends one); the voice server's
+the voice server unreadable changes nothing. Life reads the newest heartbeat's zone (the phone app always sends one); the voice server's
 own owner zone (`ownerTimeZone`) takes the newest heartbeat that names one.

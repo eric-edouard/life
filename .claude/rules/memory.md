@@ -109,7 +109,7 @@ processes: `inTurn`, `oneAtATimeAcross`). One Life per Mac: the archive, the wat
 - `callCharsOf` bounds one call; it is not a budget. A summary growing with the years is built from closed periods'
   summaries or its last version plus what is new.
 - Readers (a connector call, the status snapshot, the watcher's tick, the desk's poll, the withdrawal step) read an
-  index, a cursor or a window, never a whole `memory/` folder or every voice turn.
+  index, a cursor or a window, never a whole `memory/` folder or every recorded turn.
 - Model output is cached by unit hash and prompt version (`docs/architecture.md`). Bump a version only when its meaning
   changes; ask before re-running the archive. An add-on's prompt variant shares the base's cache (`isPromptVersion`,
   `models/prompt-parts.ts`).
