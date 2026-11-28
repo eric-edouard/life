@@ -11,7 +11,7 @@ paths:
 
 # What he sees: product, brand, designs
 
-Moved from the root `AGENTS.md`, whose "Anything a person sees" section sends every design or UI change to `docs/design/sources-of-truth.md` first.
+Moved from the root `AGENTS.md`, whose "Anything a person sees" section sends every design or UI change to the life-design skill (`.claude/skills/life-design/SKILL.md`) first, then `docs/design/sources-of-truth.md`.
 
 - **Nightly emails include every row.** Never cap a list or write "+N more"; the one kind left out on purpose is the ending check, never asked in the email (his word of 16 Nov 2026: "is this done?" is load) (`docs/operations.md`, "The nightly
   report").

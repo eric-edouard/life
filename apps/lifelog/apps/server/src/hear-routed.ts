@@ -9,8 +9,7 @@ import { ownerZoneAt } from "./diagnostics";
 import { parseTranscript, textOf, transcribeNow } from "./elevenlabs";
 import { record } from "./events";
 import {
-  barOf,
-  routeTurns,
+  routeIn,
   scribeRanges,
   transcriptOf,
   uncut,
@@ -18,6 +17,7 @@ import {
 } from "./route-turns";
 import type { Priority, Unsent } from "./scribe-slots";
 import { type Heard, transcribeBlock, type Unanswered } from "./speech-service";
+import { switches } from "./switches";
 
 /** Words as text, from a transcript in Scribe's shape. */
 export const textFrom = (raw: unknown) =>
@@ -45,7 +45,11 @@ export async function hearOnTheMac(
   if ("error" in said) {
     return said;
   }
-  const route = routeTurns(said.heard, barOf(ownerZoneAt(db, at)));
+  const route = routeIn(
+    switches().transcriber,
+    said.heard,
+    ownerZoneAt(db, at)
+  );
   const routed = route.kind === "whole" ? said.heard.turns : route.routed;
   return {
     heard: said.heard,

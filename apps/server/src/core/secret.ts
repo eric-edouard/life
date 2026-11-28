@@ -19,11 +19,15 @@ import { APP_DATA, MACHINE_DIR } from "./platform";
  * (`stage`, export.ts): a secret is known by its place, since not every system has Unix file modes.
  */
 export const SECRETS = {
+  /** A new install's backup password, minted by `init` (`host/backup.ts`). */
+  backupKey: join(LIFE_STATE_DIR, "backup.key"),
   /** The desk's key: each registered agent's door key is derived from it (`desk/desk-door.ts`). */
   deskKey: join(LIFE_STATE_DIR, "desk", "desk.key"),
   /** gog's keyring password for the helper, which has no shell profile (`core/gog.ts`): made at the first `bun life connect-google`, or kept from a shell by `bun life gog-keyring`. */
   gogKeyring: join(LIFE_STATE_DIR, "gog-keyring"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
+  /** The Mac's key on the Mac link (`host/http/mac-link.ts`), made at the first pairing: the iPhone app dials this Mac by its public half. */
+  macLinkKey: join(LIFE_STATE_DIR, "mac-link.key"),
   /**
    * His account on the bridges' homeserver (`sources/matrix.ts`): `{password, token}`, written when `bun life bridge`
    * sets the homeserver up. Beside the homeserver, which every install on this Mac shares (`MACHINE_DIR`).
@@ -36,7 +40,7 @@ export const SECRETS = {
   /** The key a card's push id is made with (`pushIdOf`, `sources/voice-server-push.ts`); it never leaves the Mac. */
   pushIdKey: join(LIFE_STATE_DIR, "push-id.key"),
   /**
-   * Voice's secrets (its tokens, the ElevenLabs key, the backup's password, the Mac helper's Claude sign-in): Life
+   * Voice's secrets (its tokens, the ElevenLabs key, the Mac helper's Claude sign-in): Life
    * writes it in `host/voice.ts` alone (`mintVoiceSecrets`, `setVoiceKey`); voice's Mac helper
    * (`--setup-claude-token`) and Lifelog Host write it too, until Host goes.
    */
@@ -73,7 +77,9 @@ const KEY = /^[0-9a-f]{64}$/;
  * A random secret in its file, made once, then read: written whole to a file of its own, then linked in place, which
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
-export function secretIn(name: "deskKey" | "localKey" | "pushIdKey"): string {
+export function secretIn(
+  name: "deskKey" | "localKey" | "macLinkKey" | "pushIdKey"
+): string {
   const path = SECRETS[name];
   if (existsSync(path)) {
     const key = readFileSync(path, "utf8");

@@ -6,6 +6,7 @@ import type { IntegrationTerms } from "../records/integration";
 import { NETWORKS } from "../sources/networks";
 import { integrationHealthOf } from "./integration-health";
 import {
+  aiFactsOf,
   type IntegrationReads,
   integrationFactsOf,
   isDoneOf,
@@ -16,7 +17,6 @@ import {
 
 /** Made-up reads: Telegram on, nothing read, nobody signed in to Google, nothing failing, no permission given. */
 const reads = (over: Partial<IntegrationReads> = {}): IntegrationReads => ({
-  access: {},
   bridges: new Map(),
   failingStores: new Map(),
   fullDiskAccess: "missing",
@@ -164,4 +164,55 @@ test("Google's sign-in is done only once one of his accounts still works", () =>
       })
     )
   ).toBe(true);
+});
+
+test("the Pendant before the phone's first heartbeat is not red: the voice server answers, it just has none yet", () => {
+  const facts = integrationFactsOf(
+    sourceOf("voice"),
+    reads({
+      life: {
+        ok: true,
+        value: { pendant: null } as unknown as Extract<
+          IntegrationReads["life"],
+          { ok: true }
+        >["value"],
+      },
+      on: new Set(["voice"]),
+    })
+  );
+  expect(integrationHealthOf(facts).tone).not.toBe("bad");
+});
+
+test("the AI on OpenRouter alone is working: allmodels' key is an optional fallback, listed but never waited on", () => {
+  const facts = aiFactsOf(
+    {
+      claudeFound: true,
+      claudeSignedIn: true,
+      credits: 5,
+      host: "openrouter.ai",
+      keys: [
+        {
+          name: "OPENROUTER_API_KEY",
+          opens: "https://openrouter.ai",
+          set: true,
+        },
+        {
+          name: "ALLMODELS_API_KEY",
+          opens: "https://allmodels.io",
+          optional: true,
+          set: false,
+        },
+      ],
+      online: true,
+    },
+    providerOf("openrouter").integration
+  );
+  expect(facts.requirements).toContainEqual(
+    expect.objectContaining({
+      done: false,
+      name: "ALLMODELS_API_KEY",
+      optional: true,
+    })
+  );
+  expect(integrationHealthOf(facts).state).toBe("working");
 });

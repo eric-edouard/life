@@ -1,8 +1,9 @@
 # Philosophy and guidelines
 
-This page holds every design decision of the owner's for Life's app: the goal, the strategy, the rules in force, what is
-still open, and how each decision was reached. It is the one place for them, and it is amended in place when he decides
-something new; git keeps every version. What Life shows and when stays in [`product.md`][product], how it looks in
+This page is the dated history of the owner's design decisions for Life's app: the goal, the strategy, the rules,
+what is still open, and how each was reached; newest dated line wins. It is not required reading: designing, use the
+life-design skill (`.claude/skills/life-design/SKILL.md`), which holds the rules in force. Amend this page in place
+when he decides something new (and the skill with it); git keeps every version. What Life shows and when stays in [`product.md`][product], how it looks in
 [`brand.md`][brand]; the approved prototype's rulebook is [the components][rulebook] and its parts are [the design system][ds].
 
 ## The goal
@@ -68,6 +69,8 @@ line links there.
   other screen (owner, 23 Nov 2026).
 - The opening screen, at launch or back after 5 minutes: "Hi" and his first name, what is broken (never capped), at
   most 3 blocking asks and a pill for the rest ([product, rule 7][product-rules]) (owner, 26 Nov 2026).
+- Top controls: on the iPhone Duo all of them on the right, in every posture; on a regular iPhone the count top left,
+  the pendant top right (owner, 28 Nov 2026).
 - What is broken and needs him comes first: the thread opens on Life's line and the one button that fixes it
   (owner, 23 Nov 2026).
 - Nothing opens another screen but a profile (over the thread, one level deep), a picture or a phrase to show, and the
@@ -92,7 +95,7 @@ line links there.
 - The pendant's own screen is a page (owner, 26 Nov 2026, lab pick D).
 - The count is a round button showing the number; it becomes a coral mark when Life is out of reach (owner, 26 Nov
   2026, lab pick Settings 2 B).
-- The count's tap plays his bubble "What's waiting on me?" and code's answer, at once, never a model turn
+- The count's tap plays his question "What's waiting on me?" and code's answer, at once, never a model turn
   (owner, 23 Nov 2026).
 - What reaches him is ranked by the main session from his situation; code keeps the full list so nothing is lost, and
   the ranking runs in the background so the count's tap stays instant (owner, 23 Nov 2026).
@@ -116,8 +119,6 @@ line links there.
 
 - One endless conversation, opening at its bottom, with Show earlier and day separators; it grows only with what he
   and Life say (owner, 23 Nov 2026).
-- His messages are a quiet tinted bubble (the `tint` fill, cream text); the full cream bubble was too loud
-  (owner, 23 Nov 2026).
 - What Life says comes in progressively: text word by word, blocks one after another, each from blurred to sharp; his
   own words appear at once; under Reduce Motion everything appears whole (owner, 23 Nov 2026).
 - The thread follows Life's reveal in batches: the message is laid out first, then one smooth move when the revealed
@@ -125,6 +126,11 @@ line links there.
   (owner, 23 Nov 2026).
 - Small blocks stay as they are; a page-sized answer shows whole while it is the latest and collapses into its card
   when he next writes, never on its own (owner, 23 Nov 2026).
+- Turn by turn on the one thread: each turn (his question, Life's answer) is at least a screen tall, a short answer
+  centred under the question and a long one as long as it needs, never scrolled inside a card. His question heads its
+  turn, its size stepped down by length (short, medium, long), pinned at the top over a soft edge while its answer
+  scrolls under it, two lines at most there and whole back at its turn's top. A release near a turn's top settles
+  there; inside a turn the scroll is free (owner, 28 Nov 2026; his question replaces 23 Nov's tinted bubble).
 
 ### Items and asks
 
@@ -227,7 +233,7 @@ line links there.
   a phrase to say, a place (owner, 23 Nov 2026).
 - A picture, or a phrase to show someone, opens full screen on a tap: the one exception to "nothing opens a screen"
   (owner, 23 Nov 2026).
-- Life failing to answer says "I couldn't answer that."; tapping his bubble asks again; never "tell the caretaker"
+- Life failing to answer says "I couldn't answer that."; tapping his question asks again; never "tell the caretaker"
   (owner, 23 Nov 2026).
 - Answer his question directly, as an assistant would, then go on: "What's on today" shows the day's list at once (no
   reveal step by step), then "You also have 3 decisions to make" and lists them (owner, 28 Nov 2026).
@@ -266,7 +272,7 @@ line links there.
 - A person: their faces side by side; his own words: the field starts his sentence with Life's suggestion and the
   microphone calls softly (owner, 23 Nov 2026).
 - Doing something else leaves the question, with no closing line (owner, 23 Nov 2026).
-- An answer can start real work: it carries a small lit mark, and the work shows under his bubble as an item in its
+- An answer can start real work: it carries a small lit mark, and the work shows under his question as an item in its
   state; work that would send in his name becomes an ask with its draft, the yes on the exact words (owner, 23 Nov 2026).
 
 ### Profiles
@@ -291,7 +297,7 @@ line links there.
 - A notification is the ask: its one-line title, who and when, the draft, at most two answers (the main one and Later,
   in the card's words) (owner, 23 Nov 2026).
 - Silence when it worked; only a failure notifies (owner, 23 Nov 2026).
-- Answered on a notification, the ask lands in the thread as its item in its state, then his answer as his bubble in
+- Answered on a notification, the ask lands in the thread as its item in its state, then his answer as his question in
   the card's words with the bell and the time (owner, 23 Nov 2026).
 - Opened without answering, Life brings the ask to the bottom with its answers (owner, 23 Nov 2026).
 - "Hey Life": one notification that it was heard, replaced by the answer; not read aloud; no live listening; the
@@ -384,6 +390,14 @@ line links there.
   blocking: "I just want things to be fast" (owner, 27 Nov 2026).
 - Done means ran live on his real Life, then a screenshot compared element by element with the prototype
   (owner, 26 Nov 2026).
+- Composed, never bespoke: every screen is built only from Life's fixed set of components (the answer blocks, the card
+  parts, App v4's components); agents and designs fill them with data and never draw new UI for one case, since agents
+  can't write UI at runtime (owner, 28 Nov 2026: "we won't be able to cater for all of the multitudes of projects that
+  people are gonna do… we have to build up all of the components in advance").
+- A missing part becomes a general component: a design that needs something new proposes one component usable by any
+  matter or project, with its data shape, marked "new component"; never a screen made for one example (owner, 28 Nov 2026).
+- The review test: swap the example for a very different one (a photo cleanup for a CV, a trip for a party); if the
+  screen breaks, it's bespoke (owner, 28 Nov 2026).
 
 ### Not doing
 
@@ -396,8 +410,9 @@ line links there.
 
 ## Open questions
 
-- Onboarding, round 1 ([host][onb-host], [phone][onb-phone]): the phone's onboarding in Life's thread rather than its own
-  screens; the menu bar's dots (grey when working, blue while connecting, coral when it needs him); a recovery key
+- Onboarding, round 2 ([host][onb-host], [phone][onb-phone]): the phone's onboarding in Life's thread rather than its own
+  screens (not reviewed yet); one Full Disk Access ask for every Mac source; sign-in and payment pages opened inside
+  Life's window; ElevenLabs' own sign-up making the key; messaging apps connected from the phone only; a recovery key
   shown once; drawn, not decided.
 - Turn by turn, before it ships: the arrivals rule first, then live items in history, "You" and "Life" labels against
   marks, centred reading, turns taller than the screen, the mesh beside the edge, the largest text sizes ([proposal][v5]).
@@ -431,12 +446,27 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 ### 28 Nov 2026
 
+- Ask Life's thread goes turn by turn on the existing thread, so he tries it on his real data at once: his question a
+  pinned header with a soft edge under it, a turn at least a screen tall, a gentle snap to a turn's top, the question's
+  size by length ([The thread](#the-thread)).
+- Onboarding, host, round 1 review ([host][onb-host]): the welcome, languages, "How far back", the phone step and the
+  menu bar are kept. No "Life's pick" for the AI: each option says where his words go (Anthropic, or OpenRouter then
+  DeepSeek). The OpenRouter route is DeepSeek Flash, latest, only at zero-data-retention providers, about $5–20 a
+  month by use; SECURITY.md names it as the default route. Automate as much as possible: no key to make or copy by
+  hand, no account or payment flow that leaves him lost; every failure path is drawn (why, in his words, and one fix),
+  not only the tick. "iMessage", not "Messages"; Apple Mail is a source; ChatGPT and Claude are imports (read once),
+  not sources. The build fetches each app's real icon and normalizes it.
+- Composed, never bespoke ([mini projects][mini]): screens use only Life's fixed components filled with data; a missing
+  part is proposed as one general component with its data shape; a screen that breaks when the example is swapped for
+  a very different one is bespoke. Mini projects was redone this way, every scene on a photo cleanup and party invites.
 - Turn by turn review ([turn by turn][tbt]): variation A is the base: its idle, typing, hold to talk, Life works, slow
   ask, failed read and the "Hey Life" notification replaced in place are kept as they are; B's answer flow for "Did
   Jade answer?" wins. Earlier turns: a full-screen pager with magnetic snapping, not every turn shown at once. The
   comparison page switches scenes and variations with no full reload; the next variations are per topic (motion, an
   answer's content) rather than whole apps. Chat replies get their own exploration: three variations of the one chat
   component.
+- Top controls on the iPhone Duo all on the right, in every posture; on a regular iPhone the count left, the pendant
+  right. The life-design skill holds the rules in force.
 - Cards: one main button with the rest as small pills; the middle of a card drawn its own way per kind; shown: what
   happens if he doesn't answer, Life's plan steps, the sources read, next suggestions. One shape for every card or a
   shape per kind is explored in variations on App v4's data, unfolding on a tap.
@@ -444,7 +474,7 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 - The turn by turn prototypes play the real flow ([real flow][realflow]): one quiet step line while Life works
   ([product][product-rules]); a question about a message an agent already drafted a reply to brings that card, Send one
-  tap away; new answer blocks may be proposed, marked "new block"; Life never speaks aloud.
+  tap away; new answer blocks may be proposed, marked "new component" (once "new block"); Life never speaks aloud.
 
 ### 27 Nov 2026
 
@@ -593,6 +623,7 @@ Reversed later:
 [turns]: ../handoff/2026-11-27-turn-by-turn.md
 [realflow]: 2026-11-28-turn-by-turn-v3/2026-11-28-real-flow.md
 [tbt]: https://github.com/eric-edouard/life/blob/040db13018a0272148422c3a6de4d35aea305fa7/docs/design/2026-11-27-turn-by-turn-v2/index.html
+[mini]: 2026-11-28-mini-projects/index.html
 [spec]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-current-spec.md
 [log]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-design-decisions.md
 [inventory]: https://github.com/eric-edouard/life/blob/a0f45c4002d9c9cce3f381e546960d7e54bbaf2e/docs/design/2026-11-23-chat-first/2026-11-23-component-inventory.md

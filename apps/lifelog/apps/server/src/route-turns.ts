@@ -11,6 +11,7 @@
 import type { Word } from "@lifelog/db/schema";
 import type { CutSpan } from "./audio";
 import type { Heard } from "./speech-service";
+import type { Switches } from "./switches";
 
 type HeardTurn = Heard["turns"][number];
 
@@ -126,6 +127,19 @@ export function routeTurns(
   }
   return { kind: "turns", routed: thai };
 }
+
+/**
+ * The route in the language mode (`mode`, the `transcriber` switch): `local` routes nothing, every
+ * language heard being the speech service's own; otherwise the router at the bar of `zone`.
+ */
+export const routeIn = (
+  mode: Switches["transcriber"],
+  heard: Pick<Heard, "turns" | "words">,
+  zone: string
+): Route =>
+  mode === "local"
+    ? { kind: "turns", routed: [] }
+    : routeTurns(heard, barOf(zone));
 
 // The stretches of audio Scribe hears for the routed turns: each padded, overlaps joined.
 export function scribeRanges(routed: HeardTurn[]): [number, number][] {

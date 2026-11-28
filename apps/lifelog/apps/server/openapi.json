@@ -2417,8 +2417,8 @@
           },
           "transcriber": {
             "type": "string",
-            "enum": ["scribe", "speech"],
-            "description": "Who transcribes the next blocks: ElevenLabs Scribe whole, or the speech service with Scribe for the Thai turns (docs/processing.md). Speech without the speech service set up (IDENTITY_URL) still goes to Scribe"
+            "enum": ["scribe", "speech", "local"],
+            "description": "The language mode: ElevenLabs Scribe whole, the speech service with Scribe for the Thai turns, or the speech service alone (`local`: nothing goes to Scribe; docs/processing.md). Speech without the speech service set up (IDENTITY_URL) still goes to Scribe"
           },
           "transcription": {
             "type": "boolean",
@@ -5775,8 +5775,8 @@
                   },
                   "transcriber": {
                     "type": "string",
-                    "enum": ["scribe", "speech"],
-                    "description": "Who transcribes the next blocks: ElevenLabs Scribe whole, or the speech service with Scribe for the Thai turns (docs/processing.md). Speech without the speech service set up (IDENTITY_URL) still goes to Scribe"
+                    "enum": ["scribe", "speech", "local"],
+                    "description": "The language mode: ElevenLabs Scribe whole, the speech service with Scribe for the Thai turns, or the speech service alone (`local`: nothing goes to Scribe; docs/processing.md). Speech without the speech service set up (IDENTITY_URL) still goes to Scribe"
                   },
                   "transcription": {
                     "type": "boolean",

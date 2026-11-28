@@ -1,9 +1,16 @@
 # Sources of truth
 
+Designing? Use the life-design skill (`.claude/skills/life-design/SKILL.md`); this page is the full index.
+
 What any person or agent reads before designing a screen or building a component, in this order. On what a screen should
 be, an earlier source wins over a later one, and within one the newest dated line wins; what the system really does
-(6, 7) bounds what can be built, so a design it can't carry proposes the change, marked "new block". Every design or component brief names this page (`AGENTS.md`,
-Workflow); nothing else is put in front of an agent on its own.
+(6, 7) bounds what can be built, so a design it can't carry proposes the change, marked "new component". Every design or
+component brief names the life-design skill, which opens this page when it needs more (`AGENTS.md`, "Anything a person
+sees").
+
+Composed, never bespoke: a screen is built only from these components filled with data, a missing one proposed as a
+general component with its data shape (marked "new component"), and checked by swapping its example for a very
+different one ([philosophy](philosophy.md), "How a design is done").
 
 ## What it must follow
 
@@ -23,7 +30,7 @@ Workflow); nothing else is put in front of an agent on its own.
 6. [The real flow](2026-11-28-turn-by-turn-v3/2026-11-28-real-flow.md): what happens between an ask and its answer,
    its timings, and the data each step has.
 7. The data a screen can draw: a card's parts (`apps/server/src/memory/card-request.ts`, `needs.ts`, `draft.ts`) and an
-   answer's blocks (`apps/server/src/records/answer-blocks.ts`). A design may propose more, marked "new block".
+   answer's blocks (`apps/server/src/records/answer-blocks.ts`). A design may propose more, marked "new component".
 
 ## What is built
 

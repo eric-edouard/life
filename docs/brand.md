@@ -44,8 +44,8 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   rows sit on the page, a `line` hairline between them. A card is kept only where a thing is a block of its own (a
   matter's goal, a field, a button), and then `card`, `tile` and `paper` are faint lifts of black (`#0b0c0e`, `#111214`,
   `#131416`), never a grey panel. Light is unchanged apart from lists.
-- **Three more fills** (owner, 26 Nov 2026), cream at a strength so they sit on any ground: `tint` (10%, a quiet pill,
-  his bubble), `glass` (14%, a floating control) and `wash` (5%, an unfolded item). Nothing else draws a grey; the
+- **Three more fills** (owner, 26 Nov 2026), cream at a strength so they sit on any ground: `tint` (10%, a quiet
+  pill), `glass` (14%, a floating control) and `wash` (5%, an unfolded item). Nothing else draws a grey; the
   phone takes tokens.css only, never a literal. The phone is dark only for now.
 - **No borders** (owner, 30 Oct 2026 for cards; a hard rule for everything since 19 Nov 2026): no outline, ring or
   stroke around any surface or control. A card, a panel, an option or a field stands out from the page by its `card`
@@ -104,7 +104,8 @@ without the person answering slower or worse goes.
 Nothing jumps (owner, 19 Nov 2026). A state change, a new element and a shift of layout are animated. A thing that
 changes state stays the same thing: a button becomes its busy state, then its result. A new element enters from where
 it comes and leaves the way it came, and what sits below something that grows or shrinks slides. Motion answers a
-tap; by itself only the recording dot, a spinner and a countdown move. It takes 0.2 s to leave, 0.3 s to change and
+tap; by itself only the edge, the pendant's dot, the ink-in of words, the suggested asks and the thinking shimmer
+move, and a long task is a still ring, never a spinner (owner, 26 Nov 2026). It takes 0.2 s to leave, 0.3 s to change and
 0.35 s to enter, and under Reduce Motion the same steps cross-fade without movement.
 
 ## The mark
