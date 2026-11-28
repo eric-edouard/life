@@ -139,7 +139,7 @@ test("a cancel ends what a talk runs and keeps its session open", async () => {
   const hung = await pi.talk(agent, one.ref, "[hang]", () => undefined);
   await Bun.sleep(300);
   await pi.cancel(one.ref);
-  expect(await hung.ended).toEqual({ ok: false, why: "cancelled" });
+  expect(await hung.ended).toMatchObject({ ok: false, why: "cancelled" });
   expect(await pi.state(one.ref)).toBe("running");
   await pi.stop(one.ref);
 });
@@ -217,7 +217,7 @@ test("a stop ends a running turn as cancelled", async () => {
   const run = await pi.start(agent, "[hang]");
   await Bun.sleep(500);
   await pi.stop(run.ref);
-  expect(await run.ended).toEqual({ ok: false, why: "cancelled" });
+  expect(await run.ended).toMatchObject({ ok: false, why: "cancelled" });
   await expect(run.begun).rejects.toThrow();
 });
 
@@ -262,7 +262,7 @@ test("a session another process keeps reads as running, and is never sent beside
 
 test("a prompt pi takes as a command ends its turn at once", async () => {
   const run = await piRuntime(row).start(agent, "/life-desk");
-  expect(await run.ended).toEqual({
+  expect(await run.ended).toMatchObject({
     ok: false,
     why: "pi handled the prompt as a command",
   });
@@ -413,4 +413,9 @@ test("a spending tool's model usage adds to the turn's billed dollars and tokens
     type: "tool_execution_end",
   });
   expect(usage).toMatchObject({ billedUsd: 0.005, searchUsd: null });
+  // A run aborted (at its spending stop) or failed reports what it spent all the same.
+  expect(runHeard(c, { aborted: true, type: "agent_settled" })).toMatchObject({
+    ok: false,
+    usage: { billedUsd: 0.005 },
+  });
 });

@@ -678,18 +678,14 @@ async function mainSessionFetch(
   });
 }
 
-/** `POST /spending/<agt_…>`: the spending stop's answer for agent `id`'s running turn, `{ usd }` billed so far. */
-async function spendingFetch(desk: Desk, id: string, req: Request) {
-  const { usd } = (await req.json()) as { usd?: unknown };
-  return typeof usd === "number" && usd >= 0
-    ? Response.json({ stop: await spendingStopInTurn(desk, id, usd) })
-    : text("not a spend", 400);
-}
+/** `POST /spending/<agt_…>`: the spending stop's answer for agent `id`'s running turn (what it used so far is the desk's own read of its run). */
+const spendingFetch = async (desk: Desk, id: string) =>
+  Response.json({ stop: await spendingStopInTurn(desk, id) });
 
 /**
  * The door's requests, each with that agent's key as a bearer (else 401, the same for an unknown agent and a wrong key):
  * `/mcp/<agt_…>`, its tools; `POST /guard/<agt_…>`, the send guard's answer for one tool call (`{ refusal }`, null when
- * it may run); `POST /spending/<agt_…>`, `{ usd }` its running turn was billed so far, the spending stop's answer
+ * it may run); `POST /spending/<agt_…>`, the spending stop's answer for its running turn
  * (`{ stop }`, the line that ends the turn, null while under it: `spendingStopInTurn`). And one without a key, for the Life plugin: `/session/<ref>`, the door of the agent whose session that
  * is (`{ agent, key, url, matcher }`, the guard's tool matcher), else 404; by a loopback `Host` only, so no web page
  * reaches it. `MAIN_SESSION_PATH`, by the local key (`mainSessionFetch`). 404 for any other path.
@@ -720,7 +716,7 @@ export function doorFetch(desk: Desk, readFacts = guardFacts) {
       return text("unauthorized", 401);
     }
     if (path === "spending") {
-      return await spendingFetch(desk, id, req);
+      return await spendingFetch(desk, id);
     }
     if (path === "guard") {
       return Response.json({

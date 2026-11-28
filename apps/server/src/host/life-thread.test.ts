@@ -45,7 +45,7 @@ beforeEach(async () => {
     "create table agent (id text primary key, project text, role text, status text, created_at text)"
   );
   db.run(
-    "create table quiet_line (assignment_id text primary key, doing text, eta text, at text)"
+    "create table quiet_line (assignment_id text primary key, doing text, eta text, at text, rev text)"
   );
   db.run(
     "insert into assignment (id, agent_id) values ('asg_a', 'agt_a'), ('asg_b', 'agt_b'), ('asg_p', 'agt_p')"
@@ -226,7 +226,7 @@ test("a project's handed work runs until its assignment closes, and shows its ag
   );
   const eta = new Date(Date.parse(at) + 7_200_000).toISOString();
   db.run(
-    "insert into quiet_line (assignment_id, doing, eta, at) values ('asg_p', 'Sorting 2023', ?, ?)",
+    "insert into quiet_line (assignment_id, doing, eta, at, rev) values ('asg_p', 'Sorting 2023', ?, ?, 'r1')",
     [eta, at]
   );
   const handed = async () =>

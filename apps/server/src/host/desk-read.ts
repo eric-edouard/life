@@ -100,8 +100,6 @@ export interface TurnRow {
   reminded_at: string | null;
   session: string | null;
   started_at: string;
-  /** 1 when the spending stop ended it inside (it asked him at its stop); null otherwise. */
-  stopped_spending: number | null;
 }
 
 /** A queued event's row: not yet consumed or dropped. */
@@ -663,15 +661,25 @@ export function eventHeard(
   return t ? { by: t.agent_id, told: "woken" } : { told: "queued" };
 }
 
-/** Assignment `id`'s quiet line's ref, as a deletion names it (`threadEntriesHolding`); the desk deletes the line on its tick. */
-export const quietLineRefOf = (id: string) => `quiet:${id}`;
+/** A quiet line's ref, as a deletion names it (`threadEntriesHolding`): its assignment and its revision, so a deletion hides that line only; the desk deletes it on its tick. */
+export const quietLineRefOf = (line: { assignment_id: string; rev: string }) =>
+  `quiet:${line.assignment_id}@${line.rev}`;
+
+/** Whether a deletion named this quiet line (hidden until the desk deletes it). */
+export const isQuietLineDeleted = (line: {
+  assignment_id: string;
+  rev: string;
+}) => deletionsNow().refs.has(quietLineRefOf(line));
 
 /** Assignment `id`'s quiet line (docs/glossary.md): what its agent last said it does now and when it expects the work done; none before it gave one, or once a deletion named it. */
-export const quietLineOf = (db: Database, id: string) =>
-  deletionsNow().refs.has(quietLineRefOf(id))
-    ? undefined
-    : (db
-        .query<{ doing: string; eta: string | null }, [string]>(
-          "select doing, eta from quiet_line where assignment_id = ?"
-        )
-        .get(id) ?? undefined);
+export function quietLineOf(db: Database, id: string) {
+  const line = db
+    .query<
+      { assignment_id: string; doing: string; eta: string | null; rev: string },
+      [string]
+    >(
+      "select assignment_id, doing, eta, rev from quiet_line where assignment_id = ?"
+    )
+    .get(id);
+  return line && !isQuietLineDeleted(line) ? line : undefined;
+}

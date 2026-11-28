@@ -27,7 +27,8 @@ import { dayNow } from "../memory/zones";
 import { readOwnerName } from "../models/prompt-parts";
 import { firstNameOf } from "../records/truth";
 import { undoOf } from "./answer-result";
-import { quietLineRefOf, readDesk } from "./desk-read";
+import { isQuietLineDeleted, quietLineRefOf, readDesk } from "./desk-read";
+import { hasColumn } from "./desk-shape";
 import { estimateOf, type HandedKind } from "./desk-turn-reads";
 import { openChecksNow, unchangedOf, versionOf } from "./inbox";
 import { readProjectsWithoutRoom, WAITS_FOR_ROOM } from "./spending";
@@ -105,16 +106,16 @@ function entriesOf(db: Database, from: string, to: string) {
       handed_at: string;
       kind: HandedKind;
       project: string | null;
+      rev: string | null;
       running: number;
     },
     [number]
   >(
     // A project runs until its assignment closes; other work, until the first turn after its hand-over ends.
-    `select h.kind, h.handed_at, h.assignment_id, q.doing, q.eta, a.project, case when h.kind = 'project' then s.closed_at is null else not exists (select 1 from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null) end as running
+    `select h.kind, h.handed_at, h.assignment_id, q.doing, q.eta, q.rev, a.project, case when h.kind = 'project' then s.closed_at is null else not exists (select 1 from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null) end as running
       from handed_work h join assignment s on s.id = h.assignment_id join agent a on a.id = s.agent_id left join quiet_line q on q.assignment_id = h.assignment_id and q.at >= h.handed_at where h.entry_id = ? order by h.handed_at`
   );
   const noRoom = readProjectsWithoutRoom(db);
-  const gone = deletionsNow().refs;
   const isOlder = Boolean(
     db.query("select 1 from thread_entry where asked_at < ? limit 1").get(from)
   );
@@ -125,10 +126,10 @@ function entriesOf(db: Database, from: string, to: string) {
         // Its agent's quiet line (what it does now, its eta as the time from the hand-over, else the kind's estimate),
         // or, for a project waiting for room in the month, that it waits.
         // A quiet line a deletion named is hidden until the desk deletes it.
-        const isGone = gone.has(quietLineRefOf(h.assignment_id));
         const isWaitingForRoom =
           Boolean(h.running) && h.project !== null && noRoom.has(h.project);
-        const line = isGone ? null : h;
+        const line =
+          h.rev && !isQuietLineDeleted({ ...h, rev: h.rev }) ? h : null;
         const eta = isWaitingForRoom ? null : (line?.eta ?? null);
         return {
           doing: isWaitingForRoom ? WAITS_FOR_ROOM : (line?.doing ?? null),
@@ -445,13 +446,18 @@ export const threadEntriesHolding: ThreadEntriesHolding = (holds) => {
           "select id, words, answer, refs from thread_entry where deleted_at is null order by id"
         )
         .all(),
-      quiet: db
-        .query<{ assignment_id: string; doing: string }, []>(
-          "select assignment_id, doing from quiet_line order by assignment_id"
-        )
-        .all(),
+      // A store the desk has not opened since quiet lines came has none.
+      quiet: hasColumn(db, "quiet_line", "rev")
+        ? db
+            .query<{ assignment_id: string; doing: string; rev: string }, []>(
+              "select assignment_id, doing, rev from quiet_line order by assignment_id"
+            )
+            .all()
+        : [],
     }),
-    { entries: [], quiet: [] }
+    { entries: [], quiet: [] },
+    // A deletion finds its copies while the desk is off too.
+    true
   );
   const { entries, quiet } =
     read.state === "ok" ? read.value : { entries: [], quiet: [] };
@@ -463,7 +469,7 @@ export const threadEntriesHolding: ThreadEntriesHolding = (holds) => {
     ),
     ...quiet.flatMap((q): DeletionCopy[] =>
       holds([q.doing], [])
-        ? [{ id: quietLineRefOf(q.assignment_id), kind: "quiet line" }]
+        ? [{ id: quietLineRefOf(q), kind: "quiet line" }]
         : []
     ),
   ];

@@ -225,8 +225,20 @@ create table if not exists quiet_line (
   assignment_id text primary key,
   doing text not null,
   eta text,
-  at text not null
+  at text not null,
+  rev text not null
 );
+create table if not exists spending_stop (
+  id integer primary key,
+  scope text not null,
+  assignment_id text not null,
+  turn_id integer,
+  stopped_at text not null,
+  decision_id text unique,
+  answered_at text,
+  raised integer not null default 0
+);
+create unique index if not exists spending_stop_open on spending_stop (scope) where answered_at is null;
 create table if not exists project_handoff (
   project text primary key,
   ask text not null unique,
@@ -334,12 +346,25 @@ export const writeWait = (
     [JSON.stringify(w.events), w.until, w.reason, isDefault ? 1 : 0, id]
   );
 
-/** Writes assignment `id`'s quiet line when its agent gave `doing` (its `eta` with it, none: no eta); nothing given keeps the last. */
+/** Deletes turn `turn` that never began (its session was live elsewhere: the wake waits), letting go of a spending stop it held, so a later turn given its id never holds it. */
+export const deleteUnbegunTurn = (db: Database, turn: number) =>
+  db.transaction(() => {
+    if (
+      db.run("delete from turn where id = ? and begun_at is null", [turn])
+        .changes > 0
+    ) {
+      db.run("update spending_stop set turn_id = null where turn_id = ?", [
+        turn,
+      ]);
+    }
+  })();
+
+/** Writes assignment `id`'s quiet line when its agent gave `doing` (its `eta` with it, none: no eta), under a fresh `rev` (what a deletion names); nothing given keeps the last. */
 export const writeQuietLine = (db: Database, id: string, q: QuietLine) =>
   q.doing &&
   db.run(
-    "insert or replace into quiet_line (assignment_id, doing, eta, at) values (?, ?, ?, ?)",
-    [id, q.doing, q.eta ?? null, clock().toISOString()]
+    "insert or replace into quiet_line (assignment_id, doing, eta, at, rev) values (?, ?, ?, ?, ?)",
+    [id, q.doing, q.eta ?? null, clock().toISOString(), crypto.randomUUID()]
   );
 
 /**

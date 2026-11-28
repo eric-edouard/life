@@ -43,6 +43,7 @@ import {
   SessionLive,
   type Usage,
 } from "./runtimes/contract";
+import { runsIn, turnWithUsageOf, type UsageColumns } from "./turn-usage";
 
 // How a desk turn ends (the desk spec, section 6): its run watched (`watch`) until it ends (`turnEnded`), by turn id, so
 // a late end never closes another turn; the turns lost to a restart or that never began. The clock (`desk-clock.ts`)
@@ -151,6 +152,7 @@ const markBegun = (db: Desk["db"], turn: number) =>
 /** Ends turn `turn` when `run` does: failed when it did. */
 export function watch(desk: Desk, turn: number, run: Run) {
   watchedIn(desk.db).add(turn);
+  runsIn(desk.db).set(turn, run);
   // A run that ends before it begins is `ended`'s to say; `begun` settles soon after `ended` at the latest, and is waited
   // for, so a turn that began and then failed is retried, never ended as not started.
   const begun = run.begun.then(
@@ -160,6 +162,10 @@ export function watch(desk: Desk, turn: number, run: Run) {
   run.ended
     .then(async (end) => {
       await begun;
+      // In the same step as its usage is added to the row (`turnEnded`), so it never counts twice.
+      if (runsIn(desk.db).get(turn) === run) {
+        runsIn(desk.db).delete(turn);
+      }
       return turnEnded(desk, turn, end);
     })
     .catch((error: unknown) =>
@@ -214,26 +220,31 @@ function close(
   return true;
 }
 
-/**
- * Adds a run's tokens to open turn `turn`'s (a reminded turn runs twice); its context is its last run's; what it was
- * billed, and its searches' price, each add up from its first run, null once a run came without it (null plus anything
- * stays null).
- */
+/** Adds a run's usage to open turn `turn`'s (`turnWithUsageOf`); its context is its last run's. */
 function addUsage(db: Desk["db"], turn: number, usage: Usage | undefined) {
-  if (usage) {
-    db.run(
-      "update turn set tokens_in = coalesce(tokens_in, 0) + ?1, tokens_cached = coalesce(tokens_cached, 0) + ?2, tokens_out = coalesce(tokens_out, 0) + ?3, context_used = coalesce(?4, context_used), cost_usd = case when tokens_in is null then ?5 else cost_usd + ?5 end, search_usd = case when tokens_in is null then ?7 else search_usd + ?7 end where id = ?6 and ended_at is null",
-      [
-        usage.tokensIn,
-        usage.tokensCached,
-        usage.tokensOut,
-        usage.contextLast,
-        usage.billedUsd ?? null,
-        turn,
-        usage.searchUsd ?? null,
-      ]
-    );
+  const t =
+    usage &&
+    db
+      .query<UsageColumns, [number]>(
+        "select cost_usd, search_usd, tokens_cached, tokens_in, tokens_out from turn where id = ? and ended_at is null"
+      )
+      .get(turn);
+  if (!(usage && t)) {
+    return;
   }
+  const n = turnWithUsageOf(t, usage);
+  db.run(
+    "update turn set tokens_in = ?, tokens_cached = ?, tokens_out = ?, context_used = coalesce(?, context_used), cost_usd = ?, search_usd = ? where id = ?",
+    [
+      n.tokens_in,
+      n.tokens_cached,
+      n.tokens_out,
+      usage.contextLast,
+      n.cost_usd,
+      n.search_usd,
+      turn,
+    ]
+  );
 }
 
 /**
@@ -445,7 +456,7 @@ export async function endUnbegunTurns(desk: Desk) {
 }
 
 /**
- * What his Undo took back (an `answer-withdrawn` line, `undoAnswer`), stopped: each card still undone whose
+ * What his Undo took back (an `answer-withdrawn` line, `undoAnswer`), stopped: a raise of the card's spending stop taken back; each card still undone whose
  * `decision.answered` the desk queued and no turn ended on yet has that event removed (so a later answer of his queues
  * anew), and a turn launched on it that has not begun is stopped. Run by the desk's tick. Returns the cards it reached.
  */
@@ -455,6 +466,10 @@ export async function stopWithdrawn(desk: Desk, at = clock()) {
   );
   const reached: string[] = [];
   for (const d of undone) {
+    // A raise of its spending stop goes back too; the stop stays answered, his answer again writes it again.
+    desk.db.run("update spending_stop set raised = 0 where decision_id = ?", [
+      d.id,
+    ]);
     const rows = desk.db
       .query<{ assignment_id: string }, [string]>(
         "delete from event where event_id = ? and consumed_at is null and dropped_at is null returning assignment_id"

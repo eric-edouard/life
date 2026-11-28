@@ -61,7 +61,7 @@ import { eventLineOf, nextWakeOf, STARTS_PER_TICK } from "./agent-wait";
 import { pollArrivals } from "./arrival-route";
 import { CARETAKER_BRIEF, receiveComplaints } from "./complaint-intake";
 import { takeBackIfLeft, takeBackMainIfLeft } from "./continue-on-mac";
-import { type Desk, saveCursor } from "./desk-store";
+import { type Desk, deleteUnbegunTurn, saveCursor } from "./desk-store";
 import {
   agentWakesOf,
   holdersOf,
@@ -93,9 +93,11 @@ import { standUp } from "./role-agents";
 import { blockOf, runnableAgentOf } from "./runtime-fallback";
 import { SessionLive } from "./runtimes/contract";
 import {
+  claimSpendingStop,
+  readStopScopes,
   SPENDING_STOP,
-  type SpendingStop,
-  spendingStopNow,
+  type StopScope,
+  settleSpendingStops,
 } from "./spending-stop";
 import { receiveSpokenAsks } from "./spoken-ask-intake";
 import { blankDeletedThreadEntries } from "./thread-deletions";
@@ -296,6 +298,13 @@ export function pollAnswers({ db }: Desk) {
     });
   for (const { name, read } of reads) {
     db.transaction(() => {
+      // A card a spending stop asked settles its stop, whoever holds its assignment now.
+      for (const e of read.events) {
+        const card = cards.get(e.data.id);
+        if (card) {
+          settleSpendingStops(db, name, card);
+        }
+      }
       queue(
         db,
         name,
@@ -427,7 +436,7 @@ async function wake(
   desk: Desk,
   a: AgentRow,
   s: AssignmentRow,
-  stop?: SpendingStop
+  scopes?: readonly StopScope[]
 ) {
   const { db } = desk;
   const runtime = desk.runtimes[a.runtime];
@@ -460,36 +469,44 @@ async function wake(
     ) {
       return null;
     }
-    // His answer since the tick's read goes first: the stop is asked on a wake of its own only.
-    const due =
-      stop && found.rank > 0 ? { ...found, cause: SPENDING_STOP } : found;
-    const id = db.run(
-      "insert into turn (agent_id, assignment_id, session, cause, started_at, model, move) values (?, ?, ?, ?, ?, ?, ?)",
-      [
-        a.id,
-        s.id,
-        due.a.session,
-        due.cause,
-        now(),
-        turnModelOf(due.a),
-        due.move,
-      ]
-    ).lastInsertRowid;
-    return { ...due, turn: Number(id) };
+    const id = Number(
+      db.run(
+        "insert into turn (agent_id, assignment_id, session, cause, started_at, model, move) values (?, ?, ?, ?, ?, ?, ?)",
+        [
+          a.id,
+          s.id,
+          found.a.session,
+          found.cause,
+          now(),
+          turnModelOf(found.a),
+          found.move,
+        ]
+      ).lastInsertRowid
+    );
+    // His answer since the tick's read goes first: the stop is claimed on a wake that is not his answer, after the
+    // runtime's wait, in the turn's own write, so two turns of one scope never both ask.
+    const stop =
+      scopes && found.rank > 0 ? claimSpendingStop(desk, s, id, scopes) : null;
+    if (stop === "waits") {
+      db.run("delete from turn where id = ?", [id]);
+      return null;
+    }
+    if (stop) {
+      db.run("update turn set cause = ? where id = ?", [SPENDING_STOP, id]);
+    }
+    return {
+      ...found,
+      cause: stop ? SPENDING_STOP : found.cause,
+      said: stop?.line,
+      turn: id,
+    };
   })();
   if (!woken) {
     return false;
   }
   return woken.cause === MOVE_NOTES
     ? await launchNotes(desk, woken, state === "gone" ? null : a.session)
-    : await launch(
-        desk,
-        {
-          ...woken,
-          said: woken.cause === SPENDING_STOP ? stop?.line : undefined,
-        },
-        state
-      );
+    : await launch(desk, woken, state);
 }
 
 /** Launches move `move`'s notes turn `turn` of `a` on `s`: it resumes the old session only; with none to resume (`session` null), or a send that fails, the turn ends at once and its notes stay as they are. False: the session was live elsewhere, so the turn went and the wake waits. */
@@ -520,7 +537,7 @@ async function launchNotes(
     );
   } catch (error) {
     if (error instanceof SessionLive) {
-      desk.db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      deleteUnbegunTurn(desk.db, turn);
       return false;
     }
     log("desk.runtime", {
@@ -620,7 +637,7 @@ async function launch(
     // His app took the session between `wake`'s read and the send: the turn never ran, so it goes and the wake waits.
     // ponytail: one taken after the send's own read, in the milliseconds before ACP resumes it, still runs beside it.
     if (error instanceof SessionLive) {
-      db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      deleteUnbegunTurn(db, turn);
       return false;
     }
     log("desk.runtime", {
@@ -674,13 +691,14 @@ export async function wakeDue(desk: Desk) {
     // biome-ignore lint/performance/noAwaitInLoops: whether one started decides whether the next may
     const a = await runnableAgentOf(desk, d.a, blockOnce);
     // A runtime paused on its failing provider waits too (`Runtime.paused`): only here, never for his own asks.
-    const stop =
-      d.rank > 0 ? await spendingStopNow(desk.db, d.s, month?.monthly) : null;
     if (
-      stop !== "waits" &&
       !((await blockOnce(a.runtime)) || desk.runtimes[a.runtime]?.paused?.())
     ) {
-      started += (await wake(desk, a, d.s, stop ?? undefined)) ? 1 : 0;
+      const scopes =
+        d.rank > 0
+          ? await readStopScopes(desk, d.s, month?.monthly)
+          : undefined;
+      started += (await wake(desk, a, d.s, scopes)) ? 1 : 0;
     }
   }
 }

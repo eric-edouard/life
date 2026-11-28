@@ -15,6 +15,7 @@ import { type Desk, openDesk } from "./desk-store";
 import { doorOf } from "./door-keys";
 import { fakeRuntime } from "./runtimes/fake-runtime";
 import { on } from "./test-desk";
+import { runsIn } from "./turn-usage";
 
 // The door: an agent is known by its key alone; its tools reach the desk's actions. Made-up agents and briefs.
 
@@ -283,7 +284,7 @@ test("the contract: his own Life's agent is told the Mac is its own; a second Li
   }
 });
 
-test("the spending stop inside a turn: under it nothing; at it the line, the turn keeping its cause (his answer's stays woken) and counted as asked at its stop; a wrong key is refused", async () => {
+test("the spending stop inside a turn: under it nothing; at it the line, the turn keeping its cause (his answer's stays woken) and holding the stop; a wrong key is refused", async () => {
   const { setSettings } = await import("../core/settings");
   setSettings({ budget: { monthlyUsd: 100 } });
   try {
@@ -298,18 +299,33 @@ test("the spending stop inside a turn: under it nothing; at it the line, the tur
       "insert into event (assignment_id, event_id, name, payload, received_at) values (?, 'dec_000000000001.answered', 'decision.answered', '{}', ?)",
       [s, clock().toISOString()]
     );
-    desk.db.run(
-      "insert into turn (agent_id, assignment_id, cause, started_at) values (?, ?, 'answer', ?)",
-      [id, s, clock().toISOString()]
+    const turn = Number(
+      desk.db.run(
+        "insert into turn (agent_id, assignment_id, cause, started_at, model) values (?, ?, 'answer', ?, 'pi:default')",
+        [id, s, clock().toISOString()]
+      ).lastInsertRowid
     );
-    const spent = (key: string, usd: number) =>
-      fetchDoor(
+    // What its run used so far is the desk's own read of the run, never the extension's word.
+    const spent = (key: string, usd: number) => {
+      runsIn(desk.db).set(turn, {
+        begun: Promise.resolve(),
+        ended: new Promise(() => undefined),
+        usage: () => ({
+          billedUsd: usd,
+          contextFirst: null,
+          contextLast: null,
+          tokensCached: 0,
+          tokensIn: 1,
+          tokensOut: 1,
+        }),
+      });
+      return fetchDoor(
         new Request(`http://127.0.0.1/spending/${id}`, {
-          body: JSON.stringify({ usd }),
           headers: { authorization: `Bearer ${key}` },
           method: "POST",
         })
       );
+    };
     // 2% of the month's 100 dollars: a stop at 2.
     expect(await (await spent(doorOf(id).key, 1.5)).json()).toEqual({
       stop: null,
@@ -319,12 +335,11 @@ test("the spending stop inside a turn: under it nothing; at it the line, the tur
     };
     expect(stop).toContain("past its spending stop of 2.00");
     expect(
-      desk.db
-        .query<{ cause: string; stopped_spending: number | null }, [string]>(
-          "select cause, stopped_spending from turn where agent_id = ?"
-        )
-        .all(id)
-    ).toEqual([{ cause: "answer", stopped_spending: 1 }]);
+      desk.db.query("select cause from turn where agent_id = ?").all(id)
+    ).toEqual([{ cause: "answer" }]);
+    expect(
+      desk.db.query("select scope, turn_id from spending_stop").all()
+    ).toEqual([{ scope: `assignment:${s}`, turn_id: turn }]);
     expect(eventHeard(desk.db, s, "dec_000000000001.answered")).toEqual({
       by: id,
       told: "woken",

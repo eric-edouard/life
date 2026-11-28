@@ -28,7 +28,7 @@ Moved from the root `AGENTS.md`, "Invariants". The one-line versions stay there;
   `memory/`: his instructions quoting them (their ids, hidden at read by `instructionsFor`) and the Life thread's entries
   (`thread:<id>`, listed in the preview but outside its digest, hidden at read by `readThread` and blanked in place by the
   desk on its tick, `desk/thread-deletions.ts`; an answer never writes back onto one), and an agent's quiet line quoting them
-  (`quiet:<assignment>`, the same way: hidden at read by `quietLineOf` and the thread, deleted by the desk's tick; 28 Nov 2026). The words themselves stay where their sources hold them
+  (`quiet:<assignment>@<rev>`, that line only, the same way, found with the desk off too: hidden at read by `quietLineOf` and the thread, deleted by the desk's tick; 28 Nov 2026). The words themselves stay where their sources hold them
   (lifelog, the archive, the backups, the git history): purging them needs code that does not exist (SECURITY.md).
 
 - **lifelog's chapter units stay as stored.** The voice history before conversation-days: lifelog still holds most of

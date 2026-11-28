@@ -39,7 +39,7 @@ import type {
 } from "../records/main-session-wire";
 import { pendingCardOf } from "./agent-actions";
 import { askAssignment, QUESTION_WAIT } from "./agent-questions";
-import { type Desk, recordToldWork } from "./desk-store";
+import { type Desk, deleteUnbegunTurn, recordToldWork } from "./desk-store";
 import { blockProblemOf, stepOf } from "./main-session-lines";
 import {
   ownAssignmentOf,
@@ -405,7 +405,7 @@ async function answerNow(
   } catch (error) {
     // Nothing ran: a session his app holds deletes the turn, any other failure ends it failed.
     if (error instanceof SessionLive) {
-      db.run("delete from turn where id = ? and begun_at is null", [turn]);
+      deleteUnbegunTurn(db, turn);
       return failed(
         "Life's main session is busy or closed: send your words again."
       );

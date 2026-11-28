@@ -303,6 +303,17 @@ export const projectBudgetOf = (project: string) =>
     (i) => i.effect === "budget" && i.scope === `project:${project}`
   );
 
+/** Matter `matter`'s own budget: its latest `budget` instruction scoped to it, else the latest scoped to everything; none: the default stop. */
+export function matterBudgetOf(matter: string) {
+  const budgets = instructionsFor({ matter }).filter(
+    (i) => i.effect === "budget"
+  );
+  return (
+    budgets.findLast((i) => i.scope === `matter:${matter}`) ??
+    budgets.findLast((i) => i.scope === "all")
+  );
+}
+
 /** What a project with no room says on its quiet line, in place of its agent's. */
 export const WAITS_FOR_ROOM = "Waits for room in this month's amount";
 

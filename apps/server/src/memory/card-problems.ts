@@ -67,6 +67,7 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
     lookProblemOf(ask, silence) ||
     addsProblemOf(ask, silence) ||
     runsProblemOf(ask, silence) ||
+    raisesProblemOf(ask, silence) ||
     planProblemOf(ask) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
@@ -207,6 +208,23 @@ function addsProblemOf(
       'an `adds` option has no other mark (fetch("ask/event"))') ||
     (ask.draft && adds.length > 0 && "an `adds` card has no `draft`") ||
     eventProblemOf(ask)
+  );
+}
+
+/** What breaks the rules of a `raises` option (the card a spending stop asks for), in words the agent can fix; false when nothing does. */
+function raisesProblemOf(
+  ask: z.infer<typeof Ask>,
+  silence: z.infer<typeof Option> | undefined
+) {
+  const raises = ask.options.filter((o) => o.raises);
+  return (
+    (raises.length > 1 && "at most one `raises` option") ||
+    (silence?.raises &&
+      "`onSilence` never takes a `raises` option: on silence nothing goes over the stop") ||
+    (raises.some(
+      (o) => o.outgoing || o.adds || o.ends || o.looks || o.runs || o.takes
+    ) &&
+      "a `raises` option has no other mark")
   );
 }
 
