@@ -242,7 +242,7 @@ const SIGN_IN_WHY: Record<"google" | "network" | "claude", string> = {
 };
 
 /** A requirement not met, in plain words: what he does to meet it. */
-export function requirementWhyOf(r: Requirement): string {
+function requirementWhyOf(r: Requirement): string {
   if (r.kind === "permission") {
     return PERMISSION_WHY[r.check];
   }

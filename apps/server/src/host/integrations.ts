@@ -129,7 +129,9 @@ export function isDoneOf(
     case "credits":
       return !engine || engine.credits === null || engine.credits > 0;
     case "key":
-      return reads.bridges.get(name)?.needsKeys !== true;
+      return name === "ai"
+        ? engine?.key?.set !== false
+        : reads.bridges.get(name)?.needsKeys !== true;
     case "device":
       return r.what === "phone"
         ? !reads.missing.get(name)
@@ -258,20 +260,10 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
   // Its router's key first (the one he makes), then what its terms ask.
   const aiRequirements: MetRequirement[] = [
     ...(key
-      ? [
-          {
-            done: key.set,
-            kind: "key" as const,
-            name: key.name,
-            opens: key.opens,
-          },
-        ]
+      ? [{ kind: "key" as const, name: key.name, opens: key.opens }]
       : []),
-    ...aiTerms.requirements.map((r) => ({
-      ...r,
-      done: isDoneOf(r, "ai", reads),
-    })),
-  ];
+    ...aiTerms.requirements,
+  ].map((r) => ({ ...r, done: isDoneOf(r, "ai", reads) }));
   const ai: Integration = integrationOf({
     facts: {
       host: engineCheck.host,
