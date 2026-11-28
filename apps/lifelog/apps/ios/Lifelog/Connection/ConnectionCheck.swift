@@ -1,4 +1,5 @@
 import LifeConnector
+import MacLink
 import ServerAPI
 import SwiftUI
 

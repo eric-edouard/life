@@ -105,5 +105,71 @@
     "link": "lifelog://pair?life=https%3A%2F%2Flife.example.ts.net&code=ABC",
     "pairing": null,
     "life": null
+  },
+  {
+    "case": "over the Mac link, both halves on the Mac's loopback",
+    "link": "lifelog://pair?life=http%3A%2F%2F127.0.0.1%3A46200&code=ABC234&token=abc_DEF-123-xyz_789&url=http%3A%2F%2F127.0.0.1%3A46200%2Fvoice&mac=ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12&relay=https%3A%2F%2Frelay.example.%2F",
+    "pairing": {
+      "server": "http://127.0.0.1:46200/voice",
+      "token": "abc_DEF-123-xyz_789"
+    },
+    "life": {
+      "origin": "http://127.0.0.1:46200",
+      "code": "ABC234"
+    },
+    "macLink": {
+      "mac": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+      "relay": "https://relay.example./"
+    }
+  },
+  {
+    "case": "over the Mac link, Life over plain HTTP",
+    "link": "lifelog://pair?life=http%3A%2F%2Flife.example&code=ABC234&mac=ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12&relay=https%3A%2F%2Frelay.example.%2F",
+    "pairing": null,
+    "life": {
+      "origin": "http://life.example",
+      "code": "ABC234"
+    },
+    "macLink": {
+      "mac": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+      "relay": "https://relay.example./"
+    }
+  },
+  {
+    "case": "over the Mac link, the server over plain HTTP",
+    "link": "lifelog://pair?url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12&relay=https%3A%2F%2Frelay.example.%2F",
+    "pairing": {
+      "server": "http://life.example/voice",
+      "token": "abc_DEF-123-xyz_789"
+    },
+    "life": null,
+    "macLink": {
+      "mac": "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+      "relay": "https://relay.example./"
+    }
+  },
+  {
+    "case": "the Mac's key with no relay: plain HTTP stays refused",
+    "link": "lifelog://pair?url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12",
+    "pairing": null,
+    "life": null,
+    "macLink": null
+  },
+  {
+    "case": "a relay over plain HTTP: no Mac link",
+    "link": "lifelog://pair?url=http%3A%2F%2Flife.example%2Fvoice&token=abc_DEF-123-xyz_789&mac=ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12&relay=http%3A%2F%2Frelay.example",
+    "pairing": null,
+    "life": null,
+    "macLink": null
+  },
+  {
+    "case": "a key too short: no Mac link, HTTPS still pairs",
+    "link": "lifelog://pair?life=https%3A%2F%2Flife.example&code=ABC234&mac=short&relay=https%3A%2F%2Frelay.example.%2F",
+    "pairing": null,
+    "life": {
+      "origin": "https://life.example",
+      "code": "ABC234"
+    },
+    "macLink": null
   }
 ]

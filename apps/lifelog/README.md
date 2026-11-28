@@ -55,7 +55,7 @@ flowchart LR
     S["lifelog server<br/>SQLite · audio folder"]
     H["Mac helper<br/>your ChatGPT or Claude subscription"]
   end
-  I -- "tailnet or your domain" --> S
+  I -- "Mac link, tailnet or your domain" --> S
   S -- "speech blocks" --> E["ElevenLabs<br/>transcription"]
   S <-- "chapters, titles, summaries" --> H
   S -- "read API" --> R["Readers such as Life"]

@@ -1,4 +1,5 @@
 import LifeConnector
+import MacLink
 import ServerAPI
 import SwiftUI
 
@@ -6,13 +7,13 @@ import SwiftUI
 /// nothing is kept until he says so in `PairSheet`.
 struct PairOffer: Identifiable {
     let id = UUID()
-    private(set) var server: Pairing?
-    private(set) var life: LifePairing?
+    private let link: PairLink
+    var server: Pairing? { link.server }
+    var life: LifePairing? { link.life }
 
     init?(link: URL) {
-        server = Pairing(link: link)
-        life = LifePairing(link: link)
-        if server == nil && life == nil { return nil }
+        guard let link = PairLink(link: link) else { return nil }
+        self.link = link
     }
 
     var connections: [Connection] { [life == nil ? nil : .life, server == nil ? nil : .server].compactMap(\.self) }

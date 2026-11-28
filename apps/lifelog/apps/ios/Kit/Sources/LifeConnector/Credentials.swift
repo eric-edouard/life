@@ -1,4 +1,5 @@
 import Foundation
+import MacLink
 
 /// Where Life is and which app the phone registered as: not secret, kept in the app's defaults.
 public struct LifeEndpoint: Codable, Equatable, Sendable {
@@ -7,12 +8,15 @@ public struct LifeEndpoint: Codable, Equatable, Sendable {
     public let tokenEndpoint: URL
     /// The `resource` Life named (`<origin>/mcp`), sent again when a token is asked.
     public let resource: String
+    /// The Mac link every request of this pairing goes over (nil: directly); absent from pairings made before it.
+    public let macLink: MacLinkAddress?
 
-    public init(origin: URL, clientID: String, tokenEndpoint: URL, resource: String) {
+    public init(origin: URL, clientID: String, tokenEndpoint: URL, resource: String, macLink: MacLinkAddress? = nil) {
         self.origin = origin
         self.clientID = clientID
         self.tokenEndpoint = tokenEndpoint
         self.resource = resource
+        self.macLink = macLink
     }
 }
 

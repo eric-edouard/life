@@ -1,4 +1,5 @@
 import Foundation
+import MacLink
 import ServerAPI
 
 /// The server this phone is paired with and its bearer token: the token in the Keychain (this device only, readable
@@ -6,15 +7,24 @@ import ServerAPI
 /// link (`Pairing`, a QR code on the server's Mac) sets both.
 nonisolated enum DeviceToken {
     private static let serverKey = "pairedServer"
+    /// The Mac link the server is reached over (`mac`, `relay`), beside it; absent: directly.
+    private static let macLinkKey = "pairedServerMacLink"
 
     /// The paired server: one only with a token beside it.
     static var paired: URL? {
         read() == nil ? nil : UserDefaults.standard.url(forKey: serverKey)
     }
 
-    /// Keeps a pairing: the token, then the server. Returns whether the Keychain took the token.
+    static var macLink: MacLinkAddress? {
+        UserDefaults.standard.stringArray(forKey: macLinkKey).flatMap {
+            $0.count == 2 ? MacLinkAddress(mac: $0[0], relay: $0[1]) : nil
+        }
+    }
+
+    /// Keeps a pairing: the token, then the server and its Mac link. Returns whether the Keychain took the token.
     static func pair(_ pairing: Pairing) -> Bool {
         guard save(pairing.token) else { return false }
+        UserDefaults.standard.set(pairing.macLink.map { [$0.mac, $0.relay] }, forKey: macLinkKey)
         UserDefaults.standard.set(pairing.server, forKey: serverKey)
         return true
     }

@@ -106,7 +106,8 @@ PKCE). Its origin also forwards `/voice/…` to the voice server on loopback, as
 on unless set off (`connector: false`); without a tunnel its origin is this Mac's loopback. Exposure is through the Mac
 link (`host/http/mac-link.ts`: an iroh endpoint by the Mac's own key, `LIFE_STATE_DIR/mac-link.key`, made at the first
 pairing, which starts the link; no public discovery; each stream piped to the connector's port, so the same tokens gate
-it as any caller; the pairing QR carries the Mac's id), his tailnet, optionally a tunnel he controls.
+it as any caller; the pairing QR carries the Mac's id; the iPhone app dials it with a new key each launch, kept
+nowhere, and asks to use the local network so the path can go direct), his tailnet, optionally a tunnel he controls.
 
 Life's helper reads voice's `secrets.json` (owner-only; `host/voice.ts` its one writer): to start voice's launchd jobs
 with their keys and to read voice with the phone's device token. His own Life.app's "Pair an app" QR (never a checkout's or a second

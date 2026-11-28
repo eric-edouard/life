@@ -1,4 +1,5 @@
 import Foundation
+import MacLink
 
 /// One HTTP exchange, its failures as `MCPError`. `URLSession` is the only thing a test replaces (a `URLProtocol`).
 struct LifeHTTP: Sendable {
@@ -13,15 +14,17 @@ struct LifeHTTP: Sendable {
         } catch { throw MCPError.of(error) }
     }
 
-    func get(_ url: URL) async throws -> (Data, HTTPURLResponse) {
+    func get(_ url: URL, over macLink: MacLinkAddress?) async throws -> (Data, HTTPURLResponse) {
         var request = URLRequest(url: url)
+        request.macLink = macLink
         request.timeoutInterval = MCPClient.readTimeoutSeconds
         request.setValue("application/json", forHTTPHeaderField: "accept")
         return try await data(for: request)
     }
 
-    static func post(_ url: URL, form: [(String, String)]) -> URLRequest {
+    static func post(_ url: URL, form: [(String, String)], over macLink: MacLinkAddress?) -> URLRequest {
         var request = URLRequest(url: url)
+        request.macLink = macLink
         request.timeoutInterval = MCPClient.readTimeoutSeconds
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "content-type")

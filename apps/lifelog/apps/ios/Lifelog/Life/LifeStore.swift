@@ -2,6 +2,7 @@ import Foundation
 import Incidents
 import Library
 import LifeConnector
+import MacLink
 import Observation
 import SwiftUI
 import UserNotifications
