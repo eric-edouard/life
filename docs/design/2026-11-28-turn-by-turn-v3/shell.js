@@ -1,4 +1,4 @@
-/* Turn by turn v3's shell, forked from v2's (needs v2's edge.js, data.js, chat.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
+/* Turn by turn v3's shell, forked from v2's (needs v2's edge.js, this folder's data.js and chat.js). Shell.mount({title, scenes:[{id,label,run}], onAsk})
    draws the phone and the side panel; Shell.run(id) plays a scene (also on postMessage({scene:id}) and on #scene=id); postMessage({vary:{topic:value}})
    hands the variations to opts.onVary, then plays the current scene again, with no reload.
    A scene is run(ctx), async, with ctx = {phone, stage, field, edge, wait, type, speak, cancelled, lock, notify}. Starting a scene
