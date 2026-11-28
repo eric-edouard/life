@@ -451,7 +451,13 @@ async function wake(
   // woken (a runtime's start can take 30 s); its session takes one turn at a time.
   const woken = db.transaction(() => {
     const found = dueOf(db, a.id, s.id);
-    if (!found || found.at > clock().getTime()) {
+    if (
+      !found ||
+      found.at > clock().getTime() ||
+      // Room read again too: a cap or the month's amount may have changed since the tick's read.
+      (found.a.project !== null &&
+        readProjectsWithoutRoom(db).has(found.a.project))
+    ) {
       return null;
     }
     // His answer since the tick's read goes first: the stop is asked on a wake of its own only.

@@ -57,16 +57,23 @@ function spentOf(db: Desk["db"], id: string, project?: string) {
   return own && pooled ? { ...own, usd: pooled.usd } : own;
 }
 
-/** The `budget` instruction assignment `s`'s work answers to: its matter's, else its agent's project's cap (then counted over the project). */
+/**
+ * The `budget` instruction assignment `s`'s work answers to: its agent's project's cap, counted over the project, the
+ * ceiling of all its work (a matter's own budget included); else its matter's.
+ */
 function budgetOf(db: Desk["db"], s: AssignmentRow) {
-  const text = s.matter_id
-    ? instructionsFor({ matter: s.matter_id }).find(
-        (i) => i.effect === "budget"
-      )?.text
-    : undefined;
-  const project = text ? undefined : agentOf(db, s.agent_id)?.project;
+  const project = agentOf(db, s.agent_id)?.project ?? undefined;
   const cap = project ? projectBudgetOf(project)?.text : undefined;
-  return cap ? { project: project ?? undefined, text: cap } : { text };
+  if (cap) {
+    return { project, text: cap };
+  }
+  return {
+    text: s.matter_id
+      ? instructionsFor({ matter: s.matter_id }).find(
+          (i) => i.effect === "budget"
+        )?.text
+      : undefined,
+  };
 }
 
 /**

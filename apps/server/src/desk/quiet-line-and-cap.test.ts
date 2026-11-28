@@ -127,7 +127,13 @@ test("a capped project's stop counts all its agents' work against its cap; a pro
   // No cap: 2% of 100 is 2, and this assignment alone is at 1.5 + 0.4.
   expect(await spendingStopInTurn(t.desk, second, 0.4)).toBeNull();
   cap("test-bakery", "3 dollars");
-  // A matter it was handed, with no budget of its own, still answers to the project's cap.
+  // A matter it was handed still answers to the project's cap, a budget of its own included.
+  recordInstruction({
+    effect: "budget",
+    said: "up to 50 dollars on the order",
+    scope: "matter:matter_aaaaaaaaaaaa",
+    text: "up to 50 dollars",
+  });
   t.desk.db.run(
     "update assignment set matter_id = 'matter_aaaaaaaaaaaa' where id = ?",
     [on(t.desk, second).id]
