@@ -2,25 +2,9 @@ import Foundation
 import Synchronization
 import Testing
 
-@testable import ServerAPI
+import MacLink
 
-/// The links every app must read alike (`fixtures/wire/pairing-links.json`, shared with the Android app): the server
-/// and token over HTTPS only.
-@Test func aPairingLinkGivesTheServerAndTokenOverHTTPSOnly() throws {
-    struct Case: Decodable {
-        struct Expected: Decodable { let server: String, token: String }
-        let `case`: String
-        let link: String
-        let pairing: Expected?
-    }
-    let cases = try JSONDecoder().decode([Case].self, from: try wireFile("pairing-links"))
-    #expect(cases.count > 5)
-    for c in cases {
-        let pairing = Pairing(link: try #require(URL(string: c.link), "\(c.case)"))
-        #expect(pairing?.server.absoluteString == c.pairing?.server, "\(c.case)")
-        #expect(pairing?.token == c.pairing?.token, "\(c.case)")
-    }
-}
+@testable import ServerAPI
 
 @Test func anUnpairedClientSendsNothing() async throws {
     let client = ServerClient(server: { nil }, token: { "t" })
@@ -53,7 +37,7 @@ private final class Verdict: URLProtocol {
     configuration.protocolClasses = [Verdict.self]
     let session = URLSession(configuration: configuration)
     func candidate(_ host: String, _ token: String) throws -> Pairing {
-        try #require(Pairing(link: URL(string: "lifelog://pair?url=https%3A%2F%2F\(host)&token=\(token)")!))
+        Pairing(server: URL(string: "https://\(host)")!, token: token)
     }
     Verdict.status = ["refuses.example": 401, "accepts.example": 200]
     let kept = Mutex("old-token-0123456789")

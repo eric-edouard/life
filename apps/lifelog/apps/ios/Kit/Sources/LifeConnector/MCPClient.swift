@@ -1,4 +1,5 @@
 import Foundation
+import MacLink
 
 /// One call to Life's connector: a POST of JSON-RPC `tools/call` to `<origin>/mcp`, answered as JSON or as an event
 /// stream (progress, then the result). Nothing outside this file knows JSON-RPC or SSE. No retry inside, except one
@@ -16,22 +17,7 @@ public struct MCPClient: Sendable {
 
     public init(session: LifeSession, urlSession: URLSession? = nil) {
         self.session = session
-        http = LifeHTTP(session: urlSession ?? Self.makeURLSession())
-    }
-
-    #if DEBUG
-        /// The end-to-end tests' fake Life (`Lifelog/E2E`): a `URLProtocol` set before any session is made. Debug only.
-        public nonisolated(unsafe) static var protocolsOfTests: [AnyClass] = []
-    #endif
-
-    /// With no path to the Mac a call fails at once, never waits for one.
-    static func makeURLSession() -> URLSession {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.waitsForConnectivity = false
-        #if DEBUG
-            configuration.protocolClasses = protocolsOfTests + (configuration.protocolClasses ?? [])
-        #endif
-        return URLSession(configuration: configuration)
+        http = LifeHTTP(session: urlSession ?? IrohURLProtocol.makeURLSession())
     }
 
     /// The tool's answer text (JSON, as the tool wrote it). `onProgress` gets each progress message of the stream. `answerKey`

@@ -1,5 +1,6 @@
 import Foundation
 import Library
+import MacLink
 import Timeline
 
 /// Typed client for the lifelog server (`apps/server/openapi.json`), one file per domain as in `apps/server/src/routes`.
@@ -26,7 +27,7 @@ public struct ServerClient: Sendable {
     let session: URLSession
 
     public init(
-        server: @escaping @Sendable () -> URL?, session: URLSession = .shared,
+        server: @escaping @Sendable () -> URL?, session: URLSession = IrohURLProtocol.makeURLSession(),
         token: @escaping @Sendable () -> String?
     ) {
         self.server = server

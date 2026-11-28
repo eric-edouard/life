@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import MacLink
 
 /// Life's own sign-in (`oauth.ts`) from the phone: discovery, registration, PKCE, and the approval by the pairing code.
 /// No browser and no web view: the code in the link is the approval. Redirects are never followed, the address
@@ -14,7 +15,7 @@ public struct LifeOAuth: Sendable {
     public init(
         session: URLSession? = nil, now: @escaping @Sendable () -> Date = { Date() }
     ) {
-        http = LifeHTTP(session: session ?? MCPClient.makeURLSession())
+        http = LifeHTTP(session: session ?? IrohURLProtocol.makeURLSession())
         self.now = now
     }
 
