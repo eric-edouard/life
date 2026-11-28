@@ -184,7 +184,7 @@ line links there.
 ### Drafts
 
 - A draft is branded per app: the app's own logo, the chat's name and size ("Halden house · 5"), "Open WhatsApp ↗" in
-  the app's colour; no app name (owner, 23 Nov 2026).
+  the app's colour (owner, 23 Nov 2026).
 - A quoted message looks like its app everywhere: its mark, its colour, its link (owner, 26 Nov 2026).
 - At most the last 5 cited messages plus the one replied to; older ones are "Earlier in WhatsApp"; unrelated ones in
   between are one quiet count, not tappable (owner, 23 Nov 2026).
@@ -194,9 +194,9 @@ line links there.
   it looks like its app (that app's look, adapted to Life's), and draws every capability of the app's capability grid
   (reply, mention, reaction, file) (owner, 28 Nov 2026).
 - A draft card's head: the person's or group's picture (initials when none) and name, the app's name, and an arrow that
-  opens that chat (owner, 28 Nov 2026; replaces "no app name").
+  opens that chat (owner, 28 Nov 2026; replaces 23 Nov's "no app name").
 - His messages take the app's colour mixed into black; the draft takes the app's own sent-bubble colour (WhatsApp's
-  green), with a 1.5 px dashed outline that fades once sent (owner, 28 Nov 2026) ([brand, no borders][brand-values]) (owner, 21 and 23 Nov 2026).
+  green), with a 1.5 px dashed outline that fades once sent ([brand, no borders][brand-values]) (owner, 21, 23 and 28 Nov 2026).
 - Quick edits (shorter, warmer, other words) change a draft before it goes and need no Undo (owner, 23 Nov 2026).
 - A held ask (another open ask into the same chat) waits behind the open one and is asked when it settles
   (owner, 26 Nov 2026).
