@@ -3,7 +3,7 @@ import { isoDateTime } from "../records/fields";
 import { mentionsAt } from "../sources/matrix-content";
 import { Party } from "./party";
 
-// A card's draft (AGENTS.md, "Life sends only…"): what an agent gives (`MessageDraft`), what Life stores beside it when
+// A card's draft (.claude/rules/acts-and-sends.md, "Life sends only…"): what an agent gives (`MessageDraft`), what Life stores beside it when
 // the card is asked (`StoredDraft`), and the rules both go by. Resolving and sending it is `draft-send.ts`.
 
 const ONE_LINE = /^[^\n]*$/;

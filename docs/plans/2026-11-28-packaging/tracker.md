@@ -22,6 +22,7 @@ Progress: ⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0%
 
 ## Log
 
+- 28 Nov: H's failures: a card when the user can fix it, else a paused line that resumes after an update; never a matter.
 - 28 Nov: history imports added as bundle H (#1583): code only, no agent; parsers mended upstream.
 - 28 Nov: Windows setup ruled a local page in the browser.
 - 28 Nov: issues #1572–#1582 filed; push through the relay and attested releases approved.
