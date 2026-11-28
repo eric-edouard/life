@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { buildNumber } from "@life/server/src/core/clock";
 import { $ } from "bun";
 
 // The iPhone app on TestFlight: archived, uploaded and added to the app's internal group with `asc`, one command:
@@ -32,8 +33,8 @@ if (!group) {
   throw new Error(`${app.attributes.name} has no internal TestFlight group`);
 }
 
-// The build number is the UTC build time, as install-phone.ts makes it: it only grows.
-const build = (await $`date -u +%Y%m%d.%H%M`.text()).trim();
+// The build number is the UTC build time (`buildNumber`, as install-phone.ts makes it): it only grows.
+const build = buildNumber();
 await $`bun run ios:project`.cwd(ROOT);
 await $`asc publish testflight ${[
   ...["--app", app.id, "--group", group.id, "--wait"],

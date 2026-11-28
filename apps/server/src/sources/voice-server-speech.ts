@@ -2,13 +2,19 @@ import {
   CONVERSATION_ENDS_AFTER,
   RECORDING_ENDS_ON_SILENCE_AFTER,
 } from "../core/quiet";
-import { LIVE, OVERLAPS, overlapArgs, type Store, turnRef } from "./lifelog";
+import {
+  LIVE,
+  OVERLAPS,
+  overlapArgs,
+  type Store,
+  turnRef,
+} from "./voice-server";
 
-// Whether the words of a stretch of speech are in, by lifelog's own signals and spans (the contract's `endedOnSilence`
+// Whether the words of a stretch of speech are in, by the voice server's own signals and spans (the contract's `endedOnSilence`
 // and `closed`, the states and pages of its recordings), never a timing rule of Life's: the hearing (`host/hear.ts`)
 // and the desk's calls (`host/events.ts`, `desk/desk-clock.ts`) both ask here.
 
-/** Whether lifelog says nobody spoke for `RECORDING_ENDS_ON_SILENCE_AFTER` after a recording (the contract's `endedOnSilence`). */
+/** Whether the voice server says nobody spoke for `RECORDING_ENDS_ON_SILENCE_AFTER` after a recording (the contract's `endedOnSilence`). */
 export const endedOnSilence = (store: Store, jobId: string) =>
   store.db
     .query<{ ended_on_silence: number | null }, [string]>(
@@ -16,7 +22,7 @@ export const endedOnSilence = (store: Store, jobId: string) =>
     )
     .get(jobId)?.ended_on_silence === 1;
 
-/** Whether lifelog has settled a conversation (the contract's `closed`). */
+/** Whether the voice server has settled a conversation (the contract's `closed`). */
 export const isConversationClosed = (store: Store, conversation: string) =>
   store.db
     .query<{ closed: number | null }, [string]>(
@@ -25,7 +31,7 @@ export const isConversationClosed = (store: Store, conversation: string) =>
     .get(conversation)?.closed === 1;
 
 /**
- * Whether speech after turn `turn` is complete by lifelog's own signals: its recording ended on silence, or its
+ * Whether speech after turn `turn` is complete by the voice server's own signals: its recording ended on silence, or its
  * conversation is settled. Else the next recording may go on with it.
  */
 export const isSettledAfter = (
@@ -50,16 +56,16 @@ interface InsideRow {
 /**
  * The recordings of speech from `from` to `to` (ISO instants, `to` exclusive) once their words are in, else null: one
  * entry per conversation holding turns that overlap the span (`OVERLAPS`, as `fetch` cut to it reads them), `turn` the
- * ref of its first (`fetch` opens it as it is now, so it survives lifelog regrouping the conversation) and `turns` how
+ * ref of its first (`fetch` opens it as it is now, so it survives the voice server regrouping the conversation) and `turns` how
  * many. Null too when no turn overlaps.
  *
- * The words are in when, by lifelog's own signals (no timer of Life's): a turn of the same phone source starts at or
+ * The words are in when, by the voice server's own signals (no timer of Life's): a turn of the same phone source starts at or
  * after `to`; or the last turn inside belongs to a recording that ended on silence and ended within
  * `RECORDING_ENDS_ON_SILENCE_AFTER` of `to`; or its conversation is closed and its end plus
  * `CONVERSATION_ENDS_AFTER` reaches `to`. In every case no recording of that source may be still to come between the
  * call's and the one the words are read through (`isPendingBefore`).
  * ponytail: only the last turn's phone source is judged when two record one call (rare). A `failed` recording is
- * terminal in lifelog, so its hole never fills: the words are then in with what there is. A hole between the source's
+ * terminal in the voice server, so its hole never fills: the words are then in with what there is. A hole between the source's
  * last turn before the call and the call's end that never fills (a recording stuck queued, a withdrawn page never sent
  * again) holds that call back until its 12 hours of looking end (`CALLS_BACK`), never a later call.
  */
@@ -118,7 +124,7 @@ export function recordingsOf(store: Store, from: string, to: string) {
 /**
  * Whether a recording of phone source `source` with pages before `page` is still to come, only after the recording of
  * the source's last turn before `from` (any, with no turn before): queued or submitted, or withdrawn and held by no
- * other recording yet (lifelog sends its pages again, often joined into a recording that starts at another page). A row stored before `last_page` holds only its first page.
+ * other recording yet (the voice server sends its pages again, often joined into a recording that starts at another page). A row stored before `last_page` holds only its first page.
  * Nothing is known of a recording with no pages (`page` null).
  */
 function isPendingBefore(

@@ -30,7 +30,7 @@ import {
 import { clip } from "../memory/units";
 import { dayNow, dayStart } from "../memory/zones";
 import { AppointmentEvent } from "../records/appointment";
-import { notifyPhone, pushIdOf } from "../sources/lifelog-push";
+import { notifyPhone, pushIdOf } from "../sources/voice-server-push";
 import { type GoogleCalendar, googleCalendar } from "./google-calendar";
 
 // The appointments in his calendar (his request, 8 Nov 2026): `memory/appointments.json` and the appointments agreed

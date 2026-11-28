@@ -9,8 +9,8 @@ Everything is plain text: JSON Lines (one JSON object per line), UTF-8. Times ar
 when they are read again. Every record has `schemaVersion`; a record a model judged says
 which model and which prompt version (`prompts/<name>.md` in the code repo) did it.
 
-The raw material stays in its own app (lifelog, Messages, Mail). These files hold ids, refs, hashes,
-metadata, lifelog's own chapter summaries (on the chapter units stored before conversation-days), short model verdicts and, in observations, short verbatim quotes; never
+The raw material stays in its own app (the voice server, Messages, Mail). These files hold ids, refs, hashes,
+metadata, the voice server's own chapter summaries (on the chapter units stored before conversation-days), short model verdicts and, in observations, short verbatim quotes; never
 whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 
 ## Words used below
@@ -42,8 +42,8 @@ whole transcripts or message bodies (but an ask's words, `ledger.jsonl`).
 ## units/YYYY-MM-DD.jsonl (layer L1)
 
 One line per unit that started that day. A unit is one conversation-day (the turns of one recorded conversation on one
-local day; or one of lifelog's chapters, stored before conversation-days, kept as stored and never built again while
-its conversation is live, removed with it when lifelog retires or drops it: its conversation gets no conversation-days), one chat-day (every message of one chat on one
+local day; or one of the voice server's chapters, stored before conversation-days, kept as stored and never built again while
+its conversation is live, removed with it when the voice server retires or drops it: its conversation gets no conversation-days), one chat-day (every message of one chat on one
 day), one mail thread-day, one note-day (what the owner changed in one Apple Note on one day), one repo-day (the owner's commits in one repo on one day), one device-day or one measurement-day. Deterministic code output only (no model's judgement): rebuilt by `bun life memory
 episodes` for the days it covers; the conversation-days are also kept current by `bun life watch` (every change to a
 conversation's turns) and checked by the nightly.
@@ -51,18 +51,18 @@ conversation's turns) and checked by the nightly.
 | Field | Meaning |
 |---|---|
 | `schemaVersion` | `1` |
-| `id` | `unit_` + 12 hex. Stable: the same conversation-day (`lifelog` + conversation + day), chat-day (source + chat + day) or thread-day always gets the same id. A chapter unit keeps the id it was stored with (from lifelog's chapter id). |
+| `id` | `unit_` + 12 hex. Stable: the same conversation-day (`lifelog` + conversation + day: the voice source's old name, kept so no id changes), chat-day (source + chat + day) or thread-day always gets the same id. A chapter unit keeps the id it was stored with (from the voice server's chapter id). |
 | `hash` | 16 hex of SHA-256 over the unit's content (a conversation-day: its turn refs and marks, as Life holds no words; a chapter: as stored; chats and mail: each message's text and whether the owner sent it). Changes when the content does. |
-| `source` | `lifelog`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `line`, `instagram`, `messenger`, `linkedin` and `telegram` (from Life's own archive of each network's bridge, `line.sqlite` and so on, which keeps messages deleted for everyone; refs `<network>:<room>/<event number>`), `imessage` (Messages' chat.db), `phone` (Phone & FaceTime, the latest call versions from `archive/phone.sqlite`, table `calls`), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `github` (Life's archive of the issues and comments of the repos in `githubRepos`, `github.sqlite`; refs `github:<owner/name>#<issue>/<comment id, 0 for the issue>`), `git` (local `git log` of every repo under the `reposFolder` setting's folder; commits are never extracted: code caps their importance at 1), `screen` (Screen Time, from Life's own archive, `screen.sqlite`, which keeps what Biome prunes; one device-day per device, key the device's Biome id, refs `screen:<device>/<app or web: domain>/<start>`; never extracted, importance at most 1), `apple-health` (Apple Health through lifelog, derived `watch/apple-health.sqlite`; one measurement-day per local day, key `apple-health`; activity, never extracted, importance at most 1), `photos` (the Photos library, read in place; one photo-day per local day, key `photos`, refs the first and last photo `photos:<uuid>`; activity, never extracted, importance at most 1; the people Apple's People names in its photos, `unknown:<handle or name>`), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, each export kept whole as an export copy in `imports/<source>/` beside `memory/` (`conversations.json`, a newer export `conversations.<12 hex of its bytes>.json`, never replaced or merged), a conversation read at its latest version; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its importance to 2, so it is always read) |
-| `key` | The lifelog conversation id (a live one: units of a retired conversation are removed, its successor brings its own), the chat id (a Matrix room id of a bridged network, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the phone source’s remote handle or `group:<JSON participant array>` (missing handles: `unknown:<call id>`), the mail thread id, a GitHub issue (`owner/name#12`), the note id, or the repo (its main folder name under the `reposFolder` setting's folder: worktrees fold into it) |
+| `source` | `voice`, `whatsapp` (Life's own WhatsApp archive, which keeps messages deleted for everyone), `line`, `instagram`, `messenger`, `linkedin` and `telegram` (from Life's own archive of each network's bridge, `line.sqlite` and so on, which keeps messages deleted for everyone; refs `<network>:<room>/<event number>`), `imessage` (Messages' chat.db), `phone` (Phone & FaceTime, the latest call versions from `archive/phone.sqlite`, table `calls`), `mail` (Apple Mail), `notes` (Apple Notes, from Life's own archive, `notes.sqlite`, which keeps every version), `github` (Life's archive of the issues and comments of the repos in `githubRepos`, `github.sqlite`; refs `github:<owner/name>#<issue>/<comment id, 0 for the issue>`), `git` (local `git log` of every repo under the `reposFolder` setting's folder; commits are never extracted: code caps their importance at 1), `screen` (Screen Time, from Life's own archive, `screen.sqlite`, which keeps what Biome prunes; one device-day per device, key the device's Biome id, refs `screen:<device>/<app or web: domain>/<start>`; never extracted, importance at most 1), `apple-health` (Apple Health through the voice server, derived `watch/apple-health.sqlite`; one measurement-day per local day, key `apple-health`; activity, never extracted, importance at most 1), `photos` (the Photos library, read in place; one photo-day per local day, key `photos`, refs the first and last photo `photos:<uuid>`; activity, never extracted, importance at most 1; the people Apple's People names in its photos, `unknown:<handle or name>`), `claude` and `chatgpt` (the owner's own messages in their claude.ai and ChatGPT exports, each export kept whole as an export copy in `imports/<source>/` beside `memory/` (`conversations.json`, a newer export `conversations.<12 hex of its bytes>.json`, never replaced or merged), a conversation read at its latest version; a conversation `imported.jsonl` does not keep is dropped as `not-kept`; key `<source>:<conversation>`, refs `<source>:<conversation>/<message>`), `AGENT_WORD`, stored as written (`core/names.ts`) (a task the agent closed done: its outcome with the owner's ask's words, the agent's report, never the owner's; code raises its importance to 2, so it is always read) |
+| `key` | The voice server's conversation id (a live one: units of a retired conversation are removed, its successor brings its own), the chat id (a Matrix room id of a bridged network, or a WhatsApp id such as `<phone>@s.whatsapp.net`, `<id>@g.us`, `<id>@lid`), the phone source’s remote handle or `group:<JSON participant array>` (missing handles: `unknown:<call id>`), the mail thread id, a GitHub issue (`owner/name#12`), the note id, or the repo (its main folder name under the `reposFolder` setting's folder: worktrees fold into it) |
 | `date`, `start`, `end` | Local day; first and last instant |
 | `title` | The conversation label (a chapter: its chapter title), chat name, mail subject, or note title (`(shared)` after a shared note's) |
-| `summary` | A chapter's: lifelog's own summary (written by its model, not by Life), which marks the unit as a chapter; a repo-day's: below. Never on a conversation-day |
+| `summary` | A chapter's: the voice server's own summary (written by its model, not by Life), which marks the unit as a chapter; a repo-day's: below. Never on a conversation-day |
 | `marked` | His words to Life, to keep, in it: the refs of the lines he gave Life to keep (a "hey Life" span or an ask's, a message to himself, a told line); it moves the hash, so the unit is read again, at importance 2 at least, and its text then ends with `MARKED` |
-| `people` | Kept unresolved, as each source names them: `unknown:<name>` for each name lifelog gives someone who speaks in it (a name given to one turn names that turn only), `person:me` when the owner speaks (not on a chapter), `unknown:<sender>` for each sender of a chat or a mail, `person:me` for the owner. Readers map them as of their day (`unitNow`, `memory/who.ts`); older units may still hold `person:<id>`, which maps the same |
+| `people` | Kept unresolved, as each source names them: `unknown:<name>` for each name the voice server gives someone who speaks in it (a name given to one turn names that turn only), `person:me` when the owner speaks (not on a chapter), `unknown:<sender>` for each sender of a chat or a mail, `person:me` for the owner. Readers map them as of their day (`unitNow`, `memory/who.ts`); older units may still hold `person:<id>`, which maps the same |
 | `refs` | Where to find the raw material. A conversation-day: its first and last turn, `<jobId>:<turnIndex>@<turn start>`; its turns are the conversation's in [`start`, `end`). A chapter: `<conversation id>#<chapter id>` and its first turn. Chats: first and last message id (`whatsapp:<chat>/<message>`, `line:<room>/<message>`, `imessage:<guid>`, `phone:<chat>/<ZUNIQUE_ID>`), notes the first and last version (`notes:<note>/<version>`, the archive's rowid). Mail: every message id (`mail:<Message-ID header>`). |
 | `stats` | `items` (messages, turns, or commits), `fromMe` (messages the owner sent, his turns, or his commits), `chars` (0 on a conversation-day: Life holds no words). Git only: `added` and `removed` (lines, without lockfiles, binaries and single-file changes over 3,000 lines) and `others` (author name -> commits; in a repo of one of the owner's projects every author's commits count, elsewhere only the owner's). A git unit's `summary` is the day's commit subjects, which makes them searchable; its refs are the first and last `git:<repo>/<sha>` |
-| `drop` | Absent unless a code rule dropped the unit as obvious noise; then the rule's name (`no-summary` on an older lifelog unit, a conversation lifelog had not summarized: such a unit is replaced by conversation-days), `not-kept` (an imported assistant conversation the import step did not keep as about the owner's life, `imported.jsonl`), `life-output` (Life's own output: its chat, the `lifeChat` setting, and its nightly report and alerts, `Life · ` mail from the `mail` setting's sender), `duplicate` (same content as an earlier unit), `too-short`, `one-time-code` (a short message with a login code, or a mail whose subject says it is one), `newsletter` (Mail saw a list id or unsubscribe link and the owner never wrote in the thread that day), `automated` (mail in a thread the owner never wrote in that day where every message is automated, `isAutomatedOf`: a no-reply sender, a bulk header or a login code, and none a transaction; `search` still finds it; the owner's agents' reports, from the `agentReportSenders` setting, are left to the model; older units hold it from before 4 Nov 2026, the same kind of mail), `not-a-person` (older units only, 4 to 21 Nov 2026: mail from no one he knew in a thread he never wrote in; a stranger's mail is now read). A dropped unit is never judged or extracted. |
+| `drop` | Absent unless a code rule dropped the unit as obvious noise; then the rule's name (`no-summary` on an older voice unit, a conversation the voice server had not summarized: such a unit is replaced by conversation-days), `not-kept` (an imported assistant conversation the import step did not keep as about the owner's life, `imported.jsonl`), `life-output` (Life's own output: its chat, the `lifeChat` setting, and its nightly report and alerts, `Life · ` mail from the `mail` setting's sender), `duplicate` (same content as an earlier unit), `too-short`, `one-time-code` (a short message with a login code, or a mail whose subject says it is one), `newsletter` (Mail saw a list id or unsubscribe link and the owner never wrote in the thread that day), `automated` (mail in a thread the owner never wrote in that day where every message is automated, `isAutomatedOf`: a no-reply sender, a bulk header or a login code, and none a transaction; `search` still finds it; the owner's agents' reports, from the `agentReportSenders` setting, are left to the model; older units hold it from before 4 Nov 2026, the same kind of mail), `not-a-person` (older units only, 4 to 21 Nov 2026: mail from no one he knew in a thread he never wrote in; a stranger's mail is now read). A dropped unit is never judged or extracted. |
 
 Apple Health's source events are nights and workouts, each with `at` and `until`. Overlapping sleep segments count
 once; a night belongs to the local day it began. `activityDay` builds the measurement-day's timed lines, without totals.
@@ -85,7 +85,7 @@ when, area, importance, topics, reason, kind?, madeBy: {engine, model, prompt, r
 the `hash` of the content judged; `type`, `when`, `area` and `importance` as defined above; `reason`: one line from the
 model saying why; `topics` (from `memory-triage.v3`, the same in v3.1; absent, read as none, before): one to three lowercase English
 tags for what the unit is about, such as `philosophy`, `ai`, `construction` (code lower-cases, dashes and singularizes
-them; the model is shown the 40 most used so far and asked to reuse them); `kind` (lifelog only): conversation,
+them; the model is shown the 40 most used so far and asked to reuse them); `kind` (voice only): conversation,
 small-talk, media, dictation, customer. Code caps a commit's importance at 1 (commits are never extracted). A unit's current
 verdict is the latest line for its `id` and current `hash`: judged again when the content changes. It is reused while
 the prompt version (`madeBy.prompt`: `memory-triage.v3` to v3.2 until 18 Oct, the owner's own views at 2 from v3.2; `memory-episodes.v2` on 18 Oct, `memory-episodes.v3` from 18 Oct, which also says who the day's unknown people are, `memory-episodes.v4` from 20 Oct, which weighs what goes on between the owner and the people close to them, `memory-episodes.v5` from 2 Nov, which times an episode by when it happened, not by everything about it, `memory-episodes.v6` from Nov 2026, which reads the phone's stays, makes only what happened an episode and judges only the new units, `memory-episodes.v7` from 5 Nov 2026, which links an unknown handle or name to the person in the directory it is, `memory-episodes.v8` from 15 Nov 2026, which keeps a plan he takes part in at 2 or more, `memory-episodes.v9` from 20 Nov 2026, which links a name or handle to anyone on its map, flags organizations and keeps a name the lines explain, `memory-episodes.v10` since 21 Nov 2026, which keeps an open direct ask between the owner and someone the owner knows at 2 or more) is unchanged; a day is read again when one of its units has no current verdict by that prompt, or a `reread` names one of its units after its verdict, and then only those units go in full. The chat's own project decides an `areaHint`
@@ -100,7 +100,7 @@ was met (`imessage:<attachment guid>`, `whatsapp:<chat>/<message>`, `line:<mxc u
 `hash`: 16 hex of SHA-256 over its bytes. `description`: the model's one sentence on what it is and shows (`madeBy` as for
 verdicts, prompt `message-file-description.v1`); `text`: the words on it, on one line, at most 1,000 characters (a photo's from the model,
 without document or card numbers; a document's or a PDF's text layer read by code, with no `madeBy`; a voice note's words,
-heard by lifelog's speech pipeline, at most 10,000 characters, with no `madeBy`; a line with no `text` for audio it
+heard by the voice server's speech pipeline, at most 10,000 characters, with no `madeBy`; a line with no `text` for audio it
 could not hear). The latest line
 for a ref is how its message shows the file (`[photo IMG_2910.HEIC, described by Life: … | text: …]`), also once the
 file is gone from the Mac. A file met under a new ref with a known hash (a forward) gets a copy of that line, with no
@@ -155,15 +155,15 @@ people `close: true` (`refContext`, `personallyClose`: a personal level inner, r
 | `type`, `when`, `area`, `importance` | As defined above (`nothing` is never an observation). |
 | `text` | The observation, one English sentence, self-contained (names, absolute dates). |
 | `quote` | The source's own words for it, verbatim (original language, original spelling). Code checked it is in the source text the model read, comparing without case, accents, quote style or spacing, and stores the source's exact substring. That text has secrets (passwords, card numbers, IBANs, codes) replaced by `[… removed]` first. |
-| `source` | `{channel, ref}`: channel `lifelog`, `whatsapp`, `line`, `instagram`, `messenger`, `linkedin`, `telegram`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: lifelog `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `line:<room>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
-| `speaker` | Who said or wrote the cited line: `person:<slug>`, or `unknown:<label>` (a phone, an address, lifelog's `speaker_1`, or a name lifelog knows and the directory doesn't). |
+| `source` | `{channel, ref}`: channel `voice`, `whatsapp`, `line`, `instagram`, `messenger`, `linkedin`, `telegram`, `imessage`, `mail` or `notes` (ref `notes:<note>/<version>`); ref is the exact place: voice `<jobId>:<turnIndex>@<capturedAt>` (one transcript turn), chats and mail the message id (`whatsapp:<chat>/<message>`, `line:<room>/<message>`, `imessage:<guid>`, `mail:<Message-ID>`). An observation is new (the nightly email) when no earlier one cites its ref (`newSince`). |
+| `speaker` | Who said or wrote the cited line: `person:<slug>`, or `unknown:<label>` (a phone, an address, the voice server's `speaker_1`, or a name the voice server knows and the directory doesn't). |
 | `speakerName` | Optional, from 11 Oct: a readable name for an `unknown:` chat sender, the title of the 1:1 chat they wrote in. |
-| `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, lifelog's id for a voice). Readers resolve the author again from it (`aboutNow`; for a fact from before it, a 1:1 chat's handle). An author who is someone else now is that person in every fact of the unit (speaker, subjects), never the owner, nor someone who still writes in that unit as themself, and their old name is swapped in the sentences (worked out at every read, never stored). A voice keeps lifelog's id; an unknown voice whose id the directory lacks resolves by lifelog's name for it, while a known one keeps its filing: a later identity fix of an author needs no new reading. A non-author misfiled in a group chat still needs `reread`. |
+| `speakerFrom` | Optional, from 21 Oct: the handle or name the author came from (a chat sender, the voice server's id for a voice). Readers resolve the author again from it (`aboutNow`; for a fact from before it, a 1:1 chat's handle). An author who is someone else now is that person in every fact of the unit (speaker, subjects), never the owner, nor someone who still writes in that unit as themself, and their old name is swapped in the sentences (worked out at every read, never stored). A voice keeps the voice server's id; an unknown voice whose id the directory lacks resolves by the voice server's name for it, while a known one keeps its filing: a later identity fix of an author needs no new reading. A non-author misfiled in a group chat still needs `reread`. |
 | `at`, `date`, `tz` | When the cited line was said or written (ISO with zone), its local day, and the IANA time zone that day is in (`zones.jsonl` at `at`; before 18 Oct, the Mac's when the record was made). |
 | `about` | From `memory-extract.v3`: the one person or project the observation is about (`person:me` for the owner), also in `subjects`. |
 | `modality` | From `memory-extract.v3`: `fact`, `plan` (settled for later), `reported` (someone says it of a third person) or `conditional` (a hypothesis, a joke, a quote, an AI's text read aloud). |
 | `subjects` | Refs the observation names or involves (people, projects). Every ref was in the list the model was given, or was resolved by code (handles, names, aliases); names it could not resolve are in `unresolved.jsonl` (an unknown chat sender is only the `speaker`, not listed there). |
-| `confidence` | 0-1, the model's; code caps it at 0.6 for a recorded (lifelog) observation about someone other than the owner. |
+| `confidence` | 0-1, the model's; code caps it at 0.6 for a recorded (voice) observation about someone other than the owner. |
 | `validFrom`, `validTo` | Days the observation holds, or null. |
 | `madeBy` | `{engine, model, prompt, run, unitHash}`: the extractor (`claude` or `codex`, and its model), its prompt version and the unit content it read. Records written before 14 Oct have no `engine`: it reads as `claude`. |
 
@@ -186,8 +186,8 @@ regrouped, Life's own mail).
 ## unresolved.jsonl
 
 Names Life could not map to `truth/`: `{schemaVersion: 1, nameAsWritten, unit, observation?, date, via, at}`. `via` is
-`model` (the extractor named someone not in the directory) or `speaker` (lifelog named a voice the directory doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
-could not place is no longer asked about (the episodes call asks about the day's unknown chat senders and lifelog voices).
+`model` (the extractor named someone not in the directory) or `speaker` (the voice server named a voice the directory doesn't know). Nothing here waits on the owner; since 18 Oct a name the extractor
+could not place is no longer asked about (the episodes call asks about the day's unknown chat senders and the voice server's voices).
 
 ## people-contacts.jsonl
 
@@ -250,7 +250,7 @@ How close each person is to the owner, written by the nightly's `closeness` step
 `{schemaVersion: 1, person, personal, work, service, why, counts, madeBy, at}`. `personal` and `work` are each `inner`,
 `regular`, `acquaintance` or `faded` (was close, not any more); `service` a business or a bot; `why` one line. Code
 counts, for everyone over the last 3 years, the days a 1:1 chat went both ways, the days a mail thread did (apart:
-mostly work; never a group nor a mailing list) and the days they spoke in the owner's recordings (lifelog's speakers, live
+mostly work; never a group nor a mailing list) and the days they spoke in the owner's recordings (the voice server's speakers, live
 conversations), weighted by how recent (`recent` halves every 30 days, `lasting` every 365); the model judges those
 counts with who they are on the owner's directory (everyone on it, and anyone with a page, is judged, counts or not; close family is close whatever the
 counts, the prompt's rule). `counts` is what it judged, rounded, so a person is asked about again only when their counts
@@ -291,7 +291,7 @@ outside the lock, schemaVersion 3, by `kind`:
   `merges` (the waiting card this one, the holder's, asks for both: that card is withdrawn for it, worked out when read),
   `plan` and `gathered` (on any card, optional: the steps after his yes, each `{text, by, when?, channel?}`, and `{text}`, the line its source chip shows; plan cards before 25 Nov 2026 have options `start` and `decline`). `ask`, `recommended`, `follow` (every agent's card since 25 Nov 2026: its imperative line, the recommended option's id, up to three next asks in his voice), `edits` (a draft's quick changes), `changed` (what changed on a subject asked again unanswered), `instructions` (the ids of his instructions in force when asked); cards before them have none, which is true of them. A `draft` needs
   exactly one outgoing option. A payment card adds `needs` (typed facts he needs in hand, `memory/needs.ts`; one is an
-  `amount`), `doneSeenBy` (`payment` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
+  `amount`; an access card's one is `access`, `{steps: [{text, check, freeGb?}]}`), `doneSeenBy` (`payment`, `access` or `tap`: who sees the step done), `looks` on an option (his pick of it alone makes
   Life look for the step done) and `takes: "note"` on an option (it needs his words). An `ends` option needs a subject on an open matter: for `step`, one of its open steps.
 - `answered` (`answerDecision`): `id`, `at`, `options` (ids; none when he answered in words), `note`, `via`
   (`connector`, his app; `session`, a session's `bun life` command, which never sends), `answerKey` (optional: his app's
@@ -317,7 +317,7 @@ outside the lock, schemaVersion 3, by `kind`:
 - `answer-withdrawn` (`withdrawAnswer`, his Undo through `answer_check`): `id`, `at`, `unsent` (the sent message Life
   deleted for everyone first). It voids his answer as `not sent:` does: the card is open again.
 - `rated` (`rateDecision`): `id`, `at`, `mark` (`bad`, `okay`, `good`), his "How am I doing?"; the latest stands.
-- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, or `not_found`, with `error`
+- `done-seen` (`recordDoneSeen`): `id`, `at`, `state` (`seen` with the payment's `eventId`, none on an access card, or `not_found`, with `error`
   when the look failed), Life's outcome of looking for the card's step done, never his answer. A `not_found` voids the
   answer it follows: the card is open again. A `seen` settles the card even with no answer of his. A look with no outcome
   30 seconds past his answer (and a minute's grace) never finished: worked out when read as a `not_found`, and written
@@ -367,7 +367,7 @@ append-only: `directions` (each `goal`, one line: where the matter is going; `ne
 ids when drafted: the pin, so a re-group keeps it; `matter`, from 21 Nov 2026 optional, its id when drafted, which only breaks
 a tie between matters holding as many of its steps), `at`, `madeBy`, `schemaVersion`. A running matter is
 drafted when it has none, or once it has a step, or a step's ending, newer than its latest pin, or, when that is Life's, once when it has no `laterShown`, or in its first 7 days (`NEW_MATTER_DAYS`) when one of its newest 12 later records is not in `laterShown`
-(`isDirectionDue`), whatever the prompt version. Read with his `matter-direction` corrections into each matter's
+(`isDirectionDue`), and once when its latest pin is a Life draft of an older prompt (`DIRECTIONS_PROMPT`, `memory/matter-direction-due.ts`); a dormant matter holding an open step he owes is drafted like a running one. Read with his `matter-direction` corrections into each matter's
 `goal` and `nextStep` (`directionsOf`, `memory/matter-read.ts`): a pin belongs to the matter holding the most of its
 steps (`matterFinderOf`); his goal wins over every draft, his next step until the next draft. `wait_decision` (his decision open on one of
 its steps) is worked out when read (`nextStepNow`), never stored.
@@ -380,6 +380,18 @@ directions, and the watcher for open matters with none), one line per matter tex
 key of `MATTER_ICONS`, or null when none fits), `at`, `madeBy`, `schemaVersion`. The newest line for an `inputs` wins
 (`readLifeIcons`); a new name or goal, line or prompt version is a new `inputs`, asked once, the older lines kept,
 unread. His `matter-icon` correction wins over it (`iconNow`).
+
+## step-readings.jsonl
+
+The model's readings of each open step he owes (`memory/step-readings.ts`, its only writer, `stepReadings`: the night
+after the icons), one line per step version, append-only: `inputs` (the 16-hex `stepInputsOf`: the step's matter, words,
+kind, person, whom he owes, due day and the prompt version), `guidance` (the 16-hex digest of his `what-to-ask` instructions
+in force on it when read), `step` (its ref), `handledBy` (`owner`, `owner_elsewhere` or `someone_else`), `urgency`
+(`low`, `normal`, `high`), `money` (`none`, `some`, `due_on_receipt`), `by` (the id of the instruction
+shown that says not to ask it, else null), `reason` (one line, in his memory language), `at`, `madeBy`, `schemaVersion`. The
+newest line for an `inputs` wins; a step is read again when its version or his words on it change. Whether it is
+hidden or blocks, and whether its `by` is still in force, are worked out when read (`askOfStep`), never stored; a line
+read under other words than his now reads `owner` (`readStepReadings`).
 
 ## read-replies/<YYYY-MM>.jsonl
 
@@ -485,7 +497,7 @@ To-dos stay observations (their `type`): Reminders are written only by actions o
 (`dueOf`, then `openItems` in `apps/server/src/memory/open-items.ts`; the owner's choice of 20 Oct: what the owner said, not what a mail asks of the owner), with
 the owner's to-do items, waiting items and the replies the owner owes; an undated one shows the day after it was said and 3 days
 after, then is stale, never due. It is the one place code checks `speaker`, against the rule above,
-because it only narrows a list the owner reads: the owner's to-do in a voice lifelog left unnamed is missed. Rules code enforces:
+because it only narrows a list the owner reads: the owner's to-do in a voice that the voice server left unnamed is missed. Rules code enforces:
 
 - **One fact, one page.** Each observation has a home, computed on every run and never stored (`homePageOf`): the person's
   page when it is about exactly one other person who has a page, else the area of its project (`Project.area`), else
@@ -601,7 +613,7 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
 
 - `id`: `entry_` + 12 hex of SHA-1 over `ref | kind | normalized title` (an ask: its `after.title`, which is none now; a split hashed its
   parent's id instead of `ref`): the same words change a to-do item or ask once; a failed try may rerun.
-- `instruction`: the owner's words; `ref` is a lifelog `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
+- `instruction`: the owner's words; `ref` is a voice server `jobId:turnIndex@at` (for an ask, its wake turn), `session:<at>` (`bun life
   change-todo-item` or `ask`) or `connector:<at>` (an ask the agent recorded from a chat, before 2 Nov 2026) or an observation's id (an add of the
   auto-add permission: the owner's quote and when the owner said it). `at`: when the owner said it.
 - `kind`: `add`, `edit`, `done`, `remove`, `undone` (ticked back open), `restore` (back from Recently Deleted), `import` (a to-do item
@@ -617,10 +629,10 @@ Reminders by hand (read back by the watcher, `apps/server/src/host/inbound.ts`),
   the to-do item's deepLink UUID (it finds it after a move); a line read from Reminders may carry `created`, `deleted`,
   `lost` (gone from the owner's lists and not in Recently Deleted: purged, or on a shared list) and, in `before`, the old
   `id` of a to-do item whose move gave it a new one. An ask's
-  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, card, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt when made, its `instruction.ref` `complaint:<its key>`; lines before 22 Nov 2026, his press of "Wrong…", also hold `shown` and `isAsShown`), `confidence` (`high`: lifelog says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
+  `after`: `agent` (`desk`, the built-in agent his asks go to; before 21 Nov 2026 also an agent of the old `agents` setting: his spoken ask of the desk has `conversation`; his word about a registered agent has `agentChange`: the change `change_registered_agent` names, `AgentChange`; or his complaint, with `complaint`: `{ref, cause, card, report, kind, stage, prompt}`, `Complaint`: the last three the card's kind, the stage that made it and its prompt when made, its `instruction.ref` `complaint:<its key>`; lines before 22 Nov 2026, his press of "Wrong…", also hold `shown` and `isAsShown`), `confidence` (`high`: the voice server says the owner spoke, or a session; `low`: no speaker, or the owner's own wake misheard as a name), and for speech `conversation`
   and `turns` (the turn numbers when it was heard; a late upload can move them, so `fetch` takes the `ref`, and the
   event carries only that); on an ask the agent recorded before 2 Nov 2026, `title` and, for a split, `parent` (the ask it came from, whose `instruction` it repeats). A heard
-  ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (lifelog's feed had brought all of it); with
+  ask's `timing`: `ended` (the owner's last turn of it ended) and `arrived` (the voice server's feed had brought all of it); with
   `instruction.at` and `at` it is what `bun life asks` lists.
 - `result`: `ok` (`error: "partial: …"` when a private field failed; always for an ask), `failed` (alerted at once),
   `duplicate` (an open to-do item had the title; nothing written) or `intent` (written by `changeTodoItem` just before a Reminders
@@ -685,7 +697,7 @@ read in `from` order (the earliest also covers everything before it). Every loca
 `apps/server/src/memory/zones.ts`), so a unit's day, and the id of a chat-day or mail thread-day, stays the same when the day is
 read again from another country. The nightly tick (every 30 minutes) appends a line when where he is (`readZoneHere`:
 the phone's zone from its newest heartbeat, whatever its age; the Mac's own zone, never a `TZ` variable, only when no
-phone ever named one; nothing when lifelog is set up but can't be read) differs from the latest one, taking effect at once, or at the next midnight
+phone ever named one; nothing when the voice server is set up but can't be read) differs from the latest one, taking effect at once, or at the next midnight
 of the zone ahead when the two are on different days (`cutAt`: a local day never goes back); what came before it was
 noticed keeps the old zone. The present (`dayNow`) follows the latest line at once, even before its
 `from`. `bun life init` seeds it by the same rule (both through `noteZones`, the one writer). The owner's own account of his past (a line without `source`) may be appended later only before the first day memory has units of: an earlier unit's day, and so its id, would move. Derived lines are not held to that: they replace the stored zone of a day, and the days below keep theirs. Before the first recorded line, history is derived from the day's own evidence (`historical-zones.ts`, `docs/operations.md`): a line with `source: "mail"` comes from his sent mail's Date headers, one with `source: "photos"` from the offsets of photos that place him, both as `Etc/GMT±N` with the reversed IANA sign. A line without `source` is a record of where he was, and the first of those ends the derived era: only the days before it are set, deferred (a quarter-hour photo, a travel day) or gapped by evidence. A later line at the same `from` replaces an earlier one, so a derived zone is corrected by appending, never by rewriting a line. No city or inferred flag is stored. Gap evidence can be re-derived for later model backfill. A settled day (a day a record cites by a unit id, a day on or after the first episode, a deferred day that holds units, each with one neighbour) keeps its stored zone, so those units' dates and ids stay.
@@ -697,7 +709,7 @@ The owner's hand labels on units, appended by a Claude session when the owner sa
 unit is important to the owner or it isn't; `type` is the right one when the owner gave it, `area` the right area (an id from `truth/areas.yaml`).
 
 A label belongs to a unit id, so labels are only as stable as the ids. A conversation-day's id is stable per conversation
-and day: when lifelog regroups a conversation, its units get new ids, and labels (and observations) on the old ones
+and day: when the voice server regroups a conversation, its units get new ids, and labels (and observations) on the old ones
 point at units that no longer exist (the agreement figure counts them as "not in memory/units"). **Any change to
 how stored unit ids are made ships an old→new id map applied to `labels.jsonl` in the same commit**; a new recipe for
 new units only, every stored id kept (conversation-days beside the stored chapters), is not one.
@@ -731,6 +743,12 @@ pull request: `statements.jsonl`, `ratings.jsonl` and `told.jsonl` became `fact-
 `after.link` `after.deepLinkId`; a page's History `Earlier` and `bond` `between_us`; five prompts' names in each `madeBy`;
 the settings' keys and the log's `run.phase` as `run.entered`. "Memory: before the names' rename" and
 "Memory: stored names renamed (names-2026-11)" hold both sides.
+`voice-source-2026-12` (`apps/server/src/host/migrate.ts`): the voice source's name `lifelog` became `voice` in the
+typed fields that hold a source (a unit's `source`, an observation's `source.channel`, a fact check's `source`, a
+publication's `sources`) and as the `<source>|` prefix of the message keys (read replies' and appointment events'
+`messages`, a correction's `inConversation`), plus the settings' `sources` and the past days' logged `reads`; never in
+text, nor the project `lifelog`; a voice unit's id keeps its recipe. "Memory: before the voice source's rename" and
+"Memory: the voice source renamed (voice-source-2026-12)" hold both sides.
 
 ## The search index (not in memory/)
 
@@ -742,6 +760,13 @@ full-text table `unit_search` (title, a chapter's or repo-day's summary, verdict
 `episode_people` (episode, person as of today, the day file holding that line), so a person's read opens only their
 episodes' day files (`readEpisodesWith`, `memory/person-episodes.ts`). Delete it (with its
 `-wal` and `-shm` files) any time. Agents read it, and the pages, through `bun life memory search|fetch|day|person|area|topics|checks|chats|places` (read-only).
+
+## The Mac's access statuses (not in memory/)
+
+`LIFE_STATE_DIR/access-statuses.json`: `{statuses: {accessibility, calendars, contacts, full_disk_access, photos}, freeGb}`,
+each status `done`, `missing` or `refused`, as the permissions helper last read them (`host/mac-access.ts`'s `readAccessNow`,
+on the watcher's minute while an access card is open, and on his "I'm at my Mac"). Rewritten whole when it changes, never
+migrated: machine state, from which an access card's steps are worked out when read (`memory/access.ts`).
 
 ## The desk's store (not in memory/)
 

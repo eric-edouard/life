@@ -12,9 +12,10 @@ const Handles = z
       .string()
       .regex(/^[A-Za-z\d-]{1,39}$/)
       .optional(),
-    lifelog: z.uuid().optional(),
     phone: z.array(z.string().regex(/^\+\d{6,15}$/)).default([]),
     telegram: z.string().optional(),
+    /** Their person id on the voice server. */
+    voice: z.uuid().optional(),
     // Phone numbers in E.164.
     whatsapp: z.array(z.string().regex(/^\+\d{6,15}$/)).default([]),
   })

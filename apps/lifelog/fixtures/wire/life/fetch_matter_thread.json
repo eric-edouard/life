@@ -48,7 +48,7 @@
     },
     {
       "at": "2026-10-04T10:06:00Z",
-      "channel": "lifelog",
+      "channel": "voice",
       "day": "2026-10-04",
       "facts": ["obs_000000000003"],
       "kind": "voice",

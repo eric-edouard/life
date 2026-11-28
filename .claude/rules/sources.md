@@ -28,5 +28,5 @@ Moved from the root `AGENTS.md`.
   anyone's words. The agent's done tasks enter only as the agent's source (named by `AGENT_WORD`), as evidence of what was done, never as his
   words or a request.
 
-- lifelog is read through its REST API; the zod shapes accept every null and absent field its contract allows
-  (`lifelog.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).
+- The voice server is read through its REST API; the zod shapes accept every null and absent field its contract allows
+  (`voice-server.test.ts` checks them against `apps/lifelog/apps/server/openapi.json`).

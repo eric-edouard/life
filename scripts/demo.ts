@@ -12,6 +12,7 @@ import {
 import { execOk } from "@life/server/src/core/proc";
 import { PUBLIC_PORT } from "@life/server/src/host/http/http";
 import { EPISODES_PROMPT } from "@life/server/src/memory/episodes";
+import { DIRECTIONS_PROMPT } from "@life/server/src/memory/matter-direction-due";
 import { MATTERS_PROMPT } from "@life/server/src/memory/matters";
 import {
   layoutOf,
@@ -139,7 +140,7 @@ interface Demo {
   key: string;
   observations: DemoObservation[];
   ref: string;
-  source: "git" | "lifelog" | "mail" | "whatsapp";
+  source: "git" | "mail" | "voice" | "whatsapp";
   title: string;
 }
 /** The new matter's day: two days before the demo is made, so it is offered for five more. */
@@ -239,7 +240,7 @@ const DEMO: Demo[] = [
       ],
     ],
     ref: "job-demo-1:4@2026-10-17T09:05:00.000Z",
-    source: "lifelog",
+    source: "voice",
     title: "Kitchen sink repair with the plumber",
   },
   {
@@ -252,7 +253,7 @@ const DEMO: Demo[] = [
     key: "conv-demo-run-1",
     observations: [],
     ref: "job-demo-2:0@2026-10-15T06:30:00.000Z",
-    source: "lifelog",
+    source: "voice",
     title: "Morning run",
   },
   {
@@ -333,7 +334,7 @@ const DEMO: Demo[] = [
     key: "conv-demo-run-2",
     observations: [],
     ref: "job-demo-3:0@2026-10-21T06:40:00.000Z",
-    source: "lifelog",
+    source: "voice",
     title: "Morning run",
   },
   {
@@ -477,7 +478,7 @@ write(join(data, "memory/matter-directions.jsonl"), [
         steps: tapSteps.map((s) => s.ref),
       },
     ],
-    madeBy,
+    madeBy: { ...madeBy, prompt: DIRECTIONS_PROMPT },
     schemaVersion: 1,
   },
 ]);

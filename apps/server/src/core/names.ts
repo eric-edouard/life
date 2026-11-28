@@ -77,6 +77,10 @@ export const CheckGroup = z.enum([
 ]);
 export type CheckGroup = z.infer<typeof CheckGroup>;
 
+/** A reading's level, in the same words wherever a model reads one: the gate's urgency and importance of an agent's card, a step's urgency (`step-readings.ts`). */
+export const Level = z.enum(["low", "normal", "high"]);
+export type Level = z.infer<typeof Level>;
+
 /** A standing agent's role, one active or stopped at most of each: `personal` (his matters with no project's agent), `caretaker` (fixes what Life got wrong, on his complaint through Ask Life), `main` (the main session: answers his words through Ask Life). */
 export const AgentRole = z.enum(["personal", "caretaker", "main"]);
 export type AgentRole = z.infer<typeof AgentRole>;
@@ -106,7 +110,7 @@ export const RUNTIME_WORDS: Record<RuntimeName, string> = {
 
 /** Where a unit or an observation comes from. */
 export const SourceName = z.enum([
-  "lifelog",
+  "voice",
   "line",
   "instagram",
   "messenger",

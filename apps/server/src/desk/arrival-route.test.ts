@@ -343,14 +343,14 @@ test("a desk tick's confirmed arrivals of several people, from chat, mail and vo
         "mail|<m2@example.test>",
       ]),
       arrivalOf("unit_0000000000c3", [
-        "lifelog|job7:3@2026-11-18T09:00:30.000Z",
-        `lifelog|${turn}`,
+        "voice|job7:3@2026-11-18T09:00:30.000Z",
+        `voice|${turn}`,
       ]),
     ],
     units: [
       unit("unit_0000000000c1", "whatsapp", "120363000000000002@g.us"),
       unit("unit_0000000000c2", "mail", "thread-1"),
-      unit("unit_0000000000c3", "lifelog", "conversation-1"),
+      unit("unit_0000000000c3", "voice", "conversation-1"),
     ],
   });
   const woken = queuedEvents(s.desk.db, asgOf(s.desk, agent))
@@ -359,7 +359,7 @@ test("a desk tick's confirmed arrivals of several people, from chat, mail and vo
   expect(woken.map((f) => [f.source, f.id, f.people.length])).toEqual([
     ["whatsapp", "whatsapp:2", 2],
     ["mail", "<m2@example.test>", 2],
-    ["lifelog", turn, 2],
+    ["voice", turn, 2],
   ]);
 });
 
@@ -379,14 +379,14 @@ async function wokenFor(minutes: number, days: number, confirmedAgo: number) {
   mkdirSync(UNITS, { recursive: true });
   appendFileSync(
     file,
-    `${JSON.stringify({ ...unitOf(), date: day, id: "unit_0000000000d1", key: "conversation-2", source: "lifelog" })}\n`
+    `${JSON.stringify({ ...unitOf(), date: day, id: "unit_0000000000d1", key: "conversation-2", source: "voice" })}\n`
   );
   try {
     await pollArrivals(s.desk, readPeopleOnce(), {
       arrivals: [
         {
           at: new Date(clock().getTime() - confirmedAgo).toISOString(),
-          messages: [`lifelog|${turn}`],
+          messages: [`voice|${turn}`],
           people: ["person:ana"],
           unit: "unit_0000000000d1",
           wakes: true,

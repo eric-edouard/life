@@ -16,6 +16,9 @@ import { NEED_KINDS, NEED_KINDS_LINE, Need, needPageOf } from "./needs";
 // details of each come from `fetch("ask/<name>")` (`askPageOf`), so an agent reads only what it uses. The pages here are
 // the parts that are no need's kind (`needs.ts` holds those).
 
+/** How Life can see a card's step done (`doneSeenBy`). */
+export const DONE_SEEN_BY = ["payment", "access", "tap"] as const;
+
 export const Option = z
   .object({
     /** His pick of it alone makes Life write the card's `event` need into his calendar, once (`addEventByHisWord`); never taken on silence. */
@@ -79,8 +82,8 @@ export const Ask = z
     changed: z.array(z.enum(CHANGES)).min(1).optional(),
     context: ContextMarkdown.default(""),
     deadline: isoDateTime,
-    /** How Life sees the card's step done: `payment` (it looks in his accounts for the `amount` need paid to the payee), or `tap` (only his word). */
-    doneSeenBy: z.enum(["payment", "tap"]).optional(),
+    /** How Life sees the card's step done: `payment` (it looks in his accounts for the `amount` need paid to the payee), `access` (it checks his Mac for each step of the `access` need), or `tap` (only his word). */
+    doneSeenBy: z.enum(DONE_SEEN_BY).optional(),
     draft: MessageDraft.optional(),
     /** A batch: several drafts, each into its own chat, all sent by his one pick of the `outgoing` option (`draftsOf`); never with `draft`. */
     drafts: z.array(MessageDraft).min(2).max(MAX_DRAFTS).optional(),
@@ -131,7 +134,7 @@ export const Keep = Withdrawal.omit({ withdraw: true }).extend({
 export const CARD_SELF_CHECK = `Before any card, read it as he will, on his phone, with nothing else open, and ask: is this the clearest, lightest way to put it to him? 0. First check you can't do it yourself: ask only what is his (outward, spending, only he can). 1. Only what truly needs him: never a reminder of something he knows, a fact to confirm, or something already past (a call, a meeting, a date gone). 2. Checked first: read everything your tools reach that bears on it (the thread to its newest message, the mail, the chat, his payments); never hand him what you left unchecked, and never write what you did not check: a fact no tool reaches that decides the card is the question itself, asked plainly. 3. What, why, and what each answer does, in plain words a stranger would understand. 4. No ids, refs, jargon or names of agents and roles: he sees that Life works on it, never how. 5. Options he can tap without reading anything else, each saying what it does ("Send it", "Close it").`;
 
 /** The card's rules in words, for every tool that asks one (the connector's `request_decision`, the door's). */
-export const CARD = `${CARD_SELF_CHECK} One card: \`title\` (what you try to do, 80), \`ask\` (what he does, an imperative line, 80), \`question\` (what he decides, 120, ending in a ?), \`options\` (2 or 3 \`{id, label, icon?}\`), \`recommended\` (the best one's id: 5 words; the rest 14 letters), \`follow\` (0 to 3 next asks, in his voice), \`context\` (required Markdown, 1,200 characters he reads: why you ask, what you tried, what it rests on; Life's things as \`[words](life:<ref>)\`, each must open; quotes as \`> …\` then \`*source*\`; no numbered list), \`links\` (yours first), \`deadline\` (1 hour to 14 days ahead), \`onSilence\` (the option taken if he doesn't answer, or null), \`subject\` (a matter's id or a step's, off his list when the matter ends; or \`project:<id>\`, \`area:<id>\`). A card may add: \`draft\`, the exact message, sent on his yes, and its \`edits\`; \`changed\` (${CHANGES.join(", ")}: asking again on a subject he never answered); \`plan\`, steps after his yes; \`needs\`, what he needs in hand, each \`{kind, …}\`: ${NEED_KINDS_LINE}; \`doneSeenBy\`, how Life sees the step done (\`payment\`, \`tap\`); and on an option, what his pick does (\`outgoing\`, \`ends\`, \`looks\`, \`runs\`, \`takes\`). Read \`fetch("ask/<name>")\` before using one (\`draft\`, \`options\`, \`payment\`, \`plan\`, a need's kind). He can always answer in his own words (the answer's \`note\`).`;
+export const CARD = `${CARD_SELF_CHECK} One card: \`title\` (what you try to do, 80), \`ask\` (what he does, an imperative line, 80), \`question\` (what he decides, 120, ending in a ?), \`options\` (2 or 3 \`{id, label, icon?}\`), \`recommended\` (the best one's id: 5 words; the rest 14 letters), \`follow\` (0 to 3 next asks, in his voice), \`context\` (required Markdown, 1,200 characters he reads: why you ask, what you tried, what it rests on; Life's things as \`[words](life:<ref>)\`, each must open; quotes as \`> …\` then \`*source*\`; no numbered list), \`links\` (yours first), \`deadline\` (1 hour to 14 days ahead), \`onSilence\` (the option taken if he doesn't answer, or null), \`subject\` (a matter's id or a step's, off his list when the matter ends; or \`project:<id>\`, \`area:<id>\`). A card may add: \`draft\`, the exact message, sent on his yes, and its \`edits\`; \`changed\` (${CHANGES.join(", ")}: asking again on a subject he never answered); \`plan\`, steps after his yes; \`needs\`, what he needs in hand, each \`{kind, …}\`: ${NEED_KINDS_LINE}; \`doneSeenBy\`, how Life sees the step done (${DONE_SEEN_BY.map((b) => `\`${b}\``).join(", ")}); and on an option, what his pick does (\`outgoing\`, \`ends\`, \`looks\`, \`runs\`, \`takes\`). Read \`fetch("ask/<name>")\` before using one (\`draft\`, \`options\`, \`payment\`, \`plan\`, a need's kind). He can always answer in his own words (the answer's \`note\`).`;
 
 /** Who a message goes to when a name fits several people (his direction of 27 Nov 2026): context first, his ask only when unsure. */
 export const RECIPIENT_RULE =

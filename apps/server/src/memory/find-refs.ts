@@ -4,7 +4,7 @@ import type { SourceEvent } from "../records/source";
 import type { FileEntry, Unit } from "../records/unit";
 import { readImportedConversation } from "../sources/assistants";
 import type { Descriptor } from "../sources/contract";
-import { openStore, turnPlace, withStore } from "../sources/lifelog";
+import { openStore, turnPlace, withStore } from "../sources/voice-server";
 import { askPageOf, noAskPageOf } from "./card-request";
 import { matterOfSteps } from "./matter-read";
 import { readMatterBook } from "./matters";
@@ -77,7 +77,7 @@ export async function findUnit(id: string) {
   return unit ? hit({ kind: "unit", unit }) : miss(`no unit ${id}`);
 }
 
-/** A turn of lifelog's store, where it is in its conversation. */
+/** A turn of the voice server's store, where it is in its conversation. */
 export async function findTurn(
   id: string,
   t: { jobId: string; turnIndex: number },
@@ -89,7 +89,7 @@ export async function findTurn(
   );
   return place
     ? hit({ kind: "turn", place })
-    : miss(`no turn ${id}: lifelog no longer has it`);
+    : miss(`no turn ${id}: the voice server no longer has it`);
 }
 
 /** Whether `ref` names something that exists, by its kind's reader. */

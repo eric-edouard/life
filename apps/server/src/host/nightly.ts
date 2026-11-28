@@ -80,6 +80,7 @@ import { situations } from "../memory/situations";
 import { readSourceUse, sourceUseLine } from "../memory/source-use";
 import { enabledSources, keptStores } from "../memory/sources";
 import { forReaders } from "../memory/status-inputs";
+import { stepReadings } from "../memory/step-readings";
 import { publishUnits } from "../memory/unit-writer";
 import type { Built } from "../memory/units";
 import { readVoiceNamingWork, voiceNaming } from "../memory/voice-naming";
@@ -556,8 +557,8 @@ export async function runNight(
     steps.at = "gather";
     const evidence = await gather(window, await readPeople());
     steps.at = "units";
-    // Units first (code output, rebuildable but for lifelog's chapter units, which stay as stored: .claude/rules/memory.md; kept even
-    // when lifelog isn't read); not when a source failed: the files would lose that source's units.
+    // Units first (code output, rebuildable but for the voice chapter units, which stay as stored: .claude/rules/memory.md; kept even
+    // when the voice server isn't read); not when a source failed: the files would lose that source's units.
     if (evidence.failed.length === 0) {
       await publishUnits(evidence);
     }
@@ -579,11 +580,21 @@ export async function runNight(
     );
     // Each matter's icon, picked once per name and goal (the goals just drafted). A failure is logged and never stops the night.
     steps.at = "matter icons";
-    await readMatterBook(people, dayNow())
-      .then((book) => pickMatterIcons(book.filter((v) => v.open)))
-      .catch((e: Error) =>
-        log("run.error", { ...errorOf(e), step: "memory.matter-icons" })
-      );
+    const open = await readMatterBook(people, dayNow())
+      .then((book) => book.filter((v) => v.open))
+      .catch((e: Error) => {
+        log("run.error", { ...errorOf(e), step: "memory.matter-icons" });
+        return [];
+      });
+    await pickMatterIcons(open).catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "memory.matter-icons" })
+    );
+    // Whether each open step he owes is his to do here, how soon, and its money: read again only when the step or his
+    // words on it changed (`step-readings.ts`). A failure is logged and never stops the night.
+    steps.at = "step readings";
+    await stepReadings(people, open).catch((e: Error) =>
+      log("run.error", { ...errorOf(e), step: "memory.step-readings" })
+    );
     // Where each matter stands, the page he opens: redone only for a matter whose steps or records changed.
     steps.at = "matter situations";
     await matterSituations(people, { records }).catch((e: Error) =>

@@ -157,7 +157,7 @@ export const EXCHANGE_COUNTS = join(OUT, "exchange-counts.json");
 /** The mentions the replies of the mentions read hold, one file a month (`mentions.ts`, rebuilt whole each night). */
 export const MENTIONS = join(OUT, "mentions");
 export const mentionsPath = (month: string) => join(MENTIONS, `${month}.json`);
-/** The local days the pendant recorded on, as lifelog says, rebuilt whole each night (`recorded-days.ts`). */
+/** The local days the pendant recorded on, as the voice server says, rebuilt whole each night (`recorded-days.ts`). */
 export const RECORDED_DAYS = join(OUT, "recorded-days.json");
 
 /**
@@ -355,7 +355,7 @@ export function isCurrent(
 /**
  * Whether an observation is new since `at` (none: all are): no observation of `all` made by then cites its source line
  * (the exact message or transcript turn). A re-read (a prompt bump, a re-summarized chapter) cites the same lines, so
- * nothing in it is new; a chat-day that grew, or a lifelog job transcribed again, has new lines.
+ * nothing in it is new; a chat-day that grew, or a recording transcribed again, has new lines.
  */
 export function newSince(all: Observation[], at?: string) {
   const run = at ? runId(new Date(at)) : "";

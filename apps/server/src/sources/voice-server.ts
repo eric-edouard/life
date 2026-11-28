@@ -9,10 +9,10 @@ import { log } from "../core/log";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { openReadOnly, openWritable } from "../core/sqlite";
 import { isTimeZone } from "../core/time-zone";
-import { call, lifelogMissing } from "./lifelog-call";
+import { call, voiceServerMissing } from "./voice-server-call";
 
-// Recorded conversations from lifelog's change feed (GET /changes), read with the owner's device token
-// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeLifelog`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `lifelog-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
+// Recorded conversations from the voice server's change feed (GET /changes), read with the owner's device token
+// (LIFELOG_TOKEN in .env). Reads only (the one read by POST is /search), except through `writeVoiceServer`: `forward` (his explicit corrections), `answerNamingQueue` (his voice answers) and `notifyPhone` (a push, `voice-server-push.ts`). The feed is a gap-free numeric cursor: `since=0` is the whole archive, then each
 // page's `cursor`. Life folds every page into a small local store (derived/watch/lifelog.sqlite: the conversations, and
 // for every turn only who spoke, when, and when the feed brought it, never its text; plus the hearing's marks) and builds
 // units from that store.
@@ -22,8 +22,8 @@ const WAIT_MARGIN_S = 30;
 
 export const WATCH = join(LIFE_STATE_DIR, "watch");
 
-// The shapes Life reads from lifelog's API, each field as nullable or optional as lifelog's contract says
-// (`apps/server/openapi.json` in lifelog; lifelog.test.ts checks it). Fields Life doesn't read (its chapters and
+// The shapes Life reads from the voice server's API, each field as nullable or optional as the voice server's contract says
+// (`apps/server/openapi.json` in the voice server; voice-server.test.ts checks it). Fields Life doesn't read (its chapters and
 // summaries among them) are left out and ignored.
 export const Page = z.object({
   conversations: z.array(
@@ -33,7 +33,7 @@ export const Page = z.object({
       endAt: z.string(),
       id: z.string(),
       kind: z.string(),
-      // A retired conversation has a successor, or none (lifelog dropped it, e.g. playback it transcribed by mistake).
+      // A retired conversation has a successor, or none (the voice server dropped it, e.g. playback it transcribed by mistake).
       retired: z.object({ successorId: z.string().nullable() }).nullable(),
       startAt: z.string(),
       state: z.string(),
@@ -62,7 +62,7 @@ export const Page = z.object({
   turns: z
     .array(
       z.object({
-        // null while lifelog's server has not yet grouped the turn into a conversation; it is sent again once it has.
+        // null while the voice server has not yet grouped the turn into a conversation; it is sent again once it has.
         conversationId: z.string().nullable(),
         endAt: z.string(),
         jobId: z.string(),
@@ -85,36 +85,36 @@ export const Page = z.object({
 });
 type Page = z.infer<typeof Page>;
 
-/** A recorded turn: where its words are (`readTranscript(jobId)[turnIndex]`), when, and who lifelog says spoke. */
-export interface LifelogTurn {
+/** A recorded turn: where its words are (`readTranscript(jobId)[turnIndex]`), when, and who the voice server says spoke. */
+export interface VoiceTurn {
   at: string;
   /** When it ended, and when the feed first brought it; null on a turn stored before 20 Oct. */
   end: string | null;
   jobId: string;
   name: string | null;
-  /** Lifelog says the owner spoke it. */
+  /** The voice server says the owner spoke it. */
   owner: boolean;
-  /** Lifelog's person, when it named the speaker (a person with no name is still someone). */
+  /** The voice server's person, when it named the speaker (a person with no name is still someone). */
   personId: string | null;
   seen: string | null;
   turnIndex: number;
 }
 
 /** A recorded conversation with its turns, each with the span of the ask that starts at it (the hearing's marks). */
-export interface LifelogConversation {
-  /** lifelog has settled it (the contract's `closed`): grouping adds nothing more to it. */
+export interface VoiceConversation {
+  /** The voice server has settled it (the contract's `closed`): grouping adds nothing more to it. */
   closed: boolean;
   endedAt: string;
   id: string;
   startedAt: string;
-  turns: (LifelogTurn & { marks: string[] })[];
+  turns: (VoiceTurn & { marks: string[] })[];
 }
 
 /**
- * What the status snapshot reads of lifelog's `GET /status`: the Pendant and the phone as the phone last reported them.
+ * What the status snapshot reads of the voice server's `GET /status`: the Pendant and the phone as the phone last reported them.
  * The contract leaves both objects untyped, so every field here may be absent or null.
  */
-export const LifelogStatus = z.object({
+export const VoiceServerStatus = z.object({
   pendant: z
     .object({
       batteryPercent: z.number().nullish(),
@@ -134,18 +134,18 @@ export const LifelogStatus = z.object({
     })
     .nullish(),
 });
-export const lifelogStatus = async () =>
-  LifelogStatus.parse(await call("/status", 15));
+export const readVoiceServerStatus = async () =>
+  VoiceServerStatus.parse(await call("/status", 15));
 
 /**
- * The phone's zone, from its newest heartbeat; null when lifelog is not set up or that heartbeat names no zone Intl
- * knows. Throws when lifelog can't be read.
+ * The phone's zone, from its newest heartbeat; null when the voice server is not set up or that heartbeat names no zone Intl
+ * knows. Throws when the voice server can't be read.
  */
 export async function readPhoneZone() {
-  if (lifelogMissing()) {
+  if (voiceServerMissing()) {
     return null;
   }
-  const beat = (await lifelogStatus()).phoneHeartbeat;
+  const beat = (await readVoiceServerStatus()).phoneHeartbeat;
   return beat?.timeZone && isTimeZone(beat.timeZone) ? beat.timeZone : null;
 }
 
@@ -155,7 +155,7 @@ export const storeFiles = (dir = WATCH) => ({
   file: join(dir, "lifelog.sqlite"),
 });
 
-/** The columns added since the first stores: `openStore` adds the ones an older store lacks (`create table if not exists` adds none), and rows fill them as they come again. `closed`, and what `lifelog-speech.ts` reads of a recording. */
+/** The columns added since the first stores: `openStore` adds the ones an older store lacks (`create table if not exists` adds none), and rows fill them as they come again. `closed`, and what `voice-server-speech.ts` reads of a recording. */
 const ADDED_COLUMNS = [
   ["conversations", "closed", "integer"],
   ["transcription_jobs", "state", "text"],
@@ -231,7 +231,7 @@ export const readStore = (dir = WATCH): Store => ({
   db: openReadOnly(storeFiles(dir).file),
 });
 
-/** The newest speech turn the watcher folded in (null with no store yet): lifelog sends turns once transcribed, minutes after they were spoken. */
+/** The newest speech turn the watcher folded in (null with no store yet): the voice server sends turns once transcribed, minutes after they were spoken. */
 export const newestTurn = (dir = WATCH) =>
   existsSync(storeFiles(dir).file)
     ? withStore(
@@ -271,13 +271,13 @@ const ownerRow = (store: Store) =>
     "select is_owner from turns where job_id = ? and turn_index = ?"
   );
 
-/** Whether lifelog credits this turn (a turn ref) to the owner now, as the feed last sent it. */
+/** Whether the voice server credits this turn (a turn ref) to the owner now, as the feed last sent it. */
 export const ownerSpoke = (store: Store, ref: string) => {
   const t = parseTurnRef(ref);
   return Boolean(t && ownerRow(store).get(t.jobId, t.turnIndex)?.is_owner);
 };
 
-/** The stored successor: null while live; "" when retired with none (lifelog dropped it), so `successor is null` stays "live". */
+/** The stored successor: null while live; "" when retired with none (the voice server dropped it), so `successor is null` stays "live". */
 const successor = (c: { retired: { successorId: string | null } | null }) =>
   c.retired ? (c.retired.successorId ?? "") : null;
 
@@ -316,7 +316,7 @@ function drop(db: Database, r: Page["removed"][number]) {
   }
 }
 
-/** A page's recordings as stored rows. A withdrawn one (a removed `job` with its first page) is kept, not dropped: its pages are not in until the phone sends them again (`lifelog-speech.ts`). */
+/** A page's recordings as stored rows. A withdrawn one (a removed `job` with its first page) is kept, not dropped: its pages are not in until the phone sends them again (`voice-server-speech.ts`). */
 const jobRowsOf = (page: Page) => [
   ...page.jobs.map((j) => [
     j.id,
@@ -404,7 +404,7 @@ export async function poll(store: Store, wait: number) {
   const page = Page.parse(
     await call(`/changes?since=${since}&wait=${wait}`, wait + WAIT_MARGIN_S)
   );
-  // Before the page is folded in. A turn lifelog re-sends is not news; one it only now marks as his (it identifies the
+  // Before the page is folded in. A turn the voice server re-sends is not news; one it only now marks as his (it identifies the
   // owner late) is. A new turn with no speaker at all may be his too (a low-confidence ask, apps/server/src/host/hear.ts).
   const stored = ownerRow(store);
   const owner = page.turns.filter((t) => {
@@ -442,7 +442,7 @@ export const nameOf = (
   byId: Map<string, string>
 ) => (personId && byId.get(personId)) || personName;
 
-export interface LifelogTurnRow {
+export interface VoiceTurnRow {
   conversation_id: string;
   end_at: string | null;
   is_owner: number;
@@ -457,25 +457,25 @@ export interface LifelogTurnRow {
 /**
  * The live conversations still going at `since` or after it that have words (silent ones and the owner's dictation
  * have none), with their turns, oldest first, whatever their state (late audio can reopen one: its units stay). A
- * retired conversation is gone: its successor comes through the feed. `byId`: lifelog person id -> the name in the directory.
+ * retired conversation is gone: its successor comes through the feed. `byId`: the voice server's person id -> the name in the directory.
  */
 export function readConversations(
   store: Store,
   since: Date,
   byId: Map<string, string> = new Map()
-): LifelogConversation[] {
+): VoiceConversation[] {
   const { db } = store;
   const live = `from conversations c where ${LIVE} and c.end_at >= ?`;
   const from = since.toISOString();
   const turns = Map.groupBy(
     db
-      .query<LifelogTurnRow, [string]>(
+      .query<VoiceTurnRow, [string]>(
         `select t.* from turns t where t.conversation_id in (select c.id ${live}) order by t.start_at, t.job_id, t.turn_index`
       )
       .all(from),
     (t) => t.conversation_id
   );
-  // His spans ("hey Life") by wake turn, kept while that turn is not someone else's (lifelog may name its speaker later).
+  // His spans ("hey Life") by wake turn, kept while that turn is not someone else's (the voice server may name its speaker later).
   const marks = new Map(
     db
       .query<{ job_id: string; refs: string; turn_index: number }, []>(
@@ -500,9 +500,9 @@ export function readConversations(
     .all(from)
     .flatMap((c) => {
       const said = (turns.get(c.id) ?? []).map((t) => {
-        const turn = lifelogTurn(t, byId);
+        const turn = voiceTurnOf(t, byId);
         const refs = marks.get(`${t.job_id}:${t.turn_index}`) ?? [];
-        // A turn lifelog gave someone else, or a recording transcribed again (its wake ref no longer this turn's): no mark.
+        // A turn the voice server gave someone else, or a recording transcribed again (its wake ref no longer this turn's): no mark.
         const marked =
           whose(turn) !== "other" &&
           refs[0] === turnRef(t.job_id, t.turn_index, t.start_at);
@@ -540,13 +540,13 @@ export function turnsBetween(
   start = "",
   end = "9999",
   byId: Map<string, string> = new Map()
-): LifelogTurn[] {
+): VoiceTurn[] {
   return store.db
-    .query<LifelogTurnRow, [string, string, string]>(
+    .query<VoiceTurnRow, [string, string, string]>(
       "select * from turns where conversation_id = ? and start_at >= ? and start_at < ? order by start_at, job_id, turn_index"
     )
     .all(conversationId, start, end)
-    .map((t) => lifelogTurn(t, byId));
+    .map((t) => voiceTurnOf(t, byId));
 }
 
 /**
@@ -577,28 +577,28 @@ export function turnsOverlapping(
   from: string,
   to: string,
   byId: Map<string, string> = new Map()
-): LifelogTurn[] {
+): VoiceTurn[] {
   return store.db
-    .query<LifelogTurnRow, [string, string, string, string]>(
+    .query<VoiceTurnRow, [string, string, string, string]>(
       `select t.* from turns t where ${OVERLAPS} and t.conversation_id = ?4 order by t.start_at, t.job_id, t.turn_index`
     )
     .all(...overlapArgs(from, to), conversationId)
-    .map((t) => lifelogTurn(t, byId));
+    .map((t) => voiceTurnOf(t, byId));
 }
 
-/** Who spoke a turn, as lifelog names them: its person id (the directory may move it later), else its name; null for him or nobody. */
-export const authorOf = (t: LifelogTurn) =>
+/** Who spoke a turn, as the voice server names them: its person id (the directory may move it later), else its name; null for him or nobody. */
+export const authorOf = (t: VoiceTurn) =>
   t.owner ? null : (t.personId ?? t.name);
 
-/** Whose a turn is, as lifelog has it: his, someone lifelog named (by id or name), or nobody's. */
-export function whose(t: LifelogTurn): "me" | "unknown" | "other" {
+/** Whose a turn is, as the voice server has it: his, someone the voice server named (by id or name), or nobody's. */
+export function whose(t: VoiceTurn): "me" | "unknown" | "other" {
   if (t.owner) {
     return "me";
   }
   return t.personId || t.name ? "other" : "unknown";
 }
 
-export const lifelogTurn = (t: LifelogTurnRow, byId: Map<string, string>) => ({
+export const voiceTurnOf = (t: VoiceTurnRow, byId: Map<string, string>) => ({
   at: t.start_at,
   end: t.end_at,
   jobId: t.job_id,
@@ -626,8 +626,8 @@ export async function readTranscript(jobId: string) {
 }
 
 /**
- * Where one turn is now: its conversation (lifelog may have moved it since it was cited) and how many turns come
- * before it there, for `fetch --from-turn`; null once lifelog dropped it.
+ * Where one turn is now: its conversation (the voice server may have moved it since it was cited) and how many turns come
+ * before it there, for `fetch --from-turn`; null once the voice server dropped it.
  */
 export function turnPlace(store: Store, jobId: string, turnIndex: number) {
   return store.db
@@ -639,7 +639,7 @@ export function turnPlace(store: Store, jobId: string, turnIndex: number) {
     .get(jobId, turnIndex);
 }
 
-/** The people lifelog names in the store's turns: its person id and the name it gave. */
+/** The people the voice server names in the store's turns: its person id and the name it gave. */
 export function speakers(store: Store) {
   return store.db
     .query<{ id: string; name: string }, []>(
@@ -665,7 +665,7 @@ export async function whereAt(at: string) {
 }
 
 type VisitsQuery = Record<string, string | number | undefined>;
-/** The owner's stays, newest first, at most 200, within `from`/`to` (the whole history without them): all, or by place name or coordinates (none when lifelog's 404 says no place the phone named matches); given up after `timeoutS` (`call`'s default without it). */
+/** The owner's stays, newest first, at most 200, within `from`/`to` (the whole history without them): all, or by place name or coordinates (none when the voice server's 404 says no place the phone named matches); given up after `timeoutS` (`call`'s default without it). */
 export async function visits(q: VisitsQuery, timeoutS?: number) {
   const query = new URLSearchParams(
     Object.entries(q).flatMap(([k, v]) =>
@@ -747,7 +747,7 @@ export const Fix = z.object({
     .string()
     .optional()
     .describe(
-      "title: a conversation id; rename_person, merge_people: a lifelog person id"
+      "title: a conversation id; rename_person, merge_people: a voice server person id"
     ),
   jobId: z.string().optional().describe("speaker: the recording's id"),
   label: z.string().optional().describe("speaker: the voice's label"),
@@ -765,7 +765,7 @@ export const Fix = z.object({
   to: z
     .string()
     .optional()
-    .describe('speaker: a lifelog person id, "unknown" or "media"'),
+    .describe('speaker: a voice server person id, "unknown" or "media"'),
   turnIndex: z
     .int()
     .min(0)
@@ -775,8 +775,8 @@ export const Fix = z.object({
 type Fix = z.infer<typeof Fix>;
 
 /**
- * Who a voice is, as lifelog takes it: a person, "unknown" or "media", or a new person. The new person's id is ours and
- * comes from the voice and the name (a v5-shaped UUID, as lifelog wants), so a replay makes nobody twice.
+ * Who a voice is, as the voice server takes it: a person, "unknown" or "media", or a new person. The new person's id is ours and
+ * comes from the voice and the name (a v5-shaped UUID, as the voice server wants), so a replay makes nobody twice.
  */
 function speakerTarget(a: Fix) {
   if (a.to) {
@@ -793,7 +793,7 @@ function speakerTarget(a: Fix) {
 }
 
 type Write = [method: string, path: string, body: unknown];
-/** The corrections Life forwards to lifelog, the owner's explicit ones (its other writes are `notifyPhone` and `answerNamingQueue`, `lifelog-voices.ts`). Each names the fields it needs and the request it makes. */
+/** The corrections Life forwards to the voice server, the owner's explicit ones (its other writes are `notifyPhone` and `answerNamingQueue`, `voice-speakers.ts`). Each names the fields it needs and the request it makes. */
 const FORWARDS: Record<
   string,
   { needs: (keyof Fix)[]; request: (a: Fix) => Write }
@@ -843,11 +843,11 @@ export async function forward(kind: string, a: Fix) {
   if (missing.length > 0) {
     throw new Error(`${kind} needs: ${missing.join(", ")}`);
   }
-  return await writeLifelog(...f.request(a));
+  return await writeVoiceServer(...f.request(a));
 }
 
-/** One write to lifelog, logged before and after: its body's field names, never their values or lifelog's answer. */
-export async function writeLifelog(...[method, path, body]: Write) {
+/** One write to the voice server, logged before and after: its body's field names, never their values or the voice server's answer. */
+export async function writeVoiceServer(...[method, path, body]: Write) {
   const fields = body && typeof body === "object" ? Object.keys(body) : [];
   log("lifelog.write", { fields, method, path, phase: "before" });
   const after = await call(path, 60, body, method);

@@ -10,14 +10,14 @@ import type { Unit } from "../records/unit";
 import type { Descriptor, RepoMap } from "../sources/contract";
 import {
   authorOf,
-  type LifelogConversation,
-  type LifelogTurn,
   liveConversations,
   parseTurnRef,
   type Store,
   turnRef,
-} from "../sources/lifelog";
-import { voiceKey } from "../sources/lifelog-voices";
+  type VoiceConversation,
+  type VoiceTurn,
+} from "../sources/voice-server";
+import { voiceKey } from "../sources/voice-speakers";
 import {
   deviceDayText,
   measurementDayText,
@@ -39,7 +39,7 @@ import { dayUnitId, voiceUnitId } from "./unit-ids";
 import { dayStart, localDate, time } from "./zones";
 
 // Units (docs/architecture.md, "The pipeline"): one conversation-day, chat-day, mail thread-day, note-day or repo-day
-// (and lifelog's chapters, as stored before conversation-days: `isFrozen`). Built by code, nothing judged yet. A unit's
+// (and the voice server's chapters, as stored before conversation-days: `isFrozen`). Built by code, nothing judged yet. A unit's
 // id is stable (same conversation or chat and day -> same id); its hash changes when its content does, so a verdict is
 // reused only while the content is unchanged.
 
@@ -173,7 +173,7 @@ export const isMailerHandle = (handle: string) =>
 export const MARKED = "[He asked Life to keep what he says here.]";
 
 /**
- * A stored voice unit that is one of lifelog's chapters (it carries lifelog's summary): kept as stored while its
+ * A stored voice unit that is one of the voice server's chapters (it carries the voice server's summary): kept as stored while its
  * conversation is live (`frozenUnits`), never built again, as the facts, his fact-check answers and corrections cite it (.claude/rules/memory.md);
  * its conversation gets no conversation-days.
  * ponytail: a conversation that had chapters when conversation-days came stays chapter-only, even if it grows after;
@@ -193,7 +193,7 @@ export const frozenBuilt = (unit: Unit): Built => ({
 
 /**
  * The stored chapter units among `units` whose conversation is live in the store: the one frozen set of both writers
- * (`gather`, `syncLifelogUnits`). A chapter of a conversation lifelog retired or dropped is not, so it goes.
+ * (`gather`, `syncVoiceUnits`). A chapter of a conversation the voice server retired or dropped is not, so it goes.
  */
 export const frozenUnits = (store: Store, units: Unit[]) => {
   const live = liveConversations(store);
@@ -210,20 +210,20 @@ export function conversationLabel(start: string, names: string[]) {
  * What a deletion did to a turn, folded into its unit's hash so the unit is read again: its ref when the turn is gone whole,
  * each cut's digest (never its words) for one he cut words out of.
  */
-const deletionKeysOf = (t: LifelogTurn, deletions: Deletions) => {
+const deletionKeysOf = (t: VoiceTurn, deletions: Deletions) => {
   const ref = turnRef(t.jobId, t.turnIndex, t.at);
   return isGone(ref, deletions)
     ? [`${ref} deleted`]
     : cutsOn(ref, deletions).map((c) => `${ref} cut:${c.digest}`);
 };
 
-/** A turn's identity: its ref and who lifelog says spoke it (his, its person id, else its name). */
-export const turnKey = (t: LifelogTurn) =>
+/** A turn's identity: its ref and who the voice server says spoke it (his, its person id, else its name). */
+export const turnKey = (t: VoiceTurn) =>
   `${turnRef(t.jobId, t.turnIndex, t.at)} ${t.owner ? OWNER : (authorOf(t) ?? "")}`;
 
 /**
  * An unnamed turn's key for the voice naming read: its ref and its voice's label in its recording, so a guess is of that
- * voice and goes the moment a name is given to it, lifelog matches it or it is relabelled (`memory/voice-naming.ts`).
+ * voice and goes the moment a name is given to it, the voice server matches it or it is relabelled (`memory/voice-naming.ts`).
  */
 export const unnamedTurnKey = (ref: string, label: string) =>
   `${ref} voice:${label}`;
@@ -253,20 +253,20 @@ export function voiceTokensOf(keys: string[]) {
 }
 
 /** A conversation's turns by local day: one voice unit's turns each (`voiceUnitId(c.id, day)`). */
-export const turnsByDayOf = (c: LifelogConversation) =>
+export const turnsByDayOf = (c: VoiceConversation) =>
   Map.groupBy(c.turns, (t) => localDate(t.at));
 
 /**
  * Conversation-days: the turns of one conversation on one local day, cut by code alone (no model), for every
- * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names lifelog gave them,
+ * conversation that is not the `key` of a chapter unit in `frozenKeys`. Its people are the names the voice server gave them,
  * unresolved (`unknown:`, read by `refOf`), and him when he spoke. Life holds no words: its text is filled when it is
- * read (`voiceText`, words.ts), and its hash is its turns, who lifelog says spoke each (his, its person id, else its
+ * read (`voiceText`, words.ts), and its hash is its turns, who the voice server says spoke each (his, its person id, else its
  * name), its marks and what he deleted of it (`deletionKeysOf`), so a turn added, moved, marked or given to someone else
  * (29 Oct 2026: he named 96 voices, and their days kept the old names) or whose words he deleted has it read again.
  * ponytail: words transcribed again under the same turn refs keep the hash; hash the words if re-transcription matters.
  */
-export function lifelogUnits(
-  conversations: LifelogConversation[],
+export function voiceUnitsOf(
+  conversations: VoiceConversation[],
   frozenKeys: Set<string>,
   deletions: Deletions = NO_DELETIONS
 ): Built[] {
@@ -308,7 +308,7 @@ export function lifelogUnits(
               (r): r is string => !!r
             ),
             schemaVersion: 1,
-            source: "lifelog",
+            source: "voice",
             start: first.at,
             stats: {
               chars: 0,
@@ -363,8 +363,8 @@ export const messageUnits = (events: SourceEvent[], resolve: Resolve) =>
   byDay(events).map((list) => cut(list, resolve));
 
 /**
- * The units of every source but lifelog, from their events with files shown (`showFiles`), the code rules applied: the
- * night's (`gather`) and the watcher's today (`publishTodayUnits`) alike. Lifelog's are ruled apart; their hashes never
+ * The units of every source but the voice server, from their events with files shown (`showFiles`), the code rules applied: the
+ * night's (`gather`) and the watcher's today (`publishTodayUnits`) alike. The voice server's are ruled apart; their hashes never
  * meet these, so the `duplicate` rule is the same either way.
  */
 export const sourceUnitsOf = (shown: SourceEvent[], resolve: Resolve) =>
@@ -790,10 +790,11 @@ export function builtFor(
   }
 }
 
-/** Lifelog person id -> the name in the directory, for the people `truth/people.yaml` holds a `lifelog` handle for. */
-export const lifelogNames = (truth: Truth) =>
+/** The voice server's person id -> the name in the directory, for the people `truth/people.yaml` holds a `voice` handle for. */
+export const voiceNames = (truth: Truth) =>
   new Map(
-    truth.people.flatMap((p) =>
-      p.handles.lifelog ? [[p.handles.lifelog, p.name]] : []
-    )
+    truth.people.flatMap((p) => {
+      const id = p.handles.voice;
+      return id ? [[id, p.name]] : [];
+    })
   );

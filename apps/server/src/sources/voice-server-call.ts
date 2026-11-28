@@ -32,29 +32,29 @@ export const secretOf = (secrets: Record<string, unknown>, key: string) => {
   return typeof v === "string" && v.trim() ? v.trim() : undefined;
 };
 
-/** lifelog's server (REST API): its address from settings, else voice's; its token voice's device token (his own Life only) (the routes Life calls, apple-health, notifications and the naming queue included), else `LIFELOG_TOKEN`. */
-const lifelogUrl = () => settings().lifelog?.url ?? VOICE_URL;
-const lifelogToken = () =>
+/** The voice server (REST API): its address from settings, else voice's; its token voice's device token (his own Life only) (the routes Life calls, apple-health, notifications and the naming queue included), else `LIFELOG_TOKEN`. */
+const voiceServerUrl = () => settings().lifelog?.url ?? VOICE_URL;
+const voiceServerToken = () =>
   (isOwnLife() ? secretOf(readVoiceSecrets(), "deviceToken") : undefined) ??
   process.env.LIFELOG_TOKEN;
 
-/** What keeps lifelog from being read: its address or its token missing, or its secrets file unsafe; nothing when it is set up. */
-export function lifelogMissing() {
+/** What keeps the voice server from being read: its address or its token missing, or its secrets file unsafe; nothing when it is set up. */
+export function voiceServerMissing() {
   try {
-    return lifelogUrl() && lifelogToken()
+    return voiceServerUrl() && voiceServerToken()
       ? undefined
-      : "lifelog not set up (settings: lifelog; voice's deviceToken or env LIFELOG_TOKEN)";
+      : "voice server not set up (settings: lifelog; voice's deviceToken or env LIFELOG_TOKEN)";
   } catch (e) {
     return (e as Error).message;
   }
 }
 
 function config() {
-  const why = lifelogMissing();
+  const why = voiceServerMissing();
   if (why) {
     throw new Error(why);
   }
-  return { token: lifelogToken() ?? "", url: lifelogUrl() ?? "" };
+  return { token: voiceServerToken() ?? "", url: voiceServerUrl() ?? "" };
 }
 
 /**
@@ -83,7 +83,7 @@ export async function call(
   });
   if (!res.ok) {
     throw Object.assign(
-      new Error(`lifelog ${method} ${path.split("?")[0]}: ${res.status}`),
+      new Error(`voice server ${method} ${path.split("?")[0]}: ${res.status}`),
       { status: res.status }
     );
   }

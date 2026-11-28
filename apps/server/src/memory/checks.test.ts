@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clock, DAY } from "../core/clock";
 import type { Correction } from "../records/observation";
-import { pushIdOf } from "../sources/lifelog-push";
+import { pushIdOf } from "../sources/voice-server-push";
 import type { CheckInputs } from "./check-context";
 import { shownStepsOf } from "./check-sentences";
 import { urgencyOf } from "./check-urgency";
@@ -12,6 +12,7 @@ import {
   about,
   DANA_ID,
   decision,
+  ELSEWHERE,
   holdOn,
   inputs,
   line,
@@ -330,7 +331,7 @@ const voice = (id: string, over: Partial<GuessedQueueItem> = {}) =>
 
 test("every voice in lifelog's queue is a check in the inbox, with its clips and the people it may be", () => {
   const items = Array.from({ length: 60 }, (_, i) => voice(`v${i}`));
-  // The voice naming guessed Dana: only then is lifelog's suggestion a guess in use.
+  // The voice naming guessed Dana: only then is the voice server's suggestion a guess in use.
   const guessed = (id: string, o: Partial<GuessedQueueItem>) =>
     voice(id, { guessed: ["person:dana"], kind: "known_person", ...o });
   items[0] = guessed("v0", { personId: DANA_ID });
@@ -342,7 +343,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   // Likely, but no guess in use (v6), or for a person Life cannot place, asked by a name heard beside it (v7): no "Yes".
   items[6] = voice("v6", { isLikely: true });
   items[7] = guessed("v7", { ...likely, name: DANA_ID, personId: "unplaced" });
-  // Lifelog's sound alone names Dana, nothing places her there (far from where he was, on no call): no "Is this Dana?".
+  // The voice server's sound alone names Dana, nothing places her there (far from where he was, on no call): no "Is this Dana?".
   items[8] = voice("v8", { ...likely, personId: DANA_ID });
   // One he called several people is not asked in v1: one answer would give all its turns to one person.
   const cards = checksOf(
@@ -351,7 +352,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   expect(cards).toHaveLength(60);
   const byRef = (r: string) => cards.find((c) => c.ref.split("~")[0] === r);
   const dana = "voice:v0";
-  // Lifelog's suggestion in use is asked as a guess; the rest are asked who.
+  // The voice server's suggestion in use is asked as a guess; the rest are asked who.
   expect(byRef(dana)?.question).toBe("Is this Dana?");
   expect(byRef("voice:v8")?.question).toBe("Who is this?");
   expect(byRef("voice:v1")?.question).toBe("Who is this?");
@@ -382,7 +383,7 @@ test("every voice in lifelog's queue is a check in the inbox, with its clips and
   // A voice to name never blocks (his yes of 26 Nov 2026 to "Voices to name"), a guess in use or not.
   expect(cards.every((c) => urgencyOf(c) === "improves")).toBe(true);
   expect(byRef(dana)?.ref.endsWith("~person:dana")).toBe(true);
-  // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; a guess in use lifelog
+  // Heard in one conversation, no name heard: the bulk card starts it ticked "Don't name"; a guess in use the voice server
   // calls likely, "Yes"; the others unticked.
   expect(byRef("voice:v3")?.preTicked).toBe("not-relevant");
   expect(byRef("voice:v5")?.preTicked).toBe("is-them");
@@ -449,6 +450,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     waitingOn: [],
     with: [],
   };
+  const asked = { ...matter, openSteps: [matter.newestOpenStep] };
   const base = inputs([], { matters: [matter] });
   expect(checksOf(base).map(({ misread: _, ...c }) => c)).toEqual([
     {
@@ -566,9 +568,14 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
         ),
       ],
     }).filter((c) => c.group === "new matter"),
+    // Card sort (28 Nov 2026): its your move card hidden (his own work done elsewhere), it is never offered either.
+    none({ matters: [asked], stepReadingOf: () => ELSEWHERE }).filter(
+      (c) => c.kind !== "your move"
+    ),
   ]) {
     expect(list).toEqual([]);
   }
+  expect(none({ matters: [asked] }).map((c) => c.kind)).toContain("new matter");
   // Dismissed, then re-grouped under a new id with one more step: still dismissed.
   const regrouped = {
     ...matter,

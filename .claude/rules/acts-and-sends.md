@@ -51,6 +51,9 @@ Models return JSON that zod validates; every quote is checked against its source
   (his token only: `runApifyByHisWord`, `host/card-apify-run.ts`), never retried, pay-per-event actors only, under the
   card's dollar cap. Agents get reads only (`find_apify_actors`, `read_apify_run`); `APIFY_TOKEN` never reaches them
   (`GATED_KEYS`).
+- An access card's "I'm at my Mac" (28 Nov 2026): his pick of its `looks` option (his token only: `lookAtMac`,
+  `host/done-seen.ts`) shows the next step not done on his own Mac, its permission prompt or its System Settings pane,
+  through the permissions helper; nothing leaves the Mac.
 - His Undo of a sent draft (25 Nov 2026; `undoAnswer`, his token only) deletes it only where the chat itself allows a
   delete for everyone (`deleteLineOf`, never a table of Life's).
 
@@ -88,7 +91,7 @@ Never add a tool that sends or edits anything beyond this list (`docs/tasks.md`,
 
 - reads; his corrections and fact-check answers; `tell_life`; `request_decision`
 - `answer_check`, his token only, through each kind's own writer: a draft's send, Start on a new matter (asks the
-  desk), `adds` (`addEventByHisWord`), `runs` (`runApifyByHisWord`), `ends` and his Mark as done or Drop on a your move
+  desk), `adds` (`addEventByHisWord`), `runs` (`runApifyByHisWord`), an access card's `looks` (`lookAtMac`), `ends` and his Mark as done or Drop on a your move
   card (`endByHisWord`), a new directory entry
 - `change_registered_agent`: his word, as an ask of the desk
 - `change_todo_item`; `correct_memory` with `matter`, his token only: `correctMatter` ticks its to-do items, removes
@@ -114,7 +117,7 @@ local key on the public port (`docs/architecture.md`, "Pages").
 ## Life signs its own tokens
 
 `oauth.ts` is the one source of the issuer's address and the owner's subject; an app is approved by a pairing code from
-the Mac. lifelog signs nothing for Life (24 Oct 2026).
+the Mac. The voice server signs nothing for Life (24 Oct 2026).
 
 ## The ledger is the truth
 

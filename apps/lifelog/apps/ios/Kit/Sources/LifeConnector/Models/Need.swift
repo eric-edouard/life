@@ -8,7 +8,7 @@ extension Check {
     /// the read.
     public struct Need: Decodable, Sendable, Equatable {
         public enum Kind: String, UnknownTolerant, Sendable {
-            case account, amount, apify, app, event, link, place, text, qr
+            case access, account, amount, apify, app, event, link, place, text, qr
             case unknown
         }
 
@@ -48,6 +48,16 @@ extension Check {
         let googleMapsUrl: URL?
         let appleMapsUrl: URL?
         let boltUrl: URL?
+        /// An access card's steps, each as Life read it on the Mac (until the card's own view, life#1558).
+        public let steps: [AccessStep]?
+
+        /// An access card's step: what Life checks silently (`check`, `freeGb` for free space) and its `status`.
+        public struct AccessStep: Decodable, Sendable, Equatable {
+            public let text: String
+            public let check: String
+            public let freeGb: Double?
+            public let status: String?
+        }
 
         public init(from decoder: any Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -69,6 +79,7 @@ extension Check {
             payload = try? c.decodeIfPresent(String.self, forKey: .payload)
             source = try? c.decodeIfPresent(String.self, forKey: .source)
             ref = try? c.decodeIfPresent(String.self, forKey: .ref)
+            steps = try? c.decodeIfPresent([AccessStep].self, forKey: .steps)
             func link(_ key: CodingKeys) -> URL? {
                 (try? c.decodeIfPresent(String.self, forKey: key)).flatMap { $0.flatMap(URL.init(string:)) }
             }
@@ -82,7 +93,7 @@ extension Check {
             case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, name, place,
                 reminders, copy,
                 payload,
-                source, ref, googleMapsUrl, appleMapsUrl, boltUrl
+                source, ref, googleMapsUrl, appleMapsUrl, boltUrl, steps
         }
 
         /// The rows the card draws, decided here once: the view only draws them. A need whose fields say nothing
@@ -164,8 +175,9 @@ extension Check {
                     }
                 rows = [NeedRow(glyph: .note, text: line)] + links
             // The code itself is the card's hero (`Check.payCode`); without its text, its line.
-            // An Apify run (Life's line: what, by which actor, its estimate, cap and input); a code's line without its text.
-            case .apify, .qr, .unknown:
+            // An Apify run (Life's line: what, by which actor, its estimate, cap and input); a code's line without its text;
+            // an access card's steps (Life's line: numbered, each with its status) until its own view (life#1558).
+            case .access, .apify, .qr, .unknown:
                 rows = []
             }
             return rows.isEmpty ? [NeedRow(glyph: .note, text: line)] : rows

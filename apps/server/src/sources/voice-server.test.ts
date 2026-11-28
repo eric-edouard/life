@@ -5,9 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 import { AppleHealthPage } from "./apple-health";
+import { VoiceNoteWords } from "./chat-voice-notes";
+import {
+  conversation,
+  pageFixture,
+  voiceStore as store,
+  turnFixture,
+  voiceServer,
+} from "./store-fixtures";
 import {
   apply,
-  LifelogStatus,
   newestTurn,
   openStore,
   ownerSpoke,
@@ -21,30 +28,23 @@ import {
   Transcript,
   turnPlace,
   turnsBetween,
+  VoiceServerStatus,
   visits,
   writeMarks,
-} from "./lifelog";
-import { conversationsWith } from "./lifelog-conversations";
-import type { Push } from "./lifelog-push";
-import { Recorded } from "./lifelog-recorded";
-import { Hits, searchVoice } from "./lifelog-search";
-import { endedOnSilence, isConversationClosed } from "./lifelog-speech";
-import { VoiceSpending } from "./lifelog-spending";
+} from "./voice-server";
+import { conversationsWith } from "./voice-server-conversations";
+import type { Push } from "./voice-server-push";
+import { Recorded } from "./voice-server-recorded";
+import { Hits, searchVoice } from "./voice-server-search";
+import { endedOnSilence, isConversationClosed } from "./voice-server-speech";
+import { VoiceSpending } from "./voice-server-spending";
 import {
   Clip,
   ConversationAnswer,
   NamingQueueItem,
   Voices,
   voiceNamesOf,
-} from "./lifelog-voices";
-import {
-  conversation,
-  lifelogServer,
-  pageFixture,
-  lifelogStore as store,
-  turnFixture,
-} from "./store-fixtures";
-import { VoiceNoteWords } from "./voice-notes";
+} from "./voice-speakers";
 
 const since = new Date("2026-10-01T00:00:00Z");
 const JEAN = "person-jean";
@@ -230,7 +230,7 @@ test("a turn's place in its conversation, and a person's conversations newest fi
   expect(turnPlace(s, "job-1", 9)).toBeNull();
   const named = (byId: Map<string, string>) =>
     conversationsWith(s, [ANNE], byId).map((c) => [c.id, c.names]);
-  // The directory's name beats the one lifelog gave, as in a unit's label.
+  // The directory's name beats the one the voice server gave, as in a unit's label.
   expect(named(new Map([[ANNE, "Anne Directory"]]))).toEqual([
     ["c2", ["Anne Directory"]],
     ["c1", ["Anne Directory"]],
@@ -244,7 +244,7 @@ test("a turn's place in its conversation, and a person's conversations newest fi
 });
 
 test("search posts the words and the range with the device token and returns the hits", async () => {
-  const server = lifelogServer({
+  const server = voiceServer({
     "/search": () => ({
       hits: [
         {
@@ -293,7 +293,7 @@ test("the owner flag is stored and read back; poll lists a turn as his once, a l
     "Anne-Sophie",
     "c1"
   );
-  const server = lifelogServer({
+  const server = voiceServer({
     "/changes": () =>
       pageFixture({
         conversations: [conversation("c1")],
@@ -352,7 +352,7 @@ test("a turn keeps its end and when the feed first brought it", () => {
 test("poll also lists a new turn nobody is named for, once", async () => {
   const s = store();
   const lost = turnFixture(0, "2026-10-14T10:00:00.000Z", null, null, "c1");
-  const server = lifelogServer({
+  const server = voiceServer({
     "/changes": () =>
       pageFixture({ conversations: [conversation("c1")], turns: [lost] }),
   });
@@ -398,7 +398,7 @@ test("a store made before the contract's closed and endedOnSilence opens, drops 
   }
 });
 
-// lifelog's published contract, in this repo, kept current by the gate's openapi step.
+// The voice server's published contract, in this repo, kept current by the gate's openapi step.
 const CONTRACT = join(
   import.meta.dir,
   "../../../lifelog/apps/server/openapi.json"
@@ -550,7 +550,7 @@ test("Life reads lifelog's API with the contract's nullability: a field lifelog 
       defs,
       "apple-health"
     ),
-    // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so LifelogStatus takes each field as
+    // Not /status: its contract leaves pendant and phoneHeartbeat untyped, so VoiceServerStatus takes each field as
     // optional and nullable (tested below) and there is nothing to compare.
   ]).toEqual([]);
 });
@@ -603,8 +603,8 @@ test("a feed page parses with or without lifelog's generated title, and a store 
 });
 
 test("visits: lifelog's 404 (no place the phone named matches) is no stays", async () => {
-  // No route: the test server answers 404, as lifelog does when nothing matches.
-  const server = lifelogServer({});
+  // No route: the test server answers 404, as the voice server does when nothing matches.
+  const server = voiceServer({});
   try {
     expect(await visits({ place: "Nowhere" })).toEqual([]);
   } finally {
@@ -638,7 +638,7 @@ test("a turn holds the marks whose wake it is, as lifelog has the turn now: regr
   expect(marked("c2")).toEqual([[R0, "r0b"], []]);
   // Heard again unchanged: nothing to rebuild.
   expect(writeMarks(s, "c2", "", [[R0, "r0b"]])).toBe(false);
-  // lifelog transcribed the recording again: another turn at the same index (a new start) is not the wake.
+  // The voice server transcribed the recording again: another turn at the same index (a new start) is not the wake.
   apply(
     s,
     pageFixture({
@@ -656,7 +656,7 @@ test("a turn holds the marks whose wake it is, as lifelog has the turn now: regr
       ],
     })
   );
-  // lifelog names someone else for the wake turn: no longer his mark.
+  // The voice server names someone else for the wake turn: no longer his mark.
   apply(
     s,
     pageFixture({
@@ -693,28 +693,28 @@ test("a hearing replaces only the marks of turns holding a wake it knows: an old
 });
 
 test("lifelog's /status is read whatever its untyped objects hold: absent, null, or partly there", () => {
-  expect(LifelogStatus.parse({})).toEqual({});
+  expect(VoiceServerStatus.parse({})).toEqual({});
   expect(
-    LifelogStatus.parse({ other: 1, pendant: null, phoneHeartbeat: null })
+    VoiceServerStatus.parse({ other: 1, pendant: null, phoneHeartbeat: null })
   ).toEqual({
     pendant: null,
     phoneHeartbeat: null,
   });
   expect(
-    LifelogStatus.parse({
+    VoiceServerStatus.parse({
       pendant: { batteryPercent: 0, connection: null, recording: "recording" },
       phoneHeartbeat: { backlog: null },
     }).pendant?.batteryPercent
   ).toBe(0);
 });
 
-test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none, an offset or lifelog not set up, null; lifelog down, throws", async () => {
+test("the phone's zone: a zone Intl knows, from the voice server's newest heartbeat; none, an offset or the voice server not set up, null; the voice server down, throws", async () => {
   // Days old still counts: the phone's latest zone is where he is.
   let beat: unknown = {
     observedAt: "2026-09-01T11:00:00.000Z",
     timeZone: "Asia/Jakarta",
   };
-  const server = lifelogServer({ "/status": () => ({ phoneHeartbeat: beat }) });
+  const server = voiceServer({ "/status": () => ({ phoneHeartbeat: beat }) });
   try {
     expect(await readPhoneZone()).toBe("Asia/Jakarta");
     beat = { observedAt: "2026-10-21T11:00:00.000Z", timeZone: "+07:00" };
@@ -723,7 +723,7 @@ test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none
     expect(await readPhoneZone()).toBeNull();
     beat = null;
     expect(await readPhoneZone()).toBeNull();
-    // An answer it can't read is lifelog unreadable: a throw, never a guess.
+    // An answer it can't read is the voice server unreadable: a throw, never a guess.
     beat = "not a heartbeat";
     await expect(readPhoneZone()).rejects.toThrow();
   } finally {
@@ -747,7 +747,7 @@ test("the phone's zone comes from a field lifelog's heartbeat contract holds: `t
   const beat = api.components.schemas.HeartbeatUpload.properties;
   expect(beat.timeZone.type).toBe("string");
   expect(
-    LifelogStatus.parse({ phoneHeartbeat: { timeZone: "Asia/Jakarta" } })
+    VoiceServerStatus.parse({ phoneHeartbeat: { timeZone: "Asia/Jakarta" } })
       .phoneHeartbeat
   ).toEqual({ timeZone: "Asia/Jakarta" });
 });

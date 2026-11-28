@@ -1,13 +1,13 @@
 import { expect, setSystemTime, test } from "bun:test";
 import { rmSync } from "node:fs";
 import { clock, daysBefore, HOUR, MIN } from "../core/clock";
-import { apply, openStore, WATCH } from "../sources/lifelog";
 import {
   conversation as feedConversation,
-  lifelogServer,
   pageFixture,
   turnFixture,
+  voiceServer,
 } from "../sources/store-fixtures";
+import { apply, openStore, WATCH } from "../sources/voice-server";
 import { CONFIRMS_A_DAY, readRecentVoice } from "./arrival-reader";
 import {
   ASK,
@@ -66,7 +66,7 @@ test("voice: a closed long conversation is read whole, every chunk in one pass",
   ).toEqual(
     [...long.spoken.values()]
       .flat()
-      .map((l) => `lifelog|${l.ref}`)
+      .map((l) => `voice|${l.ref}`)
       .toSorted()
   );
 });
@@ -134,9 +134,9 @@ test("voice: an offline read of a conversation that turns out not his asks his e
 });
 
 test("voice: a conversation reopened or a speaker corrected within one pass is read as the store's one read saw it", async () => {
-  // A made-up closed conversation in the watcher's store: his turn, then Sam's; the words from a fake lifelog.
+  // A made-up closed conversation in the watcher's store: his turn, then Sam's; the words from a fake voice server.
   const [first, last, late] = [ago(20), ago(12), ago(16)];
-  const server = lifelogServer({
+  const server = voiceServer({
     "/transcription-jobs/job-r/transcript": () => ({
       turns: ["I'll bring the plans", "Thanks", "And the keys?"].map(
         (text) => ({ speakerId: null, text })
@@ -230,7 +230,7 @@ test("a mail trigger left pending past midnight (the cap spent) is the night's, 
   }
 });
 
-test("voice: lifelog unreachable, chats and mail are still read", async () => {
+test("voice: the voice server unreachable, chats and mail are still read", async () => {
   const s = sceneOf(() => yes("send the slides"));
   await s.read([msg("Can you send the slides?")], true, 0, {
     ...voiceOf("talk", { closed: true, spoke: true, turns: 2 }),

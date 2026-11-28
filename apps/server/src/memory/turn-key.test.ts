@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { MIN } from "../core/clock";
-import type { LifelogConversation } from "../sources/lifelog";
-import { lifelogUnits, turnKey } from "./units";
+import type { VoiceConversation } from "../sources/voice-server";
+import { turnKey, voiceUnitsOf } from "./units";
 
 const said = (
   n: number,
@@ -27,14 +27,14 @@ test("a conversation-day's hash is pinned: thousands of cached model outputs are
     said(30, "Jean (Me)"),
     said(31, null),
   ];
-  const conversation: LifelogConversation = {
+  const conversation: VoiceConversation = {
     closed: false,
     endedAt: "2026-10-25T10:40:00.000Z",
     id: "c1",
     startedAt: "2026-10-25T10:00:00.000Z",
     turns,
   };
-  expect(lifelogUnits([conversation], new Set())[0]?.unit.hash).toBe(
+  expect(voiceUnitsOf([conversation], new Set())[0]?.unit.hash).toBe(
     "f6c993ea98f6ff08"
   );
   expect(turnKey(turns[1] as (typeof turns)[number])).toBe(

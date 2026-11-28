@@ -32,8 +32,10 @@ function metaCallOf(text: string): CallNotice | undefined {
 
 /**
  * Every network on a bridge (`bun life bridge`, docs/use/bridges.md), each a source of its own (`memory/sources.ts`):
- * what he calls it, the bridge's repository and command to build, how its notices say a call (`callOf`), the config keys he must fill in himself (`appKeys`), the bridge's login flow he signs in with, from his phone or the CLI
- * (`loginFlow`, required: `networks.test.ts`), and whether its app is what Life reads (`readByItsApp`: WhatsApp's). The one list.
+ * what he calls it, the bridge's repository, its release tag (`tag`, the one it is built from) and command to build, how
+ * its notices say a call (`callOf`), the config keys he must fill in himself (`appKeys`), the bridge's login flow he signs
+ * in with, from his phone or the CLI (`loginFlow`, required: `networks.test.ts`), and whether its app is what Life reads
+ * (`readByItsApp`: WhatsApp's). The one list.
  */
 export const NETWORKS = [
   {
@@ -52,6 +54,7 @@ export const NETWORKS = [
     loginFlow: "dev.highest.matrix.line.email_login",
     name: "line",
     repo: "beeper/line",
+    tag: "1.2.0",
   },
   {
     callOf: metaCallOf,
@@ -60,6 +63,7 @@ export const NETWORKS = [
     loginFlow: "instagram",
     name: "instagram",
     repo: "mautrix/meta",
+    tag: "v0.2611.0",
   },
   {
     // ponytail: Instagram's call notices assumed; a Messenger call in another wording stays a plain notice until seen.
@@ -69,6 +73,7 @@ export const NETWORKS = [
     loginFlow: "facebook",
     name: "messenger",
     repo: "mautrix/meta",
+    tag: "v0.2611.0",
   },
   {
     // Its bridge exits until its config holds his own keys from my.telegram.org (`bun life bridge link`).
@@ -87,6 +92,7 @@ export const NETWORKS = [
     loginFlow: "phone",
     name: "telegram",
     repo: "mautrix/telegram",
+    tag: "v0.2611.0",
   },
   {
     cmd: "cmd/mautrix-linkedin",
@@ -94,6 +100,7 @@ export const NETWORKS = [
     loginFlow: "cookies",
     name: "linkedin",
     repo: "mautrix/linkedin",
+    tag: "v0.2611.0",
   },
   {
     cmd: "cmd/mautrix-whatsapp",
@@ -103,6 +110,7 @@ export const NETWORKS = [
     // Its reading stays the Mac app's source (`sources/whatsapp.ts`); the bridge is how Life sends and opens chats.
     readByItsApp: true,
     repo: "mautrix/whatsapp",
+    tag: "v0.2611.0",
   },
 ] as const satisfies readonly ({ loginFlow: string } & Record<
   string,

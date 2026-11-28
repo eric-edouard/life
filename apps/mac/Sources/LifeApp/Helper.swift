@@ -13,12 +13,15 @@ enum Helper {
   static let binary = Bundle.main.bundleURL.appending(path: "Contents/Helpers/life")
   static let resources = Bundle.main.bundleURL.appending(path: "Contents/Resources/life")
 
-  /// The helper's environment: a GUI app's PATH is bare, so the usual tool folders are added (claude, codex), after the bundled git and gog, which come first.
+  /// The helper's environment: a GUI app's PATH is bare, so the usual tool folders are added (claude, codex), after the bundled tools (git, gog, and uv in `Helpers`, which the homeserver setup runs), which come first.
   static var environment: [String: String] {
     var env = ProcessInfo.processInfo.environment
     let home = FileManager.default.homeDirectoryForCurrentUser.path
-    let tools = Bundle.main.bundleURL.appending(path: "Contents/Helpers/tools/bin").path
-    let extra = [tools, "\(home)/.local/bin", "\(home)/.bun/bin", "/opt/homebrew/bin", "/usr/local/bin"]
+    let helpers = Bundle.main.bundleURL.appending(path: "Contents/Helpers")
+    let extra = [
+      helpers.appending(path: "tools/bin").path, helpers.path, "\(home)/.local/bin", "\(home)/.bun/bin",
+      "/opt/homebrew/bin", "/usr/local/bin",
+    ]
     env["PATH"] = (extra + [env["PATH"] ?? "/usr/bin:/bin"]).joined(separator: ":")
     env["LIFE_CODE_DIR"] = resources.path
     env["LIFE_OWNER_DATA_DIR"] = data.path
