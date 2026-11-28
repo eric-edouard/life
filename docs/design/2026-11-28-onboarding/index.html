@@ -1,0 +1,323 @@
+<!doctype html>
+<!-- Onboarding on the host, round 1 (28 Nov 2026): the setup window on a Mac (bundle M; "How far back" is bundle H), the
+     same setup as a local page in the browser on Windows (bundle W), and the minimal menu bar and tray. Every screen
+     reads one list, the integrations (integrations.js, packaging spec section 1), and a screen whose answer is already
+     known is skipped (the side panel's "Reinstall" shows it). Proposals: the whole setup is new; none of it is in App v4.
+     Everything is made up. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Onboarding: the host</title>
+<link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#121316;color:var(--fg);font-family:var(--sans);font-weight:450;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+@keyframes rise{from{opacity:0;transform:translateY(6px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.shell{min-height:100vh;display:flex;align-items:center;justify-content:center;gap:40px;padding:20px}
+.fit{flex:none;position:relative}
+.stagebox{position:absolute;top:0;left:0;width:900px;height:720px;transform-origin:0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.bundle{align-self:flex-start;margin-left:70px;font-size:var(--text-meta);font-weight:650;color:var(--muted)}
+.bundle b{color:var(--fg);font-weight:650}
+/* the side panel (the turn by turn pages' own) */
+.side{width:280px;flex:none;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 40px);overflow-y:auto;scrollbar-width:thin}
+.side h1{font-size:var(--text-header);font-weight:650;margin:0 0 2px}
+.side p{font-size:var(--text-line);color:var(--muted);margin:0 0 8px;line-height:1.4}
+.side h2{font-size:var(--text-heading);font-weight:600;color:var(--muted);margin:12px 0 2px}
+.side button{text-align:left;min-height:38px;padding:8px 16px;border-radius:16px;background:#1d1e23;font-size:14px;font-weight:650}
+.side button small{font-weight:450;color:var(--muted)}
+.side button[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+.side button[aria-pressed="true"] small{color:var(--on);opacity:.7}
+.side button.skipped{opacity:.45}
+.side .two{display:flex;gap:6px}.side .two button{flex:1;text-align:center}
+/* the Mac window: traffic lights, no title, the page inside */
+.win{position:relative;width:780px;height:620px;border-radius:14px;background:var(--bg);box-shadow:0 30px 80px rgba(0,0,0,.6),0 0 0 .5px rgba(255,248,234,.12);overflow:hidden;display:flex;flex-direction:column}
+.tl{display:flex;gap:8px;padding:14px 16px;flex:none}
+.tl i{width:12px;height:12px;border-radius:6px;background:#3a3b40}
+/* the Windows browser: a tab, the address on loopback, the same page */
+.browser{position:relative;width:860px;height:660px;border-radius:8px;background:#202124;box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden;display:flex;flex-direction:column}
+.bt{display:flex;align-items:flex-end;height:38px;padding:0 8px;gap:8px;flex:none}
+.bt .tab{height:32px;padding:0 14px;border-radius:8px 8px 0 0;background:#35363a;display:flex;align-items:center;gap:8px;font-size:12.5px;font-family:"Segoe UI",system-ui,sans-serif}
+.bt .wc{margin-left:auto;display:flex;gap:26px;padding:0 10px 10px;font-size:12px;color:#9aa0a6;font-family:"Segoe UI",system-ui}
+.ba{height:38px;background:#35363a;display:flex;align-items:center;padding:0 12px;gap:12px;flex:none;font-family:"Segoe UI",system-ui,sans-serif;font-size:13px;color:#9aa0a6}
+.ba .url{flex:1;height:28px;border-radius:14px;background:#202124;display:flex;align-items:center;padding:0 14px;color:#e8eaed}
+.ba .url span{color:#9aa0a6}
+.browser .page{background:var(--bg)}
+/* the page: one question, its body, Back and the one cream answer at the foot */
+.page{flex:1;min-height:0;display:flex;flex-direction:column;padding:8px 56px 28px}
+.body{flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:14px;padding-bottom:12px}
+.body::-webkit-scrollbar{display:none}
+.body>*{animation:rise .35s ease-out both}
+.still .body>*,.still .menu{animation:none}
+.body>*:nth-child(2){animation-delay:.05s}.body>*:nth-child(3){animation-delay:.1s}.body>*:nth-child(4){animation-delay:.15s}
+.mark{width:36px;height:36px;border-radius:9px;background:#0d0e11;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:22px}
+h2.q{margin:6px 0 0;font-size:var(--text-profile);font-weight:650;letter-spacing:-.015em;line-height:1.2}
+.lead{margin:-6px 0 0;font-size:var(--text-body);color:var(--muted);line-height:1.45;max-width:560px}
+.foot{flex:none;display:flex;align-items:center;gap:12px;padding-top:12px}
+.dots{display:flex;gap:6px;flex:1}
+.dots i{width:6px;height:6px;border-radius:3px;background:var(--tint);transition:background .3s,width .3s}
+.dots i.on{background:var(--fg);width:18px}
+.back{width:44px;height:44px;border-radius:22px;background:var(--tint);display:flex;align-items:center;justify-content:center}
+.back[hidden]{display:none}
+.go{height:44px;min-width:150px;padding:0 24px;border-radius:22px;background:var(--fg);color:var(--on);font-weight:650;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .25s,color .25s}
+.go:disabled{background:var(--tint);color:var(--muted);cursor:default}
+.later{height:44px;padding:0 18px;border-radius:22px;background:var(--tint);font-weight:600;font-size:15px}
+.spin{width:14px;height:14px;border-radius:7px;border:1.8px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;flex:none;display:inline-block}
+/* blocks */
+.tile{background:var(--tile);border-radius:var(--block-radius);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:14.5px}.kv span{color:var(--muted)}.kv b{font-weight:600;text-align:right}
+.say{font-size:15px;line-height:1.45}
+.priv{font-size:12.5px;color:var(--muted);line-height:1.4;display:flex;gap:6px}
+.priv::before{content:'';flex:none;width:12px;height:12px;margin-top:2px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center/contain no-repeat}
+.ok{color:var(--ok);font-weight:650}.flag{color:var(--flag)}.ai{color:var(--ai)}
+.ic{flex:none;display:inline-flex;align-items:center;justify-content:center;font-weight:650;line-height:1}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:var(--text-heading);font-weight:600;color:var(--muted)}
+.field input{height:46px;border-radius:var(--control-radius);background:var(--tile);border:0;outline:0;color:var(--fg);font:inherit;font-size:16px;padding:0 14px}
+.field input:focus{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--glass)}
+/* option cards: a radio, the name, Life's pick in blue, one line of facts */
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;gap:14px;align-items:flex-start;text-align:left;padding:14px 16px;border-radius:var(--block-radius);background:var(--tile);transition:background .2s}
+.opt[aria-checked="true"]{background:color-mix(in srgb,var(--fg) 9%,var(--tile))}
+.opt>i{flex:none;width:20px;height:20px;border-radius:10px;margin-top:2px;background:var(--tint);display:flex;align-items:center;justify-content:center}
+.opt[aria-checked="true"]>i{background:var(--fg)}.opt[aria-checked="true"]>i::after{content:'';width:8px;height:8px;border-radius:4px;background:var(--on)}
+.opt span{flex:1}.opt b{display:block;font-size:var(--text-title);font-weight:650}
+.opt small{display:block;font-size:var(--text-line);color:var(--muted);line-height:1.4;margin-top:2px}
+.opt em{font-style:normal;font-size:12px;font-weight:650;color:var(--ai);margin-left:6px}
+.opt .fig{flex:none;text-align:right;font-size:14px;font-weight:650}.opt .fig small{font-weight:450}
+/* steps that tick themselves */
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:s}
+.steps li{display:flex;gap:12px;align-items:center;font-size:15px;counter-increment:s}
+.steps li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:12px;background:var(--glass);font-size:12.5px;font-weight:650;display:flex;align-items:center;justify-content:center}
+.steps li.done{color:var(--muted)}.steps li.done::before{content:'✓';background:var(--ok);color:var(--on)}
+.steps li.now::before{background:var(--fg);color:var(--on)}
+.steps li small{margin-left:auto;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+/* value pills */
+.vals{display:flex;gap:8px;flex-wrap:wrap}
+.val{height:38px;padding:0 16px;border-radius:19px;background:var(--tint);font-size:14.5px;font-weight:600;transition:background .2s,color .2s}
+.val[aria-pressed="true"]{background:var(--fg);color:var(--on)}
+.val.other{color:var(--muted)}
+/* an integration row: tick, its icon, its name, its value line (an ask and Life's answer), its privacy line, its state */
+.rows{display:flex;flex-direction:column;gap:18px}
+.irow{display:flex;gap:14px;align-items:flex-start;text-align:left;width:100%}
+.irow .tk{flex:none;width:20px;height:20px;border-radius:6px;background:var(--tint);margin-top:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:650;color:var(--on);transition:background .2s}
+.irow[aria-checked="true"] .tk{background:var(--fg)}.irow[aria-checked="true"] .tk::after{content:'✓'}
+.irow .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.irow b{font-size:var(--text-title);font-weight:650}.irow b small{font-weight:450;color:var(--muted);font-size:var(--text-line)}
+.irow .vl{font-size:var(--text-line);line-height:1.4}
+.irow .vl q{quotes:'“' '”'}.irow .vl span{color:var(--muted)}
+.irow .st{flex:none;margin-top:6px;font-size:13.5px;font-weight:650;display:flex;align-items:center;gap:6px;min-height:22px}
+.irow .st a{color:var(--fg);text-decoration:none;padding:6px 12px;border-radius:14px;background:var(--tint);font-size:13px}
+.drop{border-radius:var(--block-radius);background:var(--wash);padding:16px;text-align:center;font-size:14px;color:var(--muted)}
+/* the recovery key, shown once */
+.key{font-family:var(--font-mono);font-size:19px;letter-spacing:.06em;text-align:center;padding:18px;border-radius:var(--block-radius);background:var(--paper)}
+.chips{display:flex;gap:8px;justify-content:center}
+.chip{height:34px;padding:0 14px;border-radius:17px;background:var(--tint);font-size:13.5px;font-weight:600}
+/* the phone step: the TestFlight invite as it arrives, then the QR */
+.two-up{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mail{background:#f3f4f5;color:#0d0e11;border-radius:var(--block-radius);padding:14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.mail small{color:#57544f}.mail .tf{display:flex;align-items:center;gap:10px}.mail .tf i{width:34px;height:34px;border-radius:8px;background:#1f5f8b;display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-weight:650}
+.mail .bt2{align-self:flex-start;padding:6px 14px;border-radius:14px;background:#1f5f8b;color:#fff;font-weight:650}
+.qrw{display:flex;flex-direction:column;align-items:center;gap:10px}
+.qr{width:168px;height:168px;padding:10px;border-radius:var(--block-radius);background:var(--fg)}
+.num{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--muted)}
+.num i{font-style:normal;flex:none;width:22px;height:22px;border-radius:11px;background:var(--glass);color:var(--fg);font-size:12px;font-weight:650;display:flex;align-items:center;justify-content:center}
+.skipnote{font-size:12.5px;color:var(--muted);text-align:center}
+/* the desktop: the menu bar with Life's L and its menu; the Windows taskbar and its tray */
+.desk{position:relative;width:860px;height:560px;border-radius:12px;overflow:hidden;background:radial-gradient(120% 90% at 30% 10%,#2b3550,#141821 60%,#0c0d10)}
+.mb{position:absolute;top:0;left:0;right:0;height:28px;background:rgba(20,21,24,.55);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:flex-end;gap:18px;padding:0 14px;font-size:13px;font-weight:600}
+.mb .l{position:relative;width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:16px}
+.mb .l.open{background:rgba(255,248,234,.18)}
+.badge{position:absolute;top:1px;right:0;width:7px;height:7px;border-radius:4px;background:var(--flag);box-shadow:0 0 0 1.5px #1a1b1f}
+.menu{position:absolute;width:300px;padding:6px;border-radius:12px;background:rgba(30,31,36,.82);-webkit-backdrop-filter:blur(30px) saturate(1.6);backdrop-filter:blur(30px) saturate(1.6);box-shadow:0 18px 50px rgba(0,0,0,.55),inset 0 0 0 .5px rgba(255,248,234,.14);font-size:13.5px;animation:rise .25s ease-out}
+.menu .mi{display:flex;align-items:flex-start;gap:10px;padding:6px 10px;border-radius:7px}
+.menu .mi:hover{background:rgba(255,248,234,.1)}
+.menu .mi .d{flex:none;width:8px;height:8px;border-radius:4px;margin-top:6px;background:var(--faint)}
+.menu .mi .d.connecting{background:var(--ai)}.menu .mi .d.broken,.menu .mi .d.waiting_on_user{background:var(--flag)}
+.menu .mi span{flex:1}.menu .mi small{display:block;color:var(--muted);font-size:12px;line-height:1.35}
+.menu .mi small.flag{color:var(--flag)}
+.menu .sep{height:6px}
+.menu .act{padding:6px 10px;border-radius:7px;font-weight:600}.menu .act:hover{background:rgba(255,248,234,.1)}
+.tb{position:absolute;left:0;right:0;bottom:0;height:46px;background:rgba(28,29,33,.85);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:flex-end;gap:14px;padding:0 14px;font-family:"Segoe UI",system-ui,sans-serif;font-size:12px}
+.tb .l{position:relative;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:18px}
+.tb .l.open{background:rgba(255,248,234,.14)}
+.tb .clock{text-align:right;line-height:1.3}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main class="shell"><div class="fit"><div class="stagebox" id="box"></div></div>
+<aside class="side" id="side"></aside></main>
+<script src="integrations.js" charset="utf-8"></script>
+<script>
+/* --- state: one setup, its answers, and the integrations' live state (made up) --- */
+var S={plat:'mac',reinstall:false,step:0,scene:'setup',ai:null,langs:{English:true},picked:{},far:'year',backup:0,keyed:false,phone:'waiting',broken:false};
+var LANGS=['English','French','German','Spanish','Thai','Italian','Portuguese'];
+var LOCAL=['English','French','German','Spanish','Italian','Portuguese'];// local speech's set (made up for the drawing)
+var timers=[];function later(f,ms){timers.push(setTimeout(f,ms));}
+function clear(){timers.forEach(clearTimeout);timers=[];}
+var BACK='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>';
+function win(){return S.plat==='win';}
+function sources(){return INTEGRATIONS.filter(function(x){return x.group==='sources'&&(win()?!x.mac:!x.win);});}
+function on(id){return S.picked[id];}
+function fileOnly(x){return x.requirements.some(function(r){return r.kind==='file';});}
+/* the steps: each its question, bundle, body, answer; skip() names why a known answer skips it */
+var STEPS=[
+ {id:'computer',label:'Your computer',bundle:'M',draw:function(){var capable=!win()&&!S.intel;
+   return '<div class="mark">L</div><h2 class="q">Welcome to Life</h2><p class="lead">Life keeps your memory on this '+(win()?'PC':'Mac')+'. Nothing of yours goes anywhere you don’t choose.</p>'+
+   '<div class="tile"><div class="kv"><span>This '+(win()?'PC':'Mac')+'</span><b>'+(win()?'Lenovo ThinkPad · 16 GB · 410 GB free':'MacBook Air · M2 · 16 GB · 212 GB free')+'</b></div>'+
+   '<div class="say">'+(capable?'It can hear your voice itself.':'Your voice will be heard by ElevenLabs: this '+(win()?'PC':'Mac')+' can’t do it itself yet.')+'</div></div>';},
+  go:'Start'},
+ {id:'you',label:'You',bundle:'M',skip:function(){return S.reinstall&&'your name is known';},draw:function(){
+   return '<h2 class="q">Is this you?</h2><p class="lead">Read from this '+(win()?'PC':'Mac')+'. Life calls you by your first name.</p>'+
+   '<div class="field"><label for="n">Name</label><input id="n" value="Sam Rivera"></div><div class="field"><label for="e">Email</label><input id="e" value="sam.rivera@example.com"></div>'+
+   '<div class="priv">Your name stays on this '+(win()?'PC':'Mac')+'. The email is where your phone’s invite goes.</div>';},go:'That’s me'},
+ {id:'ai',label:'The AI',bundle:'M',skip:function(){return S.reinstall&&'the AI is already set';},draw:drawAI,go:function(){return S.ai?S.aiDone?'Continue':null:null;}},
+ {id:'langs',label:'Your languages',bundle:'M',draw:drawLangs,go:function(){return needsEleven()&&!S.keyed?null:'Continue';}},
+ {id:'sources',label:'What Life reads',bundle:'M',draw:drawSources,go:function(){var n=Object.keys(S.picked).filter(on).length;
+   if(!n)return 'Skip for now';var busy=sources().some(function(x){return on(x.id)&&x.state!=='working';});return busy?null:'Continue';}},
+ {id:'far',label:'How far back',bundle:'H',skip:function(){return !sources().some(function(x){return on(x.id)&&x.holds&&x.holds.months;})&&'nothing with a past is connected';},draw:drawFar,go:function(){return {months:'Read 3 months',year:'Read the last year',all:'Read everything'}[S.far];}},
+ {id:'backup',label:'Backups',bundle:'M',skip:function(){return S.reinstall&&'a backup is already set';},draw:drawBackup,go:function(){return S.shown?'I saved it':'Back up here';}},
+ {id:'phone',label:'Your phone',bundle:'M',draw:drawPhone,go:function(){return null;}}];
+function live(){return STEPS.filter(function(s){return !(s.skip&&s.skip());});}
+/* --- the AI: Life's pick is Claude when Claude Code is found --- */
+function drawAI(){var found=!win(),pick=found?'claude':'openrouter';
+  var o=[['claude','Claude','The most capable models, usually the best results. Uses your Claude subscription.',found?'Found on this Mac':''],
+         ['openrouter','OpenRouter','Private open-weight models. Paid to OpenRouter.','<b>about $15</b><small>a month</small>'],
+         ['both','Both','Your memory on OpenRouter, Life’s agents on Claude.','']];
+  var h='<h2 class="q">Which AI should Life think with?</h2><p class="lead">Your words go to it on your own account. You can change it later by asking Life.</p><div class="opts">'+
+    o.map(function(x){return '<button type="button" class="opt" role="radio" data-ai="'+x[0]+'" aria-checked="'+(S.ai===x[0])+'"><i></i><span><b>'+x[1]+(x[0]===pick?'<em>Life’s pick</em>':'')+'</b><small>'+x[2]+'</small></span>'+(x[3]?'<span class="fig">'+x[3]+'</span>':'')+'</button>';}).join('')+'</div>';
+  if(S.ai)h+='<div class="tile">'+aiSteps()+'</div>';
+  return h;}
+function aiSteps(){var a=S.ai,st=S.aiSt||0,list=[];
+  if(a!=='openrouter')list.push(win()?'Install Claude Code':'Claude Code',win()?'Sign in to Claude, in your browser':'Signed in as sam.rivera@example.com');
+  if(a!=='claude')list.push('Sign in to OpenRouter, in your browser','Add credits on OpenRouter');
+  return '<ol class="steps">'+list.map(function(t,i){var cls=i<st?'done':i===st?'now':'';
+    var right=i===st?'<small><span class="spin"></span>'+(/credits/.test(t)?'Waiting for your balance…':/Install/.test(t)?'Installing…':'Waiting for your browser…')+'</small>':'';
+    return '<li class="'+cls+'">'+t+right+'</li>';}).join('')+'</ol>';}
+function runAI(){S.aiSt=win()||S.ai!=='claude'?0:2;S.aiDone=false;var n=(S.ai!=='openrouter'?2:0)+(S.ai!=='claude'?2:0);
+  (function tick(){if(S.aiSt>=n){S.aiDone=true;return render();}render();later(function(){S.aiSt++;tick();},1300);})();}
+/* --- languages: local when it can, ElevenLabs for the rest, with the real cost for this case --- */
+function needsEleven(){return win()||S.intel||Object.keys(S.langs).some(function(l){return S.langs[l]&&LOCAL.indexOf(l)<0;});}
+function drawLangs(){var off=Object.keys(S.langs).filter(function(l){return S.langs[l]&&(win()||LOCAL.indexOf(l)<0);});
+  var h='<h2 class="q">Which languages are spoken around you?</h2><p class="lead">So Life hears your day right. Tick every one, even the occasional.</p><div class="vals">'+
+    LANGS.map(function(l){return '<button type="button" class="val" data-lang="'+l+'" aria-pressed="'+!!S.langs[l]+'">'+l+'</button>';}).join('')+'<button type="button" class="val other">Other…</button></div>';
+  if(!needsEleven())return h+'<div class="tile"><div class="say">All heard on this Mac.</div><div class="priv">Your voice never leaves this Mac.</div></div>';
+  var all=win()||S.intel,cost=all?'about $22 a month':'about $6 a month';
+  return h+'<div class="tile"><div class="say">'+(all?'ElevenLabs hears your voice for this '+(win()?'PC':'Mac')+'.':'<b>'+off.join(', ')+'</b> is heard by ElevenLabs; the rest on this Mac.')+'</div>'+
+    '<div class="kv"><span>For a pendant worn all day</span><b>'+cost+', paid to ElevenLabs</b></div>'+
+    '<ol class="steps"><li class="'+(S.keyed?'done':'now')+'">Make a key on ElevenLabs, then copy it'+(S.keyed?'':'<small><button type="button" class="chip" data-key>Open ElevenLabs ↗</button></small>')+'</li></ol>'+
+    '<div class="priv">Only '+(all?'your recordings':'the parts in '+off.join(', '))+' go to ElevenLabs, on your key. Life fills the key in when you copy it.</div></div>';}
+/* --- what Life reads: every source, its value line and privacy line; tick, then Connect --- */
+function drawSources(){var list=sources().sort(function(a,b){return (a.id==='google'?-1:0)-(b.id==='google'?-1:0);});
+  return '<h2 class="q">What should Life read?</h2><p class="lead">The more it reads, the more it can answer. Tick what you want; you can add the rest any time.</p><div class="rows">'+
+    list.map(function(x){return '<div class="irow" role="checkbox" data-src="'+x.id+'" aria-checked="'+!!on(x.id)+'"><span class="tk"></span>'+appIcon(x,36)+
+      '<span class="tx"><b>'+x.name+(x.covers?' <small>'+x.covers+'</small>':'')+'</b><span class="vl"><q>'+x.value.ask+'</q> <span>'+x.value.answer+'</span></span><span class="priv">'+x.privacy+'</span></span>'+
+      '<span class="st">'+srcState(x)+'</span></div>';}).join('')+'</div>';}
+function srcState(x){if(!on(x.id))return '';
+  if(x.state==='working')return '<span class="ok">✓</span>';
+  if(x.state==='waiting_on_user')return fileOnly(x)?'<span class="ai">Drop it here</span>':'<a href="#" data-settings>Allow in System Settings ↗</a>';
+  if(x.state==='connecting')return '<span class="spin"></span>';
+  return '';}
+function connectAll(){var i=0;sources().forEach(function(x){if(!on(x.id)||x.state==='working')return;var k=x.requirements[0].kind;
+  x.state=k==='sign_in'?'connecting':'waiting_on_user';
+  later(function(){x.state='working';render();},1600+900*i++);});render();}
+/* --- how far back: what each holds (counted, no model), then one choice with cost and time on the chosen AI --- */
+function drawFar(){var got=sources().filter(function(x){return on(x.id)&&x.holds;}),claude=S.ai==='claude';
+  var o=[['months','The last 3 months',claude?'Uses some of your Claude usage':'about $4','ready tonight'],
+         ['year','The last year',claude?'About a week of your Claude usage':'about $14','about 2 nights'],
+         ['all','Everything',claude?'About a month of your Claude usage':'about $120','about 3 weeks of nights']];
+  return '<h2 class="q">How far back should Life read?</h2><p class="lead">Life reads in the background, newest first. You can use it from tonight.</p>'+
+    '<div class="tile">'+got.map(function(x){return '<div class="kv"><span style="display:flex;align-items:center;gap:8px">'+appIcon(x,20)+x.name+'</span><b>'+x.holds.n+' '+x.holds.what+' since '+x.holds.since+'</b></div>';}).join('')+'</div>'+
+    '<div class="opts">'+o.map(function(x){return '<button type="button" class="opt" role="radio" data-far="'+x[0]+'" aria-checked="'+(S.far===x[0])+'"><i></i><span><b>'+x[1]+(x[0]==='year'?'<em>Life’s pick</em>':'')+'</b><small>'+x[3]+'</small></span><span class="fig">'+x[2]+'</span></button>';}).join('')+'</div>'+
+    '<div class="priv">Read by '+({claude:'Claude',openrouter:'OpenRouter',both:'OpenRouter'}[S.ai]||'OpenRouter')+', on your account. Your pick is your OK: Life never asks again for this.</div>';}
+/* --- backups: the first cloud folder found, encrypted; the recovery key shown once --- */
+function drawBackup(){var f=win()?['OneDrive','Google Drive']:['iCloud Drive','Google Drive'];
+  if(S.shown)return '<h2 class="q">Keep this key somewhere safe</h2><p class="lead">It opens your backup if this '+(win()?'PC':'Mac')+' is lost. It is shown only now.</p>'+
+    '<div class="key">LIFE-7QX4-MP2K-R9TD-H3VW</div><div class="chips"><button type="button" class="chip">Copy</button><button type="button" class="chip">Save to your password manager</button></div>'+
+    '<div class="priv">Without this key nobody can read the copy: not '+f[S.backup].split(' ')[0]+', not Life’s developer, not Life.</div>';
+  return '<h2 class="q">Where should Life keep a copy?</h2><p class="lead">Every night, encrypted, so a lost '+(win()?'PC':'Mac')+' loses nothing.</p><div class="opts">'+
+    f.map(function(n,i){return '<button type="button" class="opt" role="radio" data-bk="'+i+'" aria-checked="'+(S.backup===i)+'"><i></i><span><b>'+n+(i===0?'<em>Life’s pick</em>':'')+'</b><small>'+(i===0?'Found on this '+(win()?'PC':'Mac')+', 1.6 TB free':'Found on this '+(win()?'PC':'Mac')+', 12 GB free')+'</small></span></button>';}).join('')+'</div>'+
+    '<div class="priv">Only a locked copy goes there. Its key stays with you.</div>';}
+/* --- the phone: the invite as it arrives, then the QR; the window closes when the phone pairs --- */
+function drawPhone(){var paired=S.phone==='paired';
+  return '<h2 class="q">'+(paired?'Your phone is in':'Now your iPhone')+'</h2><p class="lead">'+(paired?'Life goes on from there. This window closes.':'Everything else happens on your phone, with Life.')+'</p>'+
+    '<div class="two-up"><div style="display:flex;flex-direction:column;gap:10px"><div class="num"><i>1</i>Open the invite we emailed to sam.rivera@example.com</div>'+
+    '<div class="mail"><small>From TestFlight · now</small><b>You’re invited to test Life</b><div class="tf"><i>L</i><span>Life<br><small>for iPhone</small></span></div><span class="bt2">View in TestFlight</span></div></div>'+
+    '<div class="qrw"><div class="num" style="align-self:flex-start"><i>2</i>Then open Life and scan this</div>'+(paired?'<div class="say ok" style="margin-top:60px">✓ Paired with Sam’s iPhone</div>':qr())+
+    (paired?'':'<div class="num"><span class="spin"></span>Waiting for your phone…</div>')+'</div></div>';}
+function qr(){var n=25,s='',r=7;function rnd(i){r=(r*9301+49297)%233280;return r/233280;}
+  for(var y=0;y<n;y++)for(var x=0;x<n;x++){var f=(x<7&&y<7)||(x>=n-7&&y<7)||(x<7&&y>=n-7);
+    var on=f?((x%(n-7)===0||y%(n-7)===0||x%(n-7)===6||y%(n-7)===6||(x%(n-7)>1&&x%(n-7)<5&&y%(n-7)>1&&y%(n-7)<5))&&!(x%(n-7)>0&&x%(n-7)<6&&y%(n-7)>0&&y%(n-7)<6&&!(x%(n-7)>1&&x%(n-7)<5&&y%(n-7)>1&&y%(n-7)<5))):rnd()>.5;
+    if(f){var lx=x>=n-7?x-(n-7):x,ly=y>=n-7?y-(n-7):y;on=(lx===0||ly===0||lx===6||ly===6)||(lx>1&&lx<5&&ly>1&&ly<5);}
+    if(on)s+='<rect x="'+x+'" y="'+y+'" width="1" height="1"/>';}
+  return '<svg class="qr" viewBox="0 0 '+n+' '+n+'" shape-rendering="crispEdges" fill="#000" aria-label="Pairing code">'+s+'</svg>';}
+/* --- the page: the step, Back, the dots, the one answer --- */
+function setup(){var L=live(),s=L[Math.min(S.step,L.length-1)],go=typeof s.go==='function'?s.go():s.go;
+  var page='<div class="page"><div class="body">'+s.draw()+'</div><div class="foot"><button type="button" class="back" data-back aria-label="Back"'+(S.step?'':' hidden')+'>'+BACK+'</button>'+
+    '<div class="dots">'+L.map(function(x,i){return '<i class="'+(i===S.step?'on':'')+'"></i>';}).join('')+'</div>'+
+    (s.id==='sources'&&!sources().some(function(x){return on(x.id)&&x.state!=='off';})&&Object.keys(S.picked).some(on)?'<button type="button" class="go" data-connect>Connect '+Object.keys(S.picked).filter(on).length+'</button>':
+     go?'<button type="button" class="go" data-go>'+go+'</button>':'')+'</div></div>';
+  var frame=win()?'<div class="browser"><div class="bt"><div class="tab"><span class="mark" style="width:16px;height:16px;font-size:11px;border-radius:4px">L</span>Set up Life</div><div class="wc"><span>—</span><span>▢</span><span>✕</span></div></div>'+
+    '<div class="ba"><span>←</span><span>→</span><span>↻</span><div class="url">127.0.0.1:4318<span>/setup</span></div></div>'+page+'</div>':'<div class="win"><div class="tl"><i></i><i></i><i></i></div>'+page+'</div>';
+  return {frame:frame,bundle:win()?'W':s.bundle,label:s.label};}
+/* --- the menu bar and the tray: one dot per integration that is on; the icon gets a red dot while any is broken --- */
+function menu(){var rows=[['google','Reading 2021 · about 2 hours left','connecting'],['source:messages','',''],['source:photos','',''],['ai','',''],['voice','',''],['pendant','',''],['reach','',''],
+    ['network:whatsapp',S.broken?'Signed out on your Mac. Sign in again from your phone.':'',S.broken?'broken':'']];
+  if(win())rows=rows.filter(function(r){return !integration(r[0]).mac;});
+  rows.sort(function(a,b){return (b[2]==='broken')-(a[2]==='broken');});// what is broken comes first
+  var items=rows.map(function(r){var x=integration(r[0]),st=r[2]||'working',name=x.id==='ai'?(S.ai==='openrouter'?'OpenRouter':'Claude'):x.name;
+    return '<div class="mi"><i class="d '+st+'"></i><span>'+name+(r[1]?'<small class="'+(st==='broken'?'flag':'')+'">'+r[1]+'</small>':'')+'</span></div>';}).join('');
+  var m='<div class="menu" style="'+(win()?'right:10px;bottom:54px':'right:120px;top:32px')+'">'+items+'<div class="sep"></div><div class="act">Open Life on your phone</div><div class="act">Quit Life</div></div>';
+  var icon='<span class="l open">L'+(S.broken?'<i class="badge"></i>':'')+'</span>';
+  var bar=win()?'<div class="tb"><span>⌃</span>'+icon+'<span>ENG</span><span>📶</span><span class="clock">09:41<br>28/11/2026</span></div>':
+    '<div class="mb"><span>⌁</span>'+icon+'<span>📶</span><span>Fri 28 Nov 09:41</span></div>';
+  return {frame:'<div class="desk">'+bar+m+'</div>',bundle:win()?'W':'M',label:win()?'The tray':'The menu bar'};}
+/* --- drawing --- */
+/* only a new screen inks in; a change on the same screen redraws in place */
+var drawn='';
+function render(){var v=S.scene==='menu'?menu():setup(),key=S.plat+S.scene+S.step+S.broken+S.shown,b=document.getElementById('box');
+  b.classList.toggle('still',key===drawn);drawn=key;
+  b.innerHTML='<div class="bundle">Bundle <b>'+v.bundle+'</b> · '+v.label+'</div>'+v.frame;wire();side();}
+function wire(){var b=document.getElementById('box');
+  b.querySelectorAll('[data-ai]').forEach(function(e){e.onclick=function(){S.ai=e.dataset.ai;clear();runAI();};});
+  b.querySelectorAll('[data-lang]').forEach(function(e){e.onclick=function(){S.langs[e.dataset.lang]=!S.langs[e.dataset.lang];render();};});
+  b.querySelectorAll('[data-key]').forEach(function(e){e.onclick=function(){e.innerHTML='<span class="spin"></span> Waiting for your copy…';later(function(){S.keyed=true;render();},1600);};});
+  b.querySelectorAll('[data-src]').forEach(function(e){e.onclick=function(ev){if(ev.target.closest('[data-settings]'))return;var x=integration(e.dataset.src);if(x.state!=='off')return;S.picked[x.id]=!on(x.id);render();};});
+  b.querySelectorAll('[data-far]').forEach(function(e){e.onclick=function(){S.far=e.dataset.far;render();};});
+  b.querySelectorAll('[data-bk]').forEach(function(e){e.onclick=function(){S.backup=+e.dataset.bk;render();};});
+  var c=b.querySelector('[data-connect]');if(c)c.onclick=connectAll;
+  var g=b.querySelector('[data-go]');if(g)g.onclick=function(){var s=live()[S.step];if(s.id==='backup'&&!S.shown){S.shown=true;return render();}next(1);};
+  var k=b.querySelector('[data-back]');if(k)k.onclick=function(){next(-1);};}
+function next(d){clear();S.step=Math.max(0,Math.min(live().length-1,S.step+d));var s=live()[S.step];
+  if(s.id==='phone'){S.phone='waiting';later(function(){S.phone='paired';render();},5000);}render();}
+function side(){var L=live(),h='<h1>Onboarding: the host</h1><p>The setup window on a Mac, the same as a page in the browser on Windows, and the menu bar or tray after. Every screen reads one list, the integrations. A screen whose answer is known is skipped.</p>'+
+  '<div class="two"><button type="button" data-plat="mac" aria-pressed="'+!win()+'">Mac</button><button type="button" data-plat="win" aria-pressed="'+win()+'">Windows</button></div>'+
+  '<div class="two"><button type="button" data-re="0" aria-pressed="'+!S.reinstall+'">First install</button><button type="button" data-re="1" aria-pressed="'+S.reinstall+'">Reinstall</button></div>'+
+  (win()?'':'<div class="two"><button type="button" data-intel="0" aria-pressed="'+!S.intel+'">M2 Mac</button><button type="button" data-intel="1" aria-pressed="'+!!S.intel+'">Intel Mac</button></div>')+
+  '<h2>Setup</h2>'+STEPS.map(function(s){var sk=s.skip&&s.skip(),i=L.indexOf(s);
+    return '<button type="button" '+(sk?'class="skipped" disabled':'data-step="'+i+'"')+' aria-pressed="'+(S.scene==='setup'&&i===S.step)+'">'+s.label+' <small>· '+(win()?'W':s.bundle)+(sk?' · skipped: '+sk:'')+'</small></button>';}).join('')+
+  '<h2>After setup</h2><button type="button" data-menu="0" aria-pressed="'+(S.scene==='menu'&&!S.broken)+'">'+(win()?'The tray':'The menu bar')+' <small>· '+(win()?'W':'M')+'</small></button>'+
+  '<button type="button" data-menu="1" aria-pressed="'+(S.scene==='menu'&&S.broken)+'">One broken <small>· red dot</small></button>';
+  var el=document.getElementById('side');el.innerHTML=h;
+  el.querySelectorAll('[data-plat]').forEach(function(e){e.onclick=function(){S.plat=e.dataset.plat;reset();};});
+  el.querySelectorAll('[data-re]').forEach(function(e){e.onclick=function(){S.reinstall=e.dataset.re==='1';reset();};});
+  el.querySelectorAll('[data-intel]').forEach(function(e){e.onclick=function(){S.intel=e.dataset.intel==='1';render();};});
+  el.querySelectorAll('[data-step]').forEach(function(e){e.onclick=function(){S.scene='setup';S.step=+e.dataset.step;prefill();next(0);};});
+  el.querySelectorAll('[data-menu]').forEach(function(e){e.onclick=function(){clear();S.scene='menu';S.broken=e.dataset.menu==='1';render();};});}
+/* jumping straight to a later step fills the earlier answers with Life's picks, as if they were taken */
+function prefill(){var s=live()[S.step].id,order=STEPS.map(function(x){return x.id;}),at=order.indexOf(s);
+  if(at>order.indexOf('ai')&&!S.ai){S.ai=win()?'openrouter':'claude';S.aiDone=true;}
+  if(at>order.indexOf('langs'))S.keyed=true;
+  if(at>order.indexOf('sources')&&!Object.keys(S.picked).some(on))sources().forEach(function(x){if(x.holds&&x.holds.months){S.picked[x.id]=true;x.state='working';}});}
+function reset(){clear();INTEGRATIONS.forEach(function(x){x.state='off';});S.step=0;S.scene='setup';S.ai=null;S.aiDone=false;S.picked={};S.keyed=false;S.shown=false;S.phone='waiting';render();}
+function fit(){var box=document.querySelector('.fit'),k=Math.min((innerHeight-40)/720,(innerWidth-360)/900,1.2);if(innerWidth<700)k=(innerWidth-20)/900;
+  document.getElementById('box').style.transform='scale('+k+')';box.style.width=900*k+'px';box.style.height=720*k+'px';}
+addEventListener('resize',fit);fit();render();
+</script>
+</body>
+</html>
