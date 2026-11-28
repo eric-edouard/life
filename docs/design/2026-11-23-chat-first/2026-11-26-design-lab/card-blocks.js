@@ -474,16 +474,16 @@
     '.cb-lkp{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:18px;background:#111214;color:#fff8ea;text-decoration:none}.cb-lkp .cb-lm{width:36px;height:36px;margin-top:1px}.cb-lkp .cb-lmi{border-radius:9px;font-size:17px}.cb-lkp>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}.cb-lkp small{font-size:12.5px;font-weight:650;color:#8a867e}.cb-lkp b{font-size:18px;font-weight:700;letter-spacing:-.01em;line-height:1.3}.cb-lkp em{font-style:normal;font-size:13.5px;color:#b9b4aa;line-height:1.35}.cb-lkp>svg{width:15px;height:15px;flex:none;color:#8a867e;margin-top:3px}';
   /* The chat a draft card shows (28 Nov): the head (picture or initials, name, app, arrow that opens the chat), the log
      (the messages that matter, unrelated ones as one quiet count, scrolling, opening at the bottom), then the draft in
-     the app's colour with the dashed outline. k = {to, face?, app (its name), chat:[{who,t,at}|{me,t,at}|{unrelated:n}], draft} */
+     the app's colour with the dashed outline. k = {to, face?, app (its id, a key of APPS), chat:[{who,t,at}|{me,t,at}|{unrelated:n}], draft} */
   function ChatCard(k) {
-    var a = Object.keys(APPS).map(function (i) { return APPS[i]; }).filter(function (x) { return x.n === k.app; })[0] || APPS.wa;
+    var a = APPS[k.app];
     var ini = k.to.split(' ').map(function (w) { return w.charAt(0); }).join('').slice(0, 2);
     var msg = function (m) {
       if (m.unrelated) return '<div class="cb-cn">' + m.unrelated + ' unrelated message' + (m.unrelated > 1 ? 's' : '') + '</div>';
       return '<div class="cb-cm ' + (m.me ? 'cb-cu' : 'cb-ci') + '">' + esc(m.t) + '<span class="cb-ca">' + esc(m.at) + '</span></div>';
     };
     return '<div class="cb-cc" style="--app:' + a.rgb + '"><div class="cb-ch"><span class="cb-cf">' + (k.face ? '<img alt="" src="' + k.face + '">' : esc(ini)) + '</span>' +
-      '<span class="cb-cw2"><b>' + esc(k.to) + '</b><small>' + esc(k.app) + '</small></span><a class="cb-co" href="#" onclick="return false" aria-label="Open the chat in ' + esc(k.app) + '">' + I.open + '</a></div>' +
+      '<span class="cb-cw2"><b>' + esc(k.to) + '</b><small>' + a.n + '</small></span><a class="cb-co" href="#" onclick="return false" aria-label="Open the chat in ' + a.n + '">' + I.open + '</a></div>' +
       '<div class="cb-cl"><div class="cb-cll">' + (k.chat || []).map(msg).join('') + (k.draft != null ? '<div class="cb-cm cb-cu cb-cd">' + esc(k.draft) + '</div>' : '') + '</div></div></div>';
   }
   NEW += '.cb-cc{display:flex;flex-direction:column;gap:10px}' +

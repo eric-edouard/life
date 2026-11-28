@@ -3,7 +3,7 @@
    Timings are the measured ones ÷ 2, so the prototype plays in half real time: `first` is the wait from his ask to the
    first step line (real median 5.7 s), each step's `ms` how long its line shows before the next replaces it; the whole
    answer arrives at once when the last step ends (real median 15 s for a plain question). Steps never say what they found.
-   A day (`days`) is one standard format wherever it shows: its events, then the decisions waiting on him (owner, 28 Nov).
+   A day (`days`) is one standard format wherever it shows: its events, then what's waiting on him (owner, 28 Nov).
    The edits buttons (Warmer, Shorter) only show, they do nothing. A chat (`chat`) is drawn by CB.chat only: the messages that matter, the rest one quiet count. */
 window.DATA=(function(){
   var face='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3c48f"/><stop offset="1" stop-color="#a3345e"/></linearGradient></defs><rect width="96" height="96" fill="url(#g)"/><circle cx="48" cy="40" r="17" fill="#f6dcc4"/><path d="M29 38c0-14 9-22 19-22s19 8 19 22c-5-7-11-10-19-10s-14 3-19 10Z" fill="#3b2418"/><path d="M18 96c3-18 15-28 30-28s27 10 30 28Z" fill="#126e66"/></svg>');
@@ -12,7 +12,7 @@ window.DATA=(function(){
      matter (who, what, its line, why, one wide action) */
   function item(o,sendMs){o.block='existing';o.kind='items';o.sendMs=sendMs;if(o.draft){o.sending='Sending…';o.undo='Undo';o.later='Later';}return o;}
   /* drafted by an agent when her message came in, before he asked: the answer brings it (his decision of 28 Nov) */
-  var jade=item({t:'Reply to Jade',face:face,to:'Jade',app:'WhatsApp',sub:'Saturday dinner',when:'today',edits:['Warmer','Shorter'],
+  var jade=item({t:'Reply to Jade',face:face,to:'Jade',app:'wa',sub:'Saturday dinner',when:'today',edits:['Warmer','Shorter'],
     chat:[{who:'Jade',t:'Saturday still on? I can book Mirabelle for 8 if you’re in.',at:'Tue 21:14'},
       {me:true,t:'Yes! Let me check with Sam and Ben',at:'Tue 21:30'},
       {unrelated:3},
@@ -28,9 +28,9 @@ window.DATA=(function(){
         events:[{block:'new',kind:'event',at:'10:15',t:'Dentist',where:'Clinique Rive'},
                 {block:'new',kind:'event',at:'13:00',t:'Lunch with Sam',where:'Café Dalon'},
                 {block:'new',kind:'event',at:'17:30',t:'House viewing',where:'8 Rue Vauban, with Ben'}],
-        decisions:[jade,bill,lease]},
+        waiting:[jade,bill,lease]},
       tomorrow:{lead:'One thing tomorrow.',
-        events:[{block:'new',kind:'event',at:'10:00',t:'Plumber',where:'At home'}],decisions:[]}},
+        events:[{block:'new',kind:'event',at:'10:00',t:'Plumber',where:'At home'}],waiting:[]}},
     asks:{
       day:{ask:'What’s on today?',how:'typed',first:3000,
         steps:[{t:'Reading your day',ms:1800},{t:'Reading what waits on you',ms:1400}],day:'today'},
@@ -42,13 +42,13 @@ window.DATA=(function(){
          never sent on his words alone */
       tell:{ask:'Tell Ben I’ll be 10 minutes late',how:'typed',first:3000,
         steps:[{t:'Looking up Ben',ms:1300},{t:'Reading Ben’s chat',ms:1500},{t:'Preparing an ask',ms:2400}],
-        answer:{card:item({t:'Tell Ben',to:'Ben',app:'WhatsApp',edits:['Warmer','Shorter'],
+        answer:{card:item({t:'Tell Ben',to:'Ben',app:'wa',edits:['Warmer','Shorter'],
           chat:[{who:'Ben',t:'I’ll be downstairs at 17:30 for the viewing',at:'8:50'}],
           draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to Ben · 9:42'},1100)}}},
     /* while he is in the app, idle: an agent's card, delivered by the gate, comes into the thread from the inbox,
        quietly (no sound, no sheet), led by one line of why; `arriveMs` is when it shows in the scene */
     arrives:{arriveMs:3000,why:'Sam just texted that Café Dalon is closed today. Here’s your draft.',
-      card:item({t:'Reply to Sam',to:'Sam',app:'WhatsApp',
+      card:item({t:'Reply to Sam',to:'Sam',app:'wa',
         chat:[{me:true,t:'Lunch at Café Dalon at 1?',at:'Tue 19:02'},{who:'Sam',t:'Café Dalon is closed today. Pho Saigon instead?',at:'9:19'}],
         draft:'Pho Saigon works, see you at 1!',send:'Send to Sam',sent:'Sent to Sam · 9:42'},1100)},
     /* what waits on him, from the phone's own copy (instant, no turn): the count top left, the home's top 3, the list
