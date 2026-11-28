@@ -71,7 +71,7 @@ export const shownEpisode =
  * (`doneOf`), what he did (its episodes in time order, each with where he was, what happened and its key facts), the
  * key facts in no episode, its units (conversations, chats, mail and the rest; those judged worth nothing only
  * counted; none shown when `units` is not given), then what Life changed for him.
- * `whereUnknown`: The voice server could not be read, so where he was is not shown.
+ * `whereUnknown`: the voice server could not be read, so where he was is not shown.
  */
 export function dayLines({
   actions = [],

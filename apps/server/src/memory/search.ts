@@ -199,7 +199,7 @@ export const shownVoiceHitsOf = <
     return true;
   });
 
-/** The voice section of `search`: The voice server's best passages for the words, each with its place in its conversation. */
+/** The voice section of `search`: the voice server's best passages for the words, each with its place in its conversation. */
 async function voiceHits(words: string, range: DayRange) {
   if (!listening()) {
     return ["(no voice source)"];

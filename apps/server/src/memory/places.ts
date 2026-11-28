@@ -57,7 +57,7 @@ export async function staysOf(
   if (!(q.at || q.place || located)) {
     return null;
   }
-  // A date is a day of his, bounded where he was then (Life's zones): The voice server only takes instants.
+  // A date is a day of his, bounded where he was then (Life's zones): the voice server only takes instants.
   const day = q.at && isDay(q.at) ? q.at : undefined;
   const range = day ? dayRange(day, day) : dayRange(q.from, q.to);
   const now = clock().toISOString();

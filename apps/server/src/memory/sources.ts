@@ -100,7 +100,7 @@ import {
 // (`tablesOf`, below).
 
 /**
- * Every source, in the order units are cut (`gather` cuts the voice server's from the watcher's store first, then each other
+ * Every source, in the order units are cut (`gather` cuts the voice units from the watcher's store first, then each other
  * source's in this order): of two with the same content, the first stays and the second is dropped as a duplicate.
  */
 const LISTED: Descriptor[] = [

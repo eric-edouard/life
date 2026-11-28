@@ -5,6 +5,6 @@ export const CONVERSATION_ENDS_AFTER = 5 * MIN;
 
 /**
  * A recording ends on silence when nobody spoke for this long after its audio (the voice server's `endedOnSilence`, the cutter's
- * rule 3): The voice server's cutter closes its block at it, and Life reads a recording past it as complete.
+ * rule 3): the voice server's cutter closes its block at it, and Life reads a recording past it as complete.
  */
 export const RECORDING_ENDS_ON_SILENCE_AFTER = MIN / 2;
