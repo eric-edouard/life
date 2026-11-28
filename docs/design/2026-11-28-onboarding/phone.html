@@ -88,7 +88,7 @@
 .o-ring{width:16px;height:16px;vertical-align:-3px;margin-right:4px}
 .o-cta{height:50px;border-radius:25px;background:var(--fg);color:var(--on);font-weight:650;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .25s,color .25s}
 .o-cta.busy{background:var(--tint);color:var(--fg)}.o-cta.okd{background:var(--ok);color:var(--on)}
-.o-box .opt{background:var(--card)}
+.o-box .opt:not([aria-checked="true"]){background:var(--card)}
 .s-pend.off,.s-count.off{visibility:hidden!important}
 </style>
 </head>

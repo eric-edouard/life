@@ -1,8 +1,8 @@
 <!doctype html>
-<!-- Onboarding on the host, round 1 (28 Nov 2026): the setup window on a Mac (bundle M; "How far back" is bundle H), the
+<!-- Onboarding on the host, round 2 (28 Nov 2026): the setup window on a Mac (bundle M; "How far back" is bundle H), the
      same setup as a local page in the browser on Windows (bundle W), and the minimal menu bar and tray. Every screen
      reads one list, the integrations (integrations.js, packaging spec section 1), and a screen whose answer is already
-     known is skipped (the side panel's "Reinstall" shows it). Proposals: the whole setup is new; none of it is in App v4.
+     known is skipped (the side panel's "Reinstall" shows it), and every step can fail ("Things go wrong" shows how). Proposals: the whole setup is new; none of it is in App v4.
      Everything is made up. -->
 <html lang="en">
 <head>
@@ -127,6 +127,25 @@ h2.q{margin:6px 0 0;font-size:var(--text-profile);font-weight:650;letter-spacing
 .tb .l{position:relative;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-style:italic;font-weight:700;font-size:18px}
 .tb .l.open{background:rgba(255,248,234,.14)}
 .tb .clock{text-align:right;line-height:1.3}
+/* round 2: a failed step, groups, the System Settings pane as macOS draws it, a page opened inside Life's window */
+.steps li{flex-wrap:wrap}.steps li.bad::before{content:'!';background:var(--flag);color:var(--on)}
+.why{font-size:13.5px;color:var(--flag);display:flex;align-items:center;gap:10px;flex-wrap:wrap;line-height:1.35}
+.steps .why{flex-basis:100%;padding-left:36px}
+.chip.sm{height:28px;padding:0 12px;font-size:12.5px;color:var(--fg)}
+h3.grp{margin:8px 0 -4px;font-size:var(--text-heading);font-weight:650;color:var(--muted)}h3.grp small{font-weight:450;margin-left:6px}
+.sys{border-radius:12px;background:#2a2b30;padding:10px 12px;font-family:-apple-system,system-ui,sans-serif;font-size:13px;display:flex;flex-direction:column;gap:4px}
+.sys-h{color:var(--muted);font-size:12px;margin-bottom:2px}
+.sys-r{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-radius:6px}.sys-r.me{background:rgba(255,248,234,.08);font-weight:600}
+.sw{width:30px;height:18px;border-radius:9px;background:#4a4b50;position:relative;transition:background .3s}.sw::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:7px;background:#fff;transition:left .3s}
+.sw.on{background:#30d158}.sw.on::after{left:14px}
+.alert{margin-top:6px;padding:10px 12px;border-radius:10px;background:#3a3b40;display:flex;flex-direction:column;gap:8px}.alert span{display:flex;gap:8px;justify-content:flex-end}
+.alert i{font-style:normal;padding:4px 12px;border-radius:6px;background:#55565b}.alert i.d{background:#0a84ff;color:#fff}
+.sheet{position:absolute;inset:0;z-index:2;background:rgba(10,11,13,.6);display:flex;align-items:center;justify-content:center;animation:rise .25s ease-out}
+.sh{width:420px;border-radius:14px;background:#f3f4f5;color:#0d0e11;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.sh-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:#e4e5e7;font-size:12.5px;color:#57544f}.sh-bar .x{margin-left:auto;font-weight:600}
+.sh-pg{padding:20px 22px;display:flex;flex-direction:column;gap:10px;font-size:14px}.sh-pg b{font-size:17px}
+.sh-pg .ln{padding:10px 12px;border-radius:8px;background:#fff;border:1px solid #dadbdd}.sh-pg .btn{text-align:center;padding:10px;border-radius:8px;background:#0d0e11;color:#fff;font-weight:650}
+.sh .priv{padding:0 22px 16px;color:#57544f}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -135,94 +154,154 @@ h2.q{margin:6px 0 0;font-size:var(--text-profile);font-weight:650;letter-spacing
 <aside class="side" id="side"></aside></main>
 <script src="integrations.js" charset="utf-8"></script>
 <script>
-/* --- state: one setup, its answers, and the integrations' live state (made up) --- */
-var S={plat:'mac',reinstall:false,intel:false,shown:false,step:0,scene:'setup',ai:null,langs:{English:true},picked:{},far:'year',backup:0,keyed:false,phone:'waiting',broken:false};
+/* --- state: one setup, its answers, and the integrations' live state (made up); fail: "Things go wrong" in the side panel --- */
+var S={plat:'mac',reinstall:false,intel:false,fail:false,shown:false,step:0,scene:'setup',ai:null,flows:{},sheet:null,fda:'',fdaTried:false,langs:{English:true},picked:{},far:'year',backup:0,phone:'waiting',broken:false};
 var LANGS=['English','French','German','Spanish','Thai','Italian','Portuguese'];
 var LOCAL=['English','French','German','Spanish','Italian','Portuguese'];// local speech's set (made up for the drawing)
 var timers=[];function later(f,ms){timers.push(setTimeout(f,ms));}
 function clear(){timers.forEach(clearTimeout);timers=[];}
 var BACK='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>';
 function win(){return S.plat==='win';}
+function here(){return win()?'PC':'Mac';}
 function sources(){return INTEGRATIONS.filter(function(x){return x.group==='sources'&&(win()?!x.mac:!x.win);});}
+function imports(){return INTEGRATIONS.filter(function(x){return x.group==='imports';});}
 function on(id){return S.picked[id];}
-function fileOnly(x){return x.requirements.some(function(r){return r.kind==='file';});}
+function fdaSrc(x){return x.requirements[0]===FDA;}
 /* the steps: each its question, bundle, body, answer; skip() names why a known answer skips it */
 var STEPS=[
  {id:'computer',label:'Your computer',bundle:'M',draw:function(){var capable=!win()&&!S.intel;
-   return '<div class="mark">L</div><h2 class="q">Welcome to Life</h2><p class="lead">Life keeps your memory on this '+(win()?'PC':'Mac')+'. Nothing of yours goes anywhere you don’t choose.</p>'+
-   '<div class="tile"><div class="kv"><span>This '+(win()?'PC':'Mac')+'</span><b>'+(win()?'Lenovo ThinkPad · 16 GB · 410 GB free':'MacBook Air · M2 · 16 GB · 212 GB free')+'</b></div>'+
-   '<div class="say">'+(capable?'It can hear your voice itself.':'Your voice will be heard by ElevenLabs: this '+(win()?'PC':'Mac')+' can’t do it itself yet.')+'</div></div>';},
+   return '<div class="mark">L</div><h2 class="q">Welcome to Life</h2><p class="lead">Life keeps your memory on this '+here()+'. Nothing of yours goes anywhere you don’t choose.</p>'+
+   '<div class="tile"><div class="kv"><span>This '+here()+'</span><b>'+(win()?'Lenovo ThinkPad · 16 GB · 410 GB free':S.intel?'MacBook Pro · Intel i7 · 16 GB · 180 GB free':'MacBook Air · M2 · 16 GB · 212 GB free')+'</b></div>'+
+   '<div class="say">'+(capable?'It can hear your voice itself.':'Your voice will be heard by ElevenLabs: this '+here()+' can’t do it itself yet.')+'</div></div>';},
   go:'Start'},
  {id:'you',label:'You',bundle:'M',skip:function(){return S.reinstall&&'your name is known';},draw:function(){
-   return '<h2 class="q">Is this you?</h2><p class="lead">Read from this '+(win()?'PC':'Mac')+'. Life calls you by your first name.</p>'+
+   return '<h2 class="q">Is this you?</h2><p class="lead">Read from this '+here()+'. Life calls you by your first name.</p>'+
    '<div class="field"><label for="n">Name</label><input id="n" value="Sam Rivera"></div><div class="field"><label for="e">Email</label><input id="e" value="sam.rivera@example.com"></div>'+
-   '<div class="priv">Your name stays on this '+(win()?'PC':'Mac')+'. The email is where your phone’s invite goes.</div>';},go:'That’s me'},
- {id:'ai',label:'The AI',bundle:'M',skip:function(){return S.reinstall&&'the AI is already set';},draw:drawAI,go:function(){return S.ai?S.aiDone?'Continue':null:null;}},
- {id:'langs',label:'Your languages',bundle:'M',draw:drawLangs,go:function(){return needsEleven()&&!S.keyed?null:'Continue';}},
- {id:'sources',label:'What Life reads',bundle:'M',draw:drawSources,go:function(){var n=Object.keys(S.picked).filter(on).length;
-   if(!n)return 'Skip for now';var busy=sources().some(function(x){return on(x.id)&&x.state!=='working';});return busy?null:'Continue';}},
- {id:'far',label:'How far back',bundle:'H',skip:function(){return !sources().some(function(x){return on(x.id)&&x.holds&&x.holds.months;})&&'nothing with a past is connected';},draw:drawFar,go:function(){return {months:'Read 3 months',year:'Read the last year',all:'Read everything'}[S.far];}},
+   '<div class="priv">Your name stays on this '+here()+'. The email is where your phone’s invite goes.</div>';},go:'That’s me'},
+ {id:'ai',label:'The AI',bundle:'M',skip:function(){return S.reinstall&&'the AI is already set';},draw:drawAI,go:function(){return done('ai')?'Continue':null;}},
+ {id:'langs',label:'Your languages',bundle:'M',draw:drawLangs,go:function(){return needsEleven()&&!done('voice')?null:'Continue';}},
+ {id:'sources',label:'What Life reads',bundle:'M',draw:drawSources,go:sourcesGo},
+ {id:'far',label:'How far back',bundle:'H',draw:drawFar,go:function(){return {months:'Read 3 months',year:'Read the last year',all:'Read everything'}[S.far];}},
  {id:'backup',label:'Backups',bundle:'M',skip:function(){return S.reinstall&&'a backup is already set';},draw:drawBackup,go:function(){return S.shown?'I saved it':'Back up here';}},
  {id:'phone',label:'Your phone',bundle:'M',draw:drawPhone,go:function(){return null;}}];
 function live(){return STEPS.filter(function(s){return !(s.skip&&s.skip());});}
-/* --- the AI: Life's pick is Claude when Claude Code is found --- */
-function drawAI(){var found=!win(),pick=found?'claude':'openrouter';
-  var o=[['claude','Claude','The most capable models, usually the best results. Uses your Claude subscription.',found?'Found on this Mac':''],
-         ['openrouter','OpenRouter','Private open-weight models. Paid to OpenRouter.','<b>about $15</b><small>a month</small>'],
-         ['both','Both','Your memory on OpenRouter, Life’s agents on Claude.','']];
-  var h='<h2 class="q">Which AI should Life think with?</h2><p class="lead">Your words go to it on your own account. You can change it later by asking Life.</p><div class="opts">'+
-    o.map(function(x){return '<button type="button" class="opt" role="radio" data-ai="'+x[0]+'" aria-checked="'+(S.ai===x[0])+'"><i></i><span><b>'+x[1]+(x[0]===pick?'<em>Life’s pick</em>':'')+'</b><small>'+x[2]+'</small></span>'+(x[3]?'<span class="fig">'+x[3]+'</span>':'')+'</button>';}).join('')+'</div>';
-  if(S.ai)h+='<div class="tile">'+aiSteps()+'</div>';
+/* --- a flow: steps that tick themselves. A step may open its page inside Life's window (the sheet: sign-in, payment),
+   so he never hunts for a browser tab; with "Things go wrong" it fails once, says why in his words, and offers one fix. --- */
+function done(id){return S.flows[id]&&S.flows[id].done;}
+function startFlow(id,steps){clear();S.flows[id]={steps:steps,at:0,failed:false};S.sheet=null;stepFlow(id);}
+function stepFlow(id){var f=S.flows[id],s=f.steps[f.at];
+  if(!s){f.done=true;S.sheet=null;return render();}
+  if(s.sheet&&!s.seen){s.seen=true;S.sheet=s.sheet;render();return later(function(){stepFlow(id);},2400);}
+  S.sheet=null;
+  if(S.fail&&s.fail&&!s.tried){s.tried=true;f.failed=true;return render();}
+  render();later(function(){f.at++;stepFlow(id);},1200);}
+function flowSteps(id){var f=S.flows[id];return '<ol class="steps">'+f.steps.map(function(s,i){var now=i===f.at&&!f.done;
+  var cls=i<f.at||f.done?'done':now?(f.failed?'bad':'now'):'';
+  var right=now&&!f.failed?'<small><span class="spin"></span>'+s.wait+'</small>':'';
+  var why=now&&f.failed?'<span class="why">'+s.fail.why+'<button type="button" class="chip sm" data-retry="'+id+'">'+s.fail.fix+'</button></span>':'';
+  return '<li class="'+cls+'">'+s.t+right+why+'</li>';}).join('')+'</ol>';}
+function sheet(){var s=S.sheet;if(!s)return '';
+  return '<div class="sheet"><div class="sh"><div class="sh-bar"><span class="spin"></span>'+s.url+'<span class="x">Cancel</span></div><div class="sh-pg"><b>'+s.title+'</b>'+
+    s.lines.map(function(l){return '<span class="ln">'+l+'</span>';}).join('')+'<span class="btn">'+s.btn+'</span></div>'+
+    '<div class="priv">'+(win()?'A window from this page':'Inside Life’s window')+'. “Continue with Google” opens your browser instead: Google refuses sign-ins inside apps.</div></div></div>';}
+/* --- the AI: no pick; each option says where his words go. DeepSeek runs only on providers that keep nothing:
+   every request asks OpenRouter for zero data retention (provider.zdr), the default route SECURITY.md names. --- */
+function drawAI(){
+  var o=[['claude','Claude','Your words go to Anthropic. Uses your Claude Pro or Max plan; usually the best answers.','<b>in your plan</b>'],
+         ['openrouter','DeepSeek','Your words go to OpenRouter, then to DeepSeek V4.1 Flash, only at providers that keep nothing.','<b>$5–20</b><small>a month, by use</small>'],
+         ['both','Both','Your memory on DeepSeek, Life’s agents on Claude. Your words go to both.','']];
+  var h='<h2 class="q">Which AI should Life think with?</h2><p class="lead">Life sends it your words to understand them, on your own account. You can switch later by asking Life.</p><div class="opts">'+
+    o.map(function(x){return '<button type="button" class="opt" role="radio" data-ai="'+x[0]+'" aria-checked="'+(S.ai===x[0])+'"><i></i><span><b>'+x[1]+'</b><small>'+x[2]+'</small></span>'+(x[3]?'<span class="fig">'+x[3]+'</span>':'')+'</button>';}).join('')+'</div>';
+  if(S.ai&&S.flows.ai&&S.flows.ai.steps.length)h+='<div class="tile">'+flowSteps('ai')+'</div>';
+  if(S.ai&&S.ai!=='claude')h+='<div class="priv">OpenRouter keeps no copy, and Life only uses providers that promise to keep nothing (zero data retention). Life caps your key at $20; change it on OpenRouter any time.</div>';
   return h;}
-function aiSteps(){var a=S.ai,st=S.aiSt||0,list=[];
-  if(a!=='openrouter')list.push(win()?'Install Claude Code':'Claude Code',win()?'Sign in to Claude, in your browser':'Signed in as sam.rivera@example.com');
-  if(a!=='claude')list.push('Sign in to OpenRouter, in your browser','Add credits on OpenRouter');
-  return '<ol class="steps">'+list.map(function(t,i){var cls=i<st?'done':i===st?'now':'';
-    var right=i===st?'<small><span class="spin"></span>'+(/credits/.test(t)?'Waiting for your balance…':/Install/.test(t)?'Installing…':'Waiting for your browser…')+'</small>':'';
-    return '<li class="'+cls+'">'+t+right+'</li>';}).join('')+'</ol>';}
-function runAI(){S.aiSt=win()||S.ai!=='claude'?0:2;S.aiDone=false;var n=(S.ai!=='openrouter'?2:0)+(S.ai!=='claude'?2:0);
-  (function tick(){if(S.aiSt>=n){S.aiDone=true;return render();}render();later(function(){S.aiSt++;tick();},1300);})();}
-/* --- languages: local when it can, ElevenLabs for the rest, with the real cost for this case --- */
+function aiFlow(a){var l=[];
+  if(a!=='openrouter'){
+    l.push(win()?{t:'Install Claude Code',wait:'Installing…'}:{t:'Claude Code, found on this Mac',wait:'Checking…'});
+    l.push({t:'Sign in to Claude',wait:'Waiting for you to sign in…',sheet:{url:'claude.ai/oauth/authorize',title:'Sign in to Claude',lines:['Continue with email','Continue with Google'],btn:'Authorize Life'},
+      fail:{why:'This Claude account has no Pro or Max plan.',fix:'Choose a plan'}});}
+  if(a!=='claude'){
+    l.push({t:'Sign in to OpenRouter, or make an account',wait:'Waiting for you to allow Life…',sheet:{url:'openrouter.ai/auth',title:'Allow Life to use your account',lines:['New here? Make your account on this page','Key spending cap: $20'],btn:'Authorize'},
+      fail:{why:'The page closed before you allowed Life.',fix:'Try again'}});
+    l.push({t:'Add $10 of credits to start',wait:'Waiting for your credits…',sheet:{url:'openrouter.ai/settings/credits',title:'Add credits',lines:['$10','Card or Apple Pay'],btn:'Pay $10'},
+      fail:{why:'No credits yet: the payment didn’t go through.',fix:'Open the payment again'}});
+    l.push({t:'A first word with DeepSeek',wait:'Asking…'});}
+  return l;}
+/* --- languages: local when it can, ElevenLabs for the rest. Life runs ElevenLabs' own sign-up, which makes the key
+   itself (their onboarding makes an account and a key): nothing to copy. --- */
 function needsEleven(){return win()||S.intel||Object.keys(S.langs).some(function(l){return S.langs[l]&&LOCAL.indexOf(l)<0;});}
+function voiceFlow(){return [{t:'Sign in to ElevenLabs, or make an account',wait:'Waiting for you…',sheet:{url:'elevenlabs.io/app/sign-up',title:'Sign in to ElevenLabs',lines:['Continue with email','Continue with Google'],btn:'Continue'},
+    fail:{why:'The page closed before you signed in.',fix:'Try again'}},{t:'Life makes your key, on your account',wait:'Making it…'},{t:'A first sentence, heard',wait:'Listening…'}];}
 function drawLangs(){var off=Object.keys(S.langs).filter(function(l){return S.langs[l]&&(win()||LOCAL.indexOf(l)<0);});
   var h='<h2 class="q">Which languages are spoken around you?</h2><p class="lead">So Life hears your day right. Tick every one, even the occasional.</p><div class="vals">'+
     LANGS.map(function(l){return '<button type="button" class="val" data-lang="'+l+'" aria-pressed="'+!!S.langs[l]+'">'+l+'</button>';}).join('')+'<button type="button" class="val other">Other…</button></div>';
   if(!needsEleven())return h+'<div class="tile"><div class="say">All heard on this Mac.</div><div class="priv">Your voice never leaves this Mac.</div></div>';
-  var all=win()||S.intel,cost=all?'about $22 a month':'about $6 a month';
-  return h+'<div class="tile"><div class="say">'+(all?'ElevenLabs hears your voice for this '+(win()?'PC':'Mac')+'.':'<b>'+off.join(', ')+'</b> is heard by ElevenLabs; the rest on this Mac.')+'</div>'+
-    '<div class="kv"><span>For a pendant worn all day</span><b>'+cost+', paid to ElevenLabs</b></div>'+
-    '<ol class="steps"><li class="'+(S.keyed?'done':'now')+'">Make a key on ElevenLabs, then copy it'+(S.keyed?'':'<small><button type="button" class="chip" data-key>Open ElevenLabs ↗</button></small>')+'</li></ol>'+
-    '<div class="priv">Only '+(all?'your recordings':'the parts in '+off.join(', '))+' go to ElevenLabs, on your key. Life fills the key in when you copy it.</div></div>';}
-/* --- what Life reads: every source, its value line and privacy line; tick, then Connect --- */
-function drawSources(){var list=sources().sort(function(a,b){return (a.id==='google'?-1:0)-(b.id==='google'?-1:0);});
-  return '<h2 class="q">What should Life read?</h2><p class="lead">The more it reads, the more it can answer. Tick what you want; you can add the rest any time.</p><div class="rows">'+
-    list.map(function(x){return '<div class="irow" role="checkbox" data-src="'+x.id+'" aria-checked="'+!!on(x.id)+'"><span class="tk"></span>'+appIcon(x,36)+
-      '<span class="tx"><b>'+x.name+(x.covers?' <small>'+x.covers+'</small>':'')+'</b><span class="vl"><q>'+x.value.ask+'</q> <span>'+x.value.answer+'</span></span><span class="priv">'+x.privacy+'</span></span>'+
-      '<span class="st">'+srcState(x)+'</span></div>';}).join('')+'</div>';}
+  var all=win()||S.intel;
+  return h+'<div class="tile"><div class="say">'+(all?'ElevenLabs hears your voice for this '+here()+'.':'<b>'+off.join(', ')+'</b> is heard by ElevenLabs; the rest on this Mac.')+'</div>'+
+    '<div class="kv"><span>For a pendant worn all day</span><b>'+(all?'about $22':'about $6')+' a month, paid to ElevenLabs</b></div>'+
+    (S.flows.voice?flowSteps('voice'):'<button type="button" class="chip" style="align-self:flex-start" data-eleven>Set up ElevenLabs</button>')+
+    '<div class="priv">Only '+(all?'your recordings':'the parts in '+off.join(', '))+' go to ElevenLabs, on your account. A few hours a month are free.</div></div>';}
+/* --- what Life reads. On a Mac, one grant (Full Disk Access) opens most of it, so it is asked once, drawn as macOS
+   draws it; sign-ins and a folder follow. Messaging apps are the phone's (bridges sign in there). --- */
+function row(x){return '<div class="irow" role="checkbox" data-src="'+x.id+'" aria-checked="'+!!on(x.id)+'"><span class="tk"></span>'+appIcon(x,32)+
+  '<span class="tx"><b>'+x.name+(x.covers?' <small>'+x.covers+'</small>':'')+'</b><span class="vl"><q>'+x.value.ask+'</q> <span>'+x.value.answer+'</span></span>'+
+  (x.why?'<span class="why">'+x.why+'<button type="button" class="chip sm" data-fix="'+x.id+'">'+x.fix+'</button></span>':'<span class="priv">'+x.privacy+'</span>')+'</span>'+
+  '<span class="st">'+srcState(x)+'</span></div>';}
 function srcState(x){if(!on(x.id))return '';
-  if(x.state==='working')return '<span class="ok">✓</span>';
-  if(x.state==='waiting_on_user')return fileOnly(x)?'<span class="ai">Drop it here</span>':'<a href="#" data-settings>Allow in System Settings ↗</a>';
-  if(x.state==='connecting')return '<span class="spin"></span>';
-  return '';}
-function connectAll(){var i=0;sources().forEach(function(x){if(!on(x.id)||x.state==='working')return;var k=x.requirements[0].kind;
-  x.state=k==='sign_in'?'connecting':'waiting_on_user';
-  later(function(){x.state='working';render();},1600+900*i++);});render();}
-/* --- how far back: what each holds (counted, no model), then one choice with cost and time on the chosen AI --- */
-function drawFar(){var got=sources().filter(function(x){return on(x.id)&&x.holds;}),claude=S.ai==='claude';
+  return {working:'<span class="ok">✓</span>',broken:'<span class="flag">!</span>',connecting:'<span class="spin"></span>',
+    waiting_on_user:'<span class="ai">'+(x.id==='health'?'On your phone, after':'In System Settings')+'</span>'}[x.state]||'';}
+function drawSources(){var L=sources(),fda=L.filter(fdaSrc),rest=L.filter(function(x){return !fdaSrc(x);});
+  return '<h2 class="q">What should Life read?</h2><p class="lead">The more it reads, the more it can answer. Tick what you want; add the rest any time.</p>'+
+    (fda.length?'<h3 class="grp">One permission opens these<small>Full Disk Access, in System Settings</small></h3>'+fdaHelp()+'<div class="rows">'+fda.map(row).join('')+'</div><h3 class="grp">And these</h3>':'')+
+    '<div class="rows">'+rest.map(row).join('')+'</div>'+
+    '<div class="priv">Instagram, Messenger, LINE, LinkedIn and Telegram'+(win()?' and WhatsApp':'')+' connect from your phone, after this.</div>';}
+function fdaHelp(){if(!S.fda||S.fda==='done')return '';var lifeOn=S.fda==='reopen';
+  return '<div class="sys"><div class="sys-h">System Settings › Privacy &amp; Security › Full Disk Access</div>'+
+    [['Arc',true],['Terminal',false],['Life',lifeOn]].map(function(r){return '<div class="sys-r'+(r[0]==='Life'?' me':'')+'"><span>'+r[0]+'</span><i class="sw'+(r[1]?' on':'')+'"></i></div>';}).join('')+
+    (lifeOn?'<div class="alert"><b>“Life” will not have full disk access until it is quit.</b><span><i>Later</i><i class="d">Quit &amp; Reopen</i></span></div>':'')+'</div>'+
+    '<div class="say">'+{asking:'System Settings opened beside this window. Switch Life on.',reopen:'Choose Quit &amp; Reopen: Life comes back right here.',denied:'Life is still off in that list, so these can’t be read yet.'}[S.fda]+'</div>';}
+function settle(x,ms){later(function(){var fl=x.fails||(x.group==='imports'&&[{why:'That file isn’t a '+x.name+' export.',fix:'Pick the file'}]);
+  var bad=S.fail&&fl&&!x.tried;x.tried=true;x.state=bad?'broken':'working';x.why=bad?fl[0].why:'';x.fix=bad?fl[0].fix:'';render();},ms);}
+function fdaRows(f){sources().forEach(function(x){if(on(x.id)&&fdaSrc(x))f(x);});}
+function fdaRun(){S.fda='asking';fdaRows(function(x){x.state='waiting_on_user';x.why='';});render();
+  later(function(){if(S.fail&&!S.fdaTried){S.fdaTried=true;S.fda='denied';fdaRows(function(x){x.state='broken';x.why='Not allowed yet.';x.fix='Open System Settings';});return render();}
+    S.fda='reopen';render();later(function(){S.fda='done';fdaRows(function(x){x.state='connecting';settle(x,700);});render();},2000);},2200);}
+function connectAll(){sources().forEach(function(x){if(!on(x.id)||x.state!=='off'||fdaSrc(x))return;
+  if(x.id==='health')x.state='waiting_on_user';else{x.state='connecting';settle(x,1800);}});
+  if(sources().some(function(x){return on(x.id)&&fdaSrc(x);}))fdaRun();else render();}
+function fix(x){if(fdaSrc(x)&&S.fda==='denied')return fdaRun();x.state='connecting';x.why='';render();settle(x,1400);}
+function sourcesGo(){var p=sources().filter(function(x){return on(x.id);});if(!p.length)return 'Skip for now';
+  if(p.some(function(x){return x.state==='connecting'||(x.state==='waiting_on_user'&&x.id!=='health');}))return null;
+  var bad=p.filter(function(x){return x.state==='broken';}).length;return bad?'Continue, fix '+bad+' later':'Continue';}
+/* --- how far back: what each holds (counted, no model), one choice with cost and time; then the imports, the
+   exports Life can't read every day: Life opens the export page, and picks the file up from Downloads when it lands --- */
+function drawFar(){var got=sources().filter(function(x){return on(x.id)&&x.state==='working'&&x.holds;}),claude=S.ai==='claude';
   var o=[['months','The last 3 months',claude?'Uses some of your Claude usage':'about $4','ready tonight'],
          ['year','The last year',claude?'About a week of your Claude usage':'about $14','about 2 nights'],
          ['all','Everything',claude?'About a month of your Claude usage':'about $120','about 3 weeks of nights']];
   return '<h2 class="q">How far back should Life read?</h2><p class="lead">Life reads in the background, newest first. You can use it from tonight.</p>'+
-    '<div class="tile">'+got.map(function(x){return '<div class="kv"><span style="display:flex;align-items:center;gap:8px">'+appIcon(x,20)+x.name+'</span><b>'+x.holds.n+' '+x.holds.what+' since '+x.holds.since+'</b></div>';}).join('')+'</div>'+
+    (got.length?'<div class="tile">'+got.map(function(x){return '<div class="kv"><span style="display:flex;align-items:center;gap:8px">'+appIcon(x,20)+x.name+'</span><b>'+x.holds.n+' '+x.holds.what+' since '+x.holds.since+'</b></div>';}).join('')+'</div>':'')+
     '<div class="opts">'+o.map(function(x){return '<button type="button" class="opt" role="radio" data-far="'+x[0]+'" aria-checked="'+(S.far===x[0])+'"><i></i><span><b>'+x[1]+(x[0]==='year'?'<em>Life’s pick</em>':'')+'</b><small>'+x[3]+'</small></span><span class="fig">'+x[2]+'</span></button>';}).join('')+'</div>'+
-    '<div class="priv">Read by '+({claude:'Claude',openrouter:'OpenRouter',both:'OpenRouter'}[S.ai]||'OpenRouter')+', on your account. Your pick is your OK: Life never asks again for this.</div>';}
-/* --- backups: the first cloud folder found, encrypted; the recovery key shown once --- */
-function drawBackup(){var f=win()?['OneDrive','Google Drive']:['iCloud Drive','Google Drive'];
-  if(S.shown)return '<h2 class="q">Keep this key somewhere safe</h2><p class="lead">It opens your backup if this '+(win()?'PC':'Mac')+' is lost. It is shown only now.</p>'+
+    '<h3 class="grp">Bring in your history from elsewhere<small>read once, with the rest</small></h3><div class="rows">'+imports().map(importRow).join('')+'</div>'+
+    '<div class="priv">Read by '+({claude:'Claude',openrouter:'DeepSeek',both:'DeepSeek'}[S.ai]||'DeepSeek')+', on your account. Your pick is your OK: Life never asks again for this. Apps you connect from your phone bring their last 500 messages a chat.</div>';}
+function importRow(x){var r=x.requirements[0],st=x.later?'<span style="color:var(--faint)">Coming later</span>':
+    {off:'<button type="button" class="chip sm" data-imp="'+x.id+'">Ask for it ↗</button>',waiting_on_user:'<span class="ai">Asked</span>',connecting:'<span class="spin"></span>',
+     working:'<span class="ok">✓ '+x.holds.n+'</span>',broken:'<span class="flag">!</span>'}[x.state];
+  var line=x.why?'<span class="why">'+x.why+'<button type="button" class="chip sm" data-fix="'+x.id+'">'+x.fix+'</button></span>':
+    x.state==='waiting_on_user'?'<span class="priv">Arrives '+r.arrives+'. Life picks it up from your Downloads.</span>':'<span class="priv">'+r.ask+'</span>';
+  return '<div class="irow">'+appIcon(x,32)+'<span class="tx"><b>'+x.name+(x.holds?' <small>'+x.holds.what+'</small>':'')+'</b>'+line+'</span><span class="st">'+st+'</span></div>';}
+/* --- backups: the cloud folders found, encrypted; the recovery key shown once. Life keeps its folder downloaded,
+   so "Optimize Mac storage" (or Drive's streaming) never moves the copy off the computer. --- */
+function drawBackup(){var f=win()?[['OneDrive','1.6 TB free'],['Google Drive','12 GB free, in the Google Drive app']]:[['iCloud Drive','1.6 TB free'],['Google Drive','12 GB free, in the Google Drive app']];
+  if(S.shown)return '<h2 class="q">Keep this key somewhere safe</h2><p class="lead">It opens your backup if this '+here()+' is lost. It is shown only now.</p>'+
     '<div class="key">LIFE-7QX4-MP2K-R9TD-H3VW</div><div class="chips"><button type="button" class="chip">Copy</button><button type="button" class="chip">Save to your password manager</button></div>'+
-    '<div class="priv">Without this key nobody can read the copy: not '+f[S.backup].split(' ')[0]+', not Life’s developer, not Life.</div>';
-  return '<h2 class="q">Where should Life keep a copy?</h2><p class="lead">Every night, encrypted, so a lost '+(win()?'PC':'Mac')+' loses nothing.</p><div class="opts">'+
-    f.map(function(n,i){return '<button type="button" class="opt" role="radio" data-bk="'+i+'" aria-checked="'+(S.backup===i)+'"><i></i><span><b>'+n+(i===0?'<em>Life’s pick</em>':'')+'</b><small>'+(i===0?'Found on this '+(win()?'PC':'Mac')+', 1.6 TB free':'Found on this '+(win()?'PC':'Mac')+', 12 GB free')+'</small></span></button>';}).join('')+'</div>'+
+    '<div class="priv">Without this key nobody can read the copy: not '+f[S.backup][0].split(' ')[0]+', not Life’s developer, not Life.</div>';
+  var name=f[S.backup][0],gd=S.backup===1,fda=!win()&&S.fda==='done';
+  return '<h2 class="q">Where should Life keep a copy?</h2><p class="lead">Every night, encrypted, so a lost '+here()+' loses nothing.</p><div class="opts">'+
+    f.map(function(n,i){return '<button type="button" class="opt" role="radio" data-bk="'+i+'" aria-checked="'+(S.backup===i)+'"><i></i><span><b>'+n[0]+'</b><small>Found on this '+here()+', '+n[1]+'</small></span></button>';}).join('')+'</div>'+
+    '<div class="tile">'+(S.fail&&gd?'<span class="why">The Google Drive app is signed out, so nothing reaches Drive.<button type="button" class="chip sm">Open Google Drive</button></span>':'')+
+    '<div class="say">Life keeps its folder '+(gd?'available offline in '+name:'downloaded on this '+here())+', so the copy never leaves the '+here()+' first.</div>'+
+    (win()?'':'<div class="say">'+(fda?'Nothing to allow: Full Disk Access covers it.':'macOS asks once to let Life use '+name+'. Choose Allow.')+'</div>')+'</div>'+
     '<div class="priv">Only a locked copy goes there. Its key stays with you.</div>';}
 /* --- the phone: the invite as it arrives, then the QR; the window closes when the phone pairs --- */
 function drawPhone(){var paired=S.phone==='paired';
@@ -237,21 +316,21 @@ function qr(){var n=25,s='',r=7;function rnd(i){r=(r*9301+49297)%233280;return r
     if(f){var lx=x>=n-7?x-(n-7):x,ly=y>=n-7?y-(n-7):y;on=(lx===0||ly===0||lx===6||ly===6)||(lx>1&&lx<5&&ly>1&&ly<5);}
     if(on)s+='<rect x="'+x+'" y="'+y+'" width="1" height="1"/>';}
   return '<svg class="qr" viewBox="0 0 '+n+' '+n+'" shape-rendering="crispEdges" fill="#000" aria-label="Pairing code">'+s+'</svg>';}
-/* --- the page: the step, Back, the dots, the one answer --- */
+/* --- the page: the step, Back, the dots, the one answer; a sheet over it while a page is open inside the window --- */
 function setup(){var L=live(),s=L[Math.min(S.step,L.length-1)],go=typeof s.go==='function'?s.go():s.go;
+  var fresh=sources().filter(function(x){return on(x.id)&&x.state==='off';}).length;
   var page='<div class="page"><div class="body">'+s.draw()+'</div><div class="foot"><button type="button" class="back" data-back aria-label="Back"'+(S.step?'':' hidden')+'>'+BACK+'</button>'+
     '<div class="dots">'+L.map(function(x,i){return '<i class="'+(i===S.step?'on':'')+'"></i>';}).join('')+'</div>'+
-    (s.id==='sources'&&!sources().some(function(x){return on(x.id)&&x.state!=='off';})&&Object.keys(S.picked).some(on)?'<button type="button" class="go" data-connect>Connect '+Object.keys(S.picked).filter(on).length+'</button>':
-     go?'<button type="button" class="go" data-go>'+go+'</button>':'')+'</div></div>';
+    (s.id==='sources'&&fresh?'<button type="button" class="go" data-connect>Connect '+fresh+'</button>':go?'<button type="button" class="go" data-go>'+go+'</button>':'')+'</div></div>'+sheet();
   var frame=win()?'<div class="browser"><div class="bt"><div class="tab"><span class="mark" style="width:16px;height:16px;font-size:11px;border-radius:4px">L</span>Set up Life</div><div class="wc"><span>—</span><span>▢</span><span>✕</span></div></div>'+
     '<div class="ba"><span>←</span><span>→</span><span>↻</span><div class="url">127.0.0.1:4318<span>/setup</span></div></div>'+page+'</div>':'<div class="win"><div class="tl"><i></i><i></i><i></i></div>'+page+'</div>';
   return {frame:frame,bundle:win()?'W':s.bundle,label:s.label};}
 /* --- the menu bar and the tray: one dot per integration that is on; the icon gets a red dot while any is broken --- */
-function menu(){var rows=[['google','Reading 2021 · about 2 hours left','connecting'],['source:messages','',''],['source:photos','',''],['ai','',''],['voice','',''],['pendant','',''],['reach','',''],
-    ['network:whatsapp',S.broken?'Signed out on your Mac. Sign in again from your phone.':'',S.broken?'broken':'']];
+function menu(){var rows=[['source:mail','Reading 2021 · about 2 hours left','connecting'],['source:imessage','',''],['source:photos','',''],['google','',''],['ai','',''],['voice','',''],['pendant','',''],['reach','',''],
+    ['source:whatsapp',S.broken?'WhatsApp for Mac is signed out. Open it to sign in again.':'',S.broken?'broken':'']];
   if(win())rows=rows.filter(function(r){return !integration(r[0]).mac;});
   rows.sort(function(a,b){return (b[2]==='broken')-(a[2]==='broken');});// what is broken comes first
-  var items=rows.map(function(r){var x=integration(r[0]),st=r[2]||'working',name=x.id==='ai'?(S.ai==='openrouter'?'OpenRouter':'Claude'):x.name;
+  var items=rows.map(function(r){var x=integration(r[0]),st=r[2]||'working',name=x.id==='ai'?(S.ai==='claude'?'Claude':'DeepSeek'):x.name;
     return '<div class="mi"><i class="d '+st+'"></i><span>'+name+(r[1]?'<small class="'+(st==='broken'?'flag':'')+'">'+r[1]+'</small>':'')+'</span></div>';}).join('');
   var m='<div class="menu" style="'+(win()?'right:10px;bottom:54px':'right:120px;top:32px')+'">'+items+'<div class="sep"></div><div class="act">Open Life on your phone</div><div class="act">Quit Life</div></div>';
   var icon='<span class="l open">L'+(S.broken?'<i class="badge"></i>':'')+'</span>';
@@ -262,40 +341,49 @@ function menu(){var rows=[['google','Reading 2021 · about 2 hours left','connec
 /* only a new screen inks in; a change on the same screen redraws in place */
 var drawn='';
 function render(){var v=S.scene==='menu'?menu():setup(),key=S.plat+S.scene+S.step+S.broken+S.shown,b=document.getElementById('box');
+  var y=key===drawn&&b.querySelector('.body')?b.querySelector('.body').scrollTop:0;// a redraw in place keeps his scroll
   b.classList.toggle('still',key===drawn);drawn=key;
-  b.innerHTML='<div class="bundle">Bundle <b>'+v.bundle+'</b> · '+v.label+'</div>'+v.frame;wire();side();}
+  b.innerHTML='<div class="bundle">Bundle <b>'+v.bundle+'</b> · '+v.label+'</div>'+v.frame;if(b.querySelector('.body'))b.querySelector('.body').scrollTop=y;wire();side();}
 function wire(){var b=document.getElementById('box');
-  b.querySelectorAll('[data-ai]').forEach(function(e){e.onclick=function(){S.ai=e.dataset.ai;clear();runAI();};});
-  b.querySelectorAll('[data-lang]').forEach(function(e){e.onclick=function(){S.langs[e.dataset.lang]=!S.langs[e.dataset.lang];render();};});
-  b.querySelectorAll('[data-key]').forEach(function(e){e.onclick=function(){e.innerHTML='<span class="spin"></span> Waiting for your copy…';later(function(){S.keyed=true;render();},1600);};});
-  b.querySelectorAll('[data-src]').forEach(function(e){e.onclick=function(ev){if(ev.target.closest('[data-settings]'))return;var x=integration(e.dataset.src);if(x.state!=='off')return;S.picked[x.id]=!on(x.id);render();};});
-  b.querySelectorAll('[data-far]').forEach(function(e){e.onclick=function(){S.far=e.dataset.far;render();};});
-  b.querySelectorAll('[data-bk]').forEach(function(e){e.onclick=function(){S.backup=+e.dataset.bk;render();};});
-  var c=b.querySelector('[data-connect]');if(c)c.onclick=connectAll;
-  var g=b.querySelector('[data-go]');if(g)g.onclick=function(){var s=live()[S.step];if(s.id==='backup'&&!S.shown){S.shown=true;return render();}next(1);};
-  var k=b.querySelector('[data-back]');if(k)k.onclick=function(){next(-1);};}
-function next(d){clear();S.step=Math.max(0,Math.min(live().length-1,S.step+d));var s=live()[S.step];
+  function each(sel,f){b.querySelectorAll(sel).forEach(function(e){e.onclick=function(ev){ev.stopPropagation();f(e);};});}
+  each('[data-ai]',function(e){S.ai=e.dataset.ai;startFlow('ai',aiFlow(S.ai));});
+  each('[data-retry]',function(e){var f=S.flows[e.dataset.retry];f.failed=false;f.steps[f.at].seen=false;stepFlow(e.dataset.retry);});
+  each('[data-eleven]',function(){startFlow('voice',voiceFlow());});
+  each('[data-lang]',function(e){S.langs[e.dataset.lang]=!S.langs[e.dataset.lang];render();});
+  each('[data-src]',function(e){var x=integration(e.dataset.src);if(x.state!=='off')return;S.picked[x.id]=!on(x.id);render();});
+  each('[data-fix]',function(e){fix(integration(e.dataset.fix));});
+  each('[data-imp]',function(e){var x=integration(e.dataset.imp);x.state='waiting_on_user';render();later(function(){x.state='connecting';render();settle(x,1200);},2400);});
+  each('[data-far]',function(e){S.far=e.dataset.far;render();});
+  each('[data-bk]',function(e){S.backup=+e.dataset.bk;render();});
+  each('[data-connect]',connectAll);
+  each('[data-go]',function(){var s=live()[S.step];if(s.id==='backup'&&!S.shown){S.shown=true;return render();}next(1);});
+  each('[data-back]',function(){next(-1);});}
+function next(d){clear();S.sheet=null;S.step=Math.max(0,Math.min(live().length-1,S.step+d));var s=live()[S.step];
   if(s.id==='phone'){S.phone='waiting';later(function(){S.phone='paired';render();},5000);}render();}
+function pair(a,b,on){return '<div class="two"><button type="button" '+a[0]+' aria-pressed="'+!on+'">'+a[1]+'</button><button type="button" '+b[0]+' aria-pressed="'+on+'">'+b[1]+'</button></div>';}
 function side(){var L=live(),h='<h1>Onboarding: the host</h1><p>The setup window on a Mac, the same as a page in the browser on Windows, and the menu bar or tray after. Every screen reads one list, the integrations. A screen whose answer is known is skipped.</p>'+
-  '<div class="two"><button type="button" data-plat="mac" aria-pressed="'+!win()+'">Mac</button><button type="button" data-plat="win" aria-pressed="'+win()+'">Windows</button></div>'+
-  '<div class="two"><button type="button" data-re="0" aria-pressed="'+!S.reinstall+'">First install</button><button type="button" data-re="1" aria-pressed="'+S.reinstall+'">Reinstall</button></div>'+
-  (win()?'':'<div class="two"><button type="button" data-intel="0" aria-pressed="'+!S.intel+'">M2 Mac</button><button type="button" data-intel="1" aria-pressed="'+!!S.intel+'">Intel Mac</button></div>')+
+  pair(['data-plat="mac"','Mac'],['data-plat="win"','Windows'],win())+pair(['data-re="0"','First install'],['data-re="1"','Reinstall'],S.reinstall)+
+  (win()?'':pair(['data-intel="0"','M2 Mac'],['data-intel="1"','Intel Mac'],S.intel))+pair(['data-fail="0"','All goes well'],['data-fail="1"','Things go wrong'],S.fail)+
   '<h2>Setup</h2>'+STEPS.map(function(s){var sk=s.skip&&s.skip(),i=L.indexOf(s);
     return '<button type="button" '+(sk?'class="skipped" disabled':'data-step="'+i+'"')+' aria-pressed="'+(S.scene==='setup'&&i===S.step)+'">'+s.label+' <small>· '+(win()?'W':s.bundle)+(sk?' · skipped: '+sk:'')+'</small></button>';}).join('')+
   '<h2>After setup</h2><button type="button" data-menu="0" aria-pressed="'+(S.scene==='menu'&&!S.broken)+'">'+(win()?'The tray':'The menu bar')+' <small>· '+(win()?'W':'M')+'</small></button>'+
   '<button type="button" data-menu="1" aria-pressed="'+(S.scene==='menu'&&S.broken)+'">One broken <small>· red dot</small></button>';
   var el=document.getElementById('side');el.innerHTML=h;
-  el.querySelectorAll('[data-plat]').forEach(function(e){e.onclick=function(){S.plat=e.dataset.plat;reset();};});
-  el.querySelectorAll('[data-re]').forEach(function(e){e.onclick=function(){S.reinstall=e.dataset.re==='1';reset();};});
-  el.querySelectorAll('[data-intel]').forEach(function(e){e.onclick=function(){S.intel=e.dataset.intel==='1';render();};});
-  el.querySelectorAll('[data-step]').forEach(function(e){e.onclick=function(){S.scene='setup';S.step=+e.dataset.step;prefill();next(0);};});
-  el.querySelectorAll('[data-menu]').forEach(function(e){e.onclick=function(){clear();S.scene='menu';S.broken=e.dataset.menu==='1';render();};});}
-/* jumping straight to a later step fills the earlier answers with Life's picks, as if they were taken */
+  function each(sel,f){el.querySelectorAll(sel).forEach(function(e){e.onclick=function(){f(e);};});}
+  each('[data-plat]',function(e){S.plat=e.dataset.plat;S.intel=false;reset();});
+  each('[data-re]',function(e){S.reinstall=e.dataset.re==='1';reset();});
+  each('[data-fail]',function(e){S.fail=e.dataset.fail==='1';reset();});
+  each('[data-intel]',function(e){S.intel=e.dataset.intel==='1';render();});
+  each('[data-step]',function(e){S.scene='setup';S.step=+e.dataset.step;prefill();next(0);});
+  each('[data-menu]',function(e){clear();S.scene='menu';S.broken=e.dataset.menu==='1';render();});}
+/* jumping straight to a later step fills the earlier answers, as if they were taken */
 function prefill(){var s=live()[S.step].id,order=STEPS.map(function(x){return x.id;}),at=order.indexOf(s);
-  if(at>order.indexOf('ai')&&!S.ai){S.ai=win()?'openrouter':'claude';S.aiDone=true;}
-  if(at>order.indexOf('langs'))S.keyed=true;
-  if(at>order.indexOf('sources')&&!Object.keys(S.picked).some(on))sources().forEach(function(x){if(x.holds&&x.holds.months){S.picked[x.id]=true;x.state='working';}});}
-function reset(){clear();INTEGRATIONS.forEach(function(x){x.state='off';});S.step=0;S.scene='setup';S.ai=null;S.aiDone=false;S.picked={};S.keyed=false;S.shown=false;S.far='year';S.backup=0;S.langs={English:true};S.phone='waiting';render();}
+  if(at>order.indexOf('ai')&&!done('ai')){S.ai=S.ai||(win()?'openrouter':'claude');S.flows.ai={steps:[],done:true};}
+  if(at>order.indexOf('langs'))S.flows.voice={steps:[],done:true};
+  if(at>order.indexOf('sources')&&!sources().some(function(x){return on(x.id);})){if(!win())S.fda='done';
+    sources().forEach(function(x){if(x.holds){S.picked[x.id]=true;x.state='working';}});}}
+function reset(){clear();INTEGRATIONS.forEach(function(x){x.state='off';x.tried=false;x.why='';});
+  S.step=0;S.scene='setup';S.ai=null;S.flows={};S.sheet=null;S.fda='';S.fdaTried=false;S.picked={};S.shown=false;S.far='year';S.backup=0;S.langs={English:true};S.phone='waiting';render();}
 function fit(){var box=document.querySelector('.fit'),k=Math.min((innerHeight-40)/720,(innerWidth-360)/900,1.2);if(innerWidth<700)k=(innerWidth-20)/900;
   document.getElementById('box').style.transform='scale('+k+')';box.style.width=900*k+'px';box.style.height=720*k+'px';}
 addEventListener('resize',fit);fit();render();
