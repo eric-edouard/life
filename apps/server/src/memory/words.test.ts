@@ -210,7 +210,7 @@ test("a conversation-day read for its episodes: its title, then who said what an
 test("a chapter unit's words while lifelog holds its turns, the ones in its span (the persona reads them); none past them", async () => {
   const store = open();
   const chapter = (start: string, end: string) =>
-    unit({ end, key: "c1", source: "lifelog", start, summary: "A summary" });
+    unit({ end, key: "c1", source: "voice", start, summary: "A summary" });
   const spoken = await spokenLines(
     [
       chapter("2026-10-14T10:00:00.000Z", "2026-10-14T10:05:00.000Z"),
@@ -672,13 +672,13 @@ test("voiceLines: an unnamed turn lifelog flags as his is the owner's; another u
     voiceLines(
       [named("David")],
       jobs,
-      (_s, _from, c) => (c === "lifelog|call-a" ? "person:weinstock" : null),
+      (_s, _from, c) => (c === "voice|call-a" ? "person:weinstock" : null),
       undefined,
       undefined,
       call
     )[0]?.speaker;
-  expect(scoped("lifelog|call-a")).toBe("person:weinstock");
-  expect(scoped("lifelog|call-b")).toBe("unknown:David");
+  expect(scoped("voice|call-a")).toBe("person:weinstock");
+  expect(scoped("voice|call-b")).toBe("unknown:David");
   // How the voice server heard an unnamed voice prefixes its words: over the phone, or nearby but not talking with him.
   const heard = (kind: string, withOwner: boolean) =>
     voiceLines(

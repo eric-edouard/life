@@ -31,7 +31,7 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
     stats: { chars: 40, fromMe: 1, items: 1 },
     title,
   });
-  const voice = unit("unit_00000000000a", "lifelog");
+  const voice = unit("unit_00000000000a", "voice");
   const chat = unit("unit_00000000000b", "whatsapp");
   const mail = unit("unit_00000000000c", "mail");
   const prepared = spyOn(
@@ -54,7 +54,7 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
       removed: 0,
     });
     expect(await sourcesByDay()).toEqual({
-      [day]: ["lifelog", "whatsapp", "mail"],
+      [day]: ["voice", "whatsapp", "mail"],
     });
     // Nothing new: nothing written, no passages, nothing to index.
     expect((await publish([chat], ["mail"])).written).toEqual([]);
@@ -64,7 +64,7 @@ test("today's sync writes its own sources' units, keeps lifelog's and a failed s
       hasGoneOrBack: true,
       removed: 1,
     });
-    expect(await sourcesByDay()).toEqual({ [day]: ["lifelog", "mail"] });
+    expect(await sourcesByDay()).toEqual({ [day]: ["voice", "mail"] });
   } finally {
     prepared.mockRestore();
     rmSync(UNITS, { force: true, recursive: true });

@@ -148,11 +148,11 @@ export function phonesAndEmailsOf(
 
 /** Every handle a party has, normalized the way senders are looked up: emails lower-cased. */
 export function handlesOf(p: Pick<DirectoryParty, "handles">): string[] {
-  const { github, lifelog, telegram } = p.handles;
+  const { github, telegram, voice } = p.handles;
   return [
     ...phonesAndEmailsOf(p),
     ...(github ? [github.toLowerCase()] : []),
-    ...(lifelog ? [lifelog] : []),
+    ...(voice ? [voice] : []),
     ...(telegram ? [telegram] : []),
   ];
 }

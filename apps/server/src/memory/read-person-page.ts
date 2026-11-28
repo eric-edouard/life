@@ -257,7 +257,7 @@ export async function person(
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
   const mapped = truth.people.find((p) => p.id === id);
-  const voicePersonId = mapped?.handles.lifelog;
+  const voicePersonId = mapped?.handles.voice;
   const episodes = await readEpisodesWith(ref, refOf);
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;

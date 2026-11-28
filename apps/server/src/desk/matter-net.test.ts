@@ -247,7 +247,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
       end,
       hash: end,
       id: "unit_00000000e001",
-      source: "lifelog",
+      source: "voice",
     }) as unknown as Unit;
   const line = (when: string, text: string, speaker = "person:me") => ({
     at: when,
@@ -288,7 +288,7 @@ test("his pendant's new words close to the matter wake it once, read from where 
   expect(event?.event_id).toBe(`unit_00000000e001@${at(10)}`);
   expect(JSON.parse(event?.payload ?? "")).toMatchObject({
     id: held.id,
-    source: "lifelog",
+    source: "voice",
     why: "meaning",
   });
   // Read up to its end: nothing new, nothing compared.
@@ -435,7 +435,7 @@ test("a recording read again after a restart, the assignment it woke closed, wak
         end: at,
         hash: at,
         id: "unit_00000000e002",
-        source: "lifelog",
+        source: "voice",
       } as unknown as Unit,
     ]),
     spyOn(words, "spokenLines").mockImplementation(() =>

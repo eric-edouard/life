@@ -194,7 +194,7 @@ export const voiceOf = (
     people: o.spoke ? ["person:sam", OWNER] : ["person:sam"],
     refs: [lines[0]?.ref, lines.at(-1)?.ref],
     schemaVersion: 1,
-    source: "lifelog",
+    source: "voice",
     start: lines[0]?.at,
     stats: { chars: 0, fromMe: o.spoke ? 1 : 0, items: o.turns },
     title: "Talk",

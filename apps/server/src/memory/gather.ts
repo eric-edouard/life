@@ -92,9 +92,10 @@ export async function gather(
   // The voice units the watcher writes, composed the same way (`voiceUnits`).
   let chapters: Unit[] = [];
   let voice: Built[] = [];
-  const voiceConversations = sources.some((s) => s.kind === "voice")
+  const voiceSource = sources.find((s) => s.kind === "voice");
+  const voiceConversations = voiceSource
     ? await safely(
-        "lifelog",
+        voiceSource.name,
         () =>
           withStore(async (store) => {
             const v = await voiceUnits(store, since, truth);

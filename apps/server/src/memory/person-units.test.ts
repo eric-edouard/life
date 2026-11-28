@@ -40,7 +40,7 @@ test("a person's units: newest first, whole days, of the kinds asked, before a d
     u(2, "2026-11-03", "imessage", ["person:ana", "person:me"]),
     u(3, "2026-11-02", "mail", ["person:ana"]),
     u(4, "2026-11-01", "whatsapp", ["person:ana"]),
-    u(5, "2026-11-01", "lifelog", ["person:ana"]),
+    u(5, "2026-11-01", "voice", ["person:ana"]),
     u(6, "2026-11-04", "whatsapp", ["person:bo"]),
   ]);
   const ids = (o: Parameters<typeof readPersonUnits>[1]) =>

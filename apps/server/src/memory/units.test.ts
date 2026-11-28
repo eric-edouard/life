@@ -321,9 +321,9 @@ test("a conversation across midnight is two units; a conversation with a stored 
   ]);
   expect(voiceUnitsOf([late], new Set([late.id]))).toEqual([]);
   // A chapter unit carries the voice server's summary; a placeholder (never summarized) and a repo-day's summary don't freeze.
-  expect(isFrozen({ source: "lifelog", summary: "A summary." })).toBe(true);
-  expect(isFrozen({ source: "lifelog", summary: "" })).toBe(false);
-  expect(isFrozen({ source: "lifelog" })).toBe(false);
+  expect(isFrozen({ source: "voice", summary: "A summary." })).toBe(true);
+  expect(isFrozen({ source: "voice", summary: "" })).toBe(false);
+  expect(isFrozen({ source: "voice" })).toBe(false);
   expect(isFrozen({ source: "git", summary: "Change 1" })).toBe(false);
 });
 
@@ -708,7 +708,7 @@ test("a conversation that moves to another day leaves its old day's file; other 
     await writeUnits([chat.date], [chat]);
     await syncVoiceUnits(store, apply(store, on("2026-10-25")) as Date);
     expect(await sourcesByDay()).toEqual({
-      "2026-10-25": ["whatsapp", "lifelog"],
+      "2026-10-25": ["whatsapp", "voice"],
     });
     // Regrouped onto the next day: a new id, the old one leaves (unit ids are by conversation and day). The page
     // touched the old start, so the sync reads the old day too.
@@ -721,7 +721,7 @@ test("a conversation that moves to another day leaves its old day's file; other 
     });
     expect(await sourcesByDay()).toEqual({
       "2026-10-25": ["whatsapp"],
-      "2026-10-26": ["lifelog"],
+      "2026-10-26": ["voice"],
     });
     // A night that could not read WhatsApp (its access gone) rewrites the day without losing its units.
     const mail = { ...chat, id: "unit_00000000000b", source: "mail" as const };
@@ -744,7 +744,7 @@ const storedVoice = (id: string, key: string, summary?: string): Unit => ({
   people: [],
   refs: [`${key}#ch`],
   schemaVersion: 1,
-  source: "lifelog",
+  source: "voice",
   start: "2026-10-20T10:00:00.000Z",
   stats: { chars: 9, fromMe: 0, items: 2 },
   ...(summary ? { summary } : {}),
@@ -970,7 +970,7 @@ test("a processing run reads a stored chapter unit as stored, a marked one still
   apply(store, pageFixture({ conversations: [feedConversation("conv-1")] }));
   store.db.close();
   try {
-    setSettings({ sources: ["lifelog"] });
+    setSettings({ sources: ["voice"] });
     await writeUnits([marked.date], [marked]);
     const e = await gather(
       { from: "2026-10-20", to: "2026-10-21" },

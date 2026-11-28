@@ -361,3 +361,21 @@ test("his Yes on an at organization card adds that one member with the card's ro
   expect(log()).toContain('"Yes" to "Is Test Owner at Test Garage as Owner?"');
   await expect(yes()).rejects.toThrow("me is already at test-garage");
 });
+
+test("his word moves a handle kind Life renamed (lifelog to voice): the old key goes, the entry validates again", async () => {
+  const id = "00000000-0000-8000-8000-0000000000b1";
+  writeFileSync(
+    join(TRUTH, "people.yaml"),
+    `${file("people.yaml")}  - id: test-bea\n    name: Test Bea\n    handles: { lifelog: ${id} }\n`
+  );
+  await changeDirectoryEntry({
+    action: "edit",
+    handles: { voice: id },
+    id: "test-bea",
+    kind: "person",
+    said: "Rename both",
+  });
+  const bea = (await loadTruth()).people.find((p) => p.id === "test-bea");
+  expect(bea?.handles.voice).toBe(id);
+  expect(file("people.yaml")).not.toContain("lifelog");
+});

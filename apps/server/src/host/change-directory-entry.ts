@@ -24,7 +24,7 @@ import {
 import { recordToldLife } from "../memory/told-life";
 import { PERSON } from "../memory/units";
 import { slug } from "../records/fields";
-import { OrganizationPerson, PictureFrom } from "../records/truth";
+import { Handles, OrganizationPerson, PictureFrom } from "../records/truth";
 import { listRow } from "./init";
 
 // Changes his directory (docs/glossary.md: his people, organizations, projects, areas and goals, in truth/) by his own
@@ -50,6 +50,7 @@ export const DirectoryEntryChange = z.object({
       github: z.string().optional(),
       phone: Strings,
       telegram: z.string().optional(),
+      voice: z.uuid().optional(),
       whatsapp: Strings,
     })
     .optional(),
@@ -271,18 +272,21 @@ function projectWrite(a: DirectoryEntryChange, read: Read) {
   ] as const;
 }
 
-/** His handles over the ones there: lists added to, never replaced. */
+/** His handles over the ones there: lists added to, never replaced; a kind of handle Life no longer has goes (the strict schema would refuse it). */
 function handlesWith(
   old: Record<string, unknown>,
   h: NonNullable<DirectoryEntryChange["handles"]>
 ) {
   return {
-    ...old,
+    ...Object.fromEntries(
+      Object.entries(old).filter(([k]) => k in Handles.shape)
+    ),
     ...(h.email && { email: union(old.email, h.email) }),
     ...(h.phone && { phone: union(old.phone, h.phone) }),
     ...(h.whatsapp && { whatsapp: union(old.whatsapp, h.whatsapp) }),
     ...(h.github && { github: h.github }),
     ...(h.telegram && { telegram: h.telegram }),
+    ...(h.voice && { voice: h.voice }),
   };
 }
 
