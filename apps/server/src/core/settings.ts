@@ -180,7 +180,7 @@ export const Settings = z
       .optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
-    /** The model runner the memory steps use: chosen at `init` (`bun life init --engine`), absent before. */
+    /** The model runner the memory steps use: chosen at `init` (`bun life init --engine`); absent, claude (`readEngine`). */
     engine: Engine.optional(),
     /** The GitHub repos (`owner/name`) whose issues and comments the `github` source reads and a card's draft may write to: no other repo is ever asked for. */
     githubRepos: z

@@ -378,7 +378,8 @@ function answered(
 
 // Who transcribes the next blocks: the speech service when switched to it (`speech` or `local`) and set up, else Scribe.
 const transcriberNow = (config: Config) =>
-  switches().transcriber !== "scribe" && speechServiceSet(config)
+  ["speech", "local"].includes(switches().transcriber) &&
+  speechServiceSet(config)
     ? ("speech" as const)
     : ("scribe" as const);
 

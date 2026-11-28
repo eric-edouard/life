@@ -48,7 +48,6 @@ test("each engine choice is its own settings: memory on Claude, on OpenRouter, o
     desk: { defaultRuntime: "pi", runtimes: {} },
     engine: "openrouter",
   });
-  // Spec section 2 step 3: memory on OpenRouter, agents on Claude.
   expect(engineSettingsOf("both")).toEqual({
     desk: { defaultRuntime: "claude", runtimes: {} },
     engine: "openrouter",
