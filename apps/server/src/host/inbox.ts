@@ -146,7 +146,7 @@ export async function readInbox(
     ? shown.filter((c) => c.pushId === o.pushId)
     : shown.slice(from, from + limit);
   return {
-    checks: o.his ? hisChecksOf(checks) : checks,
+    checks: hisChecksOf(checks, o.his),
     ...counts,
     version,
   };
@@ -167,9 +167,10 @@ function readStepSourceText(step: string) {
     : undefined;
 }
 
-/** Checks as his own app reads them (`read_inbox`, `read_matter` on his token): his payment cards with the payee's IBAN (`withPayeeAccountsOf`). */
+/** Checks as a reader sees them; `his` (his own app's read: `read_inbox`, `read_matter` on his token) adds the payee's IBAN to his payment cards (`withPayeeAccountsOf`). */
 export const hisChecksOf = <
   C extends Parameters<typeof withPayeeAccountsOf>[0][number],
 >(
-  checks: readonly C[]
-) => withPayeeAccountsOf(checks, readStepSourceText);
+  checks: readonly C[],
+  his = false
+) => (his ? withPayeeAccountsOf(checks, readStepSourceText) : checks);

@@ -103,6 +103,7 @@ import {
   argNamesOf,
   callerOf,
   IfNot,
+  isHisRead,
   NOT_HIS,
   READERS,
   REVERSIBLE,
@@ -223,10 +224,6 @@ export async function correct(
     : forward(a.kind, a));
   return `Done: ${a.kind}.`;
 }
-
-/** A read by his own app: his token (no agent claim), on the full server (the reads-only one serves agents over stdio). */
-const isHisRead = (server: McpServer, agent?: string) =>
-  !(agent || READERS.has(server));
 
 /**
  * The connector's tools, without its transport or auth: `createMcp` serves it over HTTP; with `readsOnly` only the
@@ -394,9 +391,9 @@ export function buildServer(readsOnly = false, logsArguments = false) {
       return {
         ...row,
         ...(await readMatterMove(matter)),
-        checks: (isHisRead(server, agent)
-          ? hisChecksOf(checksOnMatterOf(open, matter.id))
-          : checksOnMatterOf(open, matter.id)
+        checks: hisChecksOf(
+          checksOnMatterOf(open, matter.id),
+          isHisRead(server, agent)
         ).toSorted(byAsked),
         spending: matter.spending,
       };

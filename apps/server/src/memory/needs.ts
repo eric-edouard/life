@@ -350,14 +350,18 @@ const AMOUNT = new RegExp(
   "g"
 );
 
+const SPACES = /[\s\u00a0]/g;
+const GROUPS = /[.,]/g;
+const DECIMALS = /[.,](\d{1,2})$/;
+
 /** A written number: the last `.` or `,` followed by one or two digits is the decimal point; the rest group thousands. */
 const numberOf = (written: string) => {
-  const digits = written.replace(/[\s\u00a0]/g, "");
-  const point = /[.,](\d{1,2})$/.exec(digits);
+  const digits = written.replace(SPACES, "");
+  const point = DECIMALS.exec(digits);
   return Number(
     point
-      ? `${digits.slice(0, point.index).replace(/[.,]/g, "")}.${point[1]}`
-      : digits.replace(/[.,]/g, "")
+      ? `${digits.slice(0, point.index).replace(GROUPS, "")}.${point[1]}`
+      : digits.replace(GROUPS, "")
   );
 };
 

@@ -89,6 +89,10 @@ const unchecked = (s: z.ZodObject) => ({
 /** The servers built to serve reads only (`buildServer(true)`): a tool that is not `READ_ONLY` is never theirs. */
 export const READERS = new WeakSet<McpServer>();
 
+/** A read by his own app: his token (no agent claim), on the full server (the reads-only one serves agents over stdio). */
+export const isHisRead = (server: McpServer, agent?: string) =>
+  !(agent || READERS.has(server));
+
 /** The servers whose calls log their arguments, clipped (`cut`): the question cases' isolated one only, never his Life's log. */
 export const ARGUMENT_LOGGERS = new WeakSet<McpServer>();
 
