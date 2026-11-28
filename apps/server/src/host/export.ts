@@ -17,7 +17,6 @@ import {
   LIFE_CODE_DIR,
   LIFE_STATE_DIR,
   OWNER_DATA_DIR,
-  PROJECT_WORK_FOLDERS,
 } from "../core/paths";
 import { pathInside, slashed } from "../core/platform";
 import { execOk } from "../core/proc";
@@ -49,8 +48,8 @@ export const FORMAT = 1;
 export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
- * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own), one-off projects' work folders (an agent's scratch work), and the
- * secrets.
+ * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own) and the
+ * secrets. One-off projects' work folders (`state/projects/`) are exported whole, node_modules and all: a finished result may live only there (the owner, 28 Nov 2026); no pattern excludes bulk inside a folder yet.
  */
 const KEPT_OUT = [
   WATCH,
@@ -60,7 +59,6 @@ const KEPT_OUT = [
   EXCHANGE_COUNTS,
   MENTIONS,
   RECORDED_DAYS,
-  PROJECT_WORK_FOLDERS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];

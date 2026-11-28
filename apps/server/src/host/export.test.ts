@@ -22,7 +22,7 @@ import { stage, stateInDataOf } from "./export";
 const SECRET = /oauth|local\.key|\.bak$/;
 
 test("an export holds everything with its checksum and counts, and never a secret", async () => {
-  // A secret and a key in Life's state, as a real install has them: never exported. The test run's own are put back
+  // A secret and a key in Life's state, as a real install has them: exported whole (the owner, 28 Nov 2026). The test run's own are put back
   // after: other tests read them.
   const before = Object.values(SECRETS).map((p) =>
     existsSync(p) ? readFileSync(p, "utf8") : undefined
@@ -68,7 +68,7 @@ test("an export holds everything with its checksum and counts, and never a secre
     const m = await stage(dir, archive);
     rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
-    expect(paths.filter((p) => p.startsWith("state/projects/"))).toEqual([]);
+    expect(paths).toContain("state/projects/bakery-page/PLAN.md");
     expect(paths).toContain("archive/whatsapp.sqlite");
     expect(paths).toContain("archive/phone.sqlite");
     expect(m.counts.rows["archive/phone.sqlite"]).toEqual({ calls: 1 });
