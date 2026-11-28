@@ -15,7 +15,7 @@ import type { People } from "../memory/who";
 import { type Appointment, AppointmentEvent } from "../records/appointment";
 import type { ReadReply } from "../records/read-reply";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as push from "../sources/lifelog-push";
+import * as push from "../sources/voice-server-push";
 import {
   appointmentDraft,
   drafted,

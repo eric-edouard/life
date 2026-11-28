@@ -4,7 +4,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import {
   dictationHearings,
   macEngines,
-  transcribers,
+  transcriberChoices,
 } from "@lifelog/db/schema";
 import type { Services } from "../services";
 import { setSwitches, switches } from "../switches";
@@ -40,11 +40,11 @@ export const SwitchesView = z
           "asks the owner to open the app. 0: never"
       ),
     transcriber: z
-      .enum(transcribers)
+      .enum(transcriberChoices)
       .describe(
-        "Who transcribes the next blocks: ElevenLabs Scribe whole, or the speech service with " +
-          "Scribe for the Thai turns (docs/processing.md). Speech without the " +
-          "speech service set up (IDENTITY_URL) still goes to Scribe"
+        "The language mode: ElevenLabs Scribe whole, the speech service with Scribe for the Thai " +
+          "turns, or the speech service alone (`local`: nothing goes to Scribe; docs/processing.md). " +
+          "Speech without the speech service set up (IDENTITY_URL) still goes to Scribe"
       ),
     transcription: z
       .boolean()

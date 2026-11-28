@@ -20,7 +20,7 @@ The user message is one JSON object with `episodes`, `involved` and `prior`.
   itself is already remembered: its title, time, place and people. **The episode header is a model's reading and may be
   wrong**; it tells you what the units are about, the units' lines are the evidence. Its units may come from several
   days, but its earliest days may be left out. An episode with id `none` holds units that belong to no episode.
-- Each unit has `id`, `source` (lifelog, whatsapp, line, instagram, telegram, imessage, mail, notes), `title`, `people`, `triage` (why an
+- Each unit has `id`, `source` (voice, whatsapp, line, instagram, telegram, imessage, mail, notes), `title`, `people`, `triage` (why an
   earlier step kept it), and `lines`. Each line reads `[n] YYYY-MM-DD HH:MM who: text`: `n` is the line number within its
   unit, the date and time are when it was said or written (local), `who` is `me` ({{owner}}), a person id from the map, a
   name, or a label like `speaker_1` or `+66…` for someone not identified. In a 1:1 chat, the unit's `people` say who
@@ -31,7 +31,7 @@ The user message is one JSON object with `episodes`, `involved` and `prior`.
   item open or ticked; the first version is the whole note. A title marked "(shared)" is a note others edit too, so
   its lines are not necessarily {{owner}}'s. A ticked item is done (an item removed as `[ ]` and added as `[x]` is a tick); any
   other removed line is no longer true or no longer planned.
-- lifelog lines are one speech-to-text turn each. {{owner}} wears the recorder; an unnamed speaker talking about {{owner}}'s shop,
+- voice lines are one speech-to-text turn each. {{owner}} wears the recorder; an unnamed speaker talking about {{owner}}'s shop,
   house, family, apps or plans is usually {{owner}}. The recorder also picks up TV, videos, customers and strangers:
   ignore them. Transcripts mishear names, places and numbers, and people say wrong things; when a detail looks
   doubtful or another unit of the episode disagrees, trust the written source (a booking mail, a message) over speech,

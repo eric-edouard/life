@@ -2,6 +2,7 @@ import { z } from "zod";
 import { clock, daysBefore, HOUR, iso } from "../core/clock";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
+import { Level } from "../core/names";
 import { cardInstructionsOf } from "../host/card-push";
 import { assignmentOfCard, lastTurns } from "../host/desk-read";
 import { appOpenSinceOf, ownerStateNow } from "../host/owner-state";
@@ -9,7 +10,7 @@ import { recordArrivalHome } from "../memory/arrival-home";
 import { deliveryOf, recordDelivered } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow } from "../memory/decisions";
-import { draftWords, type StoredDraft } from "../memory/draft";
+import { draftWords, onlyDraftOf, type StoredDraft } from "../memory/draft";
 import { readExchangeCounts, replyHourOf } from "../memory/exchange-counts";
 import type { instructionsFor } from "../memory/instructions";
 import { OWNER } from "../memory/read-truth";
@@ -36,7 +37,6 @@ const DEADLINE_MARGIN = 3 * HOUR;
 /** How long a card is held for a better moment, by its urgency (high waits only under his `quiet`). */
 const HOLD_FOR = { high: 3 * HOUR, low: MAX_HOLD, normal: 3 * HOUR } as const;
 
-const Level = z.enum(["low", "normal", "high"]);
 export const GateReadings = z.object({
   canActNow: z.boolean(),
   goodMoment: z.boolean(),
@@ -277,8 +277,14 @@ const gateCardOf = (d: Decision): GateCard => ({
   ask: d.ask,
   context: d.context,
   deadline: d.deadline,
-  ...(d.draft
-    ? { draft: { text: draftWords(d.draft).join("\n"), to: d.draft.to } }
+  // A batch's drafts read as one: every text, every chat.
+  ...(d.drafts.length > 0
+    ? {
+        draft: {
+          text: d.drafts.map((x) => draftWords(x).join("\n")).join("\n\n"),
+          to: d.drafts.map((x) => x.to).join(", "),
+        },
+      }
     : {}),
   id: d.id,
   options: d.options,
@@ -329,7 +335,7 @@ async function gateCard(
     return;
   }
   const instructions = cardInstructionsOf({
-    draft: d.draft,
+    drafts: d.drafts,
     matter: d.matter,
   });
   const readings = await readGate(gateCardOf(d), instructions, waiting);
@@ -341,7 +347,7 @@ async function gateCard(
       assignmentOfCard(desk.db, o) === assignment &&
       deliveryOf(o, now).state === "sent_back"
   );
-  const replyAt = replyAtOf(d.draft, now);
+  const replyAt = replyAtOf(onlyDraftOf(d), now);
   const v = gateVerdictOf({
     deadline: d.deadline,
     isAppOpen: Boolean(appOpenSinceOf(now)),

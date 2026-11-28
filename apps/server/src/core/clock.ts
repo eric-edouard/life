@@ -24,6 +24,12 @@ export const DAY = 24 * HOUR;
 /** An instant in ms, as the ledgers write it. */
 export const iso = (ms: number) => new Date(ms).toISOString();
 
+/** The build number, the UTC build time as `YYYYMMDD.HHMM`: it only grows. */
+export const buildNumber = () => {
+  const now = clock().toISOString();
+  return `${now.slice(0, 10).replaceAll("-", "")}.${now.slice(11, 16).replace(":", "")}`;
+};
+
 /** The day `days` before `today` (both `YYYY-MM-DD`). */
 export const daysBefore = (today: string, days: number) => {
   const d = new Date(`${today}T12:00:00Z`);

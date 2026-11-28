@@ -40,7 +40,7 @@ import { readPeople } from "./who";
 // and `personas` add-ons are on) and the DAYS days of episodes with them that end at their newest, and writes the page he
 // sees when opening them, as Markdown parts to him, each citing what it rests on. A situation is rebuilt whole, never
 // from its last version, and only when what it was shown changed (`situationInputOf`): its episodes, the page, the
-// persona and the prompt's variant, never the story (another summary) or today's date (AGENTS.md, "Invariants"). One
+// persona and the prompt's variant, never the story (another summary) or today's date (.claude/rules/memory.md, "A summary is redone only when…"). One
 // with nothing new costs no call, ever. Nothing is sent.
 
 const SITUATION_PROMPT = "memory-situation.v4";
@@ -263,7 +263,7 @@ export async function situations({ personaOf, storyOf }: SituationReadings) {
         if (readSituation(t.ref)?.inputs === inputs) {
           return;
         }
-        // The story is another summary: shown, never in the digest (AGENTS.md, "A summary is redone only when…").
+        // The story is another summary: shown, never in the digest (.claude/rules/memory.md, "A summary is redone only when…").
         const { input, shown } = callOf(t, digested, {
           page: text,
           persona,

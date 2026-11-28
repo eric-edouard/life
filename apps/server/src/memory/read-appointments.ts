@@ -1,7 +1,7 @@
 import { clock, DAY, iso } from "../core/clock";
 import { redact } from "../core/redact";
 import type { SourceEvent } from "../records/source";
-import { pushIdOf } from "../sources/lifelog-push";
+import { pushIdOf } from "../sources/voice-server-push";
 import { readAppointmentEvents, readAppointments } from "./appointments";
 import {
   ARRIVAL_APPOINTMENT_DAYS,
@@ -19,6 +19,16 @@ import type { People } from "./who";
 // One appointment as the phone's event sheet shows it (the designer's ruling of 21 Nov 2026): `read_appointments` by
 // its push's id or its own, and `fetch` of its `apt_` ref. Worked out when read from the night's appointments, the
 // arrival's (`memory/arrival-appointments.ts`) and the calendar sync's lines; nothing is stored for it.
+
+/** Where an observation was said: its source and the message (or turn) it cites, from the index; null when none. */
+export const readObservationSource = (id: string) =>
+  readIndex((db) =>
+    db
+      .query<{ channel: string; ref: string }, [string]>(
+        "select channel, ref from observations where id = ?"
+      )
+      .get(id)
+  );
 
 /** What the sheet reads, once per request: the people, the matter book, and a message by its key (`find-refs.ts`). */
 export interface AppointmentReads {
@@ -44,13 +54,7 @@ function sourceMessageOf(
     }
   }
   for (const id of observations) {
-    const ref = readIndex((db) =>
-      db
-        .query<{ channel: string; ref: string }, [string]>(
-          "select channel, ref from observations where id = ?"
-        )
-        .get(id)
-    );
+    const ref = readObservationSource(id);
     const e = ref && reads.message(`${ref.channel}|${ref.ref}`);
     if (e) {
       return e;

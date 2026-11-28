@@ -8,7 +8,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
-import { draftWords } from "../memory/draft";
+import { draftsOf, draftWords } from "../memory/draft";
 import {
   type Digest,
   LIFE_MAIL,
@@ -105,7 +105,7 @@ function waitingRow(c: Check) {
     name: c.title,
     relation: [
       c.question,
-      ...(c.draft ? draftWords(c.draft) : []),
+      ...draftsOf(c).flatMap(draftWords),
       ...(first && c.options.length > 1 ? [`Recommended: ${first.label}`] : []),
       ...(c.deadline ? [`by ${localTime(c.deadline)}`] : []),
       `asked by ${c.asker}`,
@@ -205,7 +205,7 @@ export function successReport(day: string, ms: number, n: Night) {
             .map((s) => s.label)
             .join(", ") || "none (turn one on to start)"
         }`,
-        `Lifelog: ${watcherLine()}`,
+        `Voice server: ${watcherLine()}`,
         `Read ${when(n.from).date}–${date}: ${n.episodes.units} units, ${count(n.episodes.episodes, "episode")} on ${count(n.episodes.read, "day")}, ${n.extracted.read} extracted, ${n.observed} new observations since the last night, ${n.episodes.people.length} people inferred`,
         ...(n.files
           ? [

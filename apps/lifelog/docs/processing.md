@@ -178,6 +178,8 @@ and the feed show it with the switches):
   quarter second around each) and sent to Scribe once, without a webhook; their words come back into the turns'
   seconds with the service's speakers. The transcript has Scribe's shape, so turns, conversations, speakers, the
   feed and Life read it the same. Why these models: `docs/research/transcription-bench.md`; the router's numbers: `bench context` (`apps/stt-bench`).
+- `local`: each block goes to the speech service too, and nothing is routed to Scribe: every language it hears is within
+  the service's set. Its jobs are `speech` jobs.
 
 A job keeps the transcriber it was sent with (`transcription_jobs.transcriber`). The service busy, the block is
 queued again (not an attempt); down, failing or past its 120 s wait (504), it is an attempt, and the third goes to Scribe whole, its attempts going on (three sends in all), so nothing

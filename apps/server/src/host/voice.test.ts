@@ -18,7 +18,7 @@ import * as platform from "../core/platform";
 import { SECRETS } from "../core/secret";
 import { plistOf } from "../core/service";
 import { setSettings, settings } from "../core/settings";
-import { call, readVoiceSecrets } from "../sources/lifelog-call";
+import { call, readVoiceSecrets } from "../sources/voice-server-call";
 import {
   embedderArgsOf,
   HOST_RUNS,
@@ -44,7 +44,6 @@ import {
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const at: VoicePaths = {
-  backups: "/icloud/restic",
   codex: "/app/codex",
   helpers: "/app/Helpers",
   resources: "/app/Resources",
@@ -56,6 +55,7 @@ const inputs = (o: Partial<VoiceInputs> = {}): VoiceInputs => ({
   backups: false,
   build: "b1",
   extra: {},
+  hasTunnel: false,
   publicUrl: "http://127.0.0.1:47613",
   secrets: {},
   speakers: false,
@@ -64,7 +64,11 @@ const inputs = (o: Partial<VoiceInputs> = {}): VoiceInputs => ({
 const VOICE_SECRETS = SECRETS.voiceSecrets;
 const minted = {
   identitySecret: "made-up-identity-secret",
-  resticPassword: "made-up-restic-password",
+};
+/** Life's backup, as `readBackupTarget` gives it. */
+const backup = {
+  password: "made-up-restic-password",
+  repository: "/cloud/Life backup/restic",
 };
 
 test("the server gets hashes, never tokens, and listens on loopback", () => {
@@ -91,6 +95,18 @@ test("the server gets hashes, never tokens, and listens on loopback", () => {
   expect(Object.values(env).some((v) => v.includes("token"))).toBe(false);
 });
 
+test("server.env's ElevenLabs webhook is kept behind a tunnel, dropped without one, where no one can call it", () => {
+  const extra = { ELEVENLABS_WEBHOOK_SECRET: "whsec", KEEP: "k" };
+  const on = serverEnvOf(
+    inputs({ extra, hasTunnel: true, publicUrl: "https://life.example/voice" })
+  );
+  const off = serverEnvOf(
+    inputs({ extra, publicUrl: "http://127.0.0.1:46200/voice" })
+  );
+  expect([on.ELEVENLABS_WEBHOOK_SECRET, on.KEEP]).toEqual(["whsec", "k"]);
+  expect([off.ELEVENLABS_WEBHOOK_SECRET, off.KEEP]).toEqual([undefined, "k"]);
+});
+
 test("the embedder listens where Life embeds, with inputs no longer than core/embedder.ts sends", () => {
   const args = embedderArgsOf("/m.gguf");
   expect(args).toContain("/m.gguf");
@@ -112,14 +128,11 @@ test("minting fills only the missing secrets, keeps every key voice doesn't own,
     expect(secrets.macToken).toBe("kept");
     expect(secrets.claudeToken).toBe("claude");
     expect(secrets.future).toBe(1);
-    for (const k of [
-      "deviceToken",
-      "readerToken",
-      "resticPassword",
-      "identitySecret",
-    ]) {
+    for (const k of ["deviceToken", "readerToken", "identitySecret"]) {
       expect(String(secrets[k])).toMatch(TOKEN);
     }
+    // Life's own secret (`SECRETS.backupKey`), never voice's.
+    expect(secrets.resticPassword).toBeUndefined();
     expect(secrets.deviceToken).not.toBe(secrets.readerToken);
     expect(readVoiceSecrets()).toEqual(secrets);
     expect(statSync(VOICE_SECRETS).mode.toString(8)).toEndWith("600");
@@ -161,14 +174,15 @@ EMPTY=
   expect(env.BUILD_SHA).toBe("abc1234");
 });
 
-test("restic only when backups are on", () => {
-  const off = serverEnvOf(inputs({ secrets: minted }));
-  expect(off.RESTIC_PASSWORD).toBeUndefined();
-  expect(off.RESTIC_REPOSITORY).toBeUndefined();
-  const on = serverEnvOf(inputs({ backups: true, secrets: minted }));
-  expect(on.RESTIC_PASSWORD).toBe(minted.resticPassword as string);
+test("restic gets Life's own backup target, and only when there is one", () => {
+  // Switched on with no Life backup to snapshot into: nothing to give restic.
+  const unwritten = serverEnvOf(inputs({ backups: true, secrets: minted }));
+  expect(unwritten.RESTIC_PASSWORD).toBeUndefined();
+  expect(unwritten.RESTIC_REPOSITORY).toBeUndefined();
+  const on = serverEnvOf(inputs({ backup, backups: true, secrets: minted }));
+  expect(on.RESTIC_PASSWORD).toBe(backup.password);
   expect(on.RESTIC_BINARY).toBe("/app/Helpers/restic");
-  expect(on.RESTIC_REPOSITORY).toBe("/icloud/restic");
+  expect(on.RESTIC_REPOSITORY).toBe(backup.repository);
 });
 
 test("export and import get only the recordings", () => {
@@ -336,6 +350,12 @@ test("only his own Life's helper reads voice's secrets: a checkout or a second L
     expect(pairLinkOf("https://life.example", "ABC234", "tok")).toContain(
       "token=tok&url=https%3A%2F%2Flife.example%2Fvoice"
     );
+    expect(
+      pairLinkOf("http://127.0.0.1:46200", "ABC234", undefined, {
+        mac: "ab12",
+        relay: "https://relay.example./",
+      })
+    ).toEndWith("&mac=ab12&relay=https%3A%2F%2Frelay.example.%2F");
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
     setSettings({ lifelog });

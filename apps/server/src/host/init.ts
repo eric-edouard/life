@@ -2,9 +2,11 @@ import { existsSync, readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { clock } from "../core/clock";
+import type { Engine, RuntimeName } from "../core/names";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { systemZone } from "../core/platform";
 import { git } from "../core/proc";
+import type { Settings } from "../core/settings";
 import { integrity, loadTruth } from "../memory/read-truth";
 import { noteZones, readZoneHere } from "../memory/zones";
 
@@ -15,6 +17,23 @@ export interface Owner {
   email: string[];
   name: string;
   phone: string[];
+}
+
+/** What `bun life init --engine` offers: memory on Claude, memory on OpenRouter, or memory on OpenRouter and the desk on Claude. */
+export const ENGINE_CHOICES = ["claude", "openrouter", "both"] as const;
+export type EngineChoice = (typeof ENGINE_CHOICES)[number];
+
+/**
+ * The settings a new install starts with, by that choice (spec: `docs/plans/2026-11-28-packaging/spec.md`): OpenRouter
+ * alone needs no Claude sign-in, and with `both` the desk runs on Claude while memory runs on OpenRouter.
+ */
+export function engineSettingsOf(
+  choice: EngineChoice,
+  desk: Settings["desk"] = { runtimes: {} }
+) {
+  const engine: Engine = choice === "claude" ? "claude" : "openrouter";
+  const defaultRuntime: RuntimeName = choice === "openrouter" ? "pi" : "claude";
+  return { desk: { ...desk, defaultRuntime }, engine };
 }
 
 /** One row of a truth/ list: a JSON flow mapping, which is YAML. */
@@ -50,7 +69,7 @@ export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
     writeFile(join(truth, "areas.yaml"), yaml("areas", [])),
     writeFile(join(truth, "projects", ".gitkeep"), ""),
     writeFile(join(truth, "me.md"), `# Me\n\n${owner.name}.\n`),
-    // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with lifelog
+    // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with the voice server
     // unreadable: there is no earlier zone to stand.
     readZoneHere().then((tz) =>
       noteZones(

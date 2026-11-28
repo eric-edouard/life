@@ -171,6 +171,45 @@ test("a project's status edit rewrites its status line alone, and back again", a
   );
 });
 
+// A one-off project (28 Nov 2026): its goal is his ask, word for word, within `said`; it ends done or dropped.
+test("a one-off project keeps his ask as its goal, refuses words he did not say, and ends dropped", async () => {
+  const ask = "Sort out my old travel photos into albums";
+  await changeDirectoryEntry({
+    action: "add",
+    id: "trips",
+    kind: "area",
+    name: "Trips",
+    said: "Add a Trips area",
+  });
+  await expect(
+    changeDirectoryEntry({
+      action: "add",
+      area: "trips",
+      goal: "Delete every photo",
+      kind: "project",
+      name: "Travel photos",
+      said: ask,
+    })
+  ).rejects.toThrow("word for word");
+  await changeDirectoryEntry({
+    action: "add",
+    area: "trips",
+    goal: ask,
+    kind: "project",
+    name: "Travel photos",
+    said: `Please: ${ask}.`,
+  });
+  await changeDirectoryEntry({
+    action: "edit",
+    id: "travel-photos",
+    kind: "project",
+    said: "Drop the photos project",
+    status: "dropped",
+  });
+  const p = (await loadTruth()).projects.find((x) => x.id === "travel-photos");
+  expect([p?.goal, p?.status]).toEqual([ask, "dropped"]);
+});
+
 test("refused: a goal over two lines, a heading in the text, a name with no id", async () => {
   const before = file("me.md");
   const text = (t: string, kind: "goal" | "may_keep") =>
@@ -360,4 +399,40 @@ test("his Yes on an at organization card adds that one member with the card's ro
   ]);
   expect(log()).toContain('"Yes" to "Is Test Owner at Test Garage as Owner?"');
   await expect(yes()).rejects.toThrow("me is already at test-garage");
+});
+
+test("an edit of one handle keeps his comments and the rest of the file as written", async () => {
+  const id = "00000000-0000-8000-8000-0000000000b1";
+  const bea = [
+    "  - id: test-bea",
+    "    name: Test Bea",
+    "    # Owner, 1 Nov: met at the bakery.",
+    "    relation: friend",
+    "    aliases: [Bea, Béa]",
+    "    handles:",
+    "      # Owner, 2 Nov: her work address.",
+    '      email: ["bea@example.test"]',
+  ];
+  writeFileSync(
+    join(TRUTH, "people.yaml"),
+    `${file("people.yaml").trimEnd()}\n${bea.join("\n")}\n  # the last line\n`
+  );
+  const before = file("people.yaml");
+  await changeDirectoryEntry({
+    action: "edit",
+    handles: { voice: id },
+    id: "test-bea",
+    kind: "person",
+    said: "Her voice is this one",
+  });
+  const after = file("people.yaml");
+  expect(after).toBe(
+    before.replace(
+      `      # Owner, 2 Nov: her work address.\n      email: ["bea@example.test"]\n`,
+      `      # Owner, 2 Nov: her work address.\n      email: ["bea@example.test"]\n      voice: ${id}\n`
+    )
+  );
+  expect(
+    (await loadTruth()).people.find((p) => p.id === "test-bea")?.handles.voice
+  ).toBe(id);
 });

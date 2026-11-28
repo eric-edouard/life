@@ -100,6 +100,8 @@ export interface CheckInputs {
   /** The names Life cannot place, one group per name (`nameGroupsOf`), worked out once by the reader. */
   nameGroups: ReturnType<typeof nameGroupsOf<Line>>;
   paged: ReadonlySet<string>;
+  payerOf?: YourMoveInputs["payerOf"];
+  payWith?: YourMoveInputs["payWith"];
   people: Pick<
     People,
     | "ambiguousCards"
@@ -126,12 +128,16 @@ export interface CheckInputs {
   places?: YourMoveInputs["places"];
   /** The guesses that may be someone else (`samePersonPairsOf`), worked out once by the reader. */
   samePersons: ReturnType<typeof samePersonPairsOf>;
+  /** Each step's reading (`step-readings.ts`), by its matter's id: how his your move cards are asked (`askOfStep`). */
+  stepReadingOf?: YourMoveInputs["stepReadingOf"];
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */
   today: string;
-  /** The voices lifelog asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
+  /** The voices the voice server asks him to name (`readNamingQueue`), with the voice naming's guesses (`withVoiceGuesses`). */
   voices: readonly GuessedQueueItem[];
+  /** The ids of his `what-to-ask` instructions in force on a step, by its matter's id. */
+  whatToAskOf?: YourMoveInputs["whatToAskOf"];
   /** Where a record that is not a line was said: units and episodes, by id. */
   where: ReadonlyMap<string, Where>;
 }

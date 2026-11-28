@@ -7,13 +7,13 @@ agents that act for him. This page says what it protects and what it does not.
 
 - Everything Life derives lives on the owner's Mac: the data root (`truth/`, `memory/`) is a local git repository with
   no remote. The nightly refuses to commit to a repository that has one.
-- Raw data stays in its own app (Messages, Mail, WhatsApp, Notes, lifelog), opened read-only. The one copy Life
+- Raw data stays in its own app (Messages, Mail, WhatsApp, Notes, the voice server), opened read-only. The one copy Life
   keeps is the archive (`~/Library/Application Support/Life/archive/`): phone call history, messages deleted for everyone and old note
   versions.
 - The owner's claude.ai and ChatGPT exports are kept whole as export copies in `imports/` of his data (outside its
   git), the assistant's replies included; they are read as data, never as his words.
 - A deletion he asks for (`delete_from_memory`) is a marker in `memory/corrections.jsonl`: what he deleted stops being
-  read anywhere, but the words themselves stay where their sources hold them (the app's own store, the archive, lifelog)
+  read anywhere, but the words themselves stay where their sources hold them (the app's own store, the archive, the voice server)
   and in his data repo's git history and backups. Purging them needs code that does not exist yet: `withSources` records
   his word that those copies go too, nothing more.
 - His thread with Life (`read_thread`) keeps a second copy of his own words to Life, and Life's answers to them, on the
@@ -23,10 +23,10 @@ agents that act for him. This page says what it protects and what it does not.
   next tick (words, answer and screen emptied, the row and its time kept); an answer never writes back onto it. An
   entry asked before this, citing what he deleted, is hidden at read. His instructions (`memory/instructions.jsonl`)
   quoting the deleted words go the same way as the rest of memory: one `deleted` marker naming them, applied at read;
-  the file keeps their line, like his data repo's history and backups. What still holds the words: lifelog, the archive,
+  the file keeps their line, like his data repo's history and backups. What still holds the words: the voice server, the archive,
   the apps' own stores, the backups and the git history (life#1384's other steps).
 - Search by meaning embeds on the Mac: Life sends the texts it searches only to Lifelog Host's embedder on loopback
-  (`EMBEDDER_URL`, a constant in `core/embedder.ts`, lifelog's too); their vectors are derived
+  (`EMBEDDER_URL`, a constant in `core/embedder.ts`, the voice server's too); their vectors are derived
   (`derived/memory/vectors.sqlite`), kept out of exports.
 - Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are
   named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup. One is gog's keyring
@@ -43,6 +43,14 @@ OpenRouter and allmodels.io with his keys, through the hosts he chose; OpenRoute
 a local model (llama.cpp, `describePhotos` setting): none of those images goes to a provider. Today's arriving mail is sieved first by Apple's on-device model (Foundation Models, never Private Cloud Compute): nothing leaves the Mac for it, and a mail it calls automated goes no further by day. The rest (a person's mail, any it refuses, Thai mail, every mail when this Mac has no Apple model) and today's arriving chat lines, mail and chat alike with their sitting (the thread's earlier lines that day), and the turns of a closed voice conversation he spoke in go to his provider, like the night's. A file inside a
 message (a photo, a PDF's pages) is described by the provider's fast model: that image goes to the provider, once,
 when its message arrives or at night (his word of 19 Nov 2026).
+
+Every read of message, mail, note and file text that a model or a reader sees goes through `redact` (`core/redact.ts`):
+card numbers, IBANs, key blocks, lines that look like a password or code, long tokens. One exception (his yes of 28 Nov
+2026): on Life's own payment card (a your move card whose step names an amount), the payee's IBAN, exactly as the
+payee wrote it in that step's message or its file, sits in the card's `account` need, and only when his own app reads
+it (`read_inbox` and `read_matter` on his token: `withPayeeAccountsOf`). The checks every other reader shares (agents,
+the reads-only connector, complaints, the nightly, pushes, the CLI) never hold it. An app on his token that is a chat
+with a model (his Claude or ChatGPT) passes it to that model's provider. Life never pays: he does, in his bank's app.
 
 ## Agents
 
@@ -72,7 +80,7 @@ partial: it reads a call's text, so a tab already open on a messaging site, a sc
 or `curl` to a service's API (the door's `/main-session` too, with the local key read from Life's state), `node_repl`, `javascript_tool`, full-screen computer use (it names no app), a shell the agent starts and then types into
 (Codex's `write_stdin`) or another program the agent starts get past it, a turn he types himself into an agent's session runs without the guard unless the Life plugin is installed (it asks the desk's guard before every tool call there, and refuses all but the file tools when the guard fails; there it also approves every permission ask the guard lets through, as the desk's no-ask mode does, never a deny or an organization's ceiling; a session of an agent it never looked up, first opened while Life is down, runs unguarded), and the agent can edit the guard's file in a
 checkout. It also refuses a little too much: any call that names a messaging site, reading Gmail in a browser included. Submitting a form, booking, paying, `gh pr create` and pushes stay its
-instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
+instruction only, as does a one-off project's first look staying read-only on his things until he approves a preview (the owner's decision of 28 Nov 2026): the guard cannot tell a read from a change on his Mac. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches the sessions the desk starts in their environment, and the Life plugin's module (never the model) for a session he opens himself: the door's `/session/<ref>` gives it to any process of his that knows the session's id, as `desk.key` already does. The key names an agent; it is no wall between his own processes.
 His complaint (his words through Ask Life; "Wrong…" on a card of Life's opens it) is his hand-over to the caretaker, a
@@ -93,9 +101,12 @@ A card that asks him to pay (`doneSeenBy: "payment"`) makes Life read his paymen
 ## Network
 
 The connector (`/mcp`) is served by the Mac, behind Life's own OAuth (pairing codes,
-PKCE). Its origin also forwards `/voice/…` to lifelog's server on loopback, as it came, behind lifelog's own tokens
-(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. Exposure is through his tailnet,
-optionally a tunnel he controls.
+PKCE). Its origin also forwards `/voice/…` to the voice server on loopback, as it came, behind the voice server's own tokens
+(never its map page). Life serves no page; the app's local port needs a local key and is never exposed. The connector is
+on unless set off (`connector: false`); without a tunnel its origin is this Mac's loopback. Exposure is through the Mac
+link (`host/http/mac-link.ts`: an iroh endpoint by the Mac's own key, `LIFE_STATE_DIR/mac-link.key`, made at the first
+pairing, which starts the link; no public discovery; each stream piped to the connector's port, so the same tokens gate
+it as any caller; the pairing QR carries the Mac's id), his tailnet, optionally a tunnel he controls.
 
 Life's helper reads voice's `secrets.json` (owner-only; `host/voice.ts` its one writer): to start voice's launchd jobs
 with their keys and to read voice with the phone's device token. His own Life.app's "Pair an app" QR (never a checkout's or a second
@@ -105,9 +116,13 @@ key`, on stdin, never an argument).
 
 ## What leaves the Mac
 
-The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, keeps its own in
+The one list; nothing else leaves. The voice server (`apps/lifelog`), its own process, keeps its own in
 [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md).
 
+- To n0's public iroh relay in Singapore, from the first phone pairing on, with the connector on: the Mac link's
+  metadata (both devices' IP addresses, their endpoint ids, when they connect and how much moves), never content,
+  encrypted end to end between the two keys. An install that never pairs a phone sends it nothing. Off with the
+  connector (`connector: false`).
 - To the model provider he chose: the text Life reads, only through the hosts he chose and never one that keeps
   prompts (`docs/operations.md`, "Model engines"); Phone & FaceTime call lines reach the model exactly as WhatsApp
   call lines do (who, when, how long; no content), so nothing new leaves the Mac. With the `apple-health` source on,
@@ -124,14 +139,23 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   read only, Life's own left out) that overlap it: each guest it offers as a possible speaker (a name, or an address no
   one is known by), with the event's title and time in their brief (his yes of 22 Nov 2026: that provider already gets his
   messages).
-- A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to lifelog's speech service on this Mac; the turns it hears as Thai or another
+- A new user's default model route, once packaging bundle M ships (not built yet): OpenRouter, model
+  `~deepseek/deepseek-flash-latest`, every request with `provider: {"zdr": true}`, so only providers that keep nothing
+  serve it (any such provider, wider than the two hosts of 22 Nov, on his words below); the key is made by OpenRouter's OAuth (PKCE) with a spending `limit` ($20 by default), about $5–20 a month.
+  His words of 28 Nov 2026: DeepSeek Flash latest, a zero data retention policy, flagged for audits as the default
+  route. Turn it off by choosing Claude in setup, or by asking Life.
+- Anonymous diagnostics to Life's developer: proposed, not built (issue #1599, his ask of 28 Nov 2026); nothing leaves
+  until it ships with its fields listed here and a way to turn it off.
+- With OpenRouter as his engine, its key alone to OpenRouter's credits API (`creditsNow`, `models/llm.ts`), at most once a
+  minute while the integrations are read, to show whether his balance is above zero: nothing of his data.
+- A chat's voice note (a chat message's audio; mail's and Notes' audio stay tags) to the voice server's speech service on this Mac; the turns it hears as Thai or another
   language it routes, cut from the audio, to ElevenLabs Scribe, as the pendant's (his yes of 20 Nov 2026;
   [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per note: its file's sha256 is the claim.
-- A field's dictation on his phone (`POST /dictation/transcript`) to lifelog's speech service on this Mac; the turns it
+- A field's dictation on his phone (`POST /dictation/transcript`) to the voice server's speech service on this Mac; the turns it
   hears as Thai, or all of it when mostly Thai, with vocabulary hints that can name people, to ElevenLabs Scribe under
   its ordinary retention (his decision, 21 Nov 2026; [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)). Once per
-  dictation; lifelog keeps no audio and no words.
-- Instant dictation, only while his `dictationHeard` switch is `instant` (Settings, Dictation: "Instant (ElevenLabs)"; off by default): the phone streams a field's dictation straight to ElevenLabs Scribe (realtime) with a single-use token this Mac mints only then (`POST /live-words/token`); the ElevenLabs key never leaves the Mac, and lifelog keeps no audio and no words. A run whose stream fails is heard on the Mac as above, so its Thai turns may reach Scribe a second time (his ask, 22 Nov 2026; [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)).
+  dictation; the voice server keeps no audio and no words.
+- Instant dictation, only while his `dictationHeard` switch is `instant` (Settings, Dictation: "Instant (ElevenLabs)"; off by default): the phone streams a field's dictation straight to ElevenLabs Scribe (realtime) with a single-use token this Mac mints only then (`POST /live-words/token`); the ElevenLabs key never leaves the Mac, and the voice server keeps no audio and no words. A run whose stream fails is heard on the Mac as above, so its Thai turns may reach Scribe a second time (his ask, 22 Nov 2026; [apps/lifelog/SECURITY.md](apps/lifelog/SECURITY.md)).
 - To a registered agent's runtime (his Claude subscription, his Codex subscription: OpenAI, or pi on OpenRouter with Life's key, to the memory's hosts that keep nothing only, DeepInfra and Morph: the owner's yes of 22 Nov 2026, relayed by the orchestrator session, `docs/plans/pi-runtime.md`): its brief and packet
   (his words, its notes, the facts of its queued events (for a payment: its amount, in EUR too, its currency, whether it is spending, the money app's category, and when; for an arrival at a place: when he arrived, and where: its coordinates), its open decision) (his yes to the desk, 18 Nov 2026; his
   yes to Codex as a runtime, 18 Nov 2026).
@@ -157,7 +181,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one
   macOS grant is Automation, Life → Messages, asked at the first send): a card's
   draft, its exact text and the one file he approved (it leaves the Mac for the network, through its bridge), once, on
-  his answer to its outgoing option (his decision of 18 Nov 2026; AGENTS.md). Asking a
+  his answer to its outgoing option (his decision of 18 Nov 2026; .claude/rules/acts-and-sends.md); a batch card's
+  drafts, each into its own chat, each exactly as shown and checked on its own, on his one answer (the owner's decision
+  of 28 Nov 2026; refused until his app shows every draft). Asking a
   card for a new WhatsApp chat sends the number to WhatsApp, through its bridge, to ask whether it has an account.
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is
@@ -172,12 +198,12 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   its bridge where the room's own features allow it then, or his GitHub comment deleted through `gh`; never iMessage or mail.
 - To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
   and the to-do items with Google Tasks as the backend.
-- To his own lifelog server: his corrections about recordings, for each voice ask a "Life heard you" notice, then its outcome
+- To his own voice server: his corrections about recordings, for each voice ask a "Life heard you" notice, then its outcome
   under the same id ("Life answered" or "Life couldn't do it"), never his words or Life's, and, for each new card in his
   inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new
   cards", the number of cards that block him (the badge), the push's level (passive, active or time-sensitive) and,
   for one card, an id of 16 hex characters made with a key that never leaves the Mac (never a ref, a name, a title or
-  a question). Lifelog pushes it to his phone through Apple; his phone then reads the card from the connector and
+  a question). The voice server pushes it to his phone through Apple; his phone then reads the card from the connector and
   writes the notification's text itself, shown on his lock screen and his Watch. When cards leave his inbox (answered,
   withdrawn, lapsed), a background push carries their same opaque ids alone, and the phone removes their notifications.
   An appointment Life added to his calendar is pushed the same way (his word of 21 Nov 2026): the words "Added to
@@ -199,13 +225,21 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   `answer_check` once he approved the exact text in its chat, which sends it (his word of 19 Nov 2026). A page or
   message the client reads could steer it into both: the gate is the client's honesty about his yes, policy not
   enforcement, as for any answer his token records; the card stamps the chat and text, and the send is logged.
-- The phone's notification extension reads the app's tokens (Life's and lifelog's: one Keychain group), to read a card
+- The phone's notification extension reads the app's tokens (Life's and the voice server's: one Keychain group), to read a card
   for its notification (`NotificationService`). A draft sent from a notification, on the phone or the Watch, rests on
   that device being unlocked, and on Face ID at that tap only when his setting asks for it (`NotificationContent`).
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
+- The Mac link's relay forwards the iPhone app's traffic when a direct path fails. It is encrypted end to end between
+  the Mac's and the phone's keys, so the relay can't read it. It sees metadata: the devices' IP addresses, when they
+  connect and how much data moves. n0's public relay during development, Life's own before launch. Anyone holding the
+  Mac's id reaches the connector's port as an internet caller reaches a tunnel: Life's tokens still gate every route.
 - Full Disk Access makes Life a high-value target on the Mac.
+- A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
+  every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility
+  lets a script drive any app's interface, past the send guard; an agent asks for it only on a card, and he turns it on
+  himself in System Settings.
 - Models misread: an observation is a model's reading with a checked quote, not a fact.
 - His agents act with his access (above).
 

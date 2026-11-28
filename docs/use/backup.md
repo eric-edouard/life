@@ -5,7 +5,7 @@ and off until you set one up. They need [restic](https://restic.net) (`brew inst
 snapshots in, for example in iCloud Drive.
 
 A snapshot holds your memory, Life's state and the archive of deleted messages and old note versions. It holds no
-secrets: API keys, the lifelog token and paired apps are listed by name, and you give them again after a restore.
+secrets: API keys, the voice server token and paired apps are listed by name, and you give them again after a restore.
 
 ## Set it up
 
@@ -36,7 +36,10 @@ The app has no screen for this yet, so it takes a few commands in Terminal and a
 4. Quit Life from its menu and open it again, so it reads the new setting.
 
 Life backs up once a day, after the night's run or from 09:00, and keeps snapshots as
-[Operations](../operations.md#backups-and-exports) describes.
+[Operations](../operations.md#backups-and-exports) describes. A new install sets this up itself, with the first cloud
+folder it finds (iCloud Drive, Google Drive or OneDrive) and a password of its own.
+
+Voice backs up into the same repository every day when "Back up every day" is on in Settings.
 The nightly report's Last backup line, and the Backup card in the status window, say when the last one finished.
 
 ## Restore

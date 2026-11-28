@@ -44,8 +44,8 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   rows sit on the page, a `line` hairline between them. A card is kept only where a thing is a block of its own (a
   matter's goal, a field, a button), and then `card`, `tile` and `paper` are faint lifts of black (`#0b0c0e`, `#111214`,
   `#131416`), never a grey panel. Light is unchanged apart from lists.
-- **Three more fills** (owner, 26 Nov 2026), cream at a strength so they sit on any ground: `tint` (10%, a quiet pill,
-  his bubble), `glass` (14%, a floating control) and `wash` (5%, an unfolded item). Nothing else draws a grey; the
+- **Three more fills** (owner, 26 Nov 2026), cream at a strength so they sit on any ground: `tint` (10%, a quiet
+  pill), `glass` (14%, a floating control) and `wash` (5%, an unfolded item). Nothing else draws a grey; the
   phone takes tokens.css only, never a literal. The phone is dark only for now.
 - **No borders** (owner, 30 Oct 2026 for cards; a hard rule for everything since 19 Nov 2026): no outline, ring or
   stroke around any surface or control. A card, a panel, an option or a field stands out from the page by its `card`
@@ -65,7 +65,7 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   handed on work.
 - **Parked (30 Oct 2026).** The Mac app's UI is the exception to the type, shape and wording rules of this page until
   it is unparked: it keeps its old layout, fonts, capital labels and strokes (`Brand.swift`), with the colours above.
-  Android keeps the old look (`Brand.kt`, lifelog's `docs/design.md`).
+  Android keeps the old look (`Brand.kt`, the voice layer's `docs/design.md`).
 - **Not yet in code (19 Nov 2026).** Three surfaces predate the rules of 19 Nov, and each follows with its next
   change: the phone's capital labels; the pairing page's outlined button and thin title (`oauth.ts`); and the text of
   the asks the server writes, which predates the wording below.

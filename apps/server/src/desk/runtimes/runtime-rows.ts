@@ -8,7 +8,7 @@ import { errorOf } from "../../core/log-line";
 import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
-import { exec, firstLine, readLoginEnv } from "../../core/proc";
+import { exec, firstLine, readLoginEnv, readProgram } from "../../core/proc";
 import { settings } from "../../core/settings";
 import { readOpenSessionRecords } from "../../host/open-session-records";
 import { mailedTo } from "../../host/report";
@@ -68,18 +68,6 @@ export interface Row {
   spawn: (
     a: Agent
   ) => Promise<{ command: string[]; env: Record<string, string> }>;
-}
-
-/**
- * The program the desk launches for a CLI: found on the PATH as it is now (`cliEnv`), less any `node_modules/.bin` (where
- * `bun run` puts Life's own pinned Codex, which is not his); the bare name when none is found.
- */
-export function readProgram(name: string) {
-  const path = (cliEnv().PATH ?? "")
-    .split(":")
-    .filter((d) => !d.endsWith("node_modules/.bin"))
-    .join(":");
-  return Bun.which(name, { PATH: path }) ?? name;
 }
 
 /** `Runtime.block` for a CLI: why `<program> --version` fails, none when it answers. */

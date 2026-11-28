@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { MIN, minutes } from "./clock";
+import { buildNumber, MIN, minutes } from "./clock";
 import { LIFE_CODE_DIR } from "./paths";
 import { repoFiles } from "./proc";
 
@@ -52,4 +52,10 @@ test("LIFE_NOW freezes a second Life's clock and is refused on his own data", ()
   });
   expect(own.exitCode).not.toBe(0);
   expect(own.stderr.toString()).toContain("never his own data");
+});
+
+const BUILD_NUMBER = /^\d{8}\.\d{4}$/;
+
+test("buildNumber is the UTC build time", () => {
+  expect(buildNumber()).toMatch(BUILD_NUMBER);
 });

@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   changeSetting,
-  hasEngineSet,
   readSettings,
   SettingChange,
   Settings,
@@ -12,11 +11,10 @@ import {
   settings,
 } from "./settings";
 
-test("a corrupt settings file throws instead of switching engine; a missing one is every default", () => {
+test("a corrupt settings file throws instead of switching engine; a missing one is every default, and no engine", () => {
   const path = join(mkdtempSync(join(tmpdir(), "life-settings-")), "s.json");
   expect(readSettings(path)).toEqual({
     agentReportSenders: [],
-    engine: "claude",
     memoryLanguage: "English",
     sources: [],
   });
@@ -82,15 +80,6 @@ test("the desk's hand-out is off when absent and strict when set", () => {
   expect(handOut({ aDay: 3 }).success).toBe(false);
   expect(handOut({ aDay: 0, cardsWaiting: 5 }).success).toBe(false);
   expect(handOut({ aDay: 3, cardsWaiting: 5, more: 1 }).success).toBe(false);
-});
-
-test("an engine is set only when the file names one, never by its default", () => {
-  const dir = mkdtempSync(join(tmpdir(), "life-settings-"));
-  expect(hasEngineSet(join(dir, "none.json"))).toBe(false);
-  writeFileSync(join(dir, "a.json"), '{"memoryLanguage": "French"}');
-  expect(hasEngineSet(join(dir, "a.json"))).toBe(false);
-  writeFileSync(join(dir, "b.json"), '{"engine": "claude"}');
-  expect(hasEngineSet(join(dir, "b.json"))).toBe(true);
 });
 
 test("his change_setting writes the monthly amount and keeps every other part; nothing else, and no amount of zero, is taken", () => {
@@ -165,4 +154,31 @@ test("his halo settings are saved whole beside his amount; a value past its safe
   refused({ ...AURA, wobble: 1 });
   refused({ ...AURA, states: { ...AURA.states, still: undefined } });
   expect(() => changeSetting({})).toThrow("Not done");
+});
+
+test("his word sets the apps he pays with, the whole list, keeping his payments' source; an http link or a payer outside his directory's refs is refused", () => {
+  const before = readSettings();
+  const payWith = [
+    {
+      app: { name: "Test Bank", url: "https://bank.example.com/open" },
+      currency: "EUR",
+      payer: "project:shop",
+    },
+  ];
+  try {
+    expect(changeSetting({ payWith }).payWith).toEqual(payWith);
+    const { payments, ...rest } = readSettings();
+    expect(payments).toEqual({ ...before.payments, payWith });
+    expect(rest).toEqual(before);
+  } finally {
+    setSettings({ payments: before.payments ?? null });
+  }
+  const refused = (entry: object) =>
+    expect(
+      SettingChange.safeParse({ payWith: [{ ...payWith[0], ...entry }] })
+        .success
+    ).toBe(false);
+  refused({ app: { name: "Test Bank", url: "http://bank.example.com" } });
+  refused({ payer: "Shop Ltd" });
+  refused({ currency: "euro" });
 });

@@ -10,13 +10,13 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HOME, WINDOWS } from "../../core/platform";
+import { readProgram } from "../../core/proc";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
 import { doorOf } from "../door-keys";
 import { SEND_GUARD_HOOK } from "../send-guard";
 import {
   isRolloutTurnOpen,
   isSessionOpen,
-  readProgram,
   runtimeRowsOf,
 } from "./runtime-rows";
 

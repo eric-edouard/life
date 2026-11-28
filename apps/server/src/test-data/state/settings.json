@@ -7,6 +7,7 @@
   "connector": {
     "origin": "https://life.example.test"
   },
+  "engine": "claude",
   "lifeChat": "!life:matrix.local",
   "lifelog": {
     "url": "https://voice.example.test"
@@ -20,7 +21,7 @@
     "backend": "reminders"
   },
   "sources": [
-    "lifelog",
+    "voice",
     "imessage",
     "whatsapp",
     "line",

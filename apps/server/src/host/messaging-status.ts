@@ -1,254 +1,33 @@
-import { clock, DAY, HOUR, MIN } from "../core/clock";
-import { enabledSources, SOURCES } from "../memory/sources";
-import { copierOf } from "../sources/bridged";
-import type { Descriptor } from "../sources/contract";
-import { isBridgeAdded, isBridgeLinked, readBlock } from "../sources/matrix";
-import { NETWORKS, type Network } from "../sources/networks";
-import { needsAppKeys } from "./app-keys";
+import { clock } from "../core/clock";
+import { networkIntegrationsOf, readIntegrationReads } from "./integrations";
 
-// `bun life bridge` (docs/use/bridges.md): every messaging connector he has, checked live and in parallel, one line
-// each: a spinner while it is checked, then ✓ or ✗ with what was found. A live probe of what each capability says now
-// (its `missing()`, its newest message read, its bridge's link); the app's status cards judge quiet and failing stores
-// over time, this doesn't.
+// `bun life bridge` without a verb (docs/use/bridges.md): every messaging integration that is on, one line each: ✓ when
+// it works or is connecting, ✗ with its state and why when it doesn't, and the command that fixes its bridge when one
+// does. The judgement is `integrationHealthOf`'s (`host/integrations.ts` holds the read); this only prints it.
 
-/** One connector: its source and its bridge, either may be absent. */
-export interface Connector {
-  label: string;
-  network?: Network;
-  source?: Descriptor;
-}
-
-/** One thing checked (its bridge, reading it), and what it found. */
-const KINDS = ["bridge", "read"] as const;
-type Kind = (typeof KINDS)[number];
-
-export interface Part {
-  kind: Kind;
-  ok: boolean;
-  text: string;
-}
-
-export interface ConnectorHealth {
-  detail: string;
-  ok: boolean;
-  parts: Part[];
-}
-
-/** Every messaging connector he has: each chat source he turned on, and each network with a bridge. */
-export function connectors(): Connector[] {
-  const on = enabledSources().filter((s) => s.kind === "chat");
-  const names = [
-    ...new Set([
-      ...on.map((s) => s.name as string),
-      ...NETWORKS.filter((n) => isBridgeAdded(n.name)).map(
-        (n) => n.name as string
-      ),
-    ]),
-  ];
-  return names.map((name) => {
-    const source = SOURCES.find((s) => s.name === name);
+/** Prints one line per messaging integration; exits 1 when one is ✗. */
+export async function messagingStatus() {
+  const reads = await readIntegrationReads(clock());
+  const on = networkIntegrationsOf(reads).filter((i) => i.state !== "off");
+  const color = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
+  const mark = (ok: boolean) => {
+    const sign = ok ? "✓" : "✗";
+    return color ? `\x1b[${ok ? 32 : 31}m${sign}\x1b[0m` : sign;
+  };
+  if (on.length === 0) {
+    console.log("no messaging network on");
+    return 0;
+  }
+  const lines = on.map((i) => {
+    const ok = i.state === "working" || i.state === "connecting";
+    const command = reads.bridges.get(i.id.slice("network:".length))?.command;
     return {
-      label: source?.label ?? name,
-      network: NETWORKS.find((n) => n.name === name),
-      source,
+      ok,
+      text: `${mark(ok)} ${i.name.padEnd(10)} ${i.state}${i.why ? `: ${i.why}` : ""}${command ? ` (run: ${command})` : ""}`,
     };
   });
-}
-
-/** `p`, or `why` once `ms` pass. */
-const withTimeout = <T, W>(p: Promise<T>, ms: number, why: W) =>
-  Promise.race<T | W>([p, Bun.sleep(ms).then(() => why)]);
-
-const ago = (at: string) => {
-  const ms = Math.max(0, clock().getTime() - Date.parse(at));
-  if (ms < HOUR) {
-    return `${Math.round(ms / MIN)} min ago`;
+  for (const line of lines) {
+    console.log(line.text);
   }
-  return ms < 2 * DAY
-    ? `${Math.round(ms / HOUR)} h ago`
-    : `${Math.round(ms / DAY)} d ago`;
-};
-
-async function bridgePart(n: Network): Promise<Part | undefined> {
-  // A network its own app is read from (WhatsApp) has a bridge only for sending: no bridge is no problem.
-  if (n.readByItsApp && !isBridgeAdded(n.name)) {
-    return;
-  }
-  const copier = n.readByItsApp ? "bridge" : copierOf(n.name);
-  if (
-    isBridgeAdded(n.name) &&
-    !isBridgeLinked(n.name) &&
-    (await needsAppKeys(n))
-  ) {
-    return {
-      kind: "bridge",
-      ok: false,
-      text: `needs your keys: bun life bridge link ${n.name}`,
-    };
-  }
-  if (copier === "beeper") {
-    // Added but not linked yet: Beeper is still the one copying, so no gap opens; linking ends its session.
-    return {
-      kind: "bridge",
-      ok: true,
-      text: isBridgeAdded(n.name)
-        ? "read from Beeper until you sign in from your phone"
-        : "read from Beeper",
-    };
-  }
-  if (copier === "beeper-closed") {
-    return { kind: "bridge", ok: false, text: "Beeper is closed" };
-  }
-  if (!copier) {
-    return {
-      kind: "bridge",
-      ok: false,
-      text: `no bridge: bun life bridge add ${n.name}`,
-    };
-  }
-  const why = await readBlock(n.name);
-  return why
-    ? { kind: "bridge", ok: false, text: why }
-    : { kind: "bridge", ok: true, text: "bridge running" };
-}
-
-/** Can Life read it: on, set up (`missing()`), its newest message read now (10 s at most). */
-async function readPart(c: Connector): Promise<Part | undefined> {
-  const s = c.source;
-  if (!s) {
-    return;
-  }
-  if (!enabledSources().includes(s)) {
-    return c.network
-      ? { kind: "read", ok: false, text: `not read: turn on ${s.name}` }
-      : undefined;
-  }
-  const why = s.missing?.();
-  if (why) {
-    return { kind: "read", ok: false, text: `can't read: ${why}` };
-  }
-  try {
-    const newest = await withTimeout(
-      Promise.resolve(s.newest?.()),
-      10_000,
-      "late" as const
-    );
-    if (newest === "late") {
-      return { kind: "read", ok: false, text: "read not answering in 10 s" };
-    }
-    return {
-      kind: "read",
-      ok: true,
-      text: newest?.at ? `read, newest ${ago(newest.at)}` : "read, nothing yet",
-    };
-  } catch (e) {
-    return {
-      kind: "read",
-      ok: false,
-      text: `read failed: ${(e as Error).message}`,
-    };
-  }
-}
-
-/** Every connector he has, checked at once (the CLI's lines, the app's connector cards). */
-export const connectorHealths = (kinds: readonly Kind[] = KINDS) =>
-  Promise.all(
-    connectors().map(async (c) => ({
-      health: await healthOrFailed(c, kinds),
-      label: c.label,
-      name: c.source?.name ?? c.network?.name ?? c.label,
-    }))
-  );
-
-/** A check that threw is a ✗ with its error. */
-const healthOrFailed = (c: Connector, kinds: readonly Kind[] = KINDS) =>
-  healthOf(c, kinds).catch(
-    (e: Error): ConnectorHealth => ({ detail: e.message, ok: false, parts: [] })
-  );
-
-/** What a connector's failing parts say, but its reading (the app's card judges that over time). */
-export const failingParts = (health: ConnectorHealth | undefined) =>
-  health?.parts.filter((p) => !p.ok && p.kind !== "read") ?? [];
-
-/** One connector checked: its parts at once, the failures first. */
-export async function healthOf(
-  c: Connector,
-  kinds: readonly Kind[] = KINDS
-): Promise<ConnectorHealth> {
-  const parts = (
-    await Promise.all([
-      c.network && kinds.includes("bridge") ? bridgePart(c.network) : undefined,
-      kinds.includes("read") ? readPart(c) : undefined,
-    ])
-  ).filter((p): p is Part => Boolean(p));
-  return {
-    detail: [...parts.filter((p) => !p.ok), ...parts.filter((p) => p.ok)]
-      .map((p) => p.text)
-      .join(", "),
-    ok: parts.every((p) => p.ok),
-    parts,
-  };
-}
-
-const FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
-const SPIN_MS = 80;
-
-/** Checks every connector in parallel, one line each; exits 1 when one is ✗. */
-export async function messagingStatus() {
-  const all = connectors();
-  const done: (ConnectorHealth | undefined)[] = all.map(() => undefined);
-  const tty = Boolean(process.stdout.isTTY);
-  const color = tty && !process.env.NO_COLOR;
-  const mark = (h: ConnectorHealth) => {
-    if (!color) {
-      return h.ok ? "✓" : "✗";
-    }
-    return h.ok ? "\x1b[32m✓\x1b[0m" : "\x1b[31m✗\x1b[0m";
-  };
-  const line = (i: number, at: number) => {
-    const h = done[i];
-    const text = `${all[i]?.label.padEnd(10)} ${h?.detail ?? "checking…"}`;
-    // One terminal line each, so the redraw always moves back over exactly them.
-    const width = tty
-      ? (process.stdout.columns ?? 120) - 3
-      : Number.POSITIVE_INFINITY;
-    return `${h ? mark(h) : FRAMES[at % FRAMES.length]} ${text.length > width ? `${text.slice(0, width - 1)}…` : text}`;
-  };
-  let frame = 0;
-  const draw = (first: boolean) => {
-    process.stdout.write(
-      `${first || all.length === 0 ? "" : `\x1b[${all.length}A`}${all.map((_, i) => `\x1b[2K${line(i, frame)}\n`).join("")}`
-    );
-  };
-  const restore = () => process.stdout.write("\x1b[?25h");
-  const abort = () => {
-    restore();
-    process.exit(130);
-  };
-  let spin: ReturnType<typeof setInterval> | undefined;
-  if (tty) {
-    process.stdout.write("\x1b[?25l");
-    process.once("SIGINT", abort);
-    draw(true);
-    spin = setInterval(() => {
-      frame += 1;
-      draw(false);
-    }, SPIN_MS);
-  }
-  await Promise.all(
-    all.map(async (c, i) => {
-      done[i] = await healthOrFailed(c);
-    })
-  );
-  if (tty) {
-    clearInterval(spin);
-    draw(false);
-    process.off("SIGINT", abort);
-    restore();
-  } else {
-    for (const [i] of all.entries()) {
-      console.log(line(i, 0));
-    }
-  }
-  return done.every((h) => h?.ok) ? 0 : 1;
+  return lines.every((l) => l.ok) ? 0 : 1;
 }

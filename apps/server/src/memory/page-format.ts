@@ -1,3 +1,4 @@
+import { parse } from "yaml";
 import { z } from "zod";
 import { type AddOn, hasAddOn } from "../core/add-ons";
 import { daysBefore } from "../core/clock";
@@ -146,7 +147,7 @@ export function readLine(key: Key, line: string): PageLine {
 
 export function parsePage(text: string): Parsed | null {
   const front = text.match(FRONT);
-  const meta = PageMeta.safeParse(front?.[1] ? Bun.YAML.parse(front[1]) : null);
+  const meta = PageMeta.safeParse(front?.[1] ? parse(front[1]) : null);
   if (!(front && meta.success)) {
     return null;
   }

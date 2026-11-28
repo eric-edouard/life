@@ -3,8 +3,8 @@ import { digest } from "../core/hash";
 import { redact } from "../core/redact";
 import type { Episode } from "../records/episode";
 import type { Unit } from "../records/unit";
-import { type Stay, visits, withStore } from "../sources/lifelog";
-import { conversationsBetween } from "../sources/lifelog-conversations";
+import { type Stay, visits, withStore } from "../sources/voice-server";
+import { conversationsBetween } from "../sources/voice-server-conversations";
 import {
   DESCRIPTION_MAX,
   type Draft,
@@ -24,17 +24,17 @@ import {
 } from "./memory-files";
 import { stayOf, where } from "./places";
 import { loadTruth } from "./read-truth";
-import { clip, conversationLabel, lifelogNames } from "./units";
+import { clip, conversationLabel, voiceNames } from "./units";
 import { readPeople } from "./who";
 import { time } from "./zones";
 
 // The Past calendar (his request, 21 Oct): what it should hold. Every episode, as an event with what happened, who,
-// where he was (lifelog's stays), the conversations recorded, what Life noted and every unit it was read from. A
+// where he was (the voice server's stays), the conversations recorded, what Life noted and every unit it was read from. A
 // one-way projection of the episodes: each event carries its episode's id and a hash of what it shows,
 // an episode that changed is written again, one gone (hidden, or read again as something else) is deleted.
 // `host/past-calendar.ts` writes it.
 
-// ponytail: an episode goes on the calendar 2 h after it ends, so lifelog has its stays: they are read once, when it
+// ponytail: an episode goes on the calendar 2 h after it ends, so the voice server has its stays: they are read once, when it
 // is written, and are not in its hash. Hash them (a read per episode each tick) if late stays turn out to matter.
 const SETTLE = 2 * HOUR;
 // The description's layout, in the hash: a new one writes every event again (21 Nov 2026: the map links).
@@ -119,7 +119,7 @@ async function located(
       ...(stays.length > 0
         ? [
             "",
-            "Where he was (lifelog):",
+            "Where he was (voice server):",
             ...stays.map(
               (s) =>
                 `- ${time(s.arrivedAt)}–${s.leftAt ? time(s.leftAt) : "…"} ${where(s)} ${googleMapsUrlOf(stayPlaceOf(s)) ?? ""}`
@@ -184,7 +184,7 @@ export async function wanted(now: Date, since?: Date) {
 /** Each draft with the description and location it is written with, one at a time (stays are read as it comes). */
 export async function* described(fresh: Draft[]) {
   // The store is read before any network call, so it is never held open across them.
-  const byId = lifelogNames(await loadTruth());
+  const byId = voiceNames(await loadTruth());
   const talks = await withStore((store) =>
     fresh.map((d) =>
       d.allDay ? [] : conversationsBetween(store, d.from, d.to, byId)

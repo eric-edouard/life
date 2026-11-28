@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import type { SourceName } from "../core/names";
+import type { IntegrationTerms } from "../records/integration";
 import type { InferredRepo } from "../records/observation";
 import type { SourceEvent, SourceFile } from "../records/source";
 import type { Person } from "../records/truth";
@@ -59,7 +60,7 @@ export interface ChatTakes {
   reply: boolean;
 }
 
-/** How one source sends a card's draft (AGENTS.md, "Life sends only…"): asked when the card is, run on his answer. */
+/** How one source sends a card's draft (.claude/rules/acts-and-sends.md, "Life sends only…"): asked when the card is, run on his answer. */
 export interface SendPath {
   /** Why it can't send now (a bridge not added, not linked, not answering); none when it can. */
   block: () => Promise<string | undefined>;
@@ -138,6 +139,8 @@ export type Descriptor = {
   isWorkTracker?: true;
   /** Imported from exports: its conversations' units are read only once the import step kept them (the `not-kept` rule). */
   imported?: boolean;
+  /** Its terms as an integration (`records/integration.ts`); none for a source that needs nothing of him (Told Life, Agents) or one a network's entry holds (`NETWORKS`). */
+  integration?: IntegrationTerms;
   /**
    * Its app exists only on the Mac (`platform.ts`): elsewhere it is never read, or, with a `store`, read from the
    * archive's copy and never copied.
@@ -158,11 +161,11 @@ export type Descriptor = {
   /** The app store the archive keeps a copy of; its units are read from that copy. */
   store?: AppStore;
   name: SourceName;
-  /** Its newest item (the status snapshot's card); a voice source's is lifelog's to tell. */
+  /** Its newest item (the status snapshot's card); a voice source's is the voice server's to tell. */
   newest?: () => Newest | Promise<Newest>;
   /** Earliest stored instant, read from source metadata without reading message text. */
   earliest?: () => string | null;
-  /** How long it may stay silent before its card turns amber (`toneOf`, snapshot.ts). */
+  /** How long it may stay silent before its card turns amber (`toneOf`, integration-health.ts). */
   silentAfter: number;
 } & (
   | {
@@ -192,7 +195,7 @@ export type Descriptor = {
         before?: Date
       ) => SourceEvent[];
     }
-  /** Recorded conversations: their units come from the watcher's store, their words from lifelog. */
+  /** Recorded conversations: their units come from the watcher's store, their words from the voice server. */
   | { kind: "voice" }
 );
 

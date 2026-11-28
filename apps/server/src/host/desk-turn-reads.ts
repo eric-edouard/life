@@ -78,13 +78,15 @@ export const HANDED_KINDS = [
   "reply",
   "research",
 ] as const;
-export type HandedKind = (typeof HANDED_KINDS)[number];
+/** ... and a one-off project, handed to its own agent when its project is written (`one-off-projects.ts`), never by `tell_agent`. */
+export type HandedKind = (typeof HANDED_KINDS)[number] | "project";
 
 /** Each kind's first guess of how long it takes, until it has run five times. */
 const HANDED_GUESS_MS: Record<HandedKind, number> = {
   booking: 600_000,
   lookup: 60_000,
   other: 180_000,
+  project: 3_600_000,
   redraft: 30_000,
   reply: 60_000,
   research: 300_000,
@@ -96,8 +98,8 @@ const ESTIMATE_FROM = 5;
 
 /**
  * How long handed work of `kind` takes now, in ms: the median of its last 20 hand-overs, each from the hand-over to the
- * end of the first turn of its assignment that began after it (the agent's next card or `finish`); its fixed guess
- * until five have ended.
+ * end of the first turn of its assignment that began after it (the agent's next card or `finish`), whole ms (the phone
+ * reads an integer); its fixed guess until five have ended.
  */
 export function estimateOf(db: Database, kind: HandedKind) {
   const took = db
@@ -110,5 +112,5 @@ export function estimateOf(db: Database, kind: HandedKind) {
     .sort((a, b) => a - b);
   return took.length < ESTIMATE_FROM
     ? HANDED_GUESS_MS[kind]
-    : (took[Math.floor(took.length / 2)] as number);
+    : Math.round(took[Math.floor(took.length / 2)] as number);
 }

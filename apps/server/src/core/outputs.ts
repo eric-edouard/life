@@ -1,3 +1,4 @@
+import { permissionsHelperPath } from "./platform";
 import { settings } from "./settings";
 
 // The outputs Life can turn on or off (docs/tasks.md), one entry each: what he calls it and its
@@ -11,8 +12,8 @@ export const OUTPUTS = {
   },
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
-  /** The connector and its OAuth issuer (`server.ts`). */
-  connector: { label: "Connector", on: () => Boolean(settings().connector) },
+  /** The connector, its OAuth issuer and the Mac link (`server.ts`): on unless set to `false`. */
+  connector: { label: "Connector", on: () => settings().connector !== false },
   /** The desk, which starts and wakes his registered agents (`apps/server/src/desk/`). */
   desk: { label: "Desk", on: () => Boolean(settings().desk) },
   /** The episodes on a calendar: Google's through `gog` with an account, else an Apple one through the app's EventKit tool (`host/past-calendar.ts`). */
@@ -21,7 +22,7 @@ export const OUTPUTS = {
     on: () => {
       const { pastCalendar } = settings();
       return Boolean(
-        pastCalendar && (pastCalendar.account || process.env.LIFE_EVENTKIT)
+        pastCalendar && (pastCalendar.account || permissionsHelperPath())
       );
     },
   },

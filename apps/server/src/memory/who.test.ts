@@ -126,7 +126,7 @@ test("a name he said of one conversation reads so only there: another David stay
     [],
     [
       said({
-        inConversation: "lifelog|call-trocknerheld",
+        inConversation: "voice|call-trocknerheld",
         kind: "this-is",
         nameOrHandle: "David",
         person: "person:gaston",
@@ -134,12 +134,12 @@ test("a name he said of one conversation reads so only there: another David stay
     ],
     []
   );
-  expect(resolve("David", "lifelog", "lifelog|call-trocknerheld")).toBe(
+  expect(resolve("David", "voice", "voice|call-trocknerheld")).toBe(
     "person:gaston"
   );
   // The other chat's David (a different person), and a read that names no conversation.
-  expect(resolve("David", "lifelog", "lifelog|call-bloom")).toBeNull();
-  expect(resolve("David", "lifelog")).toBeNull();
+  expect(resolve("David", "voice", "voice|call-bloom")).toBeNull();
+  expect(resolve("David", "voice")).toBeNull();
   // Ruling the name out everywhere (the old global line) leaves his word about this conversation standing.
   const ruled = foldsOf(
     mapped,
@@ -151,7 +151,7 @@ test("a name he said of one conversation reads so only there: another David stay
         person: "person:gaston",
       }),
       said({
-        inConversation: "lifelog|call-trocknerheld",
+        inConversation: "voice|call-trocknerheld",
         kind: "this-is",
         nameOrHandle: "David",
         person: "person:gaston",
@@ -159,10 +159,10 @@ test("a name he said of one conversation reads so only there: another David stay
     ],
     []
   );
-  expect(ruled.resolve("David", "lifelog", "lifelog|call-trocknerheld")).toBe(
+  expect(ruled.resolve("David", "voice", "voice|call-trocknerheld")).toBe(
     "person:gaston"
   );
-  expect(ruled.resolve("David", "lifelog", "lifelog|call-bloom")).toBeNull();
+  expect(ruled.resolve("David", "voice", "voice|call-bloom")).toBeNull();
   // A line with no scope keeps its old meaning: everywhere.
   const global = foldsOf(
     mapped,
@@ -170,7 +170,7 @@ test("a name he said of one conversation reads so only there: another David stay
     [said({ kind: "this-is", nameOrHandle: "David", person: "person:gaston" })],
     []
   );
-  expect(global.resolve("David", "lifelog", "lifelog|call-bloom")).toBe(
+  expect(global.resolve("David", "voice", "voice|call-bloom")).toBe(
     "person:gaston"
   );
 });

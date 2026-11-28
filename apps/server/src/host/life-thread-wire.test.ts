@@ -97,7 +97,7 @@ beforeEach(async () => {
                 clips: [],
                 context: d.context || null,
                 deadline: d.deadline,
-                draft: d.draft ?? null,
+                draft: d.drafts[0] ?? null,
                 group: "decision",
                 isPlan: false,
                 kind: "decision",

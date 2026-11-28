@@ -166,7 +166,7 @@ const JEROME = "person:jerome";
 const line = (id: string, unit: string, unitHash = "h1", run = "r1") =>
   ({
     ...obs(id, unit, unitHash, run),
-    source: { channel: "lifelog", ref: "x" },
+    source: { channel: "voice", ref: "x" },
     subjects: [],
     validTo: null,
   }) as unknown as Observation;
@@ -683,7 +683,7 @@ test("unit references read only indexed or cited days; a missing index entry che
       madeBy: { ...madeBy, unitHash: indexed.hash },
       quote: "q",
       schemaVersion: 1,
-      source: { channel: "lifelog", ref: "j:0@x" },
+      source: { channel: "voice", ref: "j:0@x" },
       speaker: "person:me",
       subjects: [],
       text: "t",
@@ -727,7 +727,7 @@ test("readObservations reads an observation month once, then its new lines, and 
       madeBy: { model: "m", prompt: "p", run: "r", unitHash: "h" },
       quote: "q",
       schemaVersion: 1,
-      source: { channel: "lifelog", ref: "j:0@x" },
+      source: { channel: "voice", ref: "j:0@x" },
       speaker: "person:me",
       subjects: [],
       text,

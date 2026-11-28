@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -11,8 +12,6 @@ import { Engine, ROLE_ASKERS } from "../core/names";
 import { isOn, off } from "../core/outputs";
 import { writeSecret } from "../core/secret";
 import {
-  connector,
-  hasEngineSet,
   readSettings,
   type Settings,
   setSettings,
@@ -35,7 +34,7 @@ import { checks } from "../todo-list/backend";
 import { REMCTL_RELEASE, remctlVersion } from "../todo-list/remctl";
 import { archiveCommand } from "./archive";
 import { timings } from "./asks";
-import { backup } from "./backup";
+import { backup, backupSettingsOf, cloudFolderOf } from "./backup";
 import { bridgeCommand } from "./bridges";
 import {
   changeDirectoryEntry,
@@ -48,12 +47,13 @@ import {
 } from "./change-todo-item";
 import { memoryCommand, step } from "./command";
 import { stage } from "./export";
-import { LOCAL_PORT } from "./http/http";
+import { connector, LOCAL_PORT } from "./http/http";
 import { localKey } from "./http/local-key";
+import { macLinkAddress } from "./http/mac-link";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
 import { connect } from "./http/tailscale";
-import { init, started } from "./init";
+import { ENGINE_CHOICES, engineSettingsOf, init, started } from "./init";
 import { migrateSettings } from "./migrate";
 import { duration, REPORTS } from "./report";
 import { restore } from "./restore";
@@ -168,7 +168,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log(`${done.id}: ${entryLine(done)}`);
     return 0;
   },
-  /** The daily restic snapshot to iCloud Drive, and weekly its forget, prune and check (apps/server/src/host/backup.ts). */
+  /** The daily restic snapshot to the `backup` repository, and weekly its forget, prune and check (apps/server/src/host/backup.ts). */
   backup,
   /** The messaging bridges: `bridge [status] | add|link|remove <network> [flow]` (host/bridges.ts, docs/use/bridges.md). */
   bridge: () => bridgeCommand(process.argv.slice(3)),
@@ -353,27 +353,38 @@ const commands: Record<string, () => number | Promise<number>> = {
       return result;
     })({}, []);
   },
-  /** A new install's data, once: `init --name <his name> [--language <his memory's>] [--email a]… [--phone +33…]…`. */
+  /** A new install's data, once: `init --name <his name> --engine claude|openrouter|both [--language <his memory's>] [--email a]… [--phone +33…]…`. */
   async init() {
     const { values: v } = parseArgs({
       args: process.argv.slice(3),
       options: {
         email: { multiple: true, type: "string" },
+        engine: { type: "string" },
         language: { type: "string" },
         name: { type: "string" },
         phone: { multiple: true, type: "string" },
       },
     });
-    if (!v.name) {
+    const choice = ENGINE_CHOICES.find((c) => c === v.engine);
+    if (!(v.name && choice)) {
       console.error(
-        "usage: bun life init --name <name> [--language English] [--email a]… [--phone +33…]…"
+        `usage: bun life init --name <name> --engine ${ENGINE_CHOICES.join("|")} [--language English] [--email a]… [--phone +33…]…`
       );
       return 2;
     }
     await init({ email: v.email ?? [], name: v.name, phone: v.phone ?? [] });
-    // A new install thinks on OpenRouter (no Claude needed; the app asks for its key once). A file naming an engine keeps it.
+    // The engine is the choice, never a default; the backup goes to the cloud folder this Mac has, with a password of
+    // its own. A repository already there (another install's) is never taken: its password is not this one.
+    const before = readSettings();
+    const folder = before.backup ? undefined : cloudFolderOf();
+    const fresh = folder ? backupSettingsOf(folder) : undefined;
+    const isNew = fresh !== undefined && !existsSync(fresh.repository);
+    if (isNew) {
+      writeSecret("backupKey", randomBytes(32).toString("base64url"));
+    }
     setSettings({
-      ...(hasEngineSet() ? {} : { engine: "openrouter" as const }),
+      ...engineSettingsOf(choice, before.desk),
+      ...(isNew ? { backup: fresh } : {}),
       ...(v.language ? { memoryLanguage: v.language } : {}),
     });
     console.log("Life: data ready");
@@ -386,23 +397,25 @@ const commands: Record<string, () => number | Promise<number>> = {
    * as that agent (any name but a role's, `ROLE_ASKERS`); `pair` alone, a plain app. `--link` prints the link the phone
    * opens instead of the code (`pairLinkOf`).
    */
-  pair() {
+  async pair() {
     const args = process.argv.slice(3);
     const agent = args.find((a) => !a.startsWith("--"));
     if (agent && ROLE_ASKERS.includes(agent)) {
       console.error(
         `bun life pair [--link] [<agent>]: ${ROLE_ASKERS.join(", ")} are roles, not agents`
       );
-      return Promise.resolve(2);
+      return 2;
     }
     const code = pair(agent);
     if (!args.includes("--link")) {
       console.log(code);
-      return Promise.resolve(0);
+      return 0;
     }
     const { origin } = connector();
-    console.log(pairLinkOf(origin, code, pairTokenOf()));
-    return Promise.resolve(0);
+    console.log(
+      pairLinkOf(origin, code, pairTokenOf(), await macLinkAddress())
+    );
+    return 0;
   },
   /**
    * The settings as JSON (`settings`), or some parts of them replaced (`settings set '<json>'`, checked whole before
@@ -416,7 +429,7 @@ const commands: Record<string, () => number | Promise<number>> = {
     console.log(JSON.stringify(readSettings(), null, 2));
     return Promise.resolve(0);
   },
-  /** What the lifelog watcher says about itself (derived/watch/health.json). */
+  /** What the voice watcher says about itself (derived/watch/health.json). */
   status: () => Promise.resolve(status()),
   /** Validates truth/: schemas plus every reference between people, chats, projects and areas. */
   async validate() {
@@ -431,7 +444,7 @@ const commands: Record<string, () => number | Promise<number>> = {
   },
   /** Voice's processes as launchd jobs (host/voice.ts): `voice start [--refresh]|stop|status`, its keys and recordings for Life.app's Settings (`key`, `backup-password`, `sign-in-chatgpt`, `export`, `import`), or `voice run <child>`, which launchd runs. */
   voice: () => voiceCommand(process.argv.slice(3)),
-  /** Follows lifelog's change feed and keeps the lifelog units current; never returns (kept running by the app). */
+  /** Follows the voice server's change feed and keeps the voice units current; never returns (kept running by the app). */
   watch,
 };
 

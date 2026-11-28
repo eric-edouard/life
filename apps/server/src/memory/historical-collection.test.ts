@@ -67,7 +67,7 @@ test("historical collection has no voice/files model step; failed publication le
       { files: false, voice: false }
     );
     expect(evidence.files).toBeUndefined();
-    expect(evidence.skipped).toContain("lifelog");
+    expect(evidence.skipped).toContain("voice");
     expect(evidence.conversations).toEqual([]);
     const voice = {
       date,
@@ -78,7 +78,7 @@ test("historical collection has no voice/files model step; failed publication le
       people: [],
       refs: ["made-up#chapter"],
       schemaVersion: 1 as const,
-      source: "lifelog" as const,
+      source: "voice" as const,
       start: `${date}T09:00:00.000Z`,
       stats: { chars: 40, fromMe: 1, items: 1 },
       summary: "A made-up chapter",
@@ -98,7 +98,7 @@ test("historical collection has no voice/files model step; failed publication le
     expect(readFileSync(path, "utf8")).toBe(stored);
     // Nothing was published: the record of what was read gains no line.
     expect(existsSync(PUBLICATIONS)).toBe(false);
-    await publishUnits({ ...evidence, skipped: ["whatsapp", "lifelog"] });
+    await publishUnits({ ...evidence, skipped: ["whatsapp", "voice"] });
     // One line per publication: its days and the sources it read, nothing else.
     expect(JSON.parse(readFileSync(PUBLICATIONS, "utf8").trim())).toMatchObject(
       {
@@ -108,9 +108,9 @@ test("historical collection has no voice/files model step; failed publication le
       }
     );
     expect(readUnitsOf([date]).map((u) => u.id)).toEqual([voice.id, chat.id]);
-    await publishUnits({ ...evidence, skipped: ["lifelog"] });
+    await publishUnits({ ...evidence, skipped: ["voice"] });
     expect(readUnitsOf([date])).toEqual([voice]);
-    await publishUnits({ ...evidence, skipped: ["lifelog"] });
+    await publishUnits({ ...evidence, skipped: ["voice"] });
     expect(readUnitsOf([date])).toEqual([voice]);
     expect(snapshot()).toEqual(before);
   } finally {

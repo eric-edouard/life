@@ -37,20 +37,20 @@ interface Known {
   /** What keeps it from being read now, if anything. */
   missing?: string;
   name: SourceName;
-  /** The pendant only: the days lifelog says it recorded on (null: it was never asked), read on a day with no unit. */
+  /** The pendant only: the days the voice server says it recorded on (null: it was never asked), read on a day with no unit. */
   recorded?: RecordedDays | null;
 }
 
 /**
- * The pendant on a past day Life holds nothing of, from the recorded days (null: lifelog was never asked): a day
- * recorded on is capture, with or without speech; before lifelog can tell, or from the day it was last asked on
+ * The pendant on a past day Life holds nothing of, from the recorded days (null: the voice server was never asked): a day
+ * recorded on is capture, with or without speech; before the voice server can tell, or from the day it was last asked on
  * (whose later hours it has not said), nobody can tell; any other day is the pendant off or out of reach.
  */
 export function recordingOf(kept: RecordedDays | null, day: string): Verdict {
   if (!kept) {
     return {
       state: "unknown",
-      why: "nothing held; lifelog was never asked whether it was recording",
+      why: "nothing held; the voice server was never asked whether it was recording",
     };
   }
   if (kept.days.includes(day)) {
@@ -60,7 +60,7 @@ export function recordingOf(kept: RecordedDays | null, day: string): Verdict {
   if (!since || day < since) {
     return {
       state: "unknown",
-      why: `nothing held; lifelog cannot tell whether it was recording before ${since || "now"}`,
+      why: `nothing held; the voice server cannot tell whether it was recording before ${since || "now"}`,
     };
   }
   const asked = localDate(kept.built);
@@ -68,7 +68,7 @@ export function recordingOf(kept: RecordedDays | null, day: string): Verdict {
     ? { state: "not_seen", why: "the pendant recorded nothing this day" }
     : {
         state: "unknown",
-        why: `nothing held; lifelog was last asked on ${asked}`,
+        why: `nothing held; the voice server was last asked on ${asked}`,
       };
 }
 
@@ -118,7 +118,7 @@ function byRecord(
 /**
  * Each capturing source on `day`. In order: a source that can't be read today is not seen; a unit that day is
  * capture; before the source's first day, not seen; today, a readable source is being captured; the pendant with
- * nothing held is what lifelog said it recorded (`recordingOf`); a day
+ * nothing held is what the voice server said it recorded (`recordingOf`); a day
  * with no units file was never read (the history could not date it); then the record decides: a publication that read
  * the source for the day is capture, one that covers the day without it is not seen, and a day no publication covers
  * is not seen once the record exists and unknown before it.

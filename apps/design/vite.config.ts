@@ -4,12 +4,12 @@
 // cloudflared route `designs.ericedouard.com` in ~/.cloudflared/config.yml points at its port. Both folders are served at their repo paths, so every design's
 // own relative links keep working.
 import { execFileSync } from "node:child_process";
-import { createReadStream, existsSync, readdirSync } from "node:fs";
+import { createReadStream, existsSync, readdirSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
-import { LATEST_URL, newestCommitsOf, ROOT } from "./src/catalog";
+import { newestCommitsOf, ROOT, STAMPS_URL } from "./src/catalog";
 
 const REPO = join(import.meta.dirname, "../..");
 const SERVED = ["docs/design", "assets/brand"];
@@ -58,18 +58,38 @@ const git = (...args: string[]) =>
 
 /** Each docs/design file's newest commit, in one git log: [path under docs/design, unix seconds]. Read again only
  *  when HEAD moved. */
-let latest = { commits: [] as [string, number][], head: "" };
-const latestCommits = () => {
+let commits = { head: "", stamps: [] as [string, number][] };
+const commitStamps = () => {
   const head = git("rev-parse", "HEAD").trim();
-  if (head !== latest.head) {
-    latest = { commits: readLatestCommits(), head };
+  if (head !== commits.head) {
+    commits = { head, stamps: readCommitStamps() };
   }
-  return latest.commits;
+  return commits.stamps;
 };
-const readLatestCommits = () =>
+const readCommitStamps = () =>
   newestCommitsOf(
     git("log", "--format=%x00%ct", "--name-only", "--", ROOT)
   ).map(([f, t]): [string, number] => [f.slice(ROOT.length), t]);
+/** When each docs/design file last changed: its newest commit, and for a file edited or added since, its mtime (read at
+ *  each ask, so touching a design shows at once). [path under docs/design, unix seconds]. */
+const readChangeStamps = () =>
+  commitStamps().concat(
+    git(
+      "ls-files",
+      "--modified",
+      "--others",
+      "--exclude-standard",
+      "-z",
+      "--",
+      ROOT
+    )
+      .split("\0")
+      .filter((f) => f && existsSync(join(REPO, f)))
+      .map((f): [string, number] => [
+        f.slice(ROOT.length),
+        Math.floor(statSync(join(REPO, f)).mtimeMs / 1000),
+      ])
+  );
 
 function servedFolders(): Plugin {
   let served = new Set(servedFiles());
@@ -100,10 +120,10 @@ function servedFolders(): Plugin {
         next();
       });
       server.middlewares.use((req, res, next) => {
-        if (req.url === LATEST_URL) {
-          // Read at each ask (the sheet opening), so a fast-forward of the checkout shows with no restart.
+        if (req.url === STAMPS_URL) {
+          // Read at each ask (each page opened), so a fast-forward of the checkout shows with no restart.
           res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify(latestCommits()));
+          res.end(JSON.stringify(readChangeStamps()));
           return;
         }
         const path = decodeURIComponent(

@@ -1,3 +1,4 @@
+import { cached } from "../../core/cached";
 import { clock, DAY, MIN } from "../../core/clock";
 import { recentEvents } from "../../core/log";
 import { logLevelOf } from "../../core/log-line";
@@ -8,7 +9,7 @@ import { clip } from "../../memory/units";
 import type { Tone } from "./card";
 import { isCrash } from "./crash-card";
 import { sleeps } from "./mac";
-import { cached, callerOf, type LogLine, spent, toneOfRun } from "./snapshot";
+import { callerOf, type LogLine, spent, toneOfRun } from "./snapshot";
 
 // A card's detail for the app's status window (apps/server/src/host/http/status-reads.ts serves it): its history, its raw log lines, and a run's steps
 // and what it wrote. Read-only, like the status snapshot (apps/server/src/host/status/snapshot.ts). His words and errors' text are in `content` only.
@@ -26,6 +27,10 @@ export interface Entry {
 
 const read = (name: string) => (e: LogLine) =>
   e.kind === "source.read" && e.source === name;
+/** A read of the voice source, by its kind. */
+const voiceRead = (e: LogLine) =>
+  e.kind === "source.read" &&
+  SOURCES.find((d) => d.name === e.source)?.kind === "voice";
 
 /** The log lines each card's history is made of: every source's reads (`SOURCES`), and each part's own lines. */
 const LOGS: Record<string, (e: LogLine) => boolean> = {
@@ -39,9 +44,9 @@ const LOGS: Record<string, (e: LogLine) => boolean> = {
   crashes: isCrash,
   email: (e) => e.kind === "email.sent",
   engine: (e) => e.kind === "quota.read" || e.kind === "model.run",
-  lifelog: (e) => e.step === "watch" || read("lifelog")(e),
+  lifelog: (e) => e.step === "watch" || voiceRead(e),
   past: (e) => e.kind === "calendar.write" && "episode" in e,
-  pendant: read("lifelog"),
+  pendant: voiceRead,
   reminders: (e) => e.kind === "sync.pull",
   watcher: (e) => e.step === "watch",
 };

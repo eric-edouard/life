@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parse } from "yaml";
 import { type AddOn, hasAddOn } from "../core/add-ons";
 import { LIFE_CODE_DIR, OWNER_DATA_DIR } from "../core/paths";
 import { settings } from "../core/settings";
@@ -50,7 +51,7 @@ const isOn = (part: string, on: readonly string[]) =>
 export const readOwnerName = (data = OWNER_DATA_DIR) => {
   const owner = ownerIn(
     PeopleFile.parse(
-      Bun.YAML.parse(readFileSync(join(data, "truth", "people.yaml"), "utf8"))
+      parse(readFileSync(join(data, "truth", "people.yaml"), "utf8"))
     ).people
   );
   return owner.called ?? firstNameOf(owner.name);

@@ -11,15 +11,16 @@ session: linking its bridge signs LINE out of Beeper Desktop (and the Chrome ext
 ## One command
 
 ```sh
-bun life bridge                         # every messaging connector checked at once: ✓ or ✗, and why
-bun life bridge add <network>           # line, instagram, messenger, linkedin or telegram: builds it, then links it
+bun life bridge                         # every messaging network checked at once: ✓ or ✗, and why
+bun life bridge add <network>           # line, instagram, messenger, linkedin or telegram: adds it, then links it
 bun life bridge link <network> [flow]   # links it again, by its login flow (or another flow's id)
 bun life bridge remove <network>        # logs out and removes the bridge; what Life archived of it stays. With no bridge, a
                                         # network Beeper Desktop holds is copied from Beeper (turn its source back on)
 ```
 
-`add` sets up the Matrix server the first time (it needs `uv` and `go`), builds the bridge at its newest release, and
-runs it. `add` again rebuilds it at its newest release. `link` shows a QR code in the terminal, or asks for what the
+`add` sets up the Matrix server the first time (it needs `uv`), puts the bridge that Life.app carries in place, and
+runs it. `add` again puts the app's current build in place, which an update of Life brings. In a checkout there is
+none: build them once with `bun scripts/bundled-tools.ts <folder>` (it needs `go`) and set `LIFE_BRIDGES_DIR=<folder>`. `link` shows a QR code in the terminal, or asks for what the
 network needs (your email and password, a code), hidden as you type. When a network needs your browser's cookies
 (Instagram, Messenger, LinkedIn), it opens a Chrome window on the site: sign in as usual and it closes by itself once you're in
 (a fresh profile of its own, deleted after, presenting itself as the browser the bridge claims to be: LinkedIn revokes

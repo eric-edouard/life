@@ -180,7 +180,7 @@ export function cutInLine(text: string, quote: string, ref: string) {
     : null;
 }
 
-/** A turn as a deletion names it, its day from the ref: refused unless lifelog's store still has it. */
+/** A turn as a deletion names it, its day from the ref: refused unless the voice server's store still has it. */
 async function namedTurn(id: string, t: { jobId: string; turnIndex: number }) {
   const found = await findTurn(id, t);
   if (!found.found) {
@@ -295,7 +295,7 @@ async function textOf(ref: string): Promise<string> {
     if (line) {
       return line.text;
     }
-    throw new Error(`Not done: lifelog has no turn ${parsed.id}.`);
+    throw new Error(`Not done: the voice server has no turn ${parsed.id}.`);
   }
   throw new Error(
     `Not done: a cut names a message (msg:<source>|<id>) or a turn, never ${ref}.`
@@ -494,7 +494,7 @@ export async function planDeletion(
     cuts,
     days,
     named,
-    // A chapter unit is never read again (AGENTS.md): its hash in `oldHashes` would hide every fact of it for good.
+    // A chapter unit is never read again (.claude/rules/memory.md): its hash in `oldHashes` would hide every fact of it for good.
     oldHashes: units
       .filter((u) => !isFrozen(u) && reaches.units.includes(u.id))
       .map((u) => u.hash),

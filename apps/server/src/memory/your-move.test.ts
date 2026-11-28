@@ -3,15 +3,17 @@ import { yourMoveClosingOf } from "./answer-check";
 import type { CheckInputs } from "./check-context";
 import {
   blockingCountOf,
+  HOW_ASKED,
   inboxOf,
   inboxOrderOf,
+  isInboxCheck,
   urgencyOf,
 } from "./check-urgency";
-import { checksOf, type InboxCheck } from "./checks";
+import { checksOf, checksOnMatterOf, type InboxCheck } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import type { Check } from "./life-checks";
-import { Need, needsShownOf } from "./needs";
-import { placesOf } from "./your-move";
+import { Need, needsShownOf, parseAmount } from "./needs";
+import { placesOf, withPayeeAccountsOf } from "./your-move";
 import { localDate } from "./zones";
 
 // Your move cards: a matter's step that is his stays in his inbox, dormant or not, until he does it, hands it to an
@@ -112,6 +114,7 @@ test("a pure wait on someone, a closed matter, a parked project or an open decis
       decisions: [
         {
           at: "2026-10-22T09:00:00.000Z",
+          drafts: [],
           id: "dec_000000000081",
           links: [],
           options: [],
@@ -200,8 +203,9 @@ test("its step due first is shown, due to the last instant of its own day, a mis
   expect(hidden?.needs).toEqual([]);
 });
 
-// A step of his stays asked until it ended or his word (his rule of 27 Nov 2026): its age, a missed day or its sender
-// never hides it; the walk over every path is `open-steps-asked.test.ts`. Made-up matters.
+// A step of his stays asked until it ended or his word (his rules of 27 and 28 Nov 2026): its age, a missed day or its
+// sender never hides it, only his words or its being his work elsewhere or someone else's (`askOfStep`); the walk over every path is
+// `open-steps-asked.test.ts`. Made-up matters.
 test("a to-do item open in his list is his move, like his own task", () => {
   const item = {
     ...OWN,
@@ -212,6 +216,63 @@ test("a to-do item open in his list is his move, like his own task", () => {
   expect(
     moves({ matters: [{ ...MATTER, openSteps: [item], steps: [item] }] })
   ).toMatchObject([{ question: item.text, subject: item.ref }]);
+});
+
+// Card sort (his words of 28 Nov 2026), regression cases with made-up matters: his own code work is on its matter's
+// page only, with no Start; a promise beside it is what the card asks; with no reading a due day alone blocks.
+const REFACTOR = {
+  ...OWN,
+  at: "2026-10-22T09:00:00.000Z",
+  ref: "obs_000000000086",
+  text: "Refactor the invoice exporter",
+};
+const PROMISE = {
+  ...OWN,
+  kind: "promise" as const,
+  ref: "obs_000000000087",
+  text: "Send Dana the fence measurements",
+  with: "person:dana",
+};
+const elsewhere = {
+  stepReadingOf: (_: string, step: { ref: string }) =>
+    step.ref === REFACTOR.ref
+      ? {
+          by: null,
+          handledBy: "owner_elsewhere" as const,
+          money: "none" as const,
+          urgency: "normal" as const,
+        }
+      : undefined,
+};
+
+test("card sort: his own refactor is on its matter's page only, with no Start; a promise on the same matter is what its card asks", () => {
+  const solo = { matters: [{ ...MATTER, openSteps: [REFACTOR, WAIT] }] };
+  const [card] = moves({ ...solo, ...elsewhere });
+  expect(card).toMatchObject({ subject: REFACTOR.ref });
+  expect(card?.[HOW_ASKED]?.isMoveHidden).toBe(true);
+  // Never on the wire: `urgency` says what blocks.
+  expect(JSON.stringify(card)).not.toContain("isMoveHidden");
+  expect(isInboxCheck(card as Check)).toBe(false);
+  expect(checksOnMatterOf([card as Check], MATTER.id)).toHaveLength(1);
+  expect(idsOf(card)).toEqual(["done", "not-now", "drop"]);
+  const [both] = moves({
+    ...elsewhere,
+    matters: [{ ...MATTER, openSteps: [REFACTOR, PROMISE, WAIT] }],
+  });
+  expect(both).toMatchObject({ subject: PROMISE.ref });
+  expect(both?.[HOW_ASKED]?.isMoveHidden).toBe(false);
+  // No reading yet: as before, asked.
+  expect(moves(solo)[0]?.[HOW_ASKED]?.isMoveHidden).toBe(false);
+});
+
+test("card sort: with no reading, a step due within 3 days blocks; one due later does not", () => {
+  const due = (when: string) =>
+    moves({
+      matters: [{ ...MATTER, openSteps: [{ ...OWN, when }] }],
+      today: "2026-11-28",
+    }).map((c) => urgencyOf(c));
+  expect(due("2026-12-01")).toEqual(["blocks"]);
+  expect(due("2026-12-02")).toEqual(["improves"]);
 });
 
 test("a card due today counts in deadlinesToday on its day", () => {
@@ -253,7 +314,7 @@ test("an app need takes an https link only, and its line names the app", () => {
   ).toBe("In Grab");
 });
 
-test("your move takes its place among every ask by deadline, then importance, then the longest waiting (no ranks by kind); the badge counts it when due within 3 days", () => {
+test("your move takes its place among every ask by deadline, then importance, then the longest waiting (no ranks by kind); the badge counts it when it blocks", () => {
   setSystemTime(new Date("2026-11-28T05:00:00.000Z"));
   const card = (
     ref: string,
@@ -280,10 +341,13 @@ test("your move takes its place among every ask by deadline, then importance, th
       deadline: "2026-12-30T16:59:59.999Z",
       important: true,
     }),
-    card("move-due", "your move", {
-      deadline: "2026-11-30T16:59:59.999Z",
-      matter: "matter_shared",
-    }),
+    {
+      ...card("move-due", "your move", {
+        deadline: "2026-11-30T16:59:59.999Z",
+        matter: "matter_shared",
+      }),
+      [HOW_ASKED]: { isBlocking: true, isMoveHidden: false },
+    },
     card("guess", "guessed person"),
     card("decision", "decision"),
     // A name on the same important matter as a dated move: the move never rides ahead of the decision with it.
@@ -388,4 +452,92 @@ test("among your move cards, his ranking beats a deadline: a low-ranked dated st
       move("undated-high", 1, null),
     ]).map((c) => c.ref)
   ).toEqual(["undated-high", "dated-low"]);
+});
+
+// The owner's complaint of 28 Nov 2026: his card to pay a glazier's invoice showed no amount, no account and no bank app.
+const PAY = {
+  ...OWN,
+  quote: "invoice 12 attached, 88 EUR please",
+  ref: "obs_000000000091",
+  text: "Owes Acme Glass 88 EUR, invoice 12",
+};
+const INVOICE_LINE =
+  "Invoice attached\n[pdf invoice-12.pdf, described by Life: an invoice from Acme Glass | text: Total 88,00 EUR. Pay to IBAN FR76 3000 6000 0112 3456 7890 189 by 1 Dec]";
+const payMoves = (over: Partial<CheckInputs> = {}) =>
+  moves({
+    matters: [{ ...MATTER, openSteps: [PAY], steps: [PAY] }],
+    payWith: [
+      {
+        app: { name: "Test Bank", url: "https://bank.example.com/open" },
+        currency: "EUR",
+      },
+    ],
+    ...over,
+  });
+
+test("a your move card to pay shows the amount, his bank app and, on his app's read, the payee's IBAN as written", () => {
+  const cards = payMoves();
+  const [card] = withPayeeAccountsOf(cards, (step) =>
+    step === PAY.ref ? INVOICE_LINE : undefined
+  );
+  expect(card?.needs).toEqual([
+    {
+      kind: "account",
+      line: "FR76 3000 6000 0112 3456 7890 189",
+      number: "FR76 3000 6000 0112 3456 7890 189",
+      scheme: "iban",
+    },
+    { currency: "EUR", kind: "amount", line: "88 EUR", value: 88 },
+    {
+      kind: "app",
+      line: "In Test Bank",
+      name: "Test Bank",
+      url: "https://bank.example.com/open",
+    },
+  ]);
+  // Every other read shares the checks without it.
+  expect(cards[0]?.needs?.some((n) => n.kind === "account")).toBe(false);
+  // Mark as done stays its first answer: Life does not see this bank's payments.
+  expect(card?.options[0]?.id).toBe("done");
+});
+
+test("a project's payment gets the project's pay-with app; a step with two amounts or none is no payment", () => {
+  const lynx = {
+    app: { name: "Company Bank", url: "https://company.example.com/open" },
+    currency: "EUR",
+    payer: "project:shop",
+  };
+  const [card] = payMoves({
+    payerOf: () => "project:shop",
+    payWith: [
+      {
+        app: { name: "Test Bank", url: "https://bank.example.com/open" },
+        currency: "EUR",
+      },
+      lynx,
+    ],
+  });
+  expect(card?.needs?.map((n) => n.line)).toEqual([
+    "88 EUR",
+    "In Company Bank",
+  ]);
+  for (const text of ["Pay 40 EUR or 50 EUR", "Call the glazier"]) {
+    const step = { ...PAY, quote: text, text };
+    const [none] = payMoves({
+      matters: [{ ...MATTER, openSteps: [step], steps: [step] }],
+    });
+    expect(none?.needs).toEqual([]);
+  }
+});
+
+test("an amount is read only when one is written with its currency", () => {
+  const read = (t: string) => parseAmount(t)?.value;
+  expect(read("Pay the glazier €132")).toBe(132);
+  expect(read("1 250,50 € due")).toBe(1250.5);
+  expect(read("1.250 THB")).toBe(1250);
+  expect(read("12.5 EUR")).toBe(12.5);
+  expect(parseAmount("$5")).toMatchObject({ currency: "USD", value: 5 });
+  expect(read("invoice 12, 88 EUR, paid 88 EUR")).toBe(88);
+  expect(read("40 EUR or 50 EUR")).toBeUndefined();
+  expect(read("100 PDF pages")).toBeUndefined();
 });

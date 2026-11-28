@@ -12,13 +12,14 @@ import { setSettings, settings } from "../../core/settings";
 import { DECISIONS } from "../../memory/decision-lines";
 import { placesOf } from "../../memory/places";
 import { readToldLife, TOLD_LIFE } from "../../memory/told-life";
-import { apply, type Stay } from "../../sources/lifelog";
 import {
   conversation,
-  lifelogStore,
   pageFixture,
   turnFixture,
+  voiceStore,
 } from "../../sources/store-fixtures";
+import { apply, type Stay } from "../../sources/voice-server";
+import { hisChecksOf } from "../inbox";
 import { buildServer } from "./mcp";
 import {
   mcpConnector as connector,
@@ -31,10 +32,14 @@ import {
   token,
   verify,
 } from "./mcp-test-harness";
-import { NOT_HIS } from "./mcp-tool";
+import { isHisRead, NOT_HIS } from "./mcp-tool";
 
 const CHALLENGE = `Bearer resource_metadata="${metadata}", scope="life:read offline_access"`;
-const HIS_ONLY = ["read_resource_samples", "read_spending"];
+const HIS_ONLY = [
+  "read_integrations",
+  "read_resource_samples",
+  "read_spending",
+];
 
 test("no token: 401 with the challenge that names the metadata", async () => {
   const { res } = await rpc(null, "tools/list");
@@ -120,6 +125,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_chats",
     "read_day",
     "read_inbox",
+    "read_integrations",
     "read_life_status",
     "read_matter",
     "read_matters",
@@ -154,9 +160,9 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "answer_check(name,note,options,person,rate,ref,undo,value)",
     "ask_main_session(catalog,react,screen,stop,tap,words)",
     "change_appointment(action,appointment)",
-    "change_directory_entry(action,aliases,area,domains,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
+    "change_directory_entry(action,aliases,area,domains,goal,handles,id,kind,language,name,number,people,pictureFrom,projects,relation,repos,said,status,text)",
     "change_registered_agent(action,agent,effort,folder,model,name,project,role,runtime,said,step)",
-    "change_setting(aura,monthlyUsd)",
+    "change_setting(aura,monthlyUsd,payWith)",
     "change_todo_item(due,kind,list,notes,obs,priority,prompt,recurrence,said,section,subtasks,target,title,urgent)",
     "correct_memory(aliases,correction,id,jobId,kind,label,name,newName,personId,title,to,turnIndex)",
     "delete_from_memory(about,confirm,cuts,refs,said,withSources)",
@@ -166,6 +172,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_chats(before,chat,from,to,who)",
     "read_day(date)",
     "read_inbox(after,ifNot,limit,pushId)",
+    "read_integrations()",
     "read_life_status()",
     "read_matter(id)",
     "read_matters(area,before,ifNot,noProject,person,project,state)",
@@ -181,7 +188,7 @@ test("tools/list: the read-only tools; `correct_memory`, `answer_check` and `cha
     "read_resource_samples()",
     "read_spending(month)",
     "read_thread(before,ifNot)",
-    "request_decision(ask,changed,context,deadline,doneSeenBy,draft,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
+    "request_decision(ask,changed,context,deadline,doneSeenBy,draft,drafts,edits,follow,gathered,keep,links,merges,needs,onSilence,options,plan,question,recommended,subject,title,why,withdraw)",
     "search(from,query,to)",
     "sign_in_to_network(answers,loginId,network,stepId,type)",
     "tell_life(asked,said)",
@@ -436,7 +443,7 @@ test("the server is named Life, carries its icons, and its instructions fit in 5
 
 test("places: each stay lists the conversations recorded during it", async () => {
   const open = () => {
-    const store = lifelogStore();
+    const store = voiceStore();
     apply(
       store,
       pageFixture({
@@ -727,4 +734,12 @@ test("delete_from_memory is his: an agent's token is refused, and `said` is requ
   const missing = await call({ agent: undefined }, unsaid);
   expect(missing).toMatchObject({ isError: true });
   expect(missing.content[0].text).toContain("said");
+});
+
+test("only his own app's read gets his payment cards' payee IBAN: never an agent's claim, never the reads-only server", () => {
+  expect(isHisRead(buildServer())).toBe(true);
+  expect(isHisRead(buildServer(), "agent_1")).toBe(false);
+  expect(isHisRead(buildServer(true))).toBe(false);
+  const card = { kind: "your move", needs: [], subject: "obs_000000000091" };
+  expect(hisChecksOf([card], false)).toEqual([card]);
 });

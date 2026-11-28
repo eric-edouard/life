@@ -1,10 +1,10 @@
 import { join } from "node:path";
-import { clock, DAY, daysBefore, HOUR, MIN } from "../../core/clock";
+import { cached, safe } from "../../core/cached";
+import { clock, DAY, HOUR, MIN } from "../../core/clock";
 import { filesIn, newestIn, readLineCount } from "../../core/files";
 import { type LogEvent, recentEvents } from "../../core/log";
 import { isOn, OUTPUTS } from "../../core/outputs";
 import { OWNER_DATA_DIR } from "../../core/paths";
-import { systemZone } from "../../core/platform";
 import { git } from "../../core/proc";
 import { changeFeed } from "../../memory/changes";
 import {
@@ -20,18 +20,19 @@ import { loadTruth, TRUTH } from "../../memory/read-truth";
 import { runs, type Use, useText } from "../../memory/run-log";
 import { enabledSources, keptStores, listening } from "../../memory/sources";
 import { clip } from "../../memory/units";
-import { dayStart, wall } from "../../memory/zones";
 import { hasQuota, llmFor, llmSpec, readEngine } from "../../models/llm";
 import { isBookkeeping, TODO_CHANGE_KINDS } from "../../records/ledger-entry";
 import { readContacts } from "../../sources/contacts";
 import type { Descriptor, Newest } from "../../sources/contract";
-import { lifelogStatus, newestTurn } from "../../sources/lifelog";
 import { checks } from "../../todo-list/backend";
-import { archiveFailing } from "../archive";
 import { backupOld, backupSize, readBackup } from "../backup";
 import { readHealth } from "../health";
 import { inboxChecksNow } from "../inbox";
-import { connectorHealths, failingParts } from "../messaging-status";
+import {
+  type IntegrationHealth,
+  integrationHealthOf,
+} from "../integration-health";
+import { integrationFactsOf, readIntegrationReads } from "../integrations";
 import { EMAIL_STEP, mailedTo, reportKey } from "../report";
 import { ASK, type Card, type Fact, firstOf, type Tone } from "./card";
 import { crashCard } from "./crash-card";
@@ -53,55 +54,6 @@ export interface Tick {
   tone: Tone;
 }
 
-/** Received within this, a source reads as live. */
-const LIVE_MS = HOUR;
-
-/** A source's tone: unreadable is red; then live, quiet, or silent past its limit. */
-export function toneOf(
-  at: string | null | undefined,
-  limit: number,
-  now: number,
-  readable = true
-): { tone: Tone; word: string } {
-  if (!readable) {
-    return { tone: "bad", word: "unreadable" };
-  }
-  if (!at) {
-    return { tone: "idle", word: "nothing yet" };
-  }
-  const quiet = now - Date.parse(at);
-  if (quiet < LIVE_MS) {
-    return { tone: "ok", word: "receiving" };
-  }
-  return quiet < limit
-    ? { tone: "idle", word: "quiet" }
-    : { tone: "warn", word: "silent" };
-}
-
-/** When a source last heard anything, or for one with parts (the bridged networks) its quietest part: one quiet network shows. */
-export const quietestAt = (n: Newest) =>
-  n.parts?.length
-    ? n.parts.map((p) => p.at).reduce((a, b) => (a < b ? a : b))
-    : n.at;
-
-/**
- * Waking hours, when the Pendant is expected to hear him: 08:00 to 01:00 on the Mac's clock (AGENTS.md), in `tz` (the
- * Mac's zone read now, `systemZone`: a long-running process's own zone can be the one it started in).
- */
-export const waking = (d: Date, tz: string | undefined) => {
-  const hour = wall(d.toISOString(), tz).hms.slice(0, 2);
-  return hour >= "08" || hour < "01";
-};
-
-/** When the waking hours `d` falls in began (08:00, the day before after midnight); null outside them. */
-export function wokeAt(d: Date, tz: string | undefined) {
-  if (!waking(d, tz)) {
-    return null;
-  }
-  const { day, hms } = wall(d.toISOString(), tz);
-  return dayStart(hms < "01" ? daysBefore(day, 1) : day, tz, "08:00");
-}
-
 /** A run's outcome as a colour: the status snapshot and its details use this one. */
 const RUN_TONES: Record<string, Tone> = {
   ok: "ok",
@@ -111,27 +63,6 @@ const RUN_TONES: Record<string, Tone> = {
 export const toneOfRun = (outcome: string): Tone => RUN_TONES[outcome] ?? "bad";
 
 // --- reads: each redone at most every `ms` (the stream asks every few seconds, the push every minute) ---------------
-
-const memo = new Map<string, { at: number; value: Promise<unknown> }>();
-export function cached<T>(key: string, ms: number, read: () => Promise<T> | T) {
-  const now = performance.now();
-  const hit = memo.get(key);
-  if (hit && now - hit.at < ms) {
-    return hit.value as Promise<T>;
-  }
-  const value = Promise.resolve().then(read);
-  memo.set(key, { at: now, value });
-  return value;
-}
-
-/** A read that may fail: its error, never a throw (one broken store never blanks the status snapshot). */
-async function safe<T>(read: () => Promise<T> | T) {
-  try {
-    return { ok: true as const, value: await read() };
-  } catch (e) {
-    return { error: (e as Error).message, ok: false as const };
-  }
-}
 
 async function memoryCounts() {
   const answers = readFactCheckAnswers();
@@ -212,37 +143,35 @@ export const GROUPS = [
 export const spent = (u: Use | null | undefined) =>
   !!u && (u.tokens.input > 0 || !!u.quota?.before || !!u.quota?.after);
 
-/** Every source's newest item (`Descriptor.newest`), each read by its own module. */
-const newestOf = async () =>
-  new Map(
-    await Promise.all(
-      enabledSources().map(
-        async (d) =>
-          [
-            d.name,
-            await cached(
-              `newest:${d.name}`,
-              d.kind === "repo" ? 5 * MIN : 3000,
-              () =>
-                safe(
-                  async (): Promise<Newest> =>
-                    (await d.newest?.()) ?? { at: null }
-                )
-            ),
-          ] as const
-      )
-    )
-  );
-
-/** Every read the status snapshot is made of, each cached for as long as it may lag. */
+/** Every read the status snapshot is made of, each cached for as long as it may lag; the integrations' reads are shared. */
 async function reads(now: Date) {
   const t = now.getTime();
+  const [integration, rest] = await Promise.all([
+    readIntegrationReads(now),
+    Promise.all([
+      cached("status", 5000, () => lifeStatus(now)),
+      cached("log", 5000, () => recentEvents<LogLine>(8, "")),
+      cached("mac", 15_000, () => macState()),
+      cached("mem", MIN, () => memoryCounts()),
+      cached("unreflected", 5 * MIN, () => safe(unreflected)),
+      cached("truth", MIN, () => truthState()),
+      cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
+      safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
+      // Every run, a processing run's steps inside it (its use counts theirs): a night that failed before its first call shows too.
+      cached("recent runs", 15_000, async () => {
+        const page = await runs({ everyStep: true, limit: 30 });
+        return {
+          ...page,
+          items: page.items.filter((x) => !x.processingRun),
+        };
+      }),
+      readLedger(),
+      cached("actionChecks", MIN, checks),
+    ]),
+  ]);
   const [
     status,
     log,
-    failing,
-    turn,
-    life,
     mac,
     mem,
     open,
@@ -252,31 +181,7 @@ async function reads(now: Date) {
     recentRuns,
     actions,
     actionChecks,
-    newest,
-    connectors,
-  ] = await Promise.all([
-    cached("status", 5000, () => lifeStatus(now)),
-    cached("log", 5000, () => recentEvents<LogLine>(8, "")),
-    cached("failing", 15_000, () => archiveFailing()),
-    cached("turn", 3000, () => safe(newestTurn)),
-    cached("lifelog", 30_000, () => safe(lifelogStatus)),
-    cached("mac", 15_000, () => macState()),
-    cached("mem", MIN, () => memoryCounts()),
-    cached("unreflected", 5 * MIN, () => safe(unreflected)),
-    cached("truth", MIN, () => truthState()),
-    cached("contacts", 10 * MIN, () => safe(() => readContacts().size)),
-    safe(() => cached("sleeps", 5 * MIN, () => sleeps(t))),
-    // Every run, a processing run's steps inside it (its use counts theirs): a night that failed before its first call shows too.
-    cached("recent runs", 15_000, async () => {
-      const page = await runs({ everyStep: true, limit: 30 });
-      return { ...page, items: page.items.filter((x) => !x.processingRun) };
-    }),
-    readLedger(),
-    cached("actionChecks", MIN, checks),
-    newestOf(),
-    // Every messaging connector's live check (`bun life bridge`'s): its bridge, as last found.
-    latestHealths(),
-  ]);
+  ] = rest;
   const of = (kind: string, days: number) =>
     since(
       log.filter((e) => e.kind === kind),
@@ -285,29 +190,25 @@ async function reads(now: Date) {
     );
   const mcp = of("mcp.call", 2);
   return {
+    ...integration,
     actionChecks,
     actions,
-    connectors,
     contacts,
     errorsToday: of("run.error", 1),
-    failingStores: new Map(failing),
     health: readHealth(),
-    life,
     mac,
     mcp,
     mem,
     models: of("model.run", 1),
-    newest,
-    now,
     open,
+    // The watcher's own rule (`health.ts`), as `lifeStatus` reports it.
+    polling: status.watcher.state === "ok",
     quotas: of("quota.read", 8),
     recentRuns,
     sent: of("email.sent", 2),
     sleepList,
     status,
-    t,
     truth,
-    turn,
     writes: of("calendar.write", 2),
   };
 }
@@ -315,15 +216,6 @@ async function reads(now: Date) {
 type Reads = Awaited<ReturnType<typeof reads>>;
 const serviceOf = (r: Reads, name: string) =>
   r.mac.services.find((s) => s.name === name);
-const polling = (r: Reads) => r.status.watcher.state === "ok";
-
-/** How quiet the Pendant is: silence counts from the start of his waking hours at the earliest (a night is not silence). */
-function pendantQuiet(r: Reads, d: Descriptor, spokeAt: string | null) {
-  const woke = wokeAt(r.now, systemZone())?.toISOString();
-  const quietSince = spokeAt && woke && woke > spokeAt ? woke : spokeAt;
-  const limit = woke ? d.silentAfter : Number.POSITIVE_INFINITY;
-  return toneOf(quietSince, limit, r.t, r.turn.ok);
-}
 
 type Pendant = NonNullable<
   Extract<Reads["life"], { ok: true }>["value"]["pendant"]
@@ -335,7 +227,7 @@ const pendantFacts = (
 ): Fact[] => [
   {
     at: p?.recordingKnownAt,
-    // lifelog's phone reports each change as it happens: the state stands since then.
+    // The voice server's phone reports each change as it happens: the state stands since then.
     label: "Recording state, since",
     value: p?.recording ?? "unknown",
   },
@@ -348,31 +240,14 @@ const pendantFacts = (
   { at: spokeAt, label: "Newest speech heard" },
 ];
 
-/** The phone reports at least every 6 h while its app runs: silent twice as long, the app or its way to lifelog is down. */
-const PHONE_SILENT_MS = 12 * HOUR;
-
-/** The Pendant, as lifelog last heard from the phone, and the newest speech the watcher folded in. */
-function pendantCard(r: Reads, d: Descriptor): Card {
+/** The Pendant, as the voice server last heard from the phone, and the newest speech the watcher folded in. */
+function pendantCard(r: Reads, d: Descriptor, h: IntegrationHealth): Card {
   const pendant = r.life.ok ? r.life.value.pendant : undefined;
-  const recording = pendant?.recording === "recording";
   const spokeAt = r.turn.ok ? (r.turn.value ?? null) : null;
-  const quiet = pendantQuiet(r, d, spokeAt);
-  const isPhoneSilent =
-    !!pendant?.knownAt && r.t - Date.parse(pendant.knownAt) > PHONE_SILENT_MS;
   return {
-    ...firstOf(
-      [
-        isPhoneSilent,
-        {
-          ask: ASK("that the phone has not reported to lifelog for 12 hours"),
-          tone: "bad",
-          word: "phone not reporting",
-        },
-      ],
-      [recording && quiet.tone === "warn", { tone: "warn", word: "silent" }],
-      [recording, { tone: "ok", word: "recording" }],
-      [true, quiet]
-    ),
+    tone: h.tone,
+    word: h.word,
+    ...(h.state === "broken" ? { ask: ASK(`that ${d.label}: ${h.why}`) } : {}),
     facts: pendantFacts(pendant, spokeAt),
     group: "sources",
     // Red when the newest speech can't be read: why, not the phone's state.
@@ -384,15 +259,15 @@ function pendantCard(r: Reads, d: Descriptor): Card {
   };
 }
 
-/** What the lifelog card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
+/** What the voice server card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
 const polledHeadline = (r: Reads) => {
-  if (!polling(r)) {
+  if (!r.polling) {
     return r.health?.lastError ?? "no poll for 15 minutes";
   }
   return r.health?.lastOkAt ? "polling" : "never polled";
 };
 
-function lifelogCard(r: Reads): Card {
+function voiceServerCard(r: Reads): Card {
   const retrying = (r.health?.consecutiveErrors ?? 0) > 0;
   const backlog = r.life.ok
     ? r.life.value.phoneHeartbeat?.backlog?.pages
@@ -400,9 +275,9 @@ function lifelogCard(r: Reads): Card {
   return {
     ...firstOf(
       [
-        !polling(r),
+        !r.polling,
         {
-          ask: ASK("that the watcher has not polled lifelog for 15 minutes"),
+          ask: ASK("that the watcher has not polled it for 15 minutes"),
           tone: "bad",
           word: "not polling",
         },
@@ -427,41 +302,8 @@ function lifelogCard(r: Reads): Card {
     group: "sources",
     headline: polledHeadline(r),
     id: "lifelog",
-    name: "lifelog server",
+    name: "voice server",
   };
-}
-
-/** A connector's failing bridge check (`failingParts`): its reading the card judges itself. */
-const connectorFailures = (r: Reads, name: string) =>
-  failingParts(r.connectors.find((c) => c.name === name)?.health);
-
-type Healths = Awaited<ReturnType<typeof connectorHealths>>;
-let healths: Healths = [];
-let checkedAt = Number.NEGATIVE_INFINITY;
-let check: Promise<void> | undefined;
-/**
- * Every connector's bridge check as last found: the status window reads every 3 s and a check may take
- * 10 s, so a stale one starts a fresh one in the background (every 15 s at most). Only a process's first read waits
- * for one (10 s at most, once), so a fresh process, like the tick's source alert, sees its bridges.
- */
-async function latestHealths(): Promise<Healths> {
-  if (!check && performance.now() - checkedAt > 15_000) {
-    // In a promise from the start: a check that throws at once never stops the snapshot or the next check.
-    check = Promise.resolve()
-      .then(() => connectorHealths(["bridge"]))
-      .then((h) => {
-        healths = h;
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        check = undefined;
-        checkedAt = performance.now();
-      });
-  }
-  if (checkedAt === Number.NEGATIVE_INFINITY) {
-    await check;
-  }
-  return healths;
 }
 
 /** A source card's facts: its newest item (each part's), its last copy, how long its store has been failing. */
@@ -478,7 +320,7 @@ const sourceFacts = (
 ];
 
 /** A source read from its own store (`Descriptor.newest`): its newest item, its last copy, its failure. */
-function sourceCard(r: Reads, d: Descriptor): Card {
+function sourceCard(r: Reads, d: Descriptor, h: IntegrationHealth): Card {
   const read = r.newest.get(d.name) ?? {
     error: "not read",
     ok: false as const,
@@ -487,34 +329,20 @@ function sourceCard(r: Reads, d: Descriptor): Card {
   const broken = r.failingStores.get(d.name);
   // The archive's stores: when it last copied one in (lifeStatus).
   const copiedAt = r.status.capture.archive[d.name];
-  const readTone = toneOf(
-    quietestAt(n),
-    d.silentAfter,
-    r.t,
-    read.ok && !broken
-  );
-  const failing = connectorFailures(r, d.name);
-  // Its bridge stopped is as red as a read that fails.
-  const tone = failing.length
-    ? { tone: "bad" as Tone, word: "bridge down" }
-    : readTone;
-  const why = broken?.error ?? (read.ok ? undefined : read.error);
+  const red = h.tone === "bad";
   // Why it is red, in the app, its ask and the source alert.
-  const cause = failing.length
-    ? failing.map((p) => p.text).join(", ")
-    : String(why ?? "cannot be read");
-  const red = tone.tone === "bad";
+  const cause = h.why ?? "cannot be read";
   return {
-    ...tone,
+    tone: h.tone,
+    word: h.word,
     ...(red ? { ask: ASK(`that ${d.label}: ${cause}`) } : {}),
     content: [
-      ...failing.map((p) => clip(p.text, 300)),
       ...(n.words ?? []).map((w) => clip(w, 140)),
-      ...(why ? [`Error: ${clip(String(why), 300)}`] : []),
+      ...(h.why ? [clip(h.why, 300)] : []),
     ],
     facts: sourceFacts(n, copiedAt, broken?.at),
     group: "sources",
-    headline: red ? clip(cause, 200) : tone.word,
+    headline: red ? clip(cause, 200) : h.word,
     id: d.name,
     name: d.label,
   };
@@ -522,29 +350,29 @@ function sourceCard(r: Reads, d: Descriptor): Card {
 
 /**
  * A source he turned on that can't be read now (not set up, or its access gone): what it needs. Its units are kept. An
- * imported one with nothing imported is idle: nothing fails, there is nothing to read yet.
+ * imported one with nothing imported is idle: nothing fails, there is nothing to read yet. Its headline is what it waits
+ * on (`integrationHealthOf`'s why).
  */
-const unreadableCard = (d: Descriptor, why: string): Card => ({
+const unreadableCard = (d: Descriptor, h: IntegrationHealth): Card => ({
   facts: [],
   group: "sources",
-  headline: why,
+  headline: h.why ?? "",
   id: d.name,
   name: d.label,
-  ...(d.imported
-    ? { tone: "idle", word: "not imported" }
-    : { tone: "bad", word: "can't read" }),
+  tone: h.tone,
+  word: h.word,
 });
 
 function sourceCards(r: Reads): Card[] {
   return [
     ...enabledSources().flatMap((d) => {
-      const why = d.missing?.();
-      if (why) {
-        return [unreadableCard(d, why)];
+      const h = integrationHealthOf(integrationFactsOf(d, r));
+      if (h.state === "waiting_on_user") {
+        return [unreadableCard(d, h)];
       }
       return d.kind === "voice"
-        ? [pendantCard(r, d), lifelogCard(r)]
-        : [sourceCard(r, d)];
+        ? [pendantCard(r, d, h), voiceServerCard(r)]
+        : [sourceCard(r, d, h)];
     }),
     {
       ...(r.contacts.ok
@@ -622,7 +450,7 @@ function captureCards(r: Reads): Card[] {
           },
         ],
         [
-          !polling(r),
+          !r.polling,
           {
             ask: ASK("that the watcher is running but not polling"),
             tone: "bad",
@@ -636,7 +464,7 @@ function captureCards(r: Reads): Card[] {
         { label: "Asks heard today", value: String(asksToday) },
       ],
       group: "capture",
-      headline: polling(r) ? "hearing" : "not polling",
+      headline: r.polling ? "hearing" : "not polling",
       id: "watcher",
       name: "Watcher",
     },
@@ -1080,7 +908,7 @@ function todayOf(r: Reads): Tick[] {
         label: `${x.step.replace("memory.", "")} ${x.outcome}`,
         tone: toneOfRun(x.outcome),
       })),
-    // The watcher retries lifelog on its own: a timeout is a retry, not a failure.
+    // The watcher retries the voice server on its own: a timeout is a retry, not a failure.
     ...r.errorsToday.map((e) => ({
       at: e.at,
       label: `${e.step} ${e.step === "watch" ? "retried" : "failed"}`,

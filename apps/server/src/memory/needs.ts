@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { Currency, PayerRef, type PayWith } from "../core/settings";
 import { isoDateTime } from "../records/fields";
+import { ACCESS_CHECKS } from "../records/integration";
+import { type AccessStatuses, accessLineOf, accessStepsOf } from "./access";
 import { oneLine } from "./draft";
 import { nameKey } from "./units";
 
@@ -9,6 +12,30 @@ import { nameKey } from "./units";
 // component; the tool's arguments never change for it.
 
 const https = z.url({ protocol: /^https$/ });
+const Access = z
+  .object({
+    kind: z.literal("access"),
+    steps: z
+      .array(
+        z
+          .object({
+            check: z.enum(ACCESS_CHECKS),
+            /** With `disk_free`: how much free space the step needs, in GB. */
+            freeGb: z.number().positive().optional(),
+            text: oneLine(120),
+          })
+          .strict()
+          .refine(
+            (s) => (s.check === "disk_free") === (s.freeGb !== undefined),
+            {
+              message: "`freeGb` goes with `disk_free`, and only with it",
+            }
+          )
+      )
+      .min(1)
+      .max(8),
+  })
+  .strict();
 const Account = z
   .object({
     bank: oneLine(80).optional(),
@@ -26,8 +53,10 @@ const Account = z
   .strict();
 const Amount = z
   .object({
-    currency: z.string().regex(/^[A-Z]{3}$/, "an ISO code: THB, EUR"),
+    currency: Currency,
     kind: z.literal("amount"),
+    /** Who pays when not him: a project or organization of his directory, by its ref; it picks his pay-with app. */
+    payer: PayerRef.optional(),
     value: z.number().positive(),
   })
   .strict();
@@ -109,6 +138,7 @@ const Qr = z
   .strict();
 
 export const Need = z.discriminatedUnion("kind", [
+  Access,
   Account,
   Amount,
   Apify,
@@ -134,6 +164,11 @@ export const amountWordsOf = (value: number, currency: string) =>
 const KINDS: {
   [K in Kind]: { about: string; line: (n: Of<K>) => string; page: string };
 } = {
+  access: {
+    about: "Mac steps he grants",
+    line: (n) => accessLineOf(n.steps),
+    page: '`{kind: "access", steps: [{text, check, freeGb?}]}`: everything missing on his Mac in one card, 1 to 8 plain steps in order. `text` the step in his words ("Allow Life to see your photos"); `check` what Life checks silently: `photos`, `contacts`, `calendars` (Life\'s permission prompts), `accessibility`, `full_disk_access` (toggles in System Settings), or `disk_free` with `freeGb`, the free space needed. Life ticks each step itself as it sees it done; he never says "done". Give it with `doneSeenBy: "access"` and one option marked `looks: true` ("I\'m at my Mac"): his pick of it makes Life show the next missing step on his Mac (its prompt, or the right System Settings pane), and the card stays open until every step is done; then `decision.answered` carries `doneSeen`. A step he refuses or ignores leaves the card open until its deadline (`decision.lapsed`): then go on without it, or offer another way. Example: `{"kind":"access","steps":[{"text":"Allow Life to see your photos","check":"photos"},{"text":"Free 20 GB for the originals","check":"disk_free","freeGb":20}]}`.',
+  },
   account: {
     about: "a bank account",
     line: (n) =>
@@ -143,7 +178,7 @@ const KINDS: {
   amount: {
     about: "what to pay (value, currency)",
     line: (n) => amountWordsOf(n.value, n.currency),
-    page: '`{kind: "amount", value, currency}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`). He copies the plain number. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
+    page: '`{kind: "amount", value, currency, payer?}`: `value` a positive number, `currency` its ISO code (`THB`, `EUR`); `payer` only when he pays as a project or organization of his directory (its `project:` or `person:` ref). He copies the plain number. Life adds the app he pays with in that currency, as that payer, when his settings name one. With `doneSeenBy: "payment"`, Life looks for a payment of exactly this amount in this currency to the payee (`fetch("ask/payment")`). Example: `{"kind":"amount","value":4500,"currency":"THB"}`.',
   },
   apify: {
     about: "a paid Apify run",
@@ -187,9 +222,36 @@ const KINDS: {
 export const needLineOf = (n: Need) =>
   (KINDS[n.kind].line as (x: Need) => string)(n);
 
-/** The needs as a card shows them: each with its `line`, in the agent's order. */
-export const needsShownOf = (needs: readonly Need[] = []) =>
-  needs.map((n) => ({ ...n, line: needLineOf(n) }));
+/** The app he pays a card's `amount` with (`payWith`): the entry of its currency for its payer, else the one for no payer; none when the card names an app. */
+const payWithNeedOf = (needs: readonly Need[], payWith: PayWith) => {
+  const amount = amountOf(needs);
+  if (!amount || needs.some((n) => n.kind === "app")) {
+    return [];
+  }
+  const inCurrency = payWith.filter((p) => p.currency === amount.currency);
+  const entry =
+    inCurrency.find((p) => p.payer === amount.payer) ??
+    inCurrency.find((p) => p.payer === undefined);
+  return entry ? [{ kind: "app" as const, ...entry.app }] : [];
+};
+
+/**
+ * The needs as a card shows them: each with its `line`, in the agent's order, and on a payment card the app he pays with
+ * (`payWith`, worked out when read, never stored); an access need's steps with their status, from the Mac's statuses
+ * `access` (`readAccessStatuses`).
+ */
+export const needsShownOf = (
+  needs: readonly Need[] = [],
+  access: AccessStatuses = { statuses: {} },
+  payWith: PayWith = []
+) =>
+  [...needs, ...payWithNeedOf(needs, payWith)].map((n) => {
+    if (n.kind !== "access") {
+      return { ...n, line: needLineOf(n) };
+    }
+    const steps = accessStepsOf(n.steps, access);
+    return { ...n, line: accessLineOf(steps), steps };
+  });
 
 /** Every kind's name. */
 export const NEED_KINDS = Object.keys(KINDS) as Kind[];
@@ -261,6 +323,55 @@ export const apifyRunOf = (needs: readonly Need[] = []) =>
 export const eventOf = (needs: readonly Need[] = []) =>
   needs.find((n): n is Of<"event"> => n.kind === "event");
 
+/** The steps an access card's look ticks: its one `access` need. */
+export const accessOf = (needs: readonly Need[] = []) =>
+  needs.find((n): n is Of<"access"> => n.kind === "access");
+
 /** The amount a card's payment is looked for by: its one `amount` need. */
 export const amountOf = (needs: readonly Need[] = []) =>
   needs.find((n): n is Of<"amount"> => n.kind === "amount");
+
+/** A currency's symbol, as an amount is written. */
+const SYMBOLS: Record<string, string> = {
+  $: "USD",
+  "£": "GBP",
+  "฿": "THB",
+  "€": "EUR",
+};
+const CURRENCIES = new Set(Intl.supportedValuesOf("currency"));
+/** A number then a currency (an ISO code or its symbol), or a symbol then a number: "88 EUR", "€132", "1 250,50 €". */
+const NUMBER = String.raw`\d{1,3}(?:[.,\u00a0 ]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?`;
+const AMOUNT = new RegExp(
+  String.raw`([$£฿€])\s?(${NUMBER})|(?<![\d.,])(${NUMBER})\s?([$£฿€]|\b[A-Z]{3}\b)`,
+  "g"
+);
+
+const SPACES = /[\s\u00a0]/g;
+const GROUPS = /[.,]/g;
+const DECIMALS = /[.,](\d{1,2})$/;
+
+/** A written number: the last `.` or `,` followed by one or two digits is the decimal point; the rest group thousands. */
+const numberOf = (written: string) => {
+  const digits = written.replace(SPACES, "");
+  const point = DECIMALS.exec(digits);
+  return Number(
+    point
+      ? `${digits.slice(0, point.index).replace(GROUPS, "")}.${point[1]}`
+      : digits.replace(GROUPS, "")
+  );
+};
+
+/** The one amount a text names with its currency (`88 EUR`, `€132`), as an `amount` need; two different ones, or none, give none. */
+export function parseAmount(text: string): Of<"amount"> | undefined {
+  const found = new Map<string, Of<"amount">>();
+  for (const m of text.matchAll(AMOUNT)) {
+    const written = m[2] ?? m[3] ?? "";
+    const mark = m[1] ?? m[4] ?? "";
+    const currency = SYMBOLS[mark] ?? mark;
+    const value = numberOf(written);
+    if (CURRENCIES.has(currency) && value > 0) {
+      found.set(`${value} ${currency}`, { currency, kind: "amount", value });
+    }
+  }
+  return found.size === 1 ? [...found.values()][0] : undefined;
+}

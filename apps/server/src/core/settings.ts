@@ -85,6 +85,37 @@ export const Aura = z
   })
   .strict();
 
+/** A currency's ISO code: THB, EUR. */
+export const Currency = z.string().regex(/^[A-Z]{3}$/, "an ISO code: THB, EUR");
+
+/** Who pays when not him: a project or an organization (or person) of his directory, by its ref. */
+export const PayerRef = z.string().regex(/^(?:person|project):[\w.-]+$/);
+
+/**
+ * The apps he pays with (his yes of 28 Nov 2026): a payment card whose `amount` need is in an entry's currency, for its
+ * payer (absent: him), shows that app (`needsShownOf`); an entry with no payer serves any payer with none of its own.
+ * Never defaulted.
+ */
+export const PayWith = z
+  .array(
+    z
+      .object({
+        // The `app` need's own two fields (`memory/needs.ts`), which core cannot import.
+        app: z
+          .object({
+            name: z.string().min(1).max(60),
+            /** An https link into the app (a universal link), as the `app` need takes it. */
+            url: z.url({ protocol: /^https$/ }),
+          })
+          .strict(),
+        currency: Currency,
+        payer: PayerRef.optional(),
+      })
+      .strict()
+  )
+  .max(20);
+export type PayWith = z.infer<typeof PayWith>;
+
 export const Settings = z
   .object({
     /** Who mails him his agents' reports: the night judges them; the arrival reader skips them, message by message. */
@@ -110,13 +141,20 @@ export const Settings = z
      * Absent means no amount: no stop.
      */
     budget: z.object({ monthlyUsd: z.number().positive() }).strict().optional(),
-    /** The connector (/mcp) and its sign-in (Life's own issuer, `oauth.ts`); without it Life serves no HTTP at all. */
+    /**
+     * The connector (/mcp), its sign-in (Life's own issuer, `oauth.ts`) and the Mac link: on unless `false`. Absent, its
+     * origin is this Mac's loopback (`connector`, `host/http/http.ts`).
+     */
     connector: z
-      .object({
-        /** Its public address, where clients reach /mcp. */
-        origin: z.url(),
-      })
-      .strict()
+      .union([
+        z.literal(false),
+        z
+          .object({
+            /** Its public address (a tunnel's), where clients off this Mac reach /mcp. */
+            origin: z.url(),
+          })
+          .strict(),
+      ])
       .optional(),
     /**
      * The Mac writes a description of each photo taken from this local day on (`host/describe-photos.ts`); a local
@@ -180,8 +218,8 @@ export const Settings = z
       .optional(),
     /** What he calls each device Screen Time reads, by its Biome id (`sources/screen.ts`); one left out shows its platform. */
     deviceNames: z.record(z.string().min(1), z.string().min(1)).optional(),
-    /** The model runner the memory steps use. */
-    engine: Engine.default("claude"),
+    /** The model runner the memory steps use: chosen at `init` (`bun life init --engine`); absent, claude (`readEngine`). */
+    engine: Engine.optional(),
     /** The GitHub repos (`owner/name`) whose issues and comments the `github` source reads and a card's draft may write to: no other repo is ever asked for. */
     githubRepos: z
       .array(z.string().regex(/^[\w.-]+\/[\w.-]+$/))
@@ -190,7 +228,7 @@ export const Settings = z
       .optional(),
     /** The chat with Life's retired bot (a chat key): its messages were Life's output, never facts. */
     lifeChat: z.string().optional(),
-    /** lifelog's server, on loopback (Life's origin forwards `/voice` to it: never Life's own address); absent, voice's own (`VOICE_URL`), which his own Life's `/voice` forwards to too (`voiceAddressOf`); its token is voice's device token (`sources/lifelog-call.ts`), else `LIFELOG_TOKEN`. */
+    /** The voice server, on loopback (Life's origin forwards `/voice` to it: never Life's own address); absent, voice's own (`VOICE_URL`), which his own Life's `/voice` forwards to too (`voiceAddressOf`); its token is voice's device token (`sources/voice-server-call.ts`), else `LIFELOG_TOKEN`. */
     lifelog: z.object({ url: z.url() }).strict().optional(),
     /** Life's own mail: its sender and the owner's address, the only recipient. Without it nothing is mailed. */
     mail: z.object({ from: z.email(), to: z.email() }).strict().optional(),
@@ -205,11 +243,15 @@ export const Settings = z
       .strict()
       .optional(),
     /**
-     * Where his payments come from (`apps/server/src/payments/`): his `money` CLI. On, `read_day` and `read_payments`
-     * place each payment in his day; off (the default), Life shows none.
+     * His payments. `backend`, where they come from (`apps/server/src/payments/`): his `money` CLI; on, `read_day` and
+     * `read_payments` place each payment in his day; absent (the default), Life shows none. `payWith`, the apps he pays
+     * with (`PayWith`, set by his word through `change_setting`).
      */
     payments: z
-      .object({ backend: z.literal("money") })
+      .object({
+        backend: z.literal("money").optional(),
+        payWith: PayWith.optional(),
+      })
       .strict()
       .optional(),
     /**
@@ -259,7 +301,7 @@ export const Settings = z
       .optional(),
     /**
      * Voice's processes on this Mac (`host/voice.ts`): `speakers`, speaker recognition, on unless false; `backups`, the
-     * server's daily restic snapshot into iCloud Drive, off unless true.
+     * server's daily restic snapshot into Life's backup repository (the `backup` setting), off unless true.
      */
     voice: z
       .object({
@@ -288,10 +330,6 @@ export function readSettings(path = SETTINGS): Settings {
   const raw = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
   return Settings.parse(raw);
 }
-
-/** Whether the file at `path` names an engine itself (a default is not a choice: a set value is never overwritten). */
-export const hasEngineSet = (path = SETTINGS) =>
-  existsSync(path) && "engine" in JSON.parse(readFileSync(path, "utf8"));
 
 /** Whole or not at all: a reader never parses half a file (a bad one stops the watcher and the nightly). */
 export function writeSettings(path: string, value: unknown) {
@@ -325,11 +363,12 @@ export function setSettings(
 /** His monthly amount as the file holds it now, read afresh: his `change_setting` reaches the desk without a restart. */
 export const readMonthlyUsd = () => readSettings().budget?.monthlyUsd;
 
-/** What his word may change through `change_setting`: the monthly amount (question 22), in billed dollars, and the edge's look (`Aura`). */
+/** What his word may change through `change_setting`: the monthly amount (question 22), in billed dollars, the edge's look (`Aura`), and the apps he pays with (`PayWith`, the whole list). */
 export const SettingChange = z
   .object({
     aura: Aura.optional(),
     monthlyUsd: z.number().positive().max(100_000).optional(),
+    payWith: PayWith.optional(),
   })
   .strict();
 
@@ -337,28 +376,22 @@ export const SettingChange = z
 export function changeSetting({
   aura,
   monthlyUsd,
+  payWith,
 }: z.infer<typeof SettingChange>) {
-  if (aura === undefined && monthlyUsd === undefined) {
-    throw new Error("Not done: name `monthlyUsd` or `aura`.");
+  if (aura === undefined && monthlyUsd === undefined && payWith === undefined) {
+    throw new Error("Not done: name `monthlyUsd`, `aura` or `payWith`.");
   }
   setSettings({
     ...(aura !== undefined && { aura }),
     ...(monthlyUsd !== undefined && { budget: { monthlyUsd } }),
+    ...(payWith !== undefined && {
+      payments: { ...readSettings().payments, payWith },
+    }),
   });
-  return { aura: settings().aura, budget: settings().budget };
-}
-
-/** The connector's settings; only code that runs behind it (server.ts checks it is there) asks. */
-export function connector() {
-  const c = settings().connector;
-  if (!c) {
-    throw new Error("the connector is not set up (settings: connector)");
-  }
   return {
-    ...c,
-    /** The resource's OAuth metadata. */
-    metadata: `${c.origin}/.well-known/oauth-protected-resource/mcp`,
-    resource: `${c.origin}/mcp`,
+    aura: settings().aura,
+    budget: settings().budget,
+    payWith: settings().payments?.payWith,
   };
 }
 

@@ -652,7 +652,7 @@
         "said": {
           "at": "2026-11-14",
           "by": "You",
-          "channel": "lifelog",
+          "channel": "voice",
           "text": "je vais lancer une recherche sur Google Maps",
           "to": "Conversation at 12:47"
         },
@@ -743,7 +743,7 @@
         "said": {
           "at": "2026-11-14",
           "by": "You",
-          "channel": "lifelog",
+          "channel": "voice",
           "text": "je le rajoute sur ma liste des choses à faire",
           "to": "Conversation at 12:47"
         },

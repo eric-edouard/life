@@ -17,13 +17,15 @@ import {
   dateOf,
   type Entry,
   filesIn as filesUnder,
-  LATEST_URL,
   latestOf,
   pathsOf,
   ROOT,
   SHOWN,
+  STAMPS_URL,
+  seenAfter,
   type Tab,
   tabsOf,
+  unseenOf,
   urlOf,
 } from "./catalog";
 import { Components, Glow } from "./components";
@@ -90,6 +92,8 @@ const useRoute = () => {
 };
 
 const hrefOf = (route: string) => `#/${route}`;
+/** The page a route opens: "" is the prototype. */
+const pageOf = (route: string) => route || (PROTOTYPE?.path ?? "");
 
 /** Where a tab's heading goes, and the entries listed under it (its first is the heading's own page, unless set). */
 const tabPartsOf = (tab: Tab) => {
@@ -102,21 +106,37 @@ const tabPartsOf = (tab: Tab) => {
 
 type Latest = ReturnType<typeof latestOf>;
 
+/** A name in the list, with a dot when it changed since the viewer last opened it. */
+const Named = ({ isUnseen, title }: { isUnseen: boolean; title: string }) => (
+  <span className="flex min-w-0 items-center gap-1.5">
+    <span className="truncate">{title}</span>
+    {isUnseen ? (
+      <span
+        aria-label="changed since you opened it"
+        className="size-1.5 flex-none rounded-full bg-ai"
+        role="img"
+      />
+    ) : null}
+  </span>
+);
+
 function Sidebar({
   latest = [],
   onPick,
   route,
   scenes = [],
+  unseen,
 }: {
   latest?: Latest;
   onPick: () => void;
   route: string;
   scenes?: HTMLButtonElement[];
+  unseen: Set<string>;
 }) {
   const [query, setQuery] = useState("");
   const matches = (e: Entry) =>
     `${e.title} ${e.about}`.toLowerCase().includes(query.toLowerCase());
-  const here = route || PROTOTYPE?.path;
+  const here = pageOf(route);
   return (
     <nav className="flex h-full flex-col gap-5 overflow-y-auto px-3 pt-4 pb-10">
       <input
@@ -176,6 +196,7 @@ function Sidebar({
       {TABS.map((tab) => {
         const { entries, page } = tabPartsOf(tab);
         const shown = query ? tab.entries.filter(matches) : entries;
+        const isTabUnseen = tab.entries.some((e) => unseen.has(e.path));
         if (query && shown.length === 0) {
           return null;
         }
@@ -183,7 +204,7 @@ function Sidebar({
           <section className="flex flex-col gap-0.5" key={tab.title}>
             {page === null ? (
               <h2 className="m-0 px-2.5 py-1.5 font-semibold text-heading text-muted">
-                {tab.title}
+                <Named isUnseen={isTabUnseen} title={tab.title} />
               </h2>
             ) : (
               <a
@@ -192,7 +213,7 @@ function Sidebar({
                 href={hrefOf(page)}
                 onClick={onPick}
               >
-                {tab.title}
+                <Named isUnseen={isTabUnseen} title={tab.title} />
               </a>
             )}
             {shown.map((e) => (
@@ -203,7 +224,9 @@ function Sidebar({
                 key={e.path}
                 onClick={onPick}
               >
-                <span className="truncate text-row-line">{e.title}</span>
+                <span className="text-row-line">
+                  <Named isUnseen={unseen.has(e.path)} title={e.title} />
+                </span>
                 {e.date ? (
                   <span className="text-faint text-meta">
                     {dateLabelOf(e.date)}
@@ -527,7 +550,7 @@ function Page({
   onScenes: (scenes: HTMLButtonElement[]) => void;
   route: string;
 }) {
-  const path = route || (PROTOTYPE?.path ?? "");
+  const path = pageOf(route);
   if (STANDALONE && path.endsWith(".html") && filesIn(path).length > 0) {
     return <AppScreen onScenes={onScenes} path={path} />;
   }
@@ -622,22 +645,49 @@ const useSwipeDown = (close: () => void) => {
   };
 };
 
-/** The latest changed entries, asked of the server each time the list opens (the checkout moves every minute); none
- *  when the ask fails, and an answer that comes after the list closed is dropped. */
-const useLatest = (open: boolean) => {
-  const [latest, setLatest] = useState<Latest>([]);
+type Stamps = [string, number][];
+
+/** When each design file last changed, asked of the server at each page opened and each time the list opens (the
+ *  checkout moves every minute); none when the ask fails, and an answer that comes after the next ask is dropped. */
+const useStamps = (ask: string) => {
+  const [stamps, setStamps] = useState<Stamps>([]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `ask` only says when to read again
   useEffect(() => {
-    if (!open) {
+    const asked = new AbortController();
+    fetch(STAMPS_URL, { signal: asked.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
+      .then(setStamps)
+      .catch(() => asked.signal.aborted || setStamps([]));
+    return () => asked.abort();
+  }, [ask]);
+  return stamps;
+};
+
+const SEEN_KEY = "design.seen";
+const readSeen = (): Record<string, number> | null => {
+  try {
+    return JSON.parse(localStorage.getItem(SEEN_KEY) ?? "null");
+  } catch {
+    return null;
+  }
+};
+
+/** The entries changed since this viewer last opened them; opening a page records it (`seenAfter`). */
+const useUnseen = (route: string, stamps: Stamps) => {
+  const [seen, setSeen] = useState(readSeen);
+  const next = seenAfter(seen, ENTRIES, stamps, pageOf(route));
+  useEffect(() => {
+    if (!next) {
       return;
     }
-    const ask = new AbortController();
-    fetch(LATEST_URL, { signal: ask.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.statusText))))
-      .then((commits) => setLatest(latestOf(ENTRIES, commits)))
-      .catch(() => ask.signal.aborted || setLatest([]));
-    return () => ask.abort();
-  }, [open]);
-  return latest;
+    setSeen(next);
+    try {
+      localStorage.setItem(SEEN_KEY, JSON.stringify(next));
+    } catch {
+      // Storage refused: what was seen lasts this visit only.
+    }
+  }, [next]);
+  return seen ? unseenOf(ENTRIES, stamps, seen) : new Set<string>();
 };
 
 function App() {
@@ -649,7 +699,8 @@ function App() {
   // From the home screen every design is the whole screen, the list a sheet under a floating button.
   const shown = list && !STANDALONE;
   const swipe = useSwipeDown(() => setDrawer(false));
-  const latest = useLatest(STANDALONE && drawer);
+  const stamps = useStamps(`${route} ${drawer}`);
+  const unseen = useUnseen(route, stamps);
   // The open design's scene buttons: set when it loads, emptied when it closes.
   const [scenes, setScenes] = useState<HTMLButtonElement[]>([]);
   const toggle = () => {
@@ -678,10 +729,11 @@ function App() {
         ) : null}
         <div className="min-h-0 flex-1">
           <Sidebar
-            latest={latest}
+            latest={STANDALONE ? latestOf(ENTRIES, stamps) : []}
             onPick={() => setDrawer(false)}
             route={route}
             scenes={scenes}
+            unseen={unseen}
           />
         </div>
       </aside>

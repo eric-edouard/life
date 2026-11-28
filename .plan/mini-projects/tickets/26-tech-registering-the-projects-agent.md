@@ -17,3 +17,5 @@ Paths are under `apps/server/src/` unless they start elsewhere; found by a code 
 - First wake: `firstTurnOf` (`desk/first-turns.ts:22`) gains a one-off project branch: the ask verbatim, the project, the thread entry ref, the playbook skill, the first look.
 - `fetch` learns `thread:<id>`: a ref kind in `parseRef` (`memory/refs.ts:59`) and its reader in `find-refs`.
 - `AGENTS.md` ("creates an agent only on his word: a project's") and the glossary's "registered agent" name this path (strict: the desk).
+
+Built: https://github.com/eric-edouard/life/pull/1560
