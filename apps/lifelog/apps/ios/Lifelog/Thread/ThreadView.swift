@@ -142,7 +142,7 @@ struct ThreadView: View {
             ThreadTurnSection(
                 entry: entry,
                 page: page,
-                top: { turnTops.place(entry.id, inView: $0) }
+                top: { turnTops.place(entry.id, inView: Double($0)) }
             ) {
                 thread.askAgain(entry.id, screen: screen)
             } content: {
@@ -490,18 +490,8 @@ private struct ThreadTurnSnap: ScrollTargetBehavior {
 
     func updateTarget(_ target: inout ScrollTarget, context: TargetContext) {
         target.rect.origin.y = ThreadTurns.settled(
-            target.rect.minY, tops: tops.tops.values.map(Double.init), reach: reach)
+            target.rect.minY, tops: tops.contentTops, reach: reach)
     }
-}
-
-/// Each turn's top in the scroll's content, kept out of SwiftUI's state: it is written on every scroll frame and read
-/// only when a scroll ends. A turn's place in the view plus the offset at that same frame, so a turn laid out no more
-/// keeps where it was.
-private final class ThreadTurnTops {
-    var offset: CGFloat = 0
-    private(set) var tops: [UUID: CGFloat] = [:]
-
-    func place(_ turn: UUID, inView y: CGFloat) { tops[turn] = y + offset }
 }
 
 /// What a scroll to a turn's top aims at: its question's place.

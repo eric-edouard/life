@@ -23,3 +23,17 @@ public enum ThreadTurns {
         return top
     }
 }
+
+/// Each thread turn's top in the scroll's content, kept out of SwiftUI's state: written on every scroll frame, read only
+/// when a scroll ends. A turn's place in the view plus the offset at that same frame, so a turn no longer laid out keeps
+/// where it was.
+public final class ThreadTurnTops {
+    public var offset = 0.0
+    private var tops: [UUID: Double] = [:]
+
+    public init() {}
+
+    public func place(_ turn: UUID, inView y: Double) { tops[turn] = y + offset }
+
+    public var contentTops: [Double] { Array(tops.values) }
+}

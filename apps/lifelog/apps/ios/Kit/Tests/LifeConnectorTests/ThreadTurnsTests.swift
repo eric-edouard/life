@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import LifeConnector
@@ -15,4 +16,18 @@ import Testing
     #expect(ThreadTurns.size(of: "Did Jade answer?") == .short)
     #expect(ThreadTurns.size(of: String(repeating: "word ", count: 15)) == .medium)
     #expect(ThreadTurns.size(of: String(repeating: "word ", count: 40)) == .long)
+    #expect(ThreadTurns.size(of: String(repeating: "a", count: 47)) == .short)
+    #expect(ThreadTurns.size(of: String(repeating: "a", count: 48)) == .medium)
+    #expect(ThreadTurns.size(of: String(repeating: "a", count: 119)) == .medium)
+    #expect(ThreadTurns.size(of: String(repeating: "a", count: 120)) == .long)
+}
+
+@Test func aTurnsTopIsItsPlaceInTheViewPlusTheOffsetOfThatFrame() {
+    let tops = ThreadTurnTops()
+    let turn = UUID()
+    tops.offset = 800
+    tops.place(turn, inView: 120)
+    // Scrolled on, the turn no longer laid out: it keeps where it was.
+    tops.offset = 1600
+    #expect(tops.contentTops == [920])
 }

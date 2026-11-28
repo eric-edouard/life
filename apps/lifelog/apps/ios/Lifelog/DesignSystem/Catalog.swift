@@ -147,7 +147,7 @@ import SwiftUI
             VStack(alignment: .leading, spacing: Metrics.Spacing.xl) {
                 section("His question: short, with a reaction, long, waiting, not sent") {
                     VStack(spacing: Metrics.Spacing.s) {
-                        ThreadTurnQuestion(words: "Book a physio near home")
+                        ThreadTurnQuestion(words: "Book a physio near home", reaction: .handedOn)
                         ThreadTurnQuestion(words: "Lunch on Sunday at 10:00", reaction: .up)
                         ThreadTurnQuestion(
                             words:

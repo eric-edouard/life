@@ -134,7 +134,7 @@ struct ThreadTurnQuestion: View {
             }
         }
         .padding(.vertical, Metrics.Spacing.s)
-        .opacity(isPinned ? 0 : 1)
+        .opacity(isPinned ? 0 : 1).accessibilityHidden(isPinned)
         .overlay(alignment: .top) {
             if isPinned {
                 question(lines: 2).padding(.vertical, Metrics.Spacing.s)
