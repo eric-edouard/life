@@ -256,7 +256,6 @@ The repo around it is a Bun workspace:
 |---|---|
 | `apps/server` | The code above, with its runtime dependencies. The helper (`scripts/helper.ts`) compiles it for Life.app |
 | `apps/mac` | Life.app ([its README](../apps/mac/README.md)) |
-| `apps/relay` | The relay behind `*.hostedbyme.app`: OpenTunnel's server pinned by commit, our patches and the Porkbun DNS hook, on Fly (`README.md` there) |
 | `apps/edge` | The Cloudflare Worker in front of the owner's public address, a bridge until #137 (deploy steps in `wrangler.jsonc`) |
 | `packages/config` | The shared TypeScript base (`tsconfig.base.json`), which the root `tsconfig.json` extends |
 | `scripts/` | The helper, the app build, releases, the check, the benches and evals. Outside the zones; they import the server as the workspace package `@life/server/src/…` |
