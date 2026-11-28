@@ -10,14 +10,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Onboarding: the host</title>
 <link rel="stylesheet" href="../../../assets/brand/tokens.css">
+<link rel="stylesheet" href="onboarding.css">
 <style>
 :root{color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:#121316;color:var(--fg);font-family:var(--sans);font-weight:450;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;border:0;background:none;padding:0;margin:0;cursor:pointer}
 button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
-@keyframes rise{from{opacity:0;transform:translateY(6px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
-@keyframes spin{to{transform:rotate(360deg)}}
 .shell{min-height:100vh;display:flex;align-items:center;justify-content:center;gap:40px;padding:20px}
 .fit{flex:none;position:relative}
 .stagebox{position:absolute;top:0;left:0;width:900px;height:720px;transform-origin:0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
@@ -65,30 +64,14 @@ h2.q{margin:6px 0 0;font-size:var(--text-profile);font-weight:650;letter-spacing
 .back[hidden]{display:none}
 .go{height:44px;min-width:150px;padding:0 24px;border-radius:22px;background:var(--fg);color:var(--on);font-weight:650;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .25s,color .25s}
 .go:disabled{background:var(--tint);color:var(--muted);cursor:default}
-.later{height:44px;padding:0 18px;border-radius:22px;background:var(--tint);font-weight:600;font-size:15px}
-.spin{width:14px;height:14px;border-radius:7px;border:1.8px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;flex:none;display:inline-block}
 /* blocks */
 .tile{background:var(--tile);border-radius:var(--block-radius);padding:14px 16px;display:flex;flex-direction:column;gap:10px}
 .kv{display:flex;justify-content:space-between;gap:12px;font-size:14.5px}.kv span{color:var(--muted)}.kv b{font-weight:600;text-align:right}
 .say{font-size:15px;line-height:1.45}
-.priv{font-size:12.5px;color:var(--muted);line-height:1.4;display:flex;gap:6px}
-.priv::before{content:'';flex:none;width:12px;height:12px;margin-top:2px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2'%3E%3Crect x='5' y='11' width='14' height='10' rx='2'/%3E%3Cpath d='M8 11V7a4 4 0 0 1 8 0v4'/%3E%3C/svg%3E") center/contain no-repeat}
-.ok{color:var(--ok);font-weight:650}.flag{color:var(--flag)}.ai{color:var(--ai)}
-.ic{flex:none;display:inline-flex;align-items:center;justify-content:center;font-weight:650;line-height:1}
 .field{display:flex;flex-direction:column;gap:4px}
 .field label{font-size:var(--text-heading);font-weight:600;color:var(--muted)}
 .field input{height:46px;border-radius:var(--control-radius);background:var(--tile);border:0;outline:0;color:var(--fg);font:inherit;font-size:16px;padding:0 14px}
 .field input:focus{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--glass)}
-/* option cards: a radio, the name, Life's pick in blue, one line of facts */
-.opts{display:flex;flex-direction:column;gap:8px}
-.opt{display:flex;gap:14px;align-items:flex-start;text-align:left;padding:14px 16px;border-radius:var(--block-radius);background:var(--tile);transition:background .2s}
-.opt[aria-checked="true"]{background:color-mix(in srgb,var(--fg) 9%,var(--tile))}
-.opt>i{flex:none;width:20px;height:20px;border-radius:10px;margin-top:2px;background:var(--tint);display:flex;align-items:center;justify-content:center}
-.opt[aria-checked="true"]>i{background:var(--fg)}.opt[aria-checked="true"]>i::after{content:'';width:8px;height:8px;border-radius:4px;background:var(--on)}
-.opt span{flex:1}.opt b{display:block;font-size:var(--text-title);font-weight:650}
-.opt small{display:block;font-size:var(--text-line);color:var(--muted);line-height:1.4;margin-top:2px}
-.opt em{font-style:normal;font-size:12px;font-weight:650;color:var(--ai);margin-left:6px}
-.opt .fig{flex:none;text-align:right;font-size:14px;font-weight:650}.opt .fig small{font-weight:450}
 /* steps that tick themselves */
 .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;counter-reset:s}
 .steps li{display:flex;gap:12px;align-items:center;font-size:15px;counter-increment:s}
@@ -112,7 +95,6 @@ h2.q{margin:6px 0 0;font-size:var(--text-profile);font-weight:650;letter-spacing
 .irow .vl q{quotes:'“' '”'}.irow .vl span{color:var(--muted)}
 .irow .st{flex:none;margin-top:6px;font-size:13.5px;font-weight:650;display:flex;align-items:center;gap:6px;min-height:22px}
 .irow .st a{color:var(--fg);text-decoration:none;padding:6px 12px;border-radius:14px;background:var(--tint);font-size:13px}
-.drop{border-radius:var(--block-radius);background:var(--wash);padding:16px;text-align:center;font-size:14px;color:var(--muted)}
 /* the recovery key, shown once */
 .key{font-family:var(--font-mono);font-size:19px;letter-spacing:.06em;text-align:center;padding:18px;border-radius:var(--block-radius);background:var(--paper)}
 .chips{display:flex;gap:8px;justify-content:center}
@@ -126,7 +108,6 @@ h2.q{margin:6px 0 0;font-size:var(--text-profile);font-weight:650;letter-spacing
 .qr{width:168px;height:168px;padding:10px;border-radius:var(--block-radius);background:var(--fg)}
 .num{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--muted)}
 .num i{font-style:normal;flex:none;width:22px;height:22px;border-radius:11px;background:var(--glass);color:var(--fg);font-size:12px;font-weight:650;display:flex;align-items:center;justify-content:center}
-.skipnote{font-size:12.5px;color:var(--muted);text-align:center}
 /* the desktop: the menu bar with Life's L and its menu; the Windows taskbar and its tray */
 .desk{position:relative;width:860px;height:560px;border-radius:12px;overflow:hidden;background:radial-gradient(120% 90% at 30% 10%,#2b3550,#141821 60%,#0c0d10)}
 .mb{position:absolute;top:0;left:0;right:0;height:28px;background:rgba(20,21,24,.55);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:flex-end;gap:18px;padding:0 14px;font-size:13px;font-weight:600}
@@ -155,7 +136,7 @@ h2.q{margin:6px 0 0;font-size:var(--text-profile);font-weight:650;letter-spacing
 <script src="integrations.js" charset="utf-8"></script>
 <script>
 /* --- state: one setup, its answers, and the integrations' live state (made up) --- */
-var S={plat:'mac',reinstall:false,step:0,scene:'setup',ai:null,langs:{English:true},picked:{},far:'year',backup:0,keyed:false,phone:'waiting',broken:false};
+var S={plat:'mac',reinstall:false,intel:false,shown:false,step:0,scene:'setup',ai:null,langs:{English:true},picked:{},far:'year',backup:0,keyed:false,phone:'waiting',broken:false};
 var LANGS=['English','French','German','Spanish','Thai','Italian','Portuguese'];
 var LOCAL=['English','French','German','Spanish','Italian','Portuguese'];// local speech's set (made up for the drawing)
 var timers=[];function later(f,ms){timers.push(setTimeout(f,ms));}
@@ -252,7 +233,7 @@ function drawPhone(){var paired=S.phone==='paired';
     (paired?'':'<div class="num"><span class="spin"></span>Waiting for your phone…</div>')+'</div></div>';}
 function qr(){var n=25,s='',r=7;function rnd(i){r=(r*9301+49297)%233280;return r/233280;}
   for(var y=0;y<n;y++)for(var x=0;x<n;x++){var f=(x<7&&y<7)||(x>=n-7&&y<7)||(x<7&&y>=n-7);
-    var on=f?((x%(n-7)===0||y%(n-7)===0||x%(n-7)===6||y%(n-7)===6||(x%(n-7)>1&&x%(n-7)<5&&y%(n-7)>1&&y%(n-7)<5))&&!(x%(n-7)>0&&x%(n-7)<6&&y%(n-7)>0&&y%(n-7)<6&&!(x%(n-7)>1&&x%(n-7)<5&&y%(n-7)>1&&y%(n-7)<5))):rnd()>.5;
+    var on=rnd()>.5;
     if(f){var lx=x>=n-7?x-(n-7):x,ly=y>=n-7?y-(n-7):y;on=(lx===0||ly===0||lx===6||ly===6)||(lx>1&&lx<5&&ly>1&&ly<5);}
     if(on)s+='<rect x="'+x+'" y="'+y+'" width="1" height="1"/>';}
   return '<svg class="qr" viewBox="0 0 '+n+' '+n+'" shape-rendering="crispEdges" fill="#000" aria-label="Pairing code">'+s+'</svg>';}
@@ -314,7 +295,7 @@ function prefill(){var s=live()[S.step].id,order=STEPS.map(function(x){return x.
   if(at>order.indexOf('ai')&&!S.ai){S.ai=win()?'openrouter':'claude';S.aiDone=true;}
   if(at>order.indexOf('langs'))S.keyed=true;
   if(at>order.indexOf('sources')&&!Object.keys(S.picked).some(on))sources().forEach(function(x){if(x.holds&&x.holds.months){S.picked[x.id]=true;x.state='working';}});}
-function reset(){clear();INTEGRATIONS.forEach(function(x){x.state='off';});S.step=0;S.scene='setup';S.ai=null;S.aiDone=false;S.picked={};S.keyed=false;S.shown=false;S.phone='waiting';render();}
+function reset(){clear();INTEGRATIONS.forEach(function(x){x.state='off';});S.step=0;S.scene='setup';S.ai=null;S.aiDone=false;S.picked={};S.keyed=false;S.shown=false;S.far='year';S.backup=0;S.langs={English:true};S.phone='waiting';render();}
 function fit(){var box=document.querySelector('.fit'),k=Math.min((innerHeight-40)/720,(innerWidth-360)/900,1.2);if(innerWidth<700)k=(innerWidth-20)/900;
   document.getElementById('box').style.transform='scale('+k+')';box.style.width=900*k+'px';box.style.height=720*k+'px';}
 addEventListener('resize',fit);fit();render();

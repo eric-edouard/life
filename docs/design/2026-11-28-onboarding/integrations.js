@@ -1,6 +1,6 @@
 /* The one list every onboarding screen reads: the integrations (packaging spec, section 1). Made up: no real person,
    count or place. Each: id, group, name, icon (an app's own mark: its colour and a glyph), value {ask, answer},
-   privacy, requirements (in the order the user meets them), state, why, and where it runs (mac: Mac only).
+   privacy, requirements (in the order the user meets them), state, and where it runs (mac: Mac only).
    The host's setup, the phone's onboarding, the menu bar and the tray draw from this alone; a screen whose answer is
    already known (a state not "off") is skipped. Counts are what bundle H counts with no model. */
 window.INTEGRATIONS=[
