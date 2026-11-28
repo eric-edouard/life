@@ -338,6 +338,27 @@ struct Caps: View {
     }
 }
 
+/// An icon button's face with its count in a small badge of `color` (the Duo's side bar, as WhatsApp and Instagram draw
+/// theirs). Drawn here: a toolbar's own badge is always red, and it keeps only a label's symbol.
+struct BadgedIcon: View {
+    let title: String
+    let symbol: String
+    let count: Int
+    let color: Color
+
+    var body: some View {
+        Image(systemName: symbol)
+            .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
+            .overlay(alignment: .topTrailing) {
+                Text("\(count)").font(.metaStrong).monospacedDigit().foregroundStyle(Palette.on)
+                    .padding(.horizontal, Metrics.Spacing.xs).frame(minWidth: Metrics.badge, minHeight: Metrics.badge)
+                    .background(color, in: .capsule).fixedSize()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title), \(count)")
+    }
+}
+
 /// The dot beside a state word: filled, in the state's colour; lit and breathing while it is recording.
 struct StateDot: View {
     var color: Color

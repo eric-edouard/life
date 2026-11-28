@@ -78,13 +78,16 @@ struct RootView: View {
             // An overlay, not an inset: an inset that fills the height (as this one did) leaves the thread only what is
             // left under it, and the thread then starts in the wrong place.
             .overlay(alignment: .top) {
-                Group { if !isOnTheRight { buttons } else { Color.clear.frame(height: 0) } }
-                    .onGeometryChange(for: CGFloat.self) {
+                if !isOnTheRight {
+                    buttons.onGeometryChange(for: CGFloat.self) {
                         $0.size.height
                     } action: {
                         topHeight = $0
                     }
+                }
             }
+            // On the right, nothing covers the thread's top.
+            .onChange(of: isOnTheRight, initial: true) { if isOnTheRight { topHeight = 0 } }
             .modifier(SideBarReader(edge: $sideBar))
             // On the iPhone Duo, in every posture, the system places them on the right under its status bar (Apple's
             // iPhone Duo guidance): the pendant, and what waits on him as numbers only, a group of its own.
@@ -345,26 +348,5 @@ private struct SideBarReader: ViewModifier {
         @Environment(\.toolbarVerticalEdge) private var shown
         @Binding var edge: HorizontalEdge?
         func body(content: Content) -> some View { content.onChange(of: shown, initial: true) { edge = shown } }
-    }
-}
-
-/// An icon with its count in a small badge, drawn here: the toolbar's own badge is always red, and it keeps only a
-/// label's symbol.
-private struct BadgedIcon: View {
-    let title: String
-    let symbol: String
-    let count: Int
-    let color: Color
-
-    var body: some View {
-        Image(systemName: symbol)
-            .frame(width: Metrics.tapTarget, height: Metrics.tapTarget)
-            .overlay(alignment: .topTrailing) {
-                Text("\(count)").font(.caption2.bold()).monospacedDigit().foregroundStyle(.white)
-                    .padding(.horizontal, 5).frame(minWidth: 18, minHeight: 18).background(color, in: .capsule)
-                    .fixedSize()
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(title), \(count)")
     }
 }
