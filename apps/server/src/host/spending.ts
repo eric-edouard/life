@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import { join } from "node:path";
 import { readRun } from "../apify/backend";
 import { clock, daysBefore } from "../core/clock";
@@ -7,6 +8,7 @@ import { errorOf } from "../core/log-line";
 import { LIFE_STATE_DIR } from "../core/paths";
 import { readMonthlyUsd, settings } from "../core/settings";
 import { decisionsNow } from "../memory/decisions";
+import { instructionsFor } from "../memory/instructions";
 import { assembleRuns } from "../memory/run-log";
 import {
   type Basis,
@@ -20,7 +22,7 @@ import {
 import { dayNow, dayRange, dayStart } from "../memory/zones";
 import { lifelogMissing } from "../sources/lifelog-call";
 import { readVoiceSpending } from "../sources/lifelog-spending";
-import { readDesk } from "./desk-read";
+import { activeAgents, readDesk } from "./desk-read";
 import { turnsEndedIn } from "./desk-turn-reads";
 
 // Model spending rolled up by his local day (decision 83): `LIFE_STATE_DIR/spending/<day>.json`, written whole by the
@@ -293,4 +295,51 @@ export function spendingStopOf(
   return monthly === undefined
     ? undefined
     : monthly * STOP_SHARE * (isImportant ? IMPORTANT_TIMES : 1);
+}
+
+/** Project `project`'s cap: its latest `budget` instruction scoped to it (`project:<id>`, recorded at "Build it", the owner's decisions of 28 Nov 2026); none: no cap. */
+export const projectBudgetOf = (project: string) =>
+  instructionsFor({ projects: [project] }).findLast(
+    (i) => i.effect === "budget" && i.scope === `project:${project}`
+  );
+
+/** What a project with no room says on its quiet line, in place of its agent's. */
+export const WAITS_FOR_ROOM = "Waits for room in this month's amount";
+
+/**
+ * The projects with no room (the owner's decisions of 28 Nov 2026): the caps of running projects add up within the
+ * month's amount, the oldest cap first; one that does not fit waits until one before it ends or is lowered. None
+ * without a monthly amount. Pure.
+ */
+export function projectsWithoutRoomOf(
+  caps: readonly { at: string; project: string; usd: number }[],
+  monthly: number | undefined
+) {
+  let used = 0;
+  return new Set(
+    monthly === undefined
+      ? []
+      : caps
+          .toSorted((x, y) => x.at.localeCompare(y.at))
+          .flatMap((c) => {
+            if (used + c.usd <= monthly) {
+              used += c.usd;
+              return [];
+            }
+            return [c.project];
+          })
+  );
+}
+
+/** The projects of the active agents that wait for room now (`projectsWithoutRoomOf`), their caps read from his instructions. */
+export function readProjectsWithoutRoom(db: Database) {
+  const projects = new Set(
+    activeAgents(db).flatMap((a) => (a.project ? [a.project] : []))
+  );
+  const caps = [...projects].flatMap((project) => {
+    const b = projectBudgetOf(project);
+    const usd = b && spendingStopOf(undefined, false, b.text);
+    return b && usd !== undefined ? [{ at: b.at, project, usd }] : [];
+  });
+  return projectsWithoutRoomOf(caps, readMonthlyUsd());
 }

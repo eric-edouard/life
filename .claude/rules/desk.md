@@ -36,7 +36,7 @@ Moved from the root `AGENTS.md` ("Invariants" and "Gotchas"). `SECURITY.md`, "Ag
 - **Life starts and wakes his registered agents, and nothing else of Life does** (his yes to the desk, 18 Nov 2026). The
   desk (`apps/server/src/desk/`, off until his `desk` setting) creates an agent only on his word: a project's (a one-off project's, once, when it is written with its goal: `openOneOffProject`, the owner's decision of 28 Nov 2026), or the
   Personal agent (its `role`, one active or stopped at most, its home `<agentsRepo>/personal/`), and wakes its session on its events, his answer or
-  its deadline; the main session and the caretaker stand from the desk's start (his word of 22 Nov 2026: "we should
+  its deadline (a project whose cap finds no room in the month waits, his answers too, until room frees: `readProjectsWithoutRoom`, the owner's decisions of 28 Nov 2026); the main session and the caretaker stand from the desk's start (his word of 22 Nov 2026: "we should
   create a main agent, and then we should also create the caretaker so that we don't run into issues later on"): each
   tick registers whichever has none active or stopped (`standUp`), with no assignment, so it runs no turn until his
   words or his complaint open one, never again after its last one never began until his next words or complaint (they

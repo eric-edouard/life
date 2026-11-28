@@ -659,3 +659,11 @@ export function eventHeard(
     .get(id, e.received_at);
   return t ? { by: t.agent_id, told: "woken" } : { told: "queued" };
 }
+
+/** Assignment `id`'s quiet line (docs/glossary.md): what its agent last said it does now and when it expects the work done; none before it gave one. */
+export const quietLineOf = (db: Database, id: string) =>
+  db
+    .query<{ doing: string; eta: string | null }, [string]>(
+      "select doing, eta from quiet_line where assignment_id = ?"
+    )
+    .get(id) ?? undefined;

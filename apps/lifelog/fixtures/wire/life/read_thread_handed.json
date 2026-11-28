@@ -9,12 +9,14 @@
       "follows": null,
       "handed": [
         {
+          "doing": null,
           "estimateMs": 300000,
           "kind": "research",
           "since": "2026-11-18T10:00:00.000Z",
           "state": "under_way"
         },
         {
+          "doing": null,
           "estimateMs": 60000,
           "kind": "reply",
           "since": "2026-11-18T10:00:00.000Z",

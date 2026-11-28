@@ -30,6 +30,7 @@ import { undoOf } from "./answer-result";
 import { readDesk } from "./desk-read";
 import { estimateOf, type HandedKind } from "./desk-turn-reads";
 import { openChecksNow, unchangedOf, versionOf } from "./inbox";
+import { readProjectsWithoutRoom, WAITS_FOR_ROOM } from "./spending";
 
 // The Life thread (`read_thread`): his asks to Life and its answers (the desk's `thread_entry` rows), the agents' cards
 // as they were delivered and answered (`decisions.jsonl`) and Life's own checks, merged by time, a few days a page. Never
@@ -89,7 +90,7 @@ interface EntryRow {
   words: string | null;
 }
 
-/** The entries asked in [`from`, `to`) with their handed work (its kind, since when, whether it runs and its estimate), and whether any is older. */
+/** The entries asked in [`from`, `to`) with their handed work (its kind, since when, whether it runs, its quiet line and its estimate), and whether any is older. */
 function entriesOf(db: Database, from: string, to: string) {
   const rows = db
     .query<EntryRow, [string, string]>(
@@ -97,24 +98,42 @@ function entriesOf(db: Database, from: string, to: string) {
     )
     .all(from, to);
   const handed = db.query<
-    { handed_at: string; kind: HandedKind; running: number },
+    {
+      doing: string | null;
+      eta: string | null;
+      handed_at: string;
+      kind: HandedKind;
+      project: string | null;
+      running: number;
+    },
     [number]
   >(
-    `select h.kind, h.handed_at, not exists (select 1 from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null) as running
-      from handed_work h where h.entry_id = ? order by h.handed_at`
+    // A project runs until its assignment closes; other work, until the first turn after its hand-over ends.
+    `select h.kind, h.handed_at, q.doing, q.eta, a.project, case when h.kind = 'project' then s.closed_at is null else not exists (select 1 from turn t where t.assignment_id = h.assignment_id and t.started_at >= h.handed_at and t.ended_at is not null) end as running
+      from handed_work h join assignment s on s.id = h.assignment_id join agent a on a.id = s.agent_id left join quiet_line q on q.assignment_id = h.assignment_id where h.entry_id = ? order by h.handed_at`
   );
+  const noRoom = readProjectsWithoutRoom(db);
   const isOlder = Boolean(
     db.query("select 1 from thread_entry where asked_at < ? limit 1").get(from)
   );
   return {
     entries: rows.map((e) => ({
       ...e,
-      handed: handed.all(e.id).map((h) => ({
-        estimateMs: estimateOf(db, h.kind),
-        kind: h.kind,
-        since: h.handed_at,
-        state: itemStateOf({ isOpen: false, running: Boolean(h.running) }),
-      })),
+      handed: handed.all(e.id).map((h) => {
+        // Its agent's quiet line (what it does now, its eta as the time from the hand-over, else the kind's estimate),
+        // or, for a project waiting for room in the month, that it waits.
+        const isWaitingForRoom = h.project !== null && noRoom.has(h.project);
+        const eta = isWaitingForRoom ? null : h.eta;
+        return {
+          doing: isWaitingForRoom ? WAITS_FOR_ROOM : h.doing,
+          estimateMs: eta
+            ? Date.parse(eta) - Date.parse(h.handed_at)
+            : estimateOf(db, h.kind),
+          kind: h.kind,
+          since: h.handed_at,
+          state: itemStateOf({ isOpen: false, running: Boolean(h.running) }),
+        };
+      }),
     })),
     isOlder,
   };

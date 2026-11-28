@@ -35,7 +35,23 @@ beforeEach(async () => {
     "create table event (assignment_id text, event_id text, name text, payload text, received_at text, handed integer default 0, consumed_at text, dropped_at text)"
   );
   db.run(
-    "create table turn (assignment_id text, started_at text, ended_at text)"
+    "create table turn (assignment_id text, started_at text, ended_at text, move integer)"
+  );
+  db.run(
+    "create table assignment (id text primary key, agent_id text, closed_at text, matter_id text)"
+  );
+  db.run("create table move (id integer primary key)");
+  db.run(
+    "create table agent (id text primary key, project text, role text, status text, created_at text)"
+  );
+  db.run(
+    "create table quiet_line (assignment_id text primary key, doing text, eta text, at text)"
+  );
+  db.run(
+    "insert into assignment (id, agent_id) values ('asg_a', 'agt_a'), ('asg_b', 'agt_b'), ('asg_p', 'agt_p')"
+  );
+  db.run(
+    "insert into agent (id, project, status, created_at) values ('agt_a', null, 'active', ''), ('agt_b', null, 'active', ''), ('agt_p', 'test-garden', 'active', '')"
   );
   spies.push(
     spyOn(await import("./inbox"), "openChecksNow").mockResolvedValue([]),
@@ -194,6 +210,42 @@ test("an entry carries its handed work (kind, estimate, whether it runs) and bot
     ["reply", "settled"],
   ]);
   expectWire("read_thread_handed", { ...page, version: "fixed" }, true);
+});
+
+test("a project's handed work runs until its assignment closes, and shows its agent's quiet line: what it does now, its eta as the time from the hand-over", async () => {
+  entry("Tidy my made-up garden photos", []);
+  const at = new Date(Date.now() - 60_000).toISOString();
+  db.run(
+    "insert into handed_work (entry_id, assignment_id, kind, handed_at) values (1, 'asg_p', 'project', ?)",
+    [at]
+  );
+  // Its first look ended: a project still runs.
+  db.run(
+    "insert into turn (assignment_id, started_at, ended_at) values ('asg_p', ?, ?)",
+    [at, new Date().toISOString()]
+  );
+  const eta = new Date(Date.parse(at) + 7_200_000).toISOString();
+  db.run(
+    "insert into quiet_line (assignment_id, doing, eta, at) values ('asg_p', 'Sorting 2023', ?, ?)",
+    [eta, at]
+  );
+  const handed = async () =>
+    (
+      (await readThread()) as {
+        items: {
+          handed: { doing: string | null; estimateMs: number; state: string }[];
+        }[];
+      }
+    ).items[0]?.handed[0];
+  expect(await handed()).toMatchObject({
+    doing: "Sorting 2023",
+    estimateMs: 7_200_000,
+    state: "under_way",
+  });
+  db.run("update assignment set closed_at = ? where id = 'asg_p'", [
+    new Date().toISOString(),
+  ]);
+  expect((await handed())?.state).toBe("settled");
 });
 
 test("an entry his deletion names is hidden at read, before the desk blanks it", async () => {
