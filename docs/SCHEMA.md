@@ -367,7 +367,7 @@ append-only: `directions` (each `goal`, one line: where the matter is going; `ne
 ids when drafted: the pin, so a re-group keeps it; `matter`, from 21 Nov 2026 optional, its id when drafted, which only breaks
 a tie between matters holding as many of its steps), `at`, `madeBy`, `schemaVersion`. A running matter is
 drafted when it has none, or once it has a step, or a step's ending, newer than its latest pin, or, when that is Life's, once when it has no `laterShown`, or in its first 7 days (`NEW_MATTER_DAYS`) when one of its newest 12 later records is not in `laterShown`
-(`isDirectionDue`), whatever the prompt version. Read with his `matter-direction` corrections into each matter's
+(`isDirectionDue`), and once when its latest pin is a Life draft of an older prompt (`DIRECTIONS_PROMPT`, `memory/matter-direction-due.ts`); a dormant matter holding an open step he owes is drafted like a running one. Read with his `matter-direction` corrections into each matter's
 `goal` and `nextStep` (`directionsOf`, `memory/matter-read.ts`): a pin belongs to the matter holding the most of its
 steps (`matterFinderOf`); his goal wins over every draft, his next step until the next draft. `wait_decision` (his decision open on one of
 its steps) is worked out when read (`nextStepNow`), never stored.

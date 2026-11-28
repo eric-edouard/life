@@ -2,10 +2,9 @@ import { expect, test } from "bun:test";
 import type { Observation } from "../records/observation";
 import { checksOf } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
-import { type MatterRecords, matterBookOf } from "./matter-read";
+import { type MatterRecords, matterBookOf, OWED_BY_HIM } from "./matter-read";
 import { inheritEndings, succeedsOf } from "./re-read-succession";
 import { OWNER } from "./read-truth";
-import { OWED_BY_HIM } from "./your-move";
 
 // The rule (his word of 27 Nov 2026): an open step of his stays asked until there is evidence it ended, or his word.
 // One walk from the records to his inbox over every path that once hid one: a re-read, a to-do item in his list, a

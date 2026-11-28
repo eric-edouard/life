@@ -9,10 +9,10 @@ import {
   type StandingAgent,
 } from "./held-matters";
 import { instructionsFor } from "./instructions";
+import { directionDueOf } from "./matter-direction-due";
 import { matterEndOf } from "./matter-end";
 import { iconNow, readLifeIcons } from "./matter-icons";
 import {
-  directionDueOf,
   isRunning,
   type MatterView,
   matterFinderOf,

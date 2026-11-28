@@ -68,13 +68,9 @@ import {
   LIFE_CHECKS,
   preTickedOf,
 } from "./life-checks";
+import { directionDueOf } from "./matter-direction-due";
 import { MATTER_ICON_PICKS } from "./matter-icons";
-import {
-  directionDueOf,
-  isAwaitingHisWord,
-  matterBookOf,
-  matterFinderOf,
-} from "./matter-read";
+import { isAwaitingHisWord, matterBookOf, matterFinderOf } from "./matter-read";
 import {
   MATTER_BOOK_READS,
   mattersNow,

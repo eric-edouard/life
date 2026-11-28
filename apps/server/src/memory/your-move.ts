@@ -13,6 +13,7 @@ import {
   type MatterStepNow,
   type MatterView,
   nextStepNow,
+  OWED_BY_HIM,
 } from "./matter-read";
 import { needsShownOf } from "./needs";
 import { dismissedIdsOf } from "./read-matters";
@@ -23,13 +24,6 @@ import { dayStart } from "./zones";
 // ended (its evidence) or his word: done, dropped, his Later on it (`deferred`, any check's), or handed to an agent that
 // can work on it (his rule of 27 Nov 2026: nothing of his is parked or hidden by its age, its date or its sender). A
 // check of Life's like the others (`checks.ts`), worked out when read.
-
-/** The steps he owes, that a card asks: a task of his (`to_do`), a promise, an item open in his to-do list; never a wait on someone. */
-export const OWED_BY_HIM: MatterStepNow["kind"][] = [
-  "promise",
-  "to_do",
-  "todo_item",
-];
 
 /** The day a step is due: its `when` as a whole date (never a yearly one), past or ahead; none otherwise. */
 const dueOf = (when?: string) =>
