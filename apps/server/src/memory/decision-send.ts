@@ -14,8 +14,9 @@ import type { sendDraft } from "./draft-send";
 
 // The send of a decision's drafts on his answer (`answerDecision`, which hands it `sendDraft`, the one send): each draft
 // in order, through the same send with every check of its own, one `sent` or `send-failed` line each (a batch's past the
-// first with its `draftIndex`: the owner's decision of 28 Nov 2026). Nothing here sends twice: a draft with a line is
-// never sent again, and only a card whose every draft ended `not sent:` is open again (`decision-fold.ts`).
+// first with its `draftIndex`: the owner's decision of 28 Nov 2026). Nothing sends twice: it sends every draft of a card
+// his answer found open, and only a card whose every draft ended `not sent:` (nothing went) is open again
+// (`decision-fold.ts`); one that sent anything stays answered.
 
 type Send = Decision["sends"][number];
 type OnStep = (step: string, detail?: Record<string, unknown>) => void;

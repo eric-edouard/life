@@ -40,7 +40,7 @@ export const voidedBy = (
         ? [
             {
               answer: d.answer,
-              ...(outcome ?? { sends: d.sends, undone: l as AnswerWithdrawn }),
+              ...(outcome ?? { undone: l as AnswerWithdrawn }),
             },
           ]
         : []),

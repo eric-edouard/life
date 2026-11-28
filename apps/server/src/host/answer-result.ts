@@ -29,7 +29,7 @@ import {
   type EndByHisWord,
   LOOK_LIMIT_MS,
 } from "../memory/decisions";
-import { isBatchOf, onlyDraftOf, type StoredDraft } from "../memory/draft";
+import { isBatchOf, type StoredDraft } from "../memory/draft";
 import {
   sendLimitMs,
   sendStepsOf,
@@ -646,9 +646,9 @@ export function undoOf(d: Decision, now = clock()) {
   const [send] = d.sends;
   if (send) {
     // A batch's sends are never undone: only a one-draft card's message, deleted.
-    const draft = onlyDraftOf(d);
+    const [draft] = d.drafts;
     const line =
-      send.kind === "sent" && draft
+      send.kind === "sent" && draft && !isBatchOf(d)
         ? unsendLineOf(draft, send.at, now)
         : undefined;
     return line && !isTakenOf(d) ? { line } : null;
@@ -721,8 +721,8 @@ async function undo(ref: string) {
   }
   let unsent: string | undefined;
   const [send] = d.sends;
-  const draft = onlyDraftOf(d);
-  if (send?.kind === "sent" && draft) {
+  const [draft] = d.drafts;
+  if (send?.kind === "sent" && draft && !isBatchOf(d)) {
     await unsendDraft(draft, send.eventId, send.at);
     unsent = send.eventId;
   }

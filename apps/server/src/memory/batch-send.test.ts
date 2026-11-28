@@ -3,6 +3,7 @@ import { rmSync } from "node:fs";
 import { HOUR, MIN } from "../core/clock";
 import { appendJsonl } from "../core/files";
 import type { SourceEvent } from "../records/source";
+import { withdrawAnswer } from "./decision-after-answer";
 import { DECISIONS, DECISIONS_VERSION, Line } from "./decision-lines";
 import {
   actOutcomeOf,
@@ -200,8 +201,45 @@ test("chats are held per chat: a batch never waits on a card holding one of its 
         ? [{ at: later(2 * MIN).toISOString(), fromMe: true } as SourceEvent]
         : []
     );
-  expect(withdrawDraftsAnsweredInChat(later(3 * MIN), wrote)).toContain(ID);
+  expect(withdrawDraftsAnsweredInChat(later(3 * MIN), wrote)).toEqual([ID]);
   expect(read(later(3 * MIN))?.state).toBe("withdrawn");
+});
+
+test("a first draft not sent while the next still runs leaves the card answered and its chats held: a second Send is refused", async () => {
+  askBatch();
+  const deliver: typeof sendDraft = (x) =>
+    x.chat === "111@s.whatsapp.net"
+      ? Promise.reject(new Error("not sent: WhatsApp is off"))
+      : new Promise<string>(() => undefined);
+  sendAll(deliver);
+  await Bun.sleep(0);
+  expect(read()?.state).toBe("answered");
+  await expect(sendAll(deliver)).rejects.toThrow("answered");
+  // A card into Ana's chat waits while the batch's send runs.
+  const ana = () => Promise.resolve(draftTo("111@s.whatsapp.net", "Ana"));
+  const asked = await requestDecision(
+    "other",
+    {
+      context: "Ana asked about the time.",
+      deadline: later(2 * 24 * HOUR).toISOString(),
+      draft: { channel: "whatsapp", text: "It starts at 8.", to: "Ana" },
+      options: [
+        { id: "send", label: "Send it", outgoing: true },
+        { id: "no", label: "Not now" },
+      ],
+      question: "Tell Ana the time?",
+      title: "The party's time",
+    },
+    later(HOUR),
+    ana
+  );
+  expect(asked.waits?.on).toBe(ID);
+});
+
+test("a batch that sent is never undone", async () => {
+  askBatch();
+  await sendAll(deliverer({}).deliver);
+  expect(() => withdrawAnswer(ID, "$x")).toThrow("only deleting");
 });
 
 test("two drafts of one card into one chat are refused: the first sent would refuse the second", () => {

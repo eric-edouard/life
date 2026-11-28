@@ -12,6 +12,7 @@ import {
   Rated,
 } from "./decision-lines";
 import { actDueOf, actOutcomeOf } from "./decisions";
+import { isBatchOf } from "./draft";
 import { localDate } from "./zones";
 
 /**
@@ -95,10 +96,10 @@ export function withdrawAnswer(id: string, unsent?: string, now = clock()) {
     );
   }
   // Only a one-draft card's sent message, deleted, is undone: a batch's sends are never.
-  const [send, ...more] = d.sends;
+  const [send] = d.sends;
   if (
     send &&
-    !(more.length === 0 && send.kind === "sent" && send.eventId === unsent)
+    (isBatchOf(d) || !(send.kind === "sent" && send.eventId === unsent))
   ) {
     throw new Error(
       "Not done: his answer sent the draft; only deleting that message undoes it."

@@ -102,7 +102,7 @@ const bodyOf = (text: string, subject?: string) => {
 /**
  * The largest file a draft may carry. It is read whole into memory, twice (asked, then sent), and a send with one
  * waits up to 60 s to upload and 60 s to be confirmed: a long upload may outlast the connector's call, and the outcome
- * then lands in `decision.answered` (`sendOf`, decisions.ts). ponytail: 100 MB; stream it if a bigger one is ever asked.
+ * then lands in `decision.answered` (`sendOnAnswer`, decision-send.ts). ponytail: 100 MB; stream it if a bigger one is ever asked.
  */
 const FILE_MAX = 100_000_000;
 

@@ -263,8 +263,6 @@ export type Decision = Omit<Asked, "draft" | "drafts"> & {
     answer: Answered;
     doneSeen?: DoneSeen;
     notSent?: SendFailed;
-    /** What it had sent, which his Undo deleted. */
-    sends?: Send[];
     /** His Undo that voided it. */
     undone?: AnswerWithdrawn;
   }[];
