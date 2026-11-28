@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { join } from "node:path";
-import { isFrozen, MIN } from "../../core/clock";
+import { isFrozenCopy, MIN } from "../../core/clock";
 import { log } from "../../core/log";
 import {
   IS_COMPILED_HELPER,
@@ -392,10 +392,10 @@ export function sessionRuntime(
 
 /**
  * Whether a second Life's agents read that Life (the connector's reads, `connectorReadsOf`, beside their door): only a
- * frozen copy measured (a question case's, `isFrozen`). A demo's made-up Life keeps its door alone: some reads reach
+ * frozen copy measured (a question case's, `isFrozenCopy`). A demo's made-up Life keeps its door alone: some reads reach
  * the Mac's own stores (its contacts), which are his, not the demo's.
  */
-export const isSecondLifeReading = () => isFrozen();
+export const isSecondLifeReading = () => isFrozenCopy();
 
 /** The secrets the connector's reads use, from the desk's own environment: never on a command line (`connectorReadsOf`). */
 const READER_SECRETS = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN"];

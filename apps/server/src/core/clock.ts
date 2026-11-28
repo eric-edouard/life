@@ -40,4 +40,4 @@ export function minutes(ms: number) {
 }
 
 /** Whether this Life is a frozen copy measured (`LIFE_NOW`: a question case's second Life), never his own. */
-export const isFrozen = () => Boolean(process.env.LIFE_NOW);
+export const isFrozenCopy = () => Boolean(process.env.LIFE_NOW);
