@@ -81,6 +81,7 @@ const PLIST = `<?xml version="1.0" encoding="UTF-8"?>
   <key>NSContactsUsageDescription</key><string>Life reads your contacts to know who wrote to you.</string>
   <key>NSCalendarsFullAccessUsageDescription</key><string>Life writes what happened as past events, when you turn that on.</string>
   <key>NSAppleEventsUsageDescription</key><string>Life keeps the apps it archives open.</string>
+  <key>NSPhotoLibraryUsageDescription</key><string>Life looks at your photos only for a project you started.</string>
 </dict></plist>
 `;
 
@@ -100,6 +101,7 @@ const APP_ENTITLEMENTS = `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
   <key>com.apple.security.personal-information.calendars</key><true/>
   <key>com.apple.security.personal-information.addressbook</key><true/>
+  <key>com.apple.security.personal-information.photos-library</key><true/>
   <key>com.apple.security.automation.apple-events</key><true/>
 </dict></plist>
 `;

@@ -230,8 +230,8 @@ export interface Check {
   deadline: string | null;
   /** Life's outcome on a decision whose step it looks for (`doneSeenBy`): while the card is open, only a look that found nothing (`not_found`) with Life's words; absent on every other kind or when it never looked. */
   doneSeen?: ReturnType<typeof doneSeenShownOf>;
-  /** How Life sees a decision's step done now (`doneSeenByOf`): `payment`, or `tap` (only his word); absent on every other kind. */
-  doneSeenBy?: "payment" | "tap";
+  /** How Life sees a decision's step done now (`doneSeenByOf`): `payment`, `access` (its Mac steps), or `tap` (only his word); absent on every other kind. */
+  doneSeenBy?: "access" | "payment" | "tap";
   /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none, or a batch (`drafts`). */
   draft: StoredDraft | null;
   /** A batch's drafts, in order, each shown in full and sent by his one pick of its `outgoing` option; absent on a one-draft card and every other kind. */

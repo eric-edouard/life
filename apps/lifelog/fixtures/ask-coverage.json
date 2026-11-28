@@ -1,6 +1,12 @@
 {
   "notYetDrawn": [
     {
+      "kind": "need kind: access",
+      "lacks": ["view"],
+      "reason": "server first (mini projects ticket 30); the Designer session designs the card",
+      "issue": 1558
+    },
+    {
       "kind": "check group: fix",
       "lacks": ["view"],
       "reason": "awaiting the owner's design approval (design lab, PR #1410)",
