@@ -206,7 +206,7 @@ export function incomingArchived(
         [number | null]
       >(
         `select m.rowid as row, m.chat, m.id, m.at from messages m
-          where m.rowid >= ? ${key === "eventId" ? `and not (${EXPORT_ROW})` : ""}
+          where m.rowid >= ? and not (${key === "eventId" ? EXPORT_ROW : EXPORT_ROW_ID})
             and m.rowid = (select min(x.rowid) from messages x
             where x.chat is m.chat and x.${key} = m.${key})
           order by m.rowid`
@@ -271,6 +271,8 @@ export const matrixArchive = (
 
 /** An export row (docs/glossary.md): a message an export's import wrote into a Matrix-shaped archive, not one a copier saw arrive. */
 export const EXPORT_ROW = "m.eventId like 'export:%'";
+/** The same in an archive of its own shape, whose messages key on `id` (WhatsApp's, where an export's chat is one id). */
+export const EXPORT_ROW_ID = "m.id like 'export:%'";
 
 /** From a Matrix-shaped archive: of each message's versions, the latest with a text or not deleted (a photo has no text), with its latest files. */
 export const LATEST_VERSIONS = `select m.id, m.chat, m.chatName, m.sender, m.fromMe, m.at, m.type, m.text, f.files,

@@ -1,7 +1,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
+import { log } from "../core/log";
 import { OWNER_DATA_DIR } from "../core/paths";
+import { keysOf, ShapeReport, shapeOf } from "../core/shape-report";
 import type { SourceEvent } from "../records/source";
 import { type Held, isWithin, type Newest } from "./contract";
 
@@ -264,11 +266,18 @@ export function pruned(all: Conversation[]) {
   });
 }
 
-/** An export as read: its conversations with his messages only (the assistant's turns are not memory). */
+/**
+ * An export as read: its conversations with his messages only (the assistant's turns are not memory). One whose
+ * structure is not recognized is a `ShapeReport` (its keys alone: the export's words are his).
+ */
 export function parsedExport(source: Assistant, json: unknown) {
-  return FORMATS[source]
-    .parse(json)
-    .map((c) => ({ ...c, messages: c.messages.filter((m) => m.fromMe) }));
+  try {
+    return FORMATS[source]
+      .parse(json)
+      .map((c) => ({ ...c, messages: c.messages.filter((m) => m.fromMe) }));
+  } catch {
+    throw shapeOf("assistant-export", { keys: keysOf(json) });
+  }
 }
 
 /** Where an assistant's export copies are kept in his data. */
@@ -307,9 +316,27 @@ const inCopyOrder = (copies: Copy[]) =>
       a.updatedAt.localeCompare(b.updatedAt) || a.path.localeCompare(b.path)
   );
 
+/** The copies Life cannot read, by path and mtime: skipped as they are, read again when the file or Life changes. */
+const unreadable = new Map<string, number>();
+
+/** One copy Life does not recognize, said once and skipped: its shape alone (its own words never reach the log). */
+function reportUnknownCopy(source: Assistant, file: string, error: unknown) {
+  const shape =
+    error instanceof ShapeReport
+      ? error.fields
+      : shapeOf("assistant-export").fields;
+  const report = shapeOf(shape.format, {
+    ...shape,
+    files: [file, ...shape.files],
+  });
+  log("run.error", { ...report.fields, source, step: "import.shape" });
+}
+
 /**
  * The export copies kept for an assistant, in copy order, each with his messages and update times. Each is parsed once
- * per process (and again only when its file changes): a unit's `builtFor` reads its source again.
+ * per process (and again only when its file changes): a unit's `builtFor` reads its source again. A copy whose
+ * structure is not recognized is skipped, never a failed night: nothing is stored, and the next process (an update)
+ * reads it again, so a fixed parser resumes it by itself.
  */
 export function exportCopiesOf(source: Assistant, dir = exportsDir(source)) {
   if (!existsSync(dir)) {
@@ -318,21 +345,31 @@ export function exportCopiesOf(source: Assistant, dir = exportsDir(source)) {
   return inCopyOrder(
     readdirSync(dir)
       .filter((f) => COPY.test(f))
-      .map((f): Copy => {
+      .flatMap((f): Copy[] => {
         const path = join(dir, f);
         const { mtimeMs } = statSync(path);
-        let hit = memo.get(path);
-        if (hit?.mtime !== mtimeMs) {
-          hit = {
+        const hit = memo.get(path);
+        if (hit?.mtime === mtimeMs) {
+          return [hit];
+        }
+        if (unreadable.get(path) === mtimeMs) {
+          return [];
+        }
+        try {
+          const copy = {
             ...copyOf(
               path,
               parsedExport(source, JSON.parse(readFileSync(path, "utf8")))
             ),
             mtime: mtimeMs,
           };
-          memo.set(path, hit);
+          memo.set(path, copy);
+          return [copy];
+        } catch (error) {
+          unreadable.set(path, mtimeMs);
+          reportUnknownCopy(source, f, error);
+          return [];
         }
-        return hit;
       })
   );
 }
