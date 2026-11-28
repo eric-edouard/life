@@ -404,8 +404,9 @@ line links there.
 
 ## Open questions
 
-- Onboarding, round 1 ([host][onb-host], [phone][onb-phone]): the phone's onboarding in Life's thread rather than its own
-  screens; the menu bar's dots (grey when working, blue while connecting, coral when it needs him); a recovery key
+- Onboarding, round 2 ([host][onb-host], [phone][onb-phone]): the phone's onboarding in Life's thread rather than its own
+  screens (not reviewed yet); one Full Disk Access ask for every Mac source; sign-in and payment pages opened inside
+  Life's window; ElevenLabs' own sign-up making the key; messaging apps connected from the phone only; a recovery key
   shown once; drawn, not decided.
 - Turn by turn, before it ships: the arrivals rule first, then live items in history, "You" and "Life" labels against
   marks, centred reading, turns taller than the screen, the mesh beside the edge, the largest text sizes ([proposal][v5]).
@@ -439,6 +440,13 @@ Newest first. The notes merged into this page, at their last commit: [current sp
 
 ### 28 Nov 2026
 
+- Onboarding, host, round 1 review ([host][onb-host]): the welcome, languages, "How far back", the phone step and the
+  menu bar are kept. No "Life's pick" for the AI: each option says where his words go (Anthropic, or OpenRouter then
+  DeepSeek). The OpenRouter route is DeepSeek Flash, latest, only at zero-data-retention providers, about $5–20 a
+  month by use; SECURITY.md names it as the default route. Automate as much as possible: no key to make or copy by
+  hand, no account or payment flow that leaves him lost; every failure path is drawn (why, in his words, and one fix),
+  not only the tick. "iMessage", not "Messages"; Apple Mail is a source; ChatGPT and Claude are imports (read once),
+  not sources. The build fetches each app's real icon and normalizes it.
 - Composed, never bespoke ([mini projects][mini]): screens use only Life's fixed components filled with data; a missing
   part is proposed as one general component with its data shape; a screen that breaks when the example is swapped for
   a very different one is bespoke. Mini projects was redone this way, every scene on a photo cleanup and party invites.
