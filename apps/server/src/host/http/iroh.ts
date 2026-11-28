@@ -116,9 +116,15 @@ export function pipeStream(bi: BiLike, socket: Duplex) {
       if (!socket.write(new Uint8Array(chunk))) {
         await or(
           new Promise((drained) => {
-            // A socket that closes or fails first never drains, so its close ends the wait too.
-            socket.once("close", () => drained(undefined));
-            socket.once("drain", () => drained(undefined));
+            // A socket that closes or fails first never drains, so its close ends the wait too; the other listener goes
+            // with it, so a stream that backpressures many times keeps one listener, not many.
+            const end = () => {
+              socket.off("drain", end);
+              socket.off("close", end);
+              drained(undefined);
+            };
+            socket.once("drain", end);
+            socket.once("close", end);
           }),
           undefined
         );

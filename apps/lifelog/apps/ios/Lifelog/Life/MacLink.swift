@@ -67,27 +67,34 @@ final class MacLink {
     /// request goes to its origin again. One point runs at a time: a second waits for the one under way, so two calls
     /// from a cold launch make one endpoint and one listener, not two.
     func point(at target: MacTarget?) async {
+        await queuePoint { target }
+    }
+
+    /// The bridge again when the app comes forward: a dial that failed left the requests on the Mac's origin, and iroh
+    /// gets its next try with the same Mac (`MacLink` dials when a request reaches the bridge). The Mac is the one the
+    /// pairing pointed at when its turn comes, never a stale one.
+    func relink() async { await queuePoint { self.target } }
+
+    /// One point, the next one waiting for it: the Mac is read when this point's turn comes, never when it was queued,
+    /// so a `relink` behind a pairing that has not pointed yet waits and then follows it.
+    private func queuePoint(_ target: @escaping @MainActor () -> MacTarget?) async {
         let previous = pointing
         let task = Task {
             await previous?.value
+            let mac = target()
             // The same Mac is pointed at again when the app comes forward, to rebuild a bridge whose dial gave up.
-            guard target != self.target || (target != nil && MacRoute.current == nil) else { return }
+            guard mac != self.target || (mac != nil && MacRoute.current == nil) else { return }
             await stop()
-            self.target = target
-            guard let target else { return }
-            do { try await start(target) } catch {
-                appEvent("maclink.start.failed", ["origin": target.origin.scheme ?? ""])
+            self.target = mac
+            guard let mac else { return }
+            do { try await start(mac) } catch {
+                appEvent("maclink.start.failed", ["origin": mac.origin.scheme ?? ""])
                 await stop()
             }
         }
         pointing = task
         await task.value
     }
-
-    /// The bridge again when the app comes forward: a dial that failed left the requests on the Mac's origin, and iroh
-    /// gets its next try with the same Mac (`MacLink` dials when a request reaches the bridge). The Mac is the one the
-    /// pairing pointed at now, never a stale one.
-    func relink() async { await point(at: target) }
 
     /// The bridge: a loopback listener whose every connection becomes one stream of the Mac's `life/http/1` connection,
     /// and the hook that sends this origin's requests there (`MacRoute`).

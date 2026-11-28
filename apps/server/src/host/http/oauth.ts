@@ -110,7 +110,10 @@ export function pair(agent?: string, now = clock().getTime()) {
   return code;
 }
 
-/** The live pairing `code` is the one of, or none: an expired pairing or one out of tries is none, and a wrong code spends a try. */
+/**
+ * The live pairing when `code` is its code; none when there is none, it expired, its tries ran out or the code is wrong
+ * (a wrong code spends a try).
+ */
 function livePairing(code: string, now: number) {
   const p = read().pairing;
   if (!p || p.expires < now || p.tries >= PAIRING_TRIES) {

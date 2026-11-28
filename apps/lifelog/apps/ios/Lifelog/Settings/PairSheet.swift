@@ -207,7 +207,7 @@ struct PairSheet: View {
     /// back, as `LifeStore` only repoints the bridge once the tokens are kept.
     private func pairLife(_ link: LifePairing, onStep: (PairStep) -> Void) async throws {
         let previous = MacLink.shared.target
-        await MacLink.shared.point(at: link.macTarget)
+        await MacLink.shared.point(at: MacTarget(origin: link.origin, key: link.mac))
         do {
             if link.mac != nil {
                 guard try await MacLink.shared.prove(code: link.code) else { throw MacLinkError.refused }

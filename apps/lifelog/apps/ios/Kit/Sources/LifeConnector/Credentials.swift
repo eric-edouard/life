@@ -19,11 +19,6 @@ public struct LifeEndpoint: Codable, Equatable, Sendable {
         self.resource = resource
         self.mac = mac
     }
-
-    /// Where `MacLink` dials for this pairing: nil when it names no Mac (Tailscale carries the requests).
-    public var macTarget: MacTarget? {
-        mac.map { MacTarget(origin: origin, key: $0) }
-    }
 }
 
 /// The secret half: kept in the Keychain. The refresh token is replaced each time it is used.

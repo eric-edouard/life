@@ -21,7 +21,9 @@ public struct MacTarget: Equatable, Sendable {
     public let origin: URL
     public let key: MacKey
 
-    public init(origin: URL, key: MacKey) {
+    /// None when nothing names a Mac key: the pairing names no Mac, so the origin carries the requests.
+    public init?(origin: URL, key: MacKey?) {
+        guard let key else { return nil }
         self.origin = origin
         self.key = key
     }

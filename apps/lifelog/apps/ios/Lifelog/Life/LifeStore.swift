@@ -120,7 +120,10 @@ final class LifeStore {
         let stored = tokens.load()
         pairedOrigin = stored?.endpoint.origin
         // The Mac this pairing named (`MacLink`): iroh first, its origin only when a dial fails.
-        Task { await MacLink.shared.point(at: stored?.endpoint.macTarget) }
+        Task {
+            await MacLink.shared.point(
+                at: stored.flatMap { MacTarget(origin: $0.endpoint.origin, key: $0.endpoint.mac) })
+        }
         if let kept = cache.load(Self.itemsKey), let value = try? ThreadRead.parsed(kept.text) {
             parties.remember(value.parties, at: kept.at, pairing: parties.generation.current)
             items.apply(.succeeded(value, kept.at))
@@ -563,7 +566,7 @@ final class LifeStore {
         tokens.save(credentials)
         pairedOrigin = credentials.endpoint.origin
         // The Mac this Life named, or none: the bridge this phone keeps follows the pairing (`MacLink`).
-        await MacLink.shared.point(at: credentials.endpoint.macTarget)
+        await MacLink.shared.point(at: MacTarget(origin: credentials.endpoint.origin, key: credentials.endpoint.mac))
         // Another Life may be this one: nothing of the last one stays.
         cache.clear()
         thread.startOver()
