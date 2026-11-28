@@ -14,17 +14,8 @@ import { NETWORKS } from "@life/server/src/sources/networks";
 // git (macOS has none until the developer tools are installed, #1515) and gog in `Helpers/tools/bin`, one folder on the
 // PATH of the helper and its agents (`apps/mac/Sources/LifeApp/Helper.swift`), and each messaging bridge in
 // `Helpers/bridges/<network>` (`bundledBridge`, `host/bridges.ts`), so nothing is built with `go` on the user's Mac.
-// Each is for the build machine's chip. A checkout builds the bridges alone: `bun scripts/bundled-tools.ts <folder>`,
-// then `LIFE_BRIDGES_DIR=<folder>`.
-
-/** Each bridge's release tag (its repository is in `NETWORKS`): bump one here to ship a newer bridge. */
-export const BRIDGE_TAGS: Record<string, string> = {
-  "beeper/line": "1.2.0",
-  "mautrix/linkedin": "v0.2611.0",
-  "mautrix/meta": "v0.2611.0",
-  "mautrix/telegram": "v0.2611.0",
-  "mautrix/whatsapp": "v0.2611.0",
-};
+// Each is for the build machine's chip. A bridge's release tag is in `NETWORKS` (`tag`): bump one there to ship a newer
+// bridge. A checkout builds the bridges alone: `bun scripts/bundled-tools.ts <folder>`, then `LIFE_BRIDGES_DIR=<folder>`.
 
 /** Programs git runs as separate files that we keep: the rest of its install is scripts, extra tools and the manual. */
 const GIT_KEPT = ["git", "git-remote-http", "git-http-fetch"];
@@ -108,10 +99,7 @@ export async function bundleBridges(dest: string, cache: string, sign?: Sign) {
   await mkdir(dest, { recursive: true });
   const cloned = new Set<string>();
   for (const n of NETWORKS) {
-    const tag = BRIDGE_TAGS[n.repo];
-    if (!tag) {
-      throw new Error(`${n.repo}: no pinned tag in scripts/bundled-tools.ts`);
-    }
+    const { tag } = n;
     const src = join(cache, `${n.repo.replace("/", "-")}-${tag}`);
     if (!cloned.has(src)) {
       cloned.add(src);
@@ -158,7 +146,7 @@ export const bundledNotice = () =>
     `gog ${GOG_VERSION}, MIT: https://github.com/steipete/gogcli/tree/v${GOG_VERSION}`,
     ...NETWORKS.map(
       (n) =>
-        `${n.label} bridge ${BRIDGE_TAGS[n.repo]}, AGPL v3 (mautrix) or its own licence: built unchanged from https://github.com/${n.repo}/tree/${BRIDGE_TAGS[n.repo]}`
+        `${n.label} bridge ${n.tag}, AGPL v3 (mautrix) or its own licence: built unchanged from https://github.com/${n.repo}/tree/${n.tag}`
     ),
     "",
   ].join("\n");

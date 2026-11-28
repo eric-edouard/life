@@ -3,9 +3,9 @@ import { rmSync } from "node:fs";
 import { appendJsonl } from "../core/files";
 import { type DirectionPin, MatterDirectionBatch } from "../records/matter";
 import { Correction } from "../records/observation";
+import { DIRECTIONS_PROMPT, directionDueOf } from "./matter-direction-due";
 import { matterDirections } from "./matter-directions";
 import {
-  directionDueOf,
   directionsOf,
   type MatterView,
   matterFinderOf,
@@ -397,6 +397,7 @@ const pinOf = (
   by: "life",
   goal: "Sam answers",
   nextStep: { kind: "wait_event", text: "Sam's answer", waitsOn: "Sam" },
+  prompt: DIRECTIONS_PROMPT,
   steps: v.steps.map((s) => s.ref),
   ...over,
 });
@@ -429,6 +430,28 @@ test("a blind Life pin is due once; his own pin never is, and an outside record 
   expect(
     dueIds([v], [pinOf(v, { laterShown: [said(17).id] })], [said(17)])
   ).toEqual([]);
+});
+
+test("a Life draft of an older directions prompt is due once; a dormant matter holding an open step of his is due like a running one (stale-next-step-old-prompt-dormant)", () => {
+  const old = { laterShown: [], prompt: "memory-matter-directions.v2" };
+  const v = waiting("00000000e101");
+  expect(dueIds([v], [pinOf(v, old)])).toEqual([v.id]);
+  expect(dueIds([v], [pinOf(v, { laterShown: [] })])).toEqual([]);
+  // His own word is never drafted over for a prompt change.
+  expect(dueIds([v], [pinOf(v, { ...old, by: "owner" })])).toEqual([]);
+  // Quiet three weeks, still owing a payment: its old draft (asking for an invoice that came) is drafted again, once.
+  const owed = step("obs_00000000e102", "2026-10-20T09:00:00.000Z");
+  const dormant = view("matter_00000000e102", {
+    goal: { at: "2026-11-01T02:00:00.000Z", by: "life", text: "Paid" },
+    openSteps: [owed],
+    status: "dormant",
+    steps: [owed],
+  });
+  expect(dueIds([dormant], [pinOf(dormant, old)])).toEqual([dormant.id]);
+  expect(dueIds([dormant], [pinOf(dormant, { laterShown: [] })])).toEqual([]);
+  // Nothing of his open: it stays undrafted.
+  const theirs = { ...dormant, openSteps: [wait("obs_00000000e103")] };
+  expect(dueIds([theirs], [pinOf(theirs, old)])).toEqual([]);
 });
 
 test("an open step's date passing after the latest pin makes the matter due once, his pin too; a date passed before it does not (his rule of 21 Nov 2026)", () => {
