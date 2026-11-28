@@ -15,3 +15,5 @@ Paths are under `apps/server/src/` unless they start elsewhere; found by a code 
 - "Build it" records the cap as a `budget` instruction scoped `project:<id>` (`recordInstruction`).
 - `spendingStopNow` (`desk/desk-clock.ts:663`) reads `instructionsFor({project})` when the agent has a project and no matter (today it reads only by `matter_id`, so a project gets the 2% default), summing the project's assignments.
 - The caps of running projects add up against the monthly amount (`monthBudgetOf`); a project with no room left waits and says so. pi's in-turn stop (`/spending`) is unchanged.
+
+Built: https://github.com/eric-edouard/life/pull/1589
