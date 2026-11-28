@@ -216,7 +216,9 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   connector (`read_appointments`).
   <!-- Placeholder for bundle R (life#1573, branch packaging-r): the ids-only push service `life-push` (it holds the
   app's APNs key and forwards ids only) and the people digest's alert turned into an id go here, with its host. -->
-- The encrypted backup, when `backup` is set, to the folder he chose.
+- The backup, only when he picked a cloud folder at setup (off otherwise): one restic repository, encrypted on the Mac
+  with the password in `LIFE_STATE_DIR/backup.key` (mode 600), written into that folder; his cloud provider holds only
+  ciphertext.
 - Life's brand (nothing of his), at its paths in the repo, so his agents can style what they make.
 - The connector's sign-in page (`host/http/oauth.ts`, where an assistant is paired) loads Life's font from Google
   Fonts (its stylesheet starts with `assets/brand/tokens.css`, which imports it: `fonts.googleapis.com`, `fonts.gstatic.com`): the browser that opens it tells Google its IP address and

@@ -195,7 +195,7 @@ host the code calls, what each one is sent, and how to turn it off.
 
 What stays on your Mac: your memory (plain text in a git repository with no remote; Life refuses to commit to one that
 has a remote), the archive of deleted messages and old notes, search by meaning (embedded on the Mac), and your keys
-(the Keychain). Your messages, mail and notes stay in their own apps, opened read-only.
+(the Keychain; the backup's password in Life's state folder, `backup.key`). Your messages, mail and notes stay in their own apps, opened read-only.
 
 What leaves, and why:
 
@@ -205,8 +205,9 @@ What leaves, and why:
 - Your phone's link to your Mac: encrypted end to end between the two devices' keys; a relay, when a direct path fails,
   sees only IP addresses, timing and size.
 - Notifications through Apple: a count and an opaque id, never words; your phone reads the rest from your Mac.
-- What you turn on: the email report (Resend), the encrypted backup to your folder, Google for the calendars and Tasks,
-  ElevenLabs for speech in languages the Mac can't hear, web search and Apify for your agents.
+- What you turn on: the email report (Resend), Google for the calendars and Tasks, ElevenLabs for speech in languages the Mac can't hear, web search and Apify for your agents.
+- Your backup, only if you pick a cloud folder at setup (off otherwise): one restic repository, encrypted on your Mac
+  before your cloud provider gets it.
 - Into a chat or by mail, only a card's draft, exactly as you saw it, when you tap Send.
 
 Nothing goes to Life's developer: a bug report is a mail you approve word for word. Every host is in

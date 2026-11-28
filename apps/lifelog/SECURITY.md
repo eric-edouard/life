@@ -11,7 +11,7 @@ secrets live, what an attacker could do with each piece, what lifelog does about
 | The archive: conversations, words, people, voice embeddings, places, summaries, Apple Health measurements | `archive.sqlite` in `~/Library/Application Support/lifelog` on the Mac | The Mac account's file permissions; turn on FileVault |
 | A frozen copy of the voices you named and your answers, for the voice eval | `answered-voices.json` beside the archive | As above; it keeps what it holds after a deletion until frozen again |
 | Speech blocks, raw page backups, daily archive copies | `audio/` beside the archive (or an S3 bucket, if configured) | As above |
-| Backups | A restic repository in iCloud Drive (`lifelog backup/restic`) | Encrypted by restic with a password minted once, kept in `secrets.json` |
+| Backups | Life's one restic repository, in the cloud folder the user picked at Life's setup; none unless picked | Encrypted by restic with Life's password (`LIFE_STATE_DIR/backup.key`) |
 | Transcripts | ElevenLabs keeps a copy under its own retention policy | Their terms ([docs/providers.md](docs/providers.md)) |
 | A chat voice note's Thai turns, cut from its audio (the owner's yes, 20 Nov 2026) | ElevenLabs Scribe, as a block's Thai turns; the rest is heard on the Mac and nothing of the audio is kept | Their terms; `voice_note_hearings` keeps its key (the file's sha256) and its words, so it is sent once |
 | A field's dictation on the phone (`POST /dictation/transcript`) | Heard on the Mac; its Thai turns, or all of it when mostly Thai, go to ElevenLabs Scribe with vocabulary hints that can name people | Their terms (zero retention is enterprise-only, so not asked); lifelog keeps no audio and no words, only operational events (`dictation.heard`: its length, route, billable seconds and turns left unheard; `elevenlabs.done` or `.failed`) |
@@ -33,7 +33,7 @@ with the device token only when its Apple Health source is enabled.
   cookies, passwords and codes it reads or he types stay in memory, go once to Life's `sign_in_to_network`, and are
   never written to disk, the Keychain or a log (a credential field is never dictated).
 - **The Mac:** `~/Library/Application Support/lifelog-quiet/secrets.json` (mode 0600 in a 0700 folder) holds the
-  tokens Lifelog Host mints, the ElevenLabs key, the tunnel token, the backup password and the helper's
+  tokens Lifelog Host mints, the ElevenLabs key, the tunnel token and the helper's
   Claude sign-in; Codex's sign-in is in the helper's own Codex home beside it. `~/Library/Application Support/lifelog/server.env` (mode 0600; Host refuses to start the server
   if others can read it) holds keys Host doesn't manage, such as APNs and Resend.
   Once Life.app runs voice (`life voice start`), Life's helper is the file's one writer (`host/voice.ts`: it mints the
@@ -88,9 +88,9 @@ can see and regenerate. Readers such as Life must treat lifelog's text the same 
 the server cuts them from every block before ElevenLabs, the identity service or a model sees it, checking twice.
 The raw backup still holds them, on your own disk.
 
-**Backups.** The restic repository is encrypted, so iCloud holds only ciphertext; anyone with the password and the
-repository can read everything. Lose the password and the backups are unreadable: Lifelog Host asks you to copy it
-somewhere safe. The daily copy without restic (`archive/` in the audio folder) is not encrypted.
+**Backups.** Off unless the user picks a cloud folder at Life's setup; then voice is in Life's one restic repository
+there, encrypted, so the cloud provider holds only ciphertext. The password is in `LIFE_STATE_DIR/backup.key` (mode
+600): anyone with it and the repository can read everything, and losing it makes the backups unreadable. The daily copy without restic (`archive/` in the audio folder) is not encrypted.
 
 **The Mac itself.** Anything running as your user can read the archive, the audio and `secrets.json`. lifelog
 doesn't defend against malware or another admin on the Mac; FileVault defends a stolen one at rest.
