@@ -348,6 +348,12 @@ test("only his own Life's helper reads voice's secrets: a checkout or a second L
     expect(pairLinkOf("https://life.example", "ABC234", "tok")).toContain(
       "token=tok&url=https%3A%2F%2Flife.example%2Fvoice"
     );
+    expect(
+      pairLinkOf("http://127.0.0.1:46200", "ABC234", undefined, {
+        mac: "ab12",
+        relay: "https://relay.example./",
+      })
+    ).toEndWith("&mac=ab12&relay=https%3A%2F%2Frelay.example.%2F");
   } finally {
     rmSync(VOICE_SECRETS, { force: true });
     setSettings({ lifelog });

@@ -51,6 +51,7 @@ import { connector, LOCAL_PORT } from "./http/http";
 import { localKey } from "./http/local-key";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
+import { readPhoneLinkAddress } from "./http/phone-link";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
 import { migrateSettings } from "./migrate";
@@ -399,7 +400,9 @@ const commands: Record<string, () => number | Promise<number>> = {
       return Promise.resolve(0);
     }
     const { origin } = connector();
-    console.log(pairLinkOf(origin, code, pairTokenOf()));
+    console.log(
+      pairLinkOf(origin, code, pairTokenOf(), readPhoneLinkAddress())
+    );
     return Promise.resolve(0);
   },
   /**

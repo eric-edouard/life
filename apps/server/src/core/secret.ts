@@ -31,6 +31,8 @@ export const SECRETS = {
   matrix: join(MACHINE_DIR, "bridges", "owner.json"),
   /** Life's own sign-in: its key, the apps and their tokens. */
   oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
+  /** The Mac's key on the phone link (`host/http/phone-link.ts`): the iPhone app dials this Mac by its public half. */
+  phoneLinkKey: join(LIFE_STATE_DIR, "phone-link.key"),
   /** A pi session's launch in Terminal (`continue_on_mac`): Life's part of its environment, deleted by the launcher as it reads it (`desk/runtimes/pi-terminal.ts`). */
   piTerminalLaunch: join(LIFE_STATE_DIR, "desk", "pi", "terminal-launch.json"),
   /** The key a card's push id is made with (`pushIdOf`, `sources/voice-server-push.ts`); it never leaves the Mac. */
@@ -73,7 +75,9 @@ const KEY = /^[0-9a-f]{64}$/;
  * A random secret in its file, made once, then read: written whole to a file of its own, then linked in place, which
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
-export function secretIn(name: "deskKey" | "localKey" | "pushIdKey"): string {
+export function secretIn(
+  name: "deskKey" | "localKey" | "phoneLinkKey" | "pushIdKey"
+): string {
   const path = SECRETS[name];
   if (existsSync(path)) {
     const key = readFileSync(path, "utf8");

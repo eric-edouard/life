@@ -31,6 +31,7 @@ import {
   VOICE_URL,
 } from "../sources/voice-server-call";
 import { connector } from "./http/http";
+import type { PhoneLinkAddress } from "./http/phone-link";
 
 // Voice: the pendant pipeline's processes on this Mac (its server, the Mac helper, speaker recognition, the embedder),
 // each a launchd job Life's helper installs (`voiceStart`), so a Life crash, quit or update never stops them: the server
@@ -307,13 +308,20 @@ export const buildOf = async () =>
 
 /**
  * The link the phone opens (`lifelog://pair?life=<origin>&code=<code>`), with voice's address and the phone's device
- * token (`url`, `token`) when given: one QR pairs both.
+ * token (`url`, `token`) when given: one QR pairs both. With the phone link's address (`mac`, `relay`), the phone
+ * reaches the Mac through it from anywhere.
  */
-export const pairLinkOf = (origin: string, code: string, token?: string) =>
+export const pairLinkOf = (
+  origin: string,
+  code: string,
+  token?: string,
+  phoneLink?: PhoneLinkAddress
+) =>
   `lifelog://pair?${new URLSearchParams({
     code,
     life: origin,
     ...(token && { token, url: `${origin}/voice` }),
+    ...phoneLink,
   })}`;
 
 /** The phone's device token for Life's pairing link: only from his own Life's helper, never a checkout or a second Life. */
