@@ -62,7 +62,7 @@ outline. `references/chat.md`.
 - A dated file under `docs/design/`, listed in `docs/design/README.md`, viewed at
   `https://designs.ericedouard.com/#/<path under docs/design>`. Never a claude.ai artifact or any other copy.
 - Made-up names, places and numbers only; nothing of his in the repo.
-- App v4 (`docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`) is what the app is built to, and where it draws
-  something it wins, until he picks a drawn turn by turn. Explorations are proposals until he picks one.
+- App v4 (`docs/design/2026-11-23-chat-first/2026-11-25-app-v4.html`) is what the app is built to, its thread now turn by
+  turn; where it draws something, it wins. Explorations are proposals until he picks one.
 - A new or changed card is scored first, as a screenshot, by a reviewer with no context. Done means ran live on his
   real Life, then compared with the prototype (`.claude/rules/surfaces.md`).
