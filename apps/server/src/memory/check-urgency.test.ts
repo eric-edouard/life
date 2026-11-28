@@ -2,10 +2,11 @@ import { expect, test } from "bun:test";
 import {
   askOfStep,
   blockingCountOf,
+  HOW_ASKED,
   inboxOrderOf,
   isInboxCheck,
-  type StepAskFacts,
-  type StepAskReadings,
+  type StepFacts,
+  type StepReading,
   urgencyOf,
 } from "./check-urgency";
 import { checksOnMatterOf } from "./checks";
@@ -43,17 +44,17 @@ test("what blocks: a decision, a name and a card (these block); a your move card
 
 // The badge counts a your move card only when `askOfStep` says it blocks; the cut changes the count, never which cards
 // exist or where they stand.
-test("a your move card blocks only when it says so (`isBlocking`); a blocking one in its place, the rest without the badge", () => {
+test("a your move card blocks only when `askOfStep` says so (`isBlocking`); a blocking one in its place, the rest without the badge", () => {
   const list = [
     ask("guess", "guessed person"),
     ask("move-undated", "your move"),
     Object.assign(
       ask("move-later", "your move", { deadline: "2026-11-30T16:59:59.999Z" }),
-      { isBlocking: false }
+      { [HOW_ASKED]: { isBlocking: false, isMoveHidden: false } }
     ),
     Object.assign(
       ask("move-soon", "your move", { deadline: "2026-11-23T16:59:59.999Z" }),
-      { isBlocking: true }
+      { [HOW_ASKED]: { isBlocking: true, isMoveHidden: false } }
     ),
   ];
   expect(list.map((c) => urgencyOf(c))).toEqual([
@@ -74,14 +75,14 @@ test("a your move card blocks only when it says so (`isBlocking`); a blocking on
 // Card sort (his words of 28 Nov 2026): Life asks only what needs him, and when. Regression cases of the one rule,
 // made-up steps: the readings are the model's, the dates and the floor code's.
 const TODAY = "2026-11-28";
-const reading = (over: Partial<StepAskReadings> = {}): StepAskReadings => ({
+const reading = (over: Partial<StepReading> = {}): StepReading => ({
   by: null,
   handledBy: "owner",
   money: "none",
   urgency: "normal",
   ...over,
 });
-const todo = (over: Partial<StepAskFacts> = {}): StepAskFacts => ({
+const todo = (over: Partial<StepFacts> = {}): StepFacts => ({
   first: "2026-11-20",
   isPromiseToPerson: false,
   ...over,
@@ -93,23 +94,23 @@ test("card sort: his own code work elsewhere and an ask to his assistant are hid
   const elsewhere = reading({ handledBy: "owner_elsewhere" });
   expect(askOfStep(elsewhere, todo(), NO_WORDS, TODAY)).toEqual({
     isBlocking: false,
-    isHidden: true,
+    isMoveHidden: true,
   });
   expect(
     askOfStep(reading({ handledBy: "someone_else" }), todo(), NO_WORDS, TODAY)
-      .isHidden
+      .isMoveHidden
   ).toBe(true);
   // "I'll fix the login bug for Dana": the work is code, the person waits.
   expect(
     askOfStep(elsewhere, todo({ isPromiseToPerson: true }), NO_WORDS, TODAY)
-  ).toEqual({ isBlocking: false, isHidden: false });
+  ).toEqual({ isBlocking: false, isMoveHidden: false });
 });
 
 test("card sort: a bill for goods delivered with no due day is asked at day 6, blocks from day 7 on, day 40 too, until done", () => {
   const bill = reading({ money: "due_on_receipt" });
   const at = (first: string) =>
     askOfStep(bill, todo({ first }), NO_WORDS, TODAY);
-  expect(at("2026-11-22")).toEqual({ isBlocking: false, isHidden: false });
+  expect(at("2026-11-22")).toEqual({ isBlocking: false, isMoveHidden: false });
   expect(at("2026-11-21").isBlocking).toBe(true);
   expect(at("2026-11-20").isBlocking).toBe(true);
   expect(at("2026-10-19").isBlocking).toBe(true);
@@ -120,7 +121,7 @@ test("card sort: a bill for goods delivered with no due day is asked at day 6, b
       todo(),
       NO_WORDS,
       TODAY
-    ).isHidden
+    ).isMoveHidden
   ).toBe(false);
 });
 
@@ -133,36 +134,36 @@ test("card sort: any due day protects; urgent blocks, a good-moment errand does 
       NO_WORDS,
       TODAY
     )
-  ).toEqual({ isBlocking: true, isHidden: false });
+  ).toEqual({ isBlocking: true, isMoveHidden: false });
   expect(
     askOfStep(reading({ urgency: "high" }), todo(), NO_WORDS, TODAY).isBlocking
   ).toBe(true);
   // Buy oranges at the market: a good moment, nobody waits.
   expect(
     askOfStep(reading({ urgency: "low" }), todo(), NO_WORDS, TODAY)
-  ).toEqual({ isBlocking: false, isHidden: false });
+  ).toEqual({ isBlocking: false, isMoveHidden: false });
   expect(
     askOfStep(undefined, todo({ due: "2026-11-30" }), NO_WORDS, TODAY)
-  ).toEqual({ isBlocking: true, isHidden: false });
+  ).toEqual({ isBlocking: true, isMoveHidden: false });
   expect(
     askOfStep(undefined, todo({ due: "2026-12-02" }), NO_WORDS, TODAY)
-  ).toEqual({ isBlocking: false, isHidden: false });
+  ).toEqual({ isBlocking: false, isMoveHidden: false });
 });
 
 test("card sort: his stock-orders words hide a supplier invoice they cite, never rent, tax or a DIY bill; replacing them un-hides at once", () => {
   const words = new Set([STOCK]);
   const invoice = reading({ by: STOCK, money: "some" });
-  expect(askOfStep(invoice, todo(), words, TODAY).isHidden).toBe(true);
+  expect(askOfStep(invoice, todo(), words, TODAY).isMoveHidden).toBe(true);
   // Rent, the property tax, a DIY shop's bill: no `by`, money protects them, even read as someone else's.
   for (const r of [
     reading({ money: "some" }),
     reading({ handledBy: "someone_else", money: "some" }),
     reading({ money: "due_on_receipt" }),
   ]) {
-    expect(askOfStep(r, todo(), words, TODAY).isHidden).toBe(false);
+    expect(askOfStep(r, todo(), words, TODAY).isMoveHidden).toBe(false);
   }
   // His words replaced: their id is no longer in force, the invoice is asked again before any night.
-  expect(askOfStep(invoice, todo(), NO_WORDS, TODAY).isHidden).toBe(false);
+  expect(askOfStep(invoice, todo(), NO_WORDS, TODAY).isMoveHidden).toBe(false);
 });
 
 const ask = (
@@ -242,7 +243,7 @@ test("can't be forgotten: an ending check and a hidden your move card are not in
     ask("ending", "ending", { matter: "m1" }),
     ask("move", "your move", { matter: "m1" }),
     Object.assign(ask("hidden", "your move", { matter: "m1" }), {
-      isHidden: true,
+      [HOW_ASKED]: { isBlocking: false, isMoveHidden: true },
     }),
   ];
   expect(list.filter(isInboxCheck).map((c: { ref: string }) => c.ref)).toEqual([

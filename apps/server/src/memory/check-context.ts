@@ -126,8 +126,8 @@ export interface CheckInputs {
   places?: YourMoveInputs["places"];
   /** The guesses that may be someone else (`samePersonPairsOf`), worked out once by the reader. */
   samePersons: ReturnType<typeof samePersonPairsOf>;
-  /** Each step's readings (`step-readings.ts`), by its matter's id: how his your move cards are asked (`askOfStep`). */
-  stepReadingsOf?: YourMoveInputs["stepReadingsOf"];
+  /** Each step's reading (`step-readings.ts`), by its matter's id: how his your move cards are asked (`askOfStep`). */
+  stepReadingOf?: YourMoveInputs["stepReadingOf"];
   /** The chat or thread a unit is in, by unit id: where a step was said (`to`); only the units the steps of endings and new matters are in. */
   titles: ReadonlyMap<string, string>;
   /** His day now (`dayNow`): a new matter is offered for `NEW_MATTER_DAYS` from its first step's day. */

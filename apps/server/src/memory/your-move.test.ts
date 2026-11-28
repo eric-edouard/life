@@ -3,6 +3,7 @@ import { yourMoveClosingOf } from "./answer-check";
 import type { CheckInputs } from "./check-context";
 import {
   blockingCountOf,
+  HOW_ASKED,
   inboxOf,
   inboxOrderOf,
   isInboxCheck,
@@ -203,7 +204,7 @@ test("its step due first is shown, due to the last instant of its own day, a mis
 });
 
 // A step of his stays asked until it ended or his word (his rules of 27 and 28 Nov 2026): its age, a missed day or its
-// sender never hides it, only his words or its being handled elsewhere (`askOfStep`); the walk over every path is
+// sender never hides it, only his words or its being his work elsewhere or someone else's (`askOfStep`); the walk over every path is
 // `open-steps-asked.test.ts`. Made-up matters.
 test("a to-do item open in his list is his move, like his own task", () => {
   const item = {
@@ -233,7 +234,7 @@ const PROMISE = {
   with: "person:dana",
 };
 const elsewhere = {
-  stepReadingsOf: (_: string, step: { ref: string }) =>
+  stepReadingOf: (_: string, step: { ref: string }) =>
     step.ref === REFACTOR.ref
       ? {
           by: null,
@@ -247,7 +248,10 @@ const elsewhere = {
 test("card sort: his own refactor is on its matter's page only, with no Start; a promise on the same matter is what its card asks", () => {
   const solo = { matters: [{ ...MATTER, openSteps: [REFACTOR, WAIT] }] };
   const [card] = moves({ ...solo, ...elsewhere });
-  expect(card).toMatchObject({ isHidden: true, subject: REFACTOR.ref });
+  expect(card).toMatchObject({ subject: REFACTOR.ref });
+  expect(card?.[HOW_ASKED]?.isMoveHidden).toBe(true);
+  // Never on the wire: `urgency` says what blocks.
+  expect(JSON.stringify(card)).not.toContain("isMoveHidden");
   expect(isInboxCheck(card as Check)).toBe(false);
   expect(checksOnMatterOf([card as Check], MATTER.id)).toHaveLength(1);
   expect(idsOf(card)).toEqual(["done", "not-now", "drop"]);
@@ -255,9 +259,10 @@ test("card sort: his own refactor is on its matter's page only, with no Start; a
     ...elsewhere,
     matters: [{ ...MATTER, openSteps: [REFACTOR, PROMISE, WAIT] }],
   });
-  expect(both).toMatchObject({ isHidden: false, subject: PROMISE.ref });
+  expect(both).toMatchObject({ subject: PROMISE.ref });
+  expect(both?.[HOW_ASKED]?.isMoveHidden).toBe(false);
   // No reading yet: as before, asked.
-  expect(moves(solo)[0]).toMatchObject({ isHidden: false });
+  expect(moves(solo)[0]?.[HOW_ASKED]?.isMoveHidden).toBe(false);
 });
 
 test("card sort: with no reading, a step due within 3 days blocks; one due later does not", () => {
@@ -341,7 +346,7 @@ test("your move takes its place among every ask by deadline, then importance, th
         deadline: "2026-11-30T16:59:59.999Z",
         matter: "matter_shared",
       }),
-      isBlocking: true,
+      [HOW_ASKED]: { isBlocking: true, isMoveHidden: false },
     },
     card("guess", "guessed person"),
     card("decision", "decision"),

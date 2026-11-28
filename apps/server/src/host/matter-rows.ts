@@ -1,4 +1,8 @@
-import { blockingCountOf, isInboxCheck } from "../memory/check-urgency";
+import {
+  blockingCountOf,
+  type HOW_ASKED,
+  isInboxCheck,
+} from "../memory/check-urgency";
 import { checksOnMatterOf } from "../memory/checks";
 import type { Check } from "../memory/life-checks";
 import { needsYouOf, openMatters } from "../memory/read-matters";
@@ -15,13 +19,7 @@ export const matterRowsNowOf = <
   rows: readonly R[],
   open: readonly Pick<
     Check,
-    | "deadline"
-    | "group"
-    | "isBlocking"
-    | "isHidden"
-    | "matter"
-    | "ridesOn"
-    | "subject"
+    "deadline" | "group" | typeof HOW_ASKED | "matter" | "ridesOn" | "subject"
   >[]
 ) =>
   rows.map((m) => {

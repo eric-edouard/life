@@ -6,15 +6,19 @@ import { dayNow, localDate } from "./zones";
 /** `blocks`: a registered agent waits on him, or Life cannot answer at all; `improves`: Life already uses its guess, or only asks. */
 export type Urgency = "blocks" | "improves";
 
+/**
+ * A your move card's key for how its step is asked (`askOfStep`): a symbol, so it rides with the check through every
+ * copy (`{...c}`) but never reaches the wire (JSON drops symbol keys); `urgency` says what blocks.
+ */
+export const HOW_ASKED: unique symbol = Symbol("how asked");
+
 interface Rankable {
   /** His complaint on it at work with the caretaker: it then only improves. */
   beingFixed?: unknown;
   deadline: string | null;
   group: CheckGroup;
-  /** A your move card's: whether it blocks him (`askOfStep`). */
-  isBlocking?: boolean;
-  /** A your move card's: whether it is on its matter's page only (`askOfStep`). */
-  isHidden?: boolean;
+  /** A your move card's: whether it blocks him and whether it is on its matter's page only (`askOfStep`). */
+  [HOW_ASKED]?: ReturnType<typeof askOfStep>;
 }
 
 /**
@@ -34,7 +38,9 @@ const BLOCKING = new Set<CheckGroup>([
 const isMove = (c: Pick<Rankable, "group">) => c.group === "your move";
 
 export const urgencyOf = (c: Rankable): Urgency =>
-  BLOCKING.has(c.group) && !c.beingFixed && (!isMove(c) || c.isBlocking)
+  BLOCKING.has(c.group) &&
+  !c.beingFixed &&
+  (!isMove(c) || c[HOW_ASKED]?.isBlocking)
     ? "blocks"
     : "improves";
 
@@ -44,7 +50,7 @@ export const HandledBy = z.enum(["owner", "owner_elsewhere", "someone_else"]);
 export const StepMoney = z.enum(["none", "some", "due_on_receipt"]);
 
 /** What `askOfStep` reads of a step's readings (`step-readings.ts`): the model's, never a verdict. */
-export interface StepAskReadings {
+export interface StepReading {
   /** The `what-to-ask` instruction the reading cites as deciding, by id; null: none. */
   by: string | null;
   handledBy: z.infer<typeof HandledBy>;
@@ -53,7 +59,7 @@ export interface StepAskReadings {
 }
 
 /** What `askOfStep` reads of the step itself: code's facts, never the model's. */
-export interface StepAskFacts {
+export interface StepFacts {
   /** Its due day (a whole date), past or ahead; none: no due day. */
   due?: string;
   /** The day it was first noted. */
@@ -71,30 +77,30 @@ export interface StepAskFacts {
  * No reading: never hidden, blocking only by its due day.
  */
 export function askOfStep(
-  r: StepAskReadings | undefined,
-  f: StepAskFacts,
+  r: StepReading | undefined,
+  f: StepFacts,
   inForce: ReadonlySet<string>,
   today: string
 ) {
   const isProtected =
     f.isPromiseToPerson || f.due !== undefined || (r && r.money !== "none");
-  const isHidden = Boolean(
+  const isMoveHidden = Boolean(
     (r?.by && inForce.has(r.by)) ||
       (!isProtected && r && r.handledBy !== "owner")
   );
   const isBlocking =
-    !isHidden &&
+    !isMoveHidden &&
     (r?.urgency === "high" ||
       (f.due !== undefined && f.due <= daysBefore(today, -3)) ||
       (r?.money === "due_on_receipt" &&
         f.due === undefined &&
         f.first <= daysBefore(today, 7)));
-  return { isBlocking, isHidden };
+  return { isBlocking, isMoveHidden };
 }
 
 /** Whether a check shows in his inbox: every kind but an ending check, which shows on its matter's page (`checksOnMatterOf`): its link is Life's evidence, the step reads probably done until his word (the cognitive-load rule of 22 Nov 2026); nor a your move card `askOfStep` hides. */
-export const isInboxCheck = (c: Pick<Rankable, "group" | "isHidden">) =>
-  c.group !== "ending" && !c.isHidden;
+export const isInboxCheck = (c: Pick<Rankable, "group" | typeof HOW_ASKED>) =>
+  c.group !== "ending" && !c[HOW_ASKED]?.isMoveHidden;
 /** Important: the gate read it high, or he marked its matter. */
 const isImportant = (c: Orderable) =>
   c.importance === "high" || Boolean(c.matter?.important);

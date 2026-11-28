@@ -106,7 +106,7 @@ import {
   samePersonPairsOf,
 } from "./same-person";
 import { PROJECT_SITUATIONS } from "./situation-parts";
-import { readStepAsk, STEP_READINGS } from "./step-readings";
+import { readStepReadings, STEP_READINGS } from "./step-readings";
 import { voiceChecksOf } from "./voice-checks";
 import { withConversations, withVoiceGuesses } from "./voice-guesses";
 import { readPeople, readUnresolvedPeople } from "./who";
@@ -602,7 +602,7 @@ async function readChecks(
     unresolved,
   });
   const today = dayNow();
-  const ask = { ...readStepAsk(matters), today };
+  const ask = { ...readStepReadings(matters), today };
   const steps = shownStepsOf({
     answered,
     doubted,
@@ -650,7 +650,7 @@ async function readChecks(
     people,
     places: readPlaces(),
     samePersons: samePersonPairsOf(people),
-    stepReadingsOf: ask.stepReadingsOf,
+    stepReadingOf: ask.stepReadingOf,
     titles,
     today,
     voices,

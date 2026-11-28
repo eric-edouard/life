@@ -32,10 +32,10 @@ import {
   readProjectSituationNow,
   situationBlock,
 } from "./situation-parts";
-import { readStepAsk } from "./step-readings";
+import { readStepReadings } from "./step-readings";
 import { nameKey } from "./units";
 import { meant, type People, readPeople } from "./who";
-import { isMoveHiddenOf } from "./your-move";
+import { isMoveHiddenOf, type StepReadings } from "./your-move";
 import { dayNow } from "./zones";
 
 // The connector's reads of matters (`read_matters`, `read_matter`): the matters as `matterOf` reads them now, as data
@@ -387,7 +387,7 @@ export type HandOutGate =
   | "not_do"
   | "project_parked"
   | "hands_off"
-  | "handled_elsewhere"
+  | "move_hidden"
   | "direction_due"
   | "dismissed"
   | "held"
@@ -405,19 +405,19 @@ export interface HandOutFacts {
   decisions: Parameters<typeof nextStepNow>[1];
   dismissed: ReadonlySet<string>;
   isDue: (id: string) => boolean;
-  /** Whether the matter's step is his own work done elsewhere or someone else's, or his words say not to ask it: its card is hidden (`askOfStep`; absent or no reading: no). */
-  isHandledElsewhere?: (id: string) => boolean;
   /** Whether his `hands-off` instruction holds on the matter's project: Life helps there only when asked (absent: none). */
   isHandsOff?: (id: string) => boolean;
   isHeld: (v: HandOutMatter) => AgentHold | undefined;
   isHis: (id: string) => boolean;
+  /** Whether the matter's your move card is hidden, every step he owes on it on its page only (`isMoveHiddenOf`; absent or no reading: no). */
+  isMoveHidden?: (id: string) => boolean;
   isParked: (id: string) => boolean;
 }
 
 /**
  * The first gate a running matter fails for the hand-out, or null when it passes every one: its next step is not `do`
- * as it reads now (`nextStepNow`), its project is parked or hands off (his `hands-off` instruction), its step is handled
- * elsewhere (its card hidden, `askOfStep`), its direction is due (news may have overtaken it), he
+ * as it reads now (`nextStepNow`), its project is parked or hands off (his `hands-off` instruction), its your move card is
+ * hidden (`isMoveHiddenOf`), its direction is due (news may have overtaken it), he
  * dismissed it, an agent holds it, it is not one of his (`isOneOfHis`, so a stranger's matter reads "not his"), no
  * agent takes it (`agentFor`: no agent of its project and no Personal agent). The one rule of the hand-out, the new
  * matter check and the report's agent coverage. Pure.
@@ -435,8 +435,8 @@ export function handOutGateOf(
   if (f.isHandsOff?.(v.id)) {
     return "hands_off";
   }
-  if (f.isHandledElsewhere?.(v.id)) {
-    return "handled_elsewhere";
+  if (f.isMoveHidden?.(v.id)) {
+    return "move_hidden";
   }
   if (f.isDue(v.id)) {
     return "direction_due";
@@ -499,11 +499,11 @@ export async function readHandOutMatters(
       (v) => handsOff.has("all") || handsOff.has(`project:${shown(v)?.id}`)
     )
   );
-  const isHidden = isMoveHiddenOf({
-    ...readStepAsk(ranked),
-    today: dayNow(),
-  });
-  const elsewhere = ids(ranked.filter(isHidden));
+  const hidden = ids(
+    ranked.filter(
+      isMoveHiddenOf({ ...readStepReadings(ranked), today: dayNow() })
+    )
+  );
   return {
     facts: {
       decisions,
@@ -512,9 +512,9 @@ export async function readHandOutMatters(
         readDismissedMatterPins()
       ),
       isDue: directionDueOf(book, records, dayNow()),
-      isHandledElsewhere: (id: string) => elsewhere.has(id),
       isHandsOff: (id: string) => offIds.has(id),
       isHis: (id: string) => his.has(id),
+      isMoveHidden: (id: string) => hidden.has(id),
       isParked: (id: string) => parked.has(id),
     },
     matters: ranked,
@@ -616,29 +616,39 @@ export async function oneMatter<A, S = undefined>(
 /**
  * Each running matter he has not answered "Start an agent on this?" for, by id, with its next step and the offer's last
  * day: one that began in the last `NEW_MATTER_DAYS` (its first step's day), with an open step, not stuck, a goal and a
- * next step to hand over (the hand-out's gates, `handOutGateOf`), held by no agent (`isHeldOf`), not dismissed, and,
- * while the hand-out is on, not one of his own (`isOneOfHis`); none while the desk is off or unreadable. Pure.
+ * next step to hand over (the hand-out's gates, `handOutGateOf`), its your move card not hidden (`isMoveHiddenOf`), held
+ * by no agent (`isHeldOf`), not dismissed, and, while the hand-out is on, not one of his own (`isOneOfHis`); none while
+ * the desk is off or unreadable. Pure.
  */
-export function newMatterOffersOf(c: {
-  decisions: HandOutFacts["decisions"];
-  dismissed: readonly (readonly string[])[];
-  heldByAgents: readonly AgentHold[] | null;
-  isDirectionDue: (matter: string) => boolean;
-  isForHandOut: (matter: string) => boolean;
-  isParked: (matter: string) => boolean;
-  matters: readonly (HandOutMatter &
-    Pick<MatterView, "goal" | "lone" | "newestOpenStep" | "open" | "status"> & {
-      important?: boolean;
-      steps: readonly { at: string; day: string; ref: string }[];
-    })[];
-  today: string;
-}) {
+export function newMatterOffersOf(
+  c: StepReadings & {
+    decisions: HandOutFacts["decisions"];
+    dismissed: readonly (readonly string[])[];
+    heldByAgents: readonly AgentHold[] | null;
+    isDirectionDue: (matter: string) => boolean;
+    isForHandOut: (matter: string) => boolean;
+    isParked: (matter: string) => boolean;
+    matters: readonly (HandOutMatter &
+      Pick<
+        MatterView,
+        "goal" | "lone" | "newestOpenStep" | "open" | "status"
+      > & {
+        important?: boolean;
+        openSteps?: Parameters<
+          ReturnType<typeof isMoveHiddenOf>
+        >[0]["openSteps"];
+        steps: readonly { at: string; day: string; ref: string }[];
+      })[];
+  }
+) {
+  const hidden = ids(c.matters.filter(isMoveHiddenOf(c)));
   const facts = {
     decisions: c.decisions,
     dismissed: dismissedIdsOf(matterFinderOf(c.matters), c.dismissed),
     isDue: c.isDirectionDue,
     isHeld: isHeldOf(c.heldByAgents ?? []),
     isHis: () => true,
+    isMoveHidden: (id: string) => hidden.has(id),
     isParked: c.isParked,
   };
   return new Map(

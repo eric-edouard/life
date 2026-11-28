@@ -4,7 +4,7 @@ import { appendJsonl, readAppended } from "../core/files";
 import { Level } from "../core/names";
 import { isoDateTime, MadeBy } from "../records/fields";
 import { HandledBy, StepMoney } from "./check-urgency";
-import { instructionsFor } from "./instructions";
+import { instructionsOn, whatToAskNow } from "./instructions";
 import type { MatterStepNow, MatterView } from "./matter-read";
 import { MEMORY } from "./memory-files";
 import {
@@ -16,13 +16,13 @@ import {
   readsOf,
 } from "./run";
 import type { People } from "./who";
-import { OWED_BY_HIM, type StepAskInputs } from "./your-move";
+import { OWED_BY_HIM, type StepReadings } from "./your-move";
 
 // Step readings (docs/glossary.md): the memory's fast tier reads each open step he owes, with his `what-to-ask` words in
-// force on it, and gives who does it (`handledBy`), how soon it needs him (`urgency`), whether it waits for a moment or
-// a place (`goodMoment`), its money and the instruction that decided (`by`). Readings, not a verdict: `askOfStep` decides.
-// One line per step version in memory/step-readings.jsonl (this file is its only writer), keyed by `stepInputsOf`;
-// read again only when the step or his words on it change. No date reaches the call: due days are code's.
+// force on it, and gives who does it (`handledBy`), how soon it needs him (`urgency`), its money and the instruction
+// that says not to ask it (`by`). Readings, not a verdict: `askOfStep` decides. One line per step version in
+// memory/step-readings.jsonl (this file is its only writer), keyed by `stepInputsOf`; read again only when the step or
+// his words on it change. No date reaches the call: due days are code's.
 
 const PROMPT = "memory-step-readings.v1";
 /** The readings: one line per step version, append-only, the newest per step version winning. */
@@ -31,11 +31,10 @@ export const STEP_READINGS = join(MEMORY, "step-readings.jsonl");
 const STEPS_A_CALL = 25;
 const CALLS_A_NIGHT = 60;
 
-const StepReading = z
+const StepReadingLine = z
   .object({
     at: isoDateTime,
     by: z.string().nullable(),
-    goodMoment: z.boolean(),
     /** The digest of his words it was read with (`guidanceOf`): changed, the step is read again. */
     guidance: z.string(),
     handledBy: HandledBy,
@@ -49,11 +48,10 @@ const StepReading = z
     urgency: Level,
   })
   .strict();
-type StepReading = z.infer<typeof StepReading>;
+type StepReadingLine = z.infer<typeof StepReadingLine>;
 
-const Read = StepReading.pick({
+const Read = StepReadingLine.pick({
   by: true,
-  goodMoment: true,
   handledBy: true,
   money: true,
   urgency: true,
@@ -74,67 +72,77 @@ type Step = Pick<
   "at" | "kind" | "ref" | "text" | "when" | "with"
 >;
 
-/** A step version: its words, kind, person, whom he owes and due day, with the prompt. Pure. */
-const stepInputsOf = (v: Pick<StepMatter, "owedTo">, s: Step) =>
+/** A step version: its matter, words, kind, person, whom he owes and due day, with the prompt. Pure. */
+const stepInputsOf = (v: Pick<StepMatter, "id" | "owedTo">, s: Step) =>
   inputsOf(PROMPT, {
     due: s.when ?? null,
     kind: s.kind,
+    matter: v.id,
     owedTo: v.owedTo,
     text: s.text,
     with: s.with ?? null,
   });
 
-/** His `what-to-ask` instructions in force on step `s` of matter `v` (`instructionsFor`), as a call shows them. */
+type Words = ReturnType<typeof whatToAskNow>;
+
+/** Of his `what-to-ask` words in force (`whatToAskNow`), those on step `s` of matter `v`, as a call shows them. Pure. */
 const guidanceOf = (
+  words: Words,
   v: Pick<StepMatter, "id" | "owedTo" | "projects">,
   s: Step
 ) =>
-  instructionsFor({
+  instructionsOn(words, {
     matter: v.id,
     people: [...(s.with ? [s.with] : []), ...v.owedTo],
     projects: v.projects,
-  })
-    .filter((i) => i.effect === "what-to-ask")
-    .map((i) => ({ id: i.id, text: i.text }));
+  }).map((i) => ({ id: i.id, text: i.text }));
 
 /** Every reading, by its step version (`stepInputsOf`), the newest winning. */
-const readStepReadings = () =>
-  readAppended<StepReading, Map<string, StepReading>>(
+const readReadingLines = () =>
+  readAppended<StepReadingLine, Map<string, StepReadingLine>>(
     STEP_READINGS,
-    StepReading,
+    StepReadingLine,
     (last) => new Map(last),
     (all, row) => {
       all.set(row.inputs, row);
     }
   );
 
-/** How the cards and the hand-out read the readings now (`StepAskInputs`), over `matters` by id. */
-export function readStepAsk(
+/**
+ * The step readings as the cards and the hand-out read them now (`StepReadings`), over `matters` by id, his words read
+ * once. A reading made under other words than his now reads `owner`: replacing them un-hides at once.
+ */
+export function readStepReadings(
   matters: readonly Pick<StepMatter, "id" | "owedTo" | "projects">[]
-): Omit<StepAskInputs, "today"> {
-  const readings = readStepReadings();
+): Omit<StepReadings, "today"> {
+  const readings = readReadingLines();
+  const words = whatToAskNow();
   const byId = new Map(matters.map((v) => [v.id, v]));
   return {
-    stepReadingsOf: (matter, s) => {
+    stepReadingOf: (matter, s) => {
       const v = byId.get(matter);
-      return v && readings.get(stepInputsOf(v, s));
+      const r = v && readings.get(stepInputsOf(v, s));
+      return r && r.guidance !== inputsOf(PROMPT, guidanceOf(words, v, s))
+        ? { ...r, handledBy: "owner" }
+        : r;
     },
     whatToAskOf: (matter, s) => {
       const v = byId.get(matter);
-      return new Set(v ? guidanceOf(v, s).map((g) => g.id) : []);
+      return new Set(v ? guidanceOf(words, v, s).map((g) => g.id) : []);
     },
   };
 }
 
 /** The open steps he owes on `open` with no reading of their version and his words now, newest first, each once. */
 function dueStepsOf(open: readonly (StepMatter & { openSteps: Step[] })[]) {
-  const readings = readStepReadings();
+  const readings = readReadingLines();
+  const words = whatToAskNow();
   const seen = new Set<string>();
   return open
     .flatMap((v) =>
       v.openSteps.flatMap((s) => {
         const inputs = stepInputsOf(v, s);
-        const shown = guidanceOf(v, s);
+        const shown = guidanceOf(words, v, s);
         const guidance = inputsOf(PROMPT, shown);
         const isDue =
           OWED_BY_HIM.includes(s.kind) &&
@@ -203,7 +211,7 @@ export async function stepReadings(
       const madeBy = step.madeBy(PROMPT);
       appendJsonl(
         STEP_READINGS,
-        StepReading,
+        StepReadingLine,
         entries.flatMap(({ by, step: id, ...r }) => {
           const d = byCallId.get(id);
           return d

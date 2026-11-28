@@ -5,7 +5,7 @@ import { readAppointments } from "./appointments";
 import { locationOf, mapUrlsOf } from "./calendar-events";
 import { literalOf, type Quote } from "./check-quotes";
 import { saidOfLine, saidOfQuote, whereOf } from "./check-sentences";
-import { askOfStep, type StepAskReadings } from "./check-urgency";
+import { askOfStep, HOW_ASKED, type StepReading } from "./check-urgency";
 import { plain } from "./doubts";
 import { type AgentHold, isHeldOf } from "./held-matters";
 import { type Check, LIFE_CHECKS } from "./life-checks";
@@ -40,10 +40,10 @@ const dueOf = (when?: string) =>
 
 type MoveStep = Pick<MatterStepNow, "at" | "day" | "kind" | "when" | "with">;
 
-/** How a step is asked (`askOfStep`): what the cards read of the step readings. */
-export interface StepAskInputs {
-  /** A step's readings (`step-readings.ts`), by its matter's id; none: not read yet (then only its due day counts). */
-  stepReadingsOf?: (matter: string, s: Step) => StepAskReadings | undefined;
+/** The step readings as the cards and the hand-out read them now (`readStepReadings`), with his day. */
+export interface StepReadings {
+  /** A step's reading (`step-readings.ts`), by its matter's id; none: not read yet (then only its due day counts). */
+  stepReadingOf?: (matter: string, s: Step) => StepReading | undefined;
   today: string;
   /** The ids of his `what-to-ask` instructions in force on a step, by its matter's id. */
   whatToAskOf?: (matter: string, s: Step) => ReadonlySet<string>;
@@ -53,10 +53,10 @@ const NONE: ReadonlySet<string> = new Set();
 
 /** How each of matter `matter`'s steps is asked (`askOfStep`) over `c`'s readings. Pure. */
 const askOf =
-  (c: StepAskInputs, matter: string) =>
+  (c: StepReadings, matter: string) =>
   (s: Step & MoveStep, due: string | undefined) =>
     askOfStep(
-      c.stepReadingsOf?.(matter, s),
+      c.stepReadingOf?.(matter, s),
       {
         due,
         first: s.day,
@@ -83,7 +83,7 @@ export function yourMoveOf<S extends MoveStep>(
     });
   const [first] = his.toSorted(
     (a, b) =>
-      Number(a.isHidden) - Number(b.isHidden) ||
+      Number(a.isMoveHidden) - Number(b.isMoveHidden) ||
       Number(a.due === undefined) - Number(b.due === undefined) ||
       (a.due ?? "").localeCompare(b.due ?? "") ||
       b.step.at.localeCompare(a.step.at)
@@ -92,11 +92,13 @@ export function yourMoveOf<S extends MoveStep>(
   return first && since ? { ...first, since } : undefined;
 }
 
-/** Whether matter `v`'s card shows a hidden step (`yourMoveOf`: every step he owes on it is hidden): the hand-out's `handled_elsewhere`. Pure. */
+/** Whether matter `v`'s card shows a hidden step (`yourMoveOf`: every step he owes on it is hidden): the hand-out's `move_hidden`. Pure. */
 export const isMoveHiddenOf =
-  (c: StepAskInputs) =>
-  (v: { id: string; openSteps: readonly (Step & MoveStep)[] }) =>
-    Boolean(yourMoveOf(v, askOf(c, v.id))?.isHidden);
+  (c: StepReadings) =>
+  (v: { id: string; openSteps?: readonly (Step & MoveStep)[] }) =>
+    Boolean(
+      yourMoveOf({ openSteps: v.openSteps ?? [] }, askOf(c, v.id))?.isMoveHidden
+    );
 
 /** The steps the open matters' cards show (`yourMoveOf`): whose sentences the checks read. Pure. */
 export const yourMoveStepsOf = (
@@ -105,7 +107,7 @@ export const yourMoveStepsOf = (
     open: boolean;
     openSteps: Step[];
   }[],
-  c: StepAskInputs
+  c: StepReadings
 ) =>
   matters.flatMap((v) =>
     v.open ? (yourMoveOf(v, askOf(c, v.id))?.step.ref ?? []) : []
@@ -136,7 +138,7 @@ type Step = Pick<
 >;
 
 /** What the cards are worked out from: a part of the checks' inputs (`CheckInputs`). */
-export interface YourMoveInputs extends StepAskInputs {
+export interface YourMoveInputs extends StepReadings {
   decisions: readonly { matter?: string; question: string; subject?: string }[];
   /** The matters he dismissed as new matter offers, as pinned steps: no Start on their card either. */
   dismissed: readonly (readonly string[])[];
@@ -164,7 +166,7 @@ export interface YourMoveInputs extends StepAskInputs {
  * already asks him), its project is not parked (his own word), and no active agent's open assignment holds it (one that
  * can work on it now: a stopped agent's, or any while the desk is off, holds nothing here), or its agent waits on him
  * (`wait_owner`). A closed try holds nothing here (`isHeldOf`'s rule for the hand-out stays its own).
- * `held`: any open assignment holds it (then no Start); `isHidden` and `isBlocking`: how its step is asked
+ * `held`: any open assignment holds it (then no Start); `isMoveHidden` and `isBlocking`: how its step is asked
  * (`askOfStep`, worked out here once per card). Pure.
  */
 export function yourMovesOf(c: YourMoveInputs) {
@@ -215,7 +217,7 @@ type SaidLine = Parameters<typeof saidOfLine>[0];
 
 /**
  * The your move cards: one per matter whose step is his (`yourMovesOf`), unless it is offered as a new matter
- * (`offered`: that card asks first, until its offer ends) or his Not now hides it; a hidden one (`isHidden`) shows on
+ * (`offered`: that card asks first, until its offer ends) or his Not now hides it; a hidden one (`isMoveHidden`) shows on
  * its matter's page only, with no Start; its step
  * as the question and `subject`, the matter's next step and what it waits on in its context, a `place` need from an
  * appointment read from its step, its `when` as the deadline; Mark as done ends that step, Hand over starts one
@@ -237,14 +239,14 @@ export function yourMoveChecksOf(
     if (!move || offered.has(v.id)) {
       return [];
     }
-    const { due, held, isBlocking, isHidden, since, step } = move;
+    const { due, held, isBlocking, isMoveHidden, since, step } = move;
     const line = c.byId.get(step.ref);
     // A place name `redact` would hide part of is not shown at all.
     const place = locationOf({ name: c.places?.get(step.ref) ?? null });
     const urls = place ? mapUrlsOf({ name: place }) : undefined;
     // The hand-out takes only a running matter of his: a dormant one keeps its Start.
     const canStart =
-      !isHidden &&
+      !isMoveHidden &&
       c.heldByAgents !== null &&
       !held &&
       !dismissed.has(v.id) &&
@@ -259,8 +261,7 @@ export function yourMoveChecksOf(
       draft: null,
       goal: v.goal?.text ?? v.name,
       group: "your move",
-      isBlocking,
-      isHidden,
+      [HOW_ASKED]: { isBlocking, isMoveHidden },
       kind: "your move",
       likelyPeople: [],
       links: [],

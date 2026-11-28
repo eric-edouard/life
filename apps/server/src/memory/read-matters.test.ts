@@ -327,15 +327,15 @@ test("a matter that passes every gate has none", () => {
 });
 
 // Card sort (28 Nov 2026): his own work done elsewhere, or someone else's, is never handed to an agent; no reading, no gate.
-test("a matter whose step is handled elsewhere is not handed out, after a hands-off project and before a due direction", () => {
-  expect(gate({ isHandledElsewhere: () => true })).toBe("handled_elsewhere");
-  expect(gate({ isHandledElsewhere: () => true, isHandsOff: () => true })).toBe(
+test("a matter whose your move card is hidden is not handed out, after a hands-off project and before a due direction", () => {
+  expect(gate({ isMoveHidden: () => true })).toBe("move_hidden");
+  expect(gate({ isHandsOff: () => true, isMoveHidden: () => true })).toBe(
     "hands_off"
   );
-  expect(gate({ isDue: () => true, isHandledElsewhere: () => true })).toBe(
-    "handled_elsewhere"
+  expect(gate({ isDue: () => true, isMoveHidden: () => true })).toBe(
+    "move_hidden"
   );
-  expect(gate({ isHandledElsewhere: () => false })).toBeNull();
+  expect(gate({ isMoveHidden: () => false })).toBeNull();
 });
 
 test("each gate names itself, in order: not_do, project_parked, direction_due, dismissed, held, not_his, no_agent", () => {

@@ -7,6 +7,7 @@ import type { CheckGroup } from "../core/names";
 import type { AnswerIcon } from "../records/answer-icon";
 import type { NamingQueueItem } from "../sources/voice-speakers";
 import type { PlanStep } from "./card-request";
+import type { askOfStep, HOW_ASKED } from "./check-urgency";
 import type { Decision, doneSeenShownOf } from "./decision-lines";
 import type { StoredDraft } from "./draft";
 import type { AgentHold } from "./held-matters";
@@ -245,10 +246,6 @@ export interface Check {
   head?: { name: string; network: string } | null;
   /** An agent's card the gate read as high stakes (its `delivered` line's readings): first among cards of the same deadline; absent on every other. */
   importance?: "high";
-  /** A your move card's: whether it blocks him (`askOfStep`); absent on every other kind. */
-  isBlocking?: boolean;
-  /** A your move card's: whether its step is on its matter's page only, not in his inbox (`askOfStep`); absent on every other kind. */
-  isHidden?: boolean;
   /** Whether a decision is a plan card: it gives `plan`, its steps; absent on every other kind. */
   isPlan?: boolean;
   kind: CheckKind;
@@ -309,6 +306,8 @@ export interface Check {
   title: string;
   /** A voice's: the people the voice naming guessed (known today), each with why, code's words (`whyOf`), null for a guess made before it; absent on every other kind. */
   voiceGuesses?: { person: Party; why: string | null }[];
+  /** A your move card's: whether it blocks him and whether it is on its matter's page only (`askOfStep`); never on the wire; absent on every other kind. */
+  [HOW_ASKED]?: ReturnType<typeof askOfStep>;
 }
 
 /** A card whose cause his complaint is at work on (`Check.beingFixed`). */

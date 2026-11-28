@@ -420,8 +420,6 @@
       "draft": null,
       "goal": "Renew the lease",
       "group": "your move",
-      "isBlocking": false,
-      "isHidden": false,
       "kind": "your move",
       "likelyPeople": [],
       "links": [],
@@ -1037,5 +1035,5 @@
   },
   "deadlinesToday": 0,
   "total": 11,
-  "version": "05e2eb2b3551c0d4"
+  "version": "829ae0c79439ba17"
 }

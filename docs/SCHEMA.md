@@ -384,13 +384,14 @@ unread. His `matter-icon` correction wins over it (`iconNow`).
 ## step-readings.jsonl
 
 The model's readings of each open step he owes (`memory/step-readings.ts`, its only writer, `stepReadings`: the night
-after the icons), one line per step version, append-only: `inputs` (the 16-hex `stepInputsOf`: the step's words, kind,
-person, whom he owes, due day and the prompt version), `guidance` (the 16-hex digest of his `what-to-ask` instructions
+after the icons), one line per step version, append-only: `inputs` (the 16-hex `stepInputsOf`: the step's matter, words,
+kind, person, whom he owes, due day and the prompt version), `guidance` (the 16-hex digest of his `what-to-ask` instructions
 in force on it when read), `step` (its ref), `handledBy` (`owner`, `owner_elsewhere` or `someone_else`), `urgency`
-(`low`, `normal`, `high`), `goodMoment`, `money` (`none`, `some`, `due_on_receipt`), `by` (the id of the instruction
-shown that decided, else null), `reason` (one line, in his memory language), `at`, `madeBy`, `schemaVersion`. The
+(`low`, `normal`, `high`), `money` (`none`, `some`, `due_on_receipt`), `by` (the id of the instruction
+shown that says not to ask it, else null), `reason` (one line, in his memory language), `at`, `madeBy`, `schemaVersion`. The
 newest line for an `inputs` wins; a step is read again when its version or his words on it change. Whether it is
-hidden or blocks, and whether its `by` is still in force, are worked out when read (`askOfStep`), never stored.
+hidden or blocks, and whether its `by` is still in force, are worked out when read (`askOfStep`), never stored; a line
+read under other words than his now reads `owner` (`readStepReadings`).
 
 ## read-replies/<YYYY-MM>.jsonl
 

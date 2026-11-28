@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Observation } from "../records/observation";
+import { HOW_ASKED } from "./check-urgency";
 import { checksOf } from "./checks";
 import { holdOn, inputs } from "./checks-test-inputs";
 import { type MatterRecords, matterBookOf } from "./matter-read";
@@ -107,7 +108,7 @@ test("every open step of his is asked, or has a recorded ending", () => {
       heldByAgents: [holdOn(byStopped.id, { status: "stopped" })],
       matters: book,
       // The quiet step read as someone else's (card sort, 28 Nov 2026): hidden from his inbox, still on its matter's page.
-      stepReadingsOf: (_, s) =>
+      stepReadingOf: (_, s) =>
         s.ref === quiet.id
           ? {
               by: null,
@@ -119,7 +120,9 @@ test("every open step of his is asked, or has a recorded ending", () => {
       today: TODAY,
     })
   );
-  expect(checks.find((c) => c.subject === quiet.id)?.isHidden).toBe(true);
+  expect(
+    checks.find((c) => c.subject === quiet.id)?.[HOW_ASKED]?.isMoveHidden
+  ).toBe(true);
   const asked = new Set(checks.flatMap((c) => c.ridesOn.matterIds));
   const his = book.flatMap((v) =>
     v.steps
