@@ -1,11 +1,26 @@
 import { expect, spyOn, test } from "bun:test";
 import { DAY, HOUR, MIN } from "../../core/clock";
 import { voiceServer } from "../../sources/store-fixtures";
+import { quietestAt, toneOf } from "../integration-health";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
 import * as macAccess from "../mac-access";
 import { alertKeyOf, redCards } from "../report";
 import { crashCard } from "./crash-card";
 import { processingStepsOf, snapshot } from "./snapshot";
+
+// The regression case names this file: the rule now lives in `integration-health.ts`, the card that shows it here.
+test("audit-6-line-account-id: a source with parts goes amber when one part is silent, even while another is receiving", () => {
+  const now = Date.parse("2026-10-21T15:00:00.000Z");
+  const ago = (ms: number) => new Date(now - ms).toISOString();
+  const parts = [
+    { at: ago(10 * MIN), label: "telegram" },
+    { at: ago(4 * DAY), label: "line" },
+  ];
+  expect(
+    toneOf(quietestAt({ at: ago(10 * MIN), parts }), 3 * DAY, now)
+  ).toEqual({ tone: "warn", word: "silent" });
+  expect(quietestAt({ at: ago(HOUR) })).toBe(ago(HOUR));
+});
 
 test("a processing run's steps are the steps it recorded: done, now, the one it failed at still to do, then the night's report", () => {
   const run = (processingSteps: string[], outcome: string, failedAt?: string) =>
