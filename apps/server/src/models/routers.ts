@@ -45,14 +45,16 @@ interface ChatReply {
 const NOT_ALNUM = /[^a-z0-9]/g;
 const slug = (s: string) => s.toLowerCase().replaceAll(NOT_ALNUM, "");
 
-/** The API routers, each its OpenAI-shaped endpoint and the key it takes; both take OpenRouter's `provider` field. */
+/** The API routers, each its OpenAI-shaped endpoint, the key it takes and the page where that key is made (`keysAt`); both take OpenRouter's `provider` field. */
 export const ROUTERS = {
   allmodels: {
     key: "ALLMODELS_API_KEY",
+    keysAt: "https://allmodels.io",
     url: "https://api.allmodels.io/oai/chat/completions",
   },
   openrouter: {
     key: "OPENROUTER_API_KEY",
+    keysAt: "https://openrouter.ai/settings/keys",
     url: "https://openrouter.ai/api/v1/chat/completions",
   },
 };
