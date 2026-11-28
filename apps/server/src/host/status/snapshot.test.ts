@@ -105,6 +105,9 @@ test(
   async () => {
     // Full Disk Access is the test process's own, which differs by machine: granted here, so the source's cause shows.
     const fda = spyOn(macAccess, "readFullDiskAccess").mockReturnValue("done");
+    // Past the Mac's cached reads (5 s), so they are taken again under the spy; short of the later tests' hour.
+    const later = performance.now() + MIN;
+    const timer = spyOn(performance, "now").mockReturnValue(later);
     try {
       const red = new Map(
         redCards((await snapshot()).cards).map((c) => [c.id, c])
@@ -115,6 +118,7 @@ test(
       expect(red.has("claude")).toBe(false);
     } finally {
       fda.mockRestore();
+      timer.mockRestore();
     }
   },
   MIN

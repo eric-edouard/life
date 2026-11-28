@@ -608,7 +608,7 @@ const Credits = z.object({
   data: z.object({ total_credits: z.number(), total_usage: z.number() }),
 });
 
-/** OpenRouter's balance, or null with no key set or a call that failed. The request carries only that key. */
+/** OpenRouter's balance, or null with no key set or a call that failed. Privacy: only that key goes to OpenRouter (SECURITY.md, "What leaves the Mac"); off with another engine. */
 async function creditsNow() {
   const key = process.env[ROUTERS.openrouter.key];
   if (!key) {

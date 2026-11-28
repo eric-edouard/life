@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { Engine } from "../core/names";
-import { setSettings, settings } from "../core/settings";
-import { enabledSources, SOURCES } from "../memory/sources";
+import { SOURCES } from "../memory/sources";
 import { providerOf } from "../models/llm";
 import type { IntegrationTerms } from "../records/integration";
 import { NETWORKS } from "../sources/networks";
@@ -15,13 +14,17 @@ import {
 
 // The integration read's own rules, on made-up data: no network call, no read of this Mac.
 
-/** Made-up reads: nothing read, nothing failing, no bridge checked. */
+/** Made-up reads: Telegram on, nothing read, nothing failing, no permission given, no bridge checked. */
 const reads = (over: Partial<IntegrationReads> = {}): IntegrationReads => ({
+  access: {},
   bridges: new Map(),
   failingStores: new Map(),
+  fullDiskAccess: "missing",
   life: { error: "lifelog not set up", ok: false as const },
+  missing: new Map(),
   newest: new Map(),
   now: new Date("2026-11-28T09:00:00.000Z"),
+  on: new Set(["telegram"]),
   t: Date.parse("2026-11-28T09:00:00.000Z"),
   turn: { ok: true, value: null },
   ...over,
@@ -78,56 +81,49 @@ test("a network's requirements: its app keys first, then signing in from his pho
   expect(requirementsOf(sourceOf("git"))).toEqual([]);
 });
 
-test("Telegram with no keys yet waits on him, with the key's words; with keys and a broken bridge, the bridge's", () => {
+test("Telegram with no keys yet waits on him, with the key's words; signed in with its copier down, broken with the copier's", () => {
   const telegram = sourceOf("telegram");
-  const was = settings().sources;
-  try {
-    setSettings({ sources: [...new Set([...was, "telegram" as const])] });
-    expect(enabledSources().includes(telegram)).toBe(true);
-    const needingKeys = integrationFactsOf(
-      telegram,
-      reads({
-        bridges: new Map([
-          [
-            "telegram",
-            {
-              needsKeys: true as const,
-              ok: false,
-              text: "needs your app keys",
-            },
-          ],
-        ]),
-      })
-    );
-    expect(needingKeys.requirements).toEqual([
-      {
-        done: false,
-        kind: "key",
-        name: "telegram",
-        opens: "https://my.telegram.org",
-      },
-      // Unmet too on a made-up Mac, but the key comes first.
-      { done: false, kind: "sign_in", with: "network" },
-    ]);
-    expect(integrationHealthOf(needingKeys)).toMatchObject({
-      state: "waiting_on_user",
-      why: "Add your key from my.telegram.org.",
+  const bridge = (check: {
+    needsKeys?: true;
+    ok: boolean;
+    signedIn?: boolean;
+    text: string;
+  }) =>
+    reads({
+      bridges: new Map([["telegram", check]]),
+      newest: new Map([["telegram", { ok: true, value: { at: null } }]]),
     });
-    const broken = integrationFactsOf(
-      telegram,
-      reads({
-        bridges: new Map([
-          ["telegram", { ok: false, text: "telegram bridge BAD_CREDENTIALS" }],
-        ]),
-      })
-    );
-    expect(broken.kind === "source" && broken.bridgeDown).toBe(
-      "telegram bridge BAD_CREDENTIALS"
-    );
-    // Its keys are in, so the key requirement is done.
-    const [key] = requirementsOf(telegram);
-    expect(key && isDoneOf(key, telegram, reads())).toBe(true);
-  } finally {
-    setSettings({ sources: was });
-  }
+  const needingKeys = integrationFactsOf(
+    telegram,
+    bridge({
+      needsKeys: true,
+      ok: false,
+      signedIn: false,
+      text: "needs your app keys",
+    })
+  );
+  expect(needingKeys.requirements).toEqual([
+    {
+      done: false,
+      kind: "key",
+      name: "telegram",
+      opens: "https://my.telegram.org",
+    },
+    { done: false, kind: "sign_in", with: "network" },
+  ]);
+  expect(integrationHealthOf(needingKeys)).toMatchObject({
+    state: "waiting_on_user",
+    why: "Add your key from my.telegram.org.",
+  });
+  // Beeper holds his sign-in, so nothing waits on him: what is down is Beeper, in the bridge check's words.
+  const beeperClosed = integrationFactsOf(
+    telegram,
+    bridge({ ok: false, signedIn: true, text: "Beeper is closed" })
+  );
+  expect(integrationHealthOf(beeperClosed)).toMatchObject({
+    state: "broken",
+    why: "Beeper is closed",
+  });
+  const [key] = requirementsOf(telegram);
+  expect(key && isDoneOf(key, "telegram", reads())).toBe(true);
 });

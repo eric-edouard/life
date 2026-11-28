@@ -11,16 +11,12 @@ import type { Tone } from "./status/card";
 /** Received within this, a source reads as live. */
 const LIVE_MS = HOUR;
 
-/** A source's tone: unreadable is red; then live, quiet, or silent past its limit. */
+/** A source's tone: live, quiet, or silent past its limit. */
 export function toneOf(
   at: string | null | undefined,
   limit: number,
-  now: number,
-  readable = true
+  now: number
 ): { tone: Tone; word: string } {
-  if (!readable) {
-    return { tone: "bad", word: "unreadable" };
-  }
   if (!at) {
     return { tone: "idle", word: "nothing yet" };
   }

@@ -434,7 +434,7 @@ const LISTED: Descriptor[] = [
 ];
 
 /** Whether its app is on this system: a Mac-only one only on the Mac. */
-const appHere = (s: Descriptor) => !(s.macOnly && WINDOWS);
+export const appHere = (s: Descriptor) => !(s.macOnly && WINDOWS);
 
 export const SOURCES = LISTED.map((s): Descriptor => {
   if (!(s.store || appHere(s))) {

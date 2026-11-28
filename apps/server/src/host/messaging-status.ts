@@ -1,4 +1,5 @@
-import { integrationsNow, latestBridgeChecks } from "./integrations";
+import { latestBridgeChecks } from "./bridge-check";
+import { integrationsNow } from "./integrations";
 
 // `bun life bridge` without a verb (docs/use/bridges.md): every messaging integration that is on, one line each: ✓ when
 // it works or is connecting, ✗ with its state and why when it doesn't, and the command that fixes its bridge when one

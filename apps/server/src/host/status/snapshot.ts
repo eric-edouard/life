@@ -257,9 +257,12 @@ function pendantCard(r: Reads, d: Descriptor, h: IntegrationHealth): Card {
   };
 }
 
+/** The voice server's watcher is polling. */
+const polling = (r: Reads) => r.status.watcher.state === "ok";
+
 /** What the voice server card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
 const polledHeadline = (r: Reads) => {
-  if (r.status.watcher.state !== "ok") {
+  if (!polling(r)) {
     return r.health?.lastError ?? "no poll for 15 minutes";
   }
   return r.health?.lastOkAt ? "polling" : "never polled";
@@ -273,7 +276,7 @@ function voiceServerCard(r: Reads): Card {
   return {
     ...firstOf(
       [
-        r.status.watcher.state !== "ok",
+        !polling(r),
         {
           ask: ASK("that the watcher has not polled lifelog for 15 minutes"),
           tone: "bad",
@@ -454,7 +457,7 @@ function captureCards(r: Reads): Card[] {
           },
         ],
         [
-          r.status.watcher.state !== "ok",
+          !polling(r),
           {
             ask: ASK("that the watcher is running but not polling"),
             tone: "bad",
@@ -468,7 +471,7 @@ function captureCards(r: Reads): Card[] {
         { label: "Asks heard today", value: String(asksToday) },
       ],
       group: "capture",
-      headline: r.status.watcher.state === "ok" ? "hearing" : "not polling",
+      headline: polling(r) ? "hearing" : "not polling",
       id: "watcher",
       name: "Watcher",
     },

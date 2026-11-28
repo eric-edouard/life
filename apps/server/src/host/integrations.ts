@@ -7,18 +7,16 @@
 
 import { cached, safe } from "../core/cached";
 import { clock, MIN } from "../core/clock";
-import { systemZone, WINDOWS } from "../core/platform";
+import { systemZone } from "../core/platform";
 import { readAccessStatuses } from "../memory/access";
-import { enabledSources, SOURCES } from "../memory/sources";
+import { appHere, enabledSources, SOURCES } from "../memory/sources";
 import { providerOf, readEngine, readEngineCheck } from "../models/llm";
 import type { IntegrationTerms, Requirement } from "../records/integration";
-import { copierOf } from "../sources/bridged";
 import type { Descriptor, Newest } from "../sources/contract";
-import { isBridgeAdded, isBridgeLinked, readBlock } from "../sources/matrix";
 import { NETWORKS, type Network } from "../sources/networks";
 import { newestTurn, readVoiceServerStatus } from "../sources/voice-server";
-import { needsAppKeys } from "./app-keys";
 import { archiveFailing } from "./archive";
+import { latestBridgeChecks } from "./bridge-check";
 import {
   type IntegrationFacts,
   type IntegrationState,
@@ -30,110 +28,6 @@ import {
 } from "./integration-health";
 import { readFullDiskAccess } from "./mac-access";
 import { voiceStatus } from "./voice";
-
-/** One network's bridge, as last checked: what it found, the command that fixes it, and whether it waits on his keys. */
-export interface BridgeCheck {
-  command?: string;
-  needsKeys?: true;
-  ok: boolean;
-  text: string;
-}
-
-/**
- * Whether a network's bridge can read now (`bun life bridge`'s check): none needed for a network its own app is read
- * from, its keys first when it has app keys pending, then whichever app copies it (its bridge, or Beeper until it is
- * linked). The CLI's words go to `command`, alone.
- */
-export async function readBridgeCheck(
-  n: Network
-): Promise<BridgeCheck | undefined> {
-  // A network its own app is read from (WhatsApp) has a bridge only for sending: no bridge is no problem.
-  if (n.readByItsApp && !isBridgeAdded(n.name)) {
-    return;
-  }
-  const copier = n.readByItsApp ? "bridge" : copierOf(n.name);
-  if (
-    isBridgeAdded(n.name) &&
-    !isBridgeLinked(n.name) &&
-    (await needsAppKeys(n))
-  ) {
-    return {
-      command: `bun life bridge link ${n.name}`,
-      needsKeys: true,
-      ok: false,
-      text: "needs your app keys",
-    };
-  }
-  if (copier === "beeper") {
-    // Added but not linked yet: Beeper is still the one copying, so no gap opens; linking ends its session.
-    return {
-      ok: true,
-      text: isBridgeAdded(n.name)
-        ? "read from Beeper until you sign in from your phone"
-        : "read from Beeper",
-    };
-  }
-  if (copier === "beeper-closed") {
-    return { ok: false, text: "Beeper is closed" };
-  }
-  if (!copier) {
-    return {
-      command: `bun life bridge add ${n.name}`,
-      ok: false,
-      text: "no bridge",
-    };
-  }
-  const why = await readBlock(n.name);
-  return why ? { ok: false, text: why } : { ok: true, text: "bridge running" };
-}
-
-/** Every network with something to check: its source is on, or its bridge is added. */
-async function bridgeChecksNow() {
-  const on = new Set(enabledSources().map((d) => d.name as string));
-  const networks = NETWORKS.filter(
-    (n) => on.has(n.name) || isBridgeAdded(n.name)
-  );
-  const found = await Promise.all(
-    networks.map(async (n) => ({
-      check: await readBridgeCheck(n),
-      name: n.name,
-    }))
-  );
-  return new Map(
-    found.flatMap((f) =>
-      f.check ? [[f.name, f.check] as [string, BridgeCheck]] : []
-    )
-  );
-}
-
-let bridges = new Map<string, BridgeCheck>();
-let checkedAt = Number.NEGATIVE_INFINITY;
-let check: Promise<void> | undefined;
-
-/**
- * Every network's bridge check as last found: the status window reads every 3 s and a check may take 10 s, so a stale
- * one starts a fresh one in the background (every 15 s at most). Only a process's first read waits for one (10 s at
- * most, once), so a fresh process, like the tick's source alert, sees its bridges.
- */
-export async function latestBridgeChecks(): Promise<Map<string, BridgeCheck>> {
-  if (!check && performance.now() - checkedAt > 15_000) {
-    // In a promise from the start: a check that throws at once never stops the snapshot or the next check.
-    check = Promise.resolve()
-      .then(() => bridgeChecksNow())
-      .then((m) => {
-        bridges = m;
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        check = undefined;
-        checkedAt = performance.now();
-      });
-  }
-  if (checkedAt === Number.NEGATIVE_INFINITY) {
-    await check;
-  }
-  return bridges;
-}
 
 /** Every source's newest item (`Descriptor.newest`), each read by its own module. */
 const newestOf = async () =>
@@ -159,14 +53,23 @@ const newestOf = async () =>
 
 /** What the integration facts read, each cached (the snapshot's reads hold the same, under the same cache keys). */
 export async function readIntegrationReads(now: Date) {
-  const [failingStores, bridgeChecks, life, newest, turn] = await Promise.all([
-    cached("failing", 15_000, async () => new Map(await archiveFailing())),
-    latestBridgeChecks(),
-    cached("lifelog", 30_000, () => safe(readVoiceServerStatus)),
-    newestOf(),
-    cached("turn", 3000, () => safe(newestTurn)),
-  ]);
+  const [failingStores, bridgeChecks, life, newest, turn, mac] =
+    await Promise.all([
+      cached("failing", 15_000, async () => new Map(await archiveFailing())),
+      latestBridgeChecks(),
+      cached("lifelog", 30_000, () => safe(readVoiceServerStatus)),
+      newestOf(),
+      cached("turn", 3000, () => safe(newestTurn)),
+      // What each source still lacks and the Mac's permissions: each a disk read, so read once per window.
+      cached("integration mac", 5000, () => ({
+        access: readAccessStatuses().statuses,
+        fullDiskAccess: readFullDiskAccess(),
+        missing: new Map(SOURCES.map((d) => [d.name as string, d.missing?.()])),
+        on: new Set(enabledSources().map((d) => d.name as string)),
+      })),
+    ]);
   return {
+    ...mac,
     bridges: bridgeChecks,
     failingStores,
     life,
@@ -176,7 +79,12 @@ export async function readIntegrationReads(now: Date) {
     turn,
   };
 }
-export type IntegrationReads = Awaited<ReturnType<typeof readIntegrationReads>>;
+export type IntegrationReads = Awaited<
+  ReturnType<typeof readIntegrationReads>
+> & {
+  /** The AI's engine check, read only for the integration list. */
+  engine?: Awaited<ReturnType<typeof readEngineCheck>>;
+};
 
 /** What a source takes as an integration: its network's requirements first (its keys, its sign-in), else its own terms. */
 export function requirementsOf(d: Descriptor): readonly Requirement[] {
@@ -195,30 +103,36 @@ export function requirementsOf(d: Descriptor): readonly Requirement[] {
   ];
 }
 
-/** Whether one of an integration's requirements is met now, by its own reader; a source checks nothing of itself. */
+/** Whether one of integration `name`'s requirements is met, from the reads alone. */
 export function isDoneOf(
   r: Requirement,
-  d: Descriptor,
+  name: string,
   reads: IntegrationReads
 ): boolean {
+  const { engine } = reads;
   switch (r.kind) {
     case "permission":
-      if (r.check === "full_disk_access") {
-        return readFullDiskAccess() === "done";
+      // Free space is the step's own to judge (`accessStepsOf`).
+      if (r.check === "disk_free") {
+        return true;
       }
-      // Free space is the step's own to judge (`accessStepsOf`); the helper is never spawned from here.
-      return r.check === "disk_free"
-        ? true
-        : readAccessStatuses().statuses[r.check] === "done";
+      return r.check === "full_disk_access"
+        ? reads.fullDiskAccess === "done"
+        : reads.access[r.check] === "done";
     case "sign_in":
-      return r.with === "network"
-        ? isBridgeLinked(d.name) || copierOf(d.name) === "beeper"
-        : true;
+      if (r.with === "network") {
+        return reads.bridges.get(name)?.signedIn !== false;
+      }
+      return r.with === "claude" ? engine?.claudeSignedIn !== false : true;
+    case "install":
+      return engine?.claudeFound !== false;
+    case "credits":
+      return !engine || engine.credits === null || engine.credits > 0;
     case "key":
-      return reads.bridges.get(d.name)?.needsKeys !== true;
+      return reads.bridges.get(name)?.needsKeys !== true;
     case "device":
       return r.what === "phone"
-        ? !d.missing?.()
+        ? !reads.missing.get(name)
         : !reads.life.ok || Boolean(reads.life.value.pendant);
     default:
       return true;
@@ -231,11 +145,11 @@ export function integrationFactsOf(
   r: IntegrationReads
 ): IntegrationFacts {
   const base = {
-    missing: d.missing?.(),
-    on: enabledSources().includes(d),
+    missing: r.missing.get(d.name),
+    on: r.on.has(d.name),
     requirements: requirementsOf(d).map((x) => ({
       ...x,
-      done: isDoneOf(x, d, r),
+      done: isDoneOf(x, d.name, r),
     })),
   };
   if (d.kind === "voice") {
@@ -328,34 +242,18 @@ const VOICE_TERMS: IntegrationTerms = {
   },
 };
 
-/** Whether a requirement the AI's terms name is met now, by the engine check. */
-function isAiDone(
-  r: Requirement,
-  engineCheck: Awaited<ReturnType<typeof readEngineCheck>>
-) {
-  if (r.kind === "install") {
-    return engineCheck.claudeFound;
-  }
-  if (r.kind === "sign_in") {
-    return engineCheck.claudeSignedIn;
-  }
-  if (r.kind === "credits") {
-    return engineCheck.credits === null || engineCheck.credits > 0;
-  }
-  return true;
-}
-
 /**
  * Every integration now, in the order a user meets them: the AI, voice, each source on this system, then each messaging
  * network. Served to the host app's setup window, the phone and `bun life bridge`.
  */
 export async function integrationsNow(now = clock()): Promise<Integration[]> {
-  const reads = await readIntegrationReads(now);
   const engine = readEngine();
   const { integration: aiTerms, label } = providerOf(engine);
-  const engineCheck = await cached("engine check", MIN, () =>
-    readEngineCheck(engine)
-  );
+  const [integrationReads, engineCheck] = await Promise.all([
+    readIntegrationReads(now),
+    cached("engine check", MIN, () => readEngineCheck(engine)),
+  ]);
+  const reads: IntegrationReads = { ...integrationReads, engine: engineCheck };
   const { key } = engineCheck;
   // Its router's key first (the one he makes), then what its terms ask.
   const aiRequirements: MetRequirement[] = [
@@ -371,7 +269,7 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
       : []),
     ...aiTerms.requirements.map((r) => ({
       ...r,
-      done: isAiDone(r, engineCheck),
+      done: isDoneOf(r, "ai", reads),
     })),
   ];
   const ai: Integration = integrationOf({
@@ -395,7 +293,7 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
       answering: "answering" in v && v.answering === true,
       kind: "voice",
       line: v.line,
-      on: !!voiceSource && enabledSources().includes(voiceSource),
+      on: !!voiceSource && reads.on.has(voiceSource.name),
       requirements: [],
     },
     group: "voice",
@@ -404,9 +302,7 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
     name: "Voice",
     terms: VOICE_TERMS,
   });
-  // Where it runs comes from `macOnly`, never a second field.
-  const here = (d: Descriptor) => !(d.macOnly && WINDOWS);
-  const sources = SOURCES.filter((d) => d.integration && here(d)).map((d) =>
+  const sources = SOURCES.filter((d) => d.integration && appHere(d)).map((d) =>
     integrationOf({
       facts: integrationFactsOf(d, reads),
       group: d.kind === "voice" ? "voice" : "sources",
@@ -422,7 +318,8 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
     n,
   }))
     .filter(
-      (x): x is { d: Descriptor; n: Network } => x.d !== undefined && here(x.d)
+      (x): x is { d: Descriptor; n: Network } =>
+        x.d !== undefined && appHere(x.d)
     )
     .map(({ d, n }) =>
       integrationOf({

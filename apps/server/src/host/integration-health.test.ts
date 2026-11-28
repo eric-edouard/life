@@ -23,10 +23,6 @@ test("a source is red only when Life can't read it; silence is quiet, then amber
     tone: "warn",
     word: "silent",
   });
-  expect(toneOf(ago(MIN), DAY, now, false)).toEqual({
-    tone: "bad",
-    word: "unreadable",
-  });
   expect(toneOf(null, DAY, now)).toEqual({ tone: "idle", word: "nothing yet" });
 });
 
