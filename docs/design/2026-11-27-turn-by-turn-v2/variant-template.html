@@ -17,7 +17,6 @@
 .t-box small{display:block;color:var(--muted);font-size:var(--text-line)}
 .t-new{position:absolute;top:8px;right:10px;font-style:normal;font-size:11px;font-weight:650;color:var(--flag)}
 .t-face{width:48px;height:48px;border-radius:24px}
-.t-btn{height:44px;border-radius:22px;background:var(--fg);color:var(--on);font-weight:650;width:100%;margin-top:8px}
 .t-hi{margin:auto 0;text-align:center;font-size:28px;font-weight:650}
 </style>
 </head>
@@ -38,12 +37,8 @@ async function work(c,a){c.edge.set('work');var b=el(c.stage,'t-life',''),line=e
   async function hold(ms){if(a.stillAfter&&!still&&t+ms>a.stillAfter){await c.wait(a.stillAfter-t);still=el(b,'t-step',a.still);ms-=a.stillAfter-t;t=a.stillAfter;}await c.wait(ms);t+=ms;}
   await hold(a.first);for(var s of a.steps){line.textContent=s.t;await hold(s.ms);}
   b.remove();}
-/* a draft card: Send one tap, then Sent and Undo */
-function card(parent,k,c){var b=box(parent,k,'<small>'+k.app+' · to '+k.to+' · '+k.made+'</small>'+
-    k.draft+(k.edits?'<small>'+k.edits.join(' · ')+'</small>':'')+'<button type="button" class="t-btn">'+k.send+'</button>');
-  if(k.context)b.insertBefore(box(b,k.context,'<small>'+k.context.who+' · '+k.context.app+' · '+k.context.at+'</small>'+k.context.t),b.firstChild);
-  var btn=b.querySelector('.t-btn');btn.onclick=async function(){btn.textContent=k.sending;btn.disabled=true;await c.wait(k.sendMs);
-    btn.outerHTML='<div class="t-step">'+k.sent+' · <u>'+k.undo+'</u></div>';};return b;}
+/* cards: the shell's, one per item, swiped sideways */
+function card(parent,k,c){return parent.appendChild(c.cards([k]));}
 function lead(c,text){return el(c.stage,'t-life','<b>'+text+'</b>');}
 function dayAnswer(c){var a=D.asks.day.answer,b=lead(c,a.lead);
   a.events.forEach(function(e){box(b,e,'<b>'+e.at+' '+e.t+'</b><small>'+e.where+'</small>');});
@@ -57,6 +52,9 @@ function jadeAnswer(c){var a=D.asks.jade.answer,b=lead(c,a.lead);
 async function turn(c,a,draw){await ask(c,a);await work(c,a);draw(c);}
 Shell.mount({title:'Turn by turn v2: template',scenes:[
   {id:'idle',label:'Idle',run:function(c){el(c.stage,'t-hi','Hi');}},
+  {id:'home-waiting',label:'Opens with matters waiting',run:function(c){el(c.stage,'t-hi','Hi');el(c.stage,'t-step','Waiting on you');c.stage.appendChild(c.cards(D.waiting.slice(0,3)));}},
+  {id:'waiting-list',label:'Waiting on you',run:function(c){el(c.stage,'t-me',D.waitingAsk);lead(c,D.waitingLead).appendChild(c.cards(D.waiting));c.edge.set('landed');}},
+  {id:'pendant',label:'Pendant status',run:function(c){el(c.stage,'t-hi','Hi');c.pendant();}},
   {id:'type-send',label:'He types an ask',run:async function(c){await ask(c,D.asks.day);c.edge.set('work');}},
   {id:'voice-send',label:'He holds to talk',run:async function(c){await ask(c,D.asks.jade);c.edge.set('work');}},
   {id:'working',label:'Life works',run:async function(c){el(c.stage,'t-me',D.asks.day.ask);await work(c,D.asks.day);}},

@@ -12,6 +12,11 @@ import SwiftUI
     var state: EdgeState?
     private(set) var saved: AuraSetting
     private static let key = "aura"
+    /// Whether the edge is drawn at all: off until he turns it on in the halo settings. The phone's own choice.
+    var isOn: Bool {
+        didSet { UserDefaults.standard.set(isOn, forKey: Self.isOnKey) }
+    }
+    private static let isOnKey = "isAuraOn"
 
     private init() {
         let cached = UserDefaults.standard.data(forKey: Self.key).flatMap {
@@ -19,6 +24,7 @@ import SwiftUI
         }
         saved = cached ?? .standard
         shown = cached ?? .standard
+        isOn = UserDefaults.standard.bool(forKey: Self.isOnKey)
     }
 
     /// Life kept `aura`: the edge draws it from now on.
@@ -29,8 +35,8 @@ import SwiftUI
     }
 }
 
-/// The halo settings: the settings block's `aura` key, in Ask Life's answer. Every slider moves the real edge at once;
-/// Save keeps the values as Life's `aura` setting.
+/// The halo settings: the settings block's `aura` key, in Ask Life's answer. Its switch draws the edge at all (off by
+/// default); every slider moves the real edge at once; Save keeps the values as Life's `aura` setting.
 struct AuraBlock: View {
     @Environment(LifeStore.self) private var life
     @State private var state = EdgeState.rest
@@ -40,15 +46,18 @@ struct AuraBlock: View {
     var body: some View {
         @Bindable var preview = preview
         VStack(alignment: .leading, spacing: Metrics.Spacing.m) {
-            AuraKnobs(aura: $preview.shown, state: $state)
-            HStack(spacing: Metrics.Spacing.s) {
-                RowButton(title: "Default") { preview.shown = .standard }
-                RowButton(title: "Undo") { preview.shown = preview.saved }.disabled(preview.shown == preview.saved)
-                Spacer(minLength: 0)
-                Button("Save") { Task { await RowState.tap($saving) { await save() } } }
-                    .buttonStyle(.pill(.filled, size: .compact, isBusy: saving == .saving))
+            Toggle("Halo", isOn: $preview.isOn.animation())
+            if preview.isOn {
+                AuraKnobs(aura: $preview.shown, state: $state)
+                HStack(spacing: Metrics.Spacing.s) {
+                    RowButton(title: "Default") { preview.shown = .standard }
+                    RowButton(title: "Undo") { preview.shown = preview.saved }.disabled(preview.shown == preview.saved)
+                    Spacer(minLength: 0)
+                    Button("Save") { Task { await RowState.tap($saving) { await save() } } }
+                        .buttonStyle(.pill(.filled, size: .compact, isBusy: saving == .saving))
+                }
+                TapLine(state: saving)
             }
-            TapLine(state: saving)
         }
         .padding(.vertical, Metrics.Spacing.m)
         .onAppear { preview.state = state }

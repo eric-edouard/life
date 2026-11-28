@@ -7,9 +7,13 @@
    to be built; mark it "new block" on screen). */
 window.DATA=(function(){
   var face='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3c48f"/><stop offset="1" stop-color="#a3345e"/></linearGradient></defs><rect width="96" height="96" fill="url(#g)"/><circle cx="48" cy="40" r="17" fill="#f6dcc4"/><path d="M29 38c0-14 9-22 19-22s19 8 19 22c-5-7-11-10-19-10s-14 3-19 10Z" fill="#3b2418"/><path d="M18 96c3-18 15-28 30-28s27 10 30 28Z" fill="#126e66"/></svg>');
-  /* a draft card an agent or the main session asked: shown by an `items` block, its Send one tap; Sent after `sendMs`
-     (real median 2.2 s); WhatsApp allows deleting for everyone, so Undo stays */
-  function card(o){o.block='existing';o.kind='items';o.sendMs=1100;o.sending='Sending…';o.undo='Undo';return o;}
+  /* an item that waits on him, drawn as a card (an `items` block, App v4's card): a draft an agent or the main session
+     asked (Send one tap, Sent after `sendMs`, real median 2.2 s; WhatsApp deletes for everyone, so Undo stays) or a
+     matter (who, what, its line, why, one wide action) */
+  function item(o,sendMs){o.block='existing';o.kind='items';o.sendMs=sendMs;if(o.draft){o.sending='Sending…';o.undo='Undo';}return o;}
+  /* drafted by an agent when her message came in, before he asked: the answer brings it (his decision of 28 Nov) */
+  var jade=item({t:'Reply to Jade',face:face,made:'Drafted 25 min ago, when her message came in',to:'Jade',app:'WhatsApp',
+    draft:'Yes please, four at 8. See you Saturday!',send:'Send to Jade',sent:'Sent to Jade · 9:42'},1100);
   return {
     now:{day:'Wednesday 27 Nov',time:'9:41'},
     asks:{
@@ -30,22 +34,31 @@ window.DATA=(function(){
           lead:'Yes, at 9:12: she can book Mirabelle for 8. A reply is ready.',
           who:{block:'new',kind:'face',name:'Jade',face:face},
           reply:{block:'new',kind:'quote',t:'Yes! Mirabelle at 8 works. Shall I book for four, with Sam and Ben?',at:'9:12',app:'WhatsApp'},
-          /* drafted by an agent when her message came in, before he asked: the answer brings it (his decision of 28 Nov) */
-          card:card({made:'Drafted 25 min ago, when her message came in',to:'Jade',app:'WhatsApp',
-            draft:'Yes please, four at 8. See you Saturday!',send:'Send to Jade',sent:'Sent to Jade · 9:42'})}},
+          card:jade}},
       /* he asks to send: one full turn of the main session ("Preparing an ask"), then its card; never sent on his words alone */
       tell:{ask:'Tell Ben I’ll be 10 minutes late',how:'typed',first:3000,
         steps:[{t:'Looking up Ben',ms:1300},{t:'Reading Ben’s chat',ms:1500},{t:'Preparing an ask',ms:2400}],
         answer:{
           lead:'Here it is, in how you write to Ben.',
-          card:card({made:'Just now, on your words',to:'Ben',app:'WhatsApp',edits:['Warmer','Shorter'],
-            draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to Ben · 9:42'})}}},
+          card:item({t:'Tell Ben',made:'Just now, on your words',to:'Ben',app:'WhatsApp',edits:['Warmer','Shorter'],
+            draft:'Running 10 minutes late, see you at 17:40!',send:'Send to Ben',sent:'Sent to Ben · 9:42'},1100)}}},
     /* while he is in the app, idle: an agent's card, delivered by the gate, comes into the thread from the inbox,
        quietly (no sound, no sheet); `arriveMs` is when it shows in the scene */
     arrives:{arriveMs:3000,
-      card:card({made:'Drafted 20 min ago, when Sam wrote',to:'Sam',app:'WhatsApp',
+      card:item({t:'Reply to Sam',made:'Drafted 20 min ago, when Sam wrote',to:'Sam',app:'WhatsApp',
         context:{block:'new',kind:'quote',who:'Sam',t:'Café Lune is shut today 😩 Pho Saigon instead?',at:'9:19',app:'WhatsApp'},
-        draft:'Pho Saigon works, see you at 1!',send:'Send to Sam',sent:'Sent to Sam · 9:42'})},
+        draft:'Pho Saigon works, see you at 1!',send:'Send to Sam',sent:'Sent to Sam · 9:42'},1100)},
+    /* what waits on him, from the phone's own copy (instant, no turn): the count top left, the home's top 3, the list
+       behind the count (his words to Life, as App v4 shows them, then the cards) */
+    waiting:[jade,
+      item({who:'E',t:'Pay the electricity bill',sub:'€84',when:'Fri',why:'The bill came by mail this morning.',act:'I paid it',doing:'Recording…',ok:'Recorded'},900),
+      item({who:'B',t:'Call the bank',sub:'Confirm your new card',when:'this week',why:'The card came yesterday; they confirm it by phone only.',act:'Done',doing:'Recording…',ok:'Recorded'},900),
+      item({who:'N',t:'Sign the lease renewal',sub:'Nest Homes',when:'Mon',why:'They need it back signed by Monday.',act:'Signed',doing:'Recording…',ok:'Recorded'},900)],
+    waitingAsk:'What’s waiting on me?',
+    /* Life's words over the list, built from the list the count starts from */
+    get waitingLead(){var w=this.waiting,n=w.length;return (['Nothing waits','One thing waits','Two things wait','Three things wait','Four things wait','Five things wait'][n]||n+' things wait')+' on you'+(n?', '+(w[0].to||w[0].who)+' first.':'.');},
+    /* the pendant's page (App v4's pendant D): one status line and Pause */
+    pendant:{recording:'Recording since 8:02',paused:'Paused · nothing is recorded'},
     /* one more ask, after the day's answer */
     followUp:{ask:'And tomorrow?',how:'typed',first:2500,steps:[{t:'Looking at your day',ms:1600}],
       answer:{lead:'Quieter: the plumber at 10:00, nothing after.'}},
