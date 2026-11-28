@@ -67,6 +67,16 @@ const agent: Agent = {
   title: "Made-up agent",
 };
 
+/** Runs `f` as a frozen copy's (a question case's second Life, `LIFE_NOW`), whose agents read it. */
+async function asFrozenCopy<T>(f: () => Promise<T> | T) {
+  process.env.LIFE_NOW = "2026-11-10T09:00:00Z";
+  try {
+    return await f();
+  } finally {
+    delete process.env.LIFE_NOW;
+  }
+}
+
 test("a first turn makes the session, ends with its usage, and the next turn resumes it", async () => {
   const pi = piRuntime(row);
   const first = await pi.start(agent, "Your brief.");
@@ -301,7 +311,7 @@ test("his own agent reads his Claude instructions, imports followed from the fil
   expect(readClaudeHooks(dir)).toEqual([]);
 });
 
-test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a second Life's the reads over its own data alone, with its door's tools", async () => {
+test("his own agent's spawn carries his instructions, hooks, own mark and the connector's reads; a demo's none, its door's tools alone; a frozen copy's the reads over its own data", async () => {
   const claude = mkdtempSync(join(tmpdir(), "life-pi-claude-"));
   writeFileSync(join(claude, "CLAUDE.md"), "His rules");
   const place = {
@@ -318,10 +328,15 @@ test("his own agent's spawn carries his instructions, hooks, own mark and the co
   const second = await piRowOf(false, place).spawn(agent, "ref-second", true);
   expect(second.env[PI_EXTENSION_ENV.own]).toBeUndefined();
   expect(second.env[PI_EXTENSION_ENV.hooks]).toBeUndefined();
-  expect(second.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
+  expect(second.env[PI_EXTENSION_ENV.reads]).toBeUndefined();
   expect(second.env[PI_EXTENSION_ENV.search]).toBeUndefined();
-  // Its door's and reads' tools alone: no built-in tool, no `web_fetch` or `subagent`.
-  expect(second.command.join(" ")).toContain(
+  // Its door's tools alone: no built-in tool, no `web_fetch` or `subagent`.
+  expect(second.command.join(" ")).toContain("--tools mcp__desk__*");
+  const copy = await asFrozenCopy(() =>
+    piRowOf(false, place).spawn(agent, "ref-copy", true)
+  );
+  expect(copy.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');
+  expect(copy.command.join(" ")).toContain(
     "--tools mcp__desk__*,mcp__life_connector__*"
   );
   expect(own.env[PI_EXTENSION_ENV.reads]).toContain('"connector-reads"');

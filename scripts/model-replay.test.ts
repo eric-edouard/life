@@ -73,7 +73,7 @@ test("a reply is recorded once, replayed without the provider, and a changed ask
   expect(replay.misses).toHaveLength(1);
 });
 
-test("a fingerprint leaves out Claude Code's reminders, cache marks and built-in tools", () => {
+test("a fingerprint leaves out Claude Code's reminders, cache marks, built-in tools, metadata and environment message, and keeps what shapes the answer", () => {
   const plain = JSON.stringify({
     messages: [{ content: [{ text: "Hi", type: "text" }], role: "user" }],
     model: "m",
@@ -88,7 +88,12 @@ test("a fingerprint leaves out Claude Code's reminders, cache marks and built-in
         ],
         role: "user",
       },
+      {
+        content: [{ text: "cwd /agents/agt_1", type: "text" }],
+        role: "system",
+      },
     ],
+    metadata: { user_id: "session-1" },
     model: "m",
     system: "Claude Code 9.9",
     tools: [{ name: "Read" }, { name: "mcp__life_connector__search" }],
@@ -96,6 +101,46 @@ test("a fingerprint leaves out Claude Code's reminders, cache marks and built-in
   expect(fingerprintOf("POST", "/v1/messages", dressed)).toBe(
     fingerprintOf("POST", "/v1/messages", plain)
   );
+  const shaped = (extra: object) =>
+    fingerprintOf(
+      "POST",
+      "/v1/messages",
+      JSON.stringify({ ...JSON.parse(plain), ...extra })
+    );
+  expect(
+    new Set([
+      shaped({}),
+      shaped({ stream: true }),
+      shaped({ thinking: { type: "adaptive" } }),
+      shaped({ output_config: { effort: "low" } }),
+    ]).size
+  ).toBe(4);
+});
+
+test("a stream that fails after a good start is passed on, never kept", async () => {
+  let upstreamCalls = 0;
+  const failed = 'event: error\ndata: {"type":"overloaded_error"}\n\n';
+  const upstream = Bun.serve({
+    fetch: () => {
+      upstreamCalls += 1;
+      return new Response(failed, {
+        headers: { "content-type": "text/event-stream" },
+      });
+    },
+    port: 0,
+  });
+  const file = join(mkdtempSync(join(tmpdir(), "replay-")), "recordings.jsonl");
+  const proxy = replayProxy(
+    file,
+    "record",
+    `http://127.0.0.1:${upstream.port}`
+  );
+  const words = [{ content: "Hi", role: "user" }];
+  expect(await (await ask(proxy.url, words)).text()).toBe(failed);
+  await (await ask(proxy.url, words)).text();
+  proxy.stop();
+  upstream.stop(true);
+  expect(upstreamCalls).toBe(2);
 });
 
 test("a REST read is replayed by its method, path and query, its content type kept", async () => {

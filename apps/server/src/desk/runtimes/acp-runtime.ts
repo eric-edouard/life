@@ -22,6 +22,7 @@ import { providerPause } from "./provider-pause";
 import type { Row } from "./runtime-rows";
 import {
   connectorReadsOf,
+  isSecondLifeReading,
   LAUNCH_WITHIN_MS,
   type Open,
   sessionRuntime,
@@ -32,12 +33,15 @@ import {
 // Protocol (the ACP runtime spec, 19 Nov 2026): one adapter process on one session. This file names no runtime: what
 // differs is in the row.
 
-/** The connector's reads (`connectorReadsOf`) as an ACP stdio server. */
+/**
+ * The connector's reads (`connectorReadsOf`) as an ACP stdio server: started in its own folder by `sh` (an ACP server
+ * names no folder), its secrets left to the adapter's environment (the row's), never in the server's description.
+ */
 const readsServerOf = () => {
   const r = connectorReadsOf();
   return {
-    args: r.args,
-    command: r.command,
+    args: ["-c", 'cd "$0" && exec "$@"', r.cwd, r.command, ...r.args],
+    command: "/bin/sh",
     env: Object.entries(r.env).map(([name, value]) => ({ name, value })),
     name: READS_SERVER,
   };
@@ -270,7 +274,9 @@ const openOf =
             url: a.door.url,
           },
           // A second Life's agent reads its own Life through the connector's reads; his own reads through his connectors.
-          ...(row.onlyToolPrefixes ? [readsServerOf()] : []),
+          ...(row.onlyToolPrefixes && isSecondLifeReading()
+            ? [readsServerOf()]
+            : []),
         ],
         ...(row.meta ? { _meta: row.meta(a) } : {}),
       };

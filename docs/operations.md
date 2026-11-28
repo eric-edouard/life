@@ -102,9 +102,10 @@ agent's work and its card, Mark as done, the matter and its cards gone. Each ste
 PASS or FAIL line to the folder it prints; the services, the agent, the simulator and the transcripts are removed, on
 failure, Ctrl-C or SIGTERM too. A scenario is a list of steps in the script: add one beside it.
 
-What the demo's agent can reach: the desk's door (its five tools, approved) and the connector's reads over that Life's
-own data (`life connector-reads` over stdio, as `life_connector`), and nothing else of his. A second Life's
-Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but those two (none
+What the demo's agent can reach: the desk's door (its five tools, approved), and nothing else of his (a frozen copy's
+agent, a question case's, also reads that copy: `isSecondLifeReading`; some reads reach the Mac's own stores, his
+contacts, so a demo's never). A second Life's
+Claude agent runs with none of his settings (no hooks, plugins, skills or permissions), no MCP server but its door (none
 of his connectors, which reach his own Life), no built-in tool (no shell, no file read), no CLAUDE.md and no auto
 memory (its row in `runtime-rows.ts`). It still runs as his user, signed in to his Claude account, with `HOME` his (Claude's
 sign-in and transcripts live there); with no tool that reads files, that home is out of its reach. The demo's services

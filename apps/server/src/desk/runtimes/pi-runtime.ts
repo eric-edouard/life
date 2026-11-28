@@ -34,6 +34,7 @@ import {
 } from "./runtime-rows";
 import {
   connectorReadsOf,
+  isSecondLifeReading,
   LAUNCH_WITHIN_MS,
   sessionRuntime,
 } from "./session-runtime";
@@ -55,7 +56,7 @@ const piSessionFileOf = (sessions: string, ref: string) => {
 // The model is the memory's OpenRouter route on its hosts that keep nothing (`piRouteOf`), with Life's key. An agent of
 // his own Life gets his login environment less the OpenRouter key, his context files, his skills, his global Claude
 // instructions (imports followed) as the agent folder's `AGENTS.md`, his Claude hooks and the web tools; a second
-// Life's gets none of them and no built-in tool: its door alone.
+// Life's gets none of them and no built-in tool: its door alone (a frozen copy's, also the connector's reads of that copy).
 
 /** pi's command line, as the app bundles it (`scripts/helper.ts`). */
 export const PI_CLI = join(
@@ -234,8 +235,8 @@ const escapedOf = (env: Record<string, string>): Record<string, string> =>
 
 /** The connector's reads as pi's MCP entry: pi reads `$NAME` and a leading `!` in its values, so each is escaped. */
 export const piReadsOf = () => {
-  const r = connectorReadsOf();
-  return { ...r, env: escapedOf(r.env) };
+  const { secrets, ...r } = connectorReadsOf();
+  return { ...r, env: escapedOf({ ...r.env, ...secrets }) };
 };
 
 /** How deep `@` imports are followed, as Claude Code follows them. */
@@ -419,7 +420,10 @@ export function piRowOf(
               "--no-context-files",
               "--no-skills",
               "--tools",
-              `mcp__desk__*,mcp__${READS_SERVER}__*`,
+              [
+                "mcp__desk__*",
+                ...(isSecondLifeReading() ? [`mcp__${READS_SERVER}__*`] : []),
+              ].join(","),
             ]),
       ],
       env: {
@@ -435,8 +439,10 @@ export function piRowOf(
         [PI_EXTENSION_ENV.doorUrl]: a.door.url,
         [PI_EXTENSION_ENV.facts]: JSON.stringify(readSendFacts()),
         [PI_EXTENSION_ENV.inForce]: inForceFile,
-        // Every agent reads its own Life: his own, or a second Life's over its own data.
-        [PI_EXTENSION_ENV.reads]: JSON.stringify(piReadsOf()),
+        // His own Life's agents read it, and a frozen copy's read that copy (`isSecondLifeReading`); a demo's, none.
+        ...(isOwn || isSecondLifeReading()
+          ? { [PI_EXTENSION_ENV.reads]: JSON.stringify(piReadsOf()) }
+          : {}),
         ...(isOwn
           ? {
               [PI_EXTENSION_ENV.hooks]: JSON.stringify(

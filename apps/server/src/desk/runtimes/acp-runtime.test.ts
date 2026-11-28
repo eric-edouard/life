@@ -100,9 +100,24 @@ const isGone = (pid: number) => {
   }
 };
 
-test("start: the door goes in as an HTTP MCP server with its header, the model and effort are set before the prompt, the run begins after it, usage is mapped", async () => {
+/** Runs `f` as a frozen copy's (a question case's second Life, `LIFE_NOW`), whose agents read it. */
+async function asFrozenCopy<T>(f: () => Promise<T> | T) {
+  process.env.LIFE_NOW = "2026-11-10T09:00:00Z";
+  try {
+    return await f();
+  } finally {
+    delete process.env.LIFE_NOW;
+  }
+}
+
+test("start: the door goes in as an HTTP MCP server with its header (a frozen copy's reads beside it, in their own folder, no secret in their description), the model and effort are set before the prompt, the run begins after it, usage is mapped", async () => {
   const dir = made();
-  const run = await acpRuntime(rowFor(dir)).start(agentIn(), "[answer]");
+  process.env.LIFELOG_TOKEN = "t-made-up";
+  const run = await asFrozenCopy(() =>
+    acpRuntime(rowFor(dir)).start(agentIn(), "[answer]")
+  ).finally(() => {
+    delete process.env.LIFELOG_TOKEN;
+  });
   expect(run.link).toBe(`fake://${run.ref}`);
   await run.begun;
   expect(await run.ended).toEqual({
@@ -133,11 +148,15 @@ test("start: the door goes in as an HTTP MCP server with its header, the model a
         type: "http",
       },
       {
-        args: expect.arrayContaining(["connector-reads"]),
+        args: expect.arrayContaining(["-c", "connector-reads"]),
+        command: "/bin/sh",
         name: "life_connector",
       },
     ],
   });
+  expect(readFileSync(join(dir, "log.jsonl"), "utf8")).not.toContain(
+    "t-made-up"
+  );
   expect(lines.filter((l) => l.config).map((l) => l.config)).toMatchObject([
     { configId: "model", value: "haiku" },
     { configId: "effort", value: "low" },

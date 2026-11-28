@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { join } from "node:path";
-import { MIN } from "../../core/clock";
+import { isFrozen, MIN } from "../../core/clock";
 import { log } from "../../core/log";
 import {
   IS_COMPILED_HELPER,
@@ -390,22 +390,31 @@ export function sessionRuntime(
   return runtime;
 }
 
-/** What Life's reader of the connector needs from the desk's own environment beside Life's paths: the secrets its reads use and the test switch. */
-const READER_ENV = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN", "NODE_ENV"];
+/**
+ * Whether a second Life's agents read that Life (the connector's reads, `connectorReadsOf`, beside their door): only a
+ * frozen copy measured (a question case's, `isFrozen`). A demo's made-up Life keeps its door alone: some reads reach
+ * the Mac's own stores (its contacts), which are his, not the demo's.
+ */
+export const isSecondLifeReading = () => isFrozen();
+
+/** The secrets the connector's reads use, from the desk's own environment: never on a command line (`connectorReadsOf`). */
+const READER_SECRETS = ["GOG_KEYRING_PASSWORD", "LIFELOG_TOKEN"];
+const envOf = (keep: (name: string) => boolean) =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      (e): e is [string, string] => e[1] !== undefined && keep(e[0])
+    )
+  );
 
 /**
  * The connector's reads as a stdio MCP server (`life connector-reads`): the compiled helper itself in the app, the CLI's
- * entry in a checkout, with Life's paths (`LIFE_*`) and the secrets its reads use, values as they are. A runtime runs it
- * with its own environment beside this one, so the helper is told it is not bun (`BUN_BE_BUN`).
+ * entry in a checkout, with Life's paths (`LIFE_*`) and the test switch in `env`, and the secrets its reads use apart in
+ * `secrets`, values as they are: a runtime that writes its MCP servers into its program's arguments (Claude Code's
+ * `--mcp-config`) gives them to the program's environment instead, which its servers inherit. A runtime runs it with
+ * its own environment beside this one, so the helper is told it is not bun (`BUN_BE_BUN`).
  */
 export const connectorReadsOf = () => {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(
-      (e): e is [string, string] =>
-        e[1] !== undefined &&
-        (e[0].startsWith("LIFE_") || READER_ENV.includes(e[0]))
-    )
-  );
+  const env = envOf((n) => n.startsWith("LIFE_") || n === "NODE_ENV");
   return {
     args: [
       ...(IS_COMPILED_HELPER
@@ -426,5 +435,6 @@ export const connectorReadsOf = () => {
     // Life's state, never the agent's folder: bun reads a folder's `.env` and `bunfig.toml` at start.
     cwd: LIFE_STATE_DIR,
     env: { ...env, BUN_BE_BUN: "" },
+    secrets: envOf((n) => READER_SECRETS.includes(n)),
   };
 };

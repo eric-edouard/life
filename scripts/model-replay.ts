@@ -6,7 +6,7 @@
 // asks the provider every time and keeps the newest reply. Only replies are kept, never requests but a miss's.
 
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { readLines } from "@life/server/src/core/files";
 
@@ -53,32 +53,35 @@ const lifePartOf = (v: unknown): unknown => {
 };
 
 /**
- * A request's fingerprint: its method, path and body. A model request's body counts only its model, messages and
- * Life's tools (`mcp__…`), without what Claude Code adds of its own (its system prompt, metadata, reminders, built-in
- * tools), so a Claude Code update alone asks nothing again.
+ * A request's fingerprint: its method, path and body. A model request's body counts everything that shapes the answer
+ * (model, messages, Life's tools `mcp__…`, thinking, effort, streaming, limits), without what Claude Code adds of its own
+ * and changes from run to run: its system prompt, metadata, built-in tools, reminders, and its environment message
+ * (`role: "system"`, which names the agent's folder). So a Claude Code update alone asks nothing again.
  */
 export function fingerprintOf(method: string, path: string, body: string) {
   const r = (body.startsWith("{") ? JSON.parse(body) : null) as {
-    messages?: unknown;
-    model?: string;
+    messages?: { role?: string }[];
     tools?: { name?: string }[];
   } | null;
   const asked = r?.messages
-    ? {
-        messages: lifePartOf(r.messages),
-        model: r.model,
-        tools: lifePartOf(
-          (r.tools ?? []).filter((t) => t.name?.startsWith("mcp__"))
-        ),
-      }
+    ? lifePartOf({
+        ...r,
+        messages: r.messages.filter((m) => m.role !== "system"),
+        metadata: undefined,
+        system: undefined,
+        tools: (r.tools ?? []).filter((t) => t.name?.startsWith("mcp__")),
+      })
     : body;
   return createHash("sha256")
     .update(JSON.stringify({ asked, method, path }))
     .digest("hex");
 }
 
-/** A reply worth keeping: anything the upstream meant, never a failure it may not repeat (a 5xx, a rate limit). */
-const isKept = (status: number) => status < 500 && status !== 429;
+/** A failure inside a stream that began well (overloaded mid-answer): a 200 whose events end in an error. */
+const STREAM_ERROR = /^event: error$/m;
+/** A reply worth keeping: anything the upstream meant, never a failure it may not repeat (a 5xx, a rate limit, a stream's error). */
+const isKept = (status: number, body: string) =>
+  status < 500 && status !== 429 && !STREAM_ERROR.test(body);
 
 /**
  * Starts the proxy before `upstream` (the model provider by default) over the recordings at `file` (JSONL, appended).
@@ -90,11 +93,9 @@ export function replayProxy(
   upstream = ANTHROPIC
 ) {
   const kept = new Map<string, Recording>();
-  if (existsSync(file)) {
-    for (const line of readLines(file, 0)) {
-      const r = JSON.parse(line) as Recording;
-      kept.set(r.fp, r);
-    }
+  for (const line of readLines(file, 0)) {
+    const r = JSON.parse(line) as Recording;
+    kept.set(r.fp, r);
   }
   mkdirSync(dirname(file), { recursive: true });
   const misses: string[] = [];
@@ -141,7 +142,7 @@ export function replayProxy(
       });
       const text = await res.text();
       const type = res.headers.get("content-type") ?? "text/plain";
-      if (isKept(res.status)) {
+      if (isKept(res.status, text)) {
         const r: Recording = { body: text, fp, status: res.status, type };
         kept.set(fp, r);
         appendFileSync(file, `${JSON.stringify(r)}\n`);

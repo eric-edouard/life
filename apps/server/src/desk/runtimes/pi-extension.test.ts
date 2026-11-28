@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { READS_SERVER } from "./contract";
 import { fakePiProvider, RECORD } from "./fake-pi-provider";
 import {
+  configOfEnv,
   contextOf,
   PI_EXTENSION_COMMAND,
   PI_EXTENSION_ENV,
@@ -254,4 +255,40 @@ test("an earlier turn's tool answers reach the model as a note, the door's and t
   expect(sent[3]?.content[0]?.text).toBe("short");
   expect(sent[5]?.content[0]?.text).toBe(long);
   expect(contextOf(messages.slice(3))).toBeUndefined();
+});
+
+test("a second Life's extension takes the reads its spawn gave (a frozen copy's), none of his hooks or search, the reads' entry gone from the environment", () => {
+  const e = PI_EXTENSION_ENV;
+  const reads = JSON.stringify({ args: ["connector-reads"], command: "bun" });
+  Object.assign(process.env, {
+    [e.doorKey]: "k",
+    [e.doorUrl]: "http://127.0.0.1:1/mcp",
+    [e.facts]: "{}",
+    [e.key]: "key",
+    [e.provider]: "{}",
+    [e.reads]: reads,
+    [e.hooks]: '["his hook"]',
+  });
+  try {
+    const config = configOfEnv();
+    expect(config.reads).toEqual(JSON.parse(reads));
+    expect([config.isOwn, config.hooks, config.search]).toEqual([
+      false,
+      [],
+      [],
+    ]);
+    expect(process.env[e.reads]).toBeUndefined();
+  } finally {
+    for (const k of [
+      e.doorKey,
+      e.doorUrl,
+      e.facts,
+      e.key,
+      e.provider,
+      e.reads,
+      e.hooks,
+    ]) {
+      delete process.env[k];
+    }
+  }
 });

@@ -108,7 +108,7 @@ const taken = (name: string) => {
 };
 
 /** The extension's config from the spawn's environment (`PI_EXTENSION_ENV`), the key and the reads' entry taken out. */
-function configOfEnv(): LifeDeskConfig {
+export function configOfEnv(): LifeDeskConfig {
   const env = PI_EXTENSION_ENV;
   const apiKey = required(env.key);
   taken(env.key);
@@ -124,7 +124,8 @@ function configOfEnv(): LifeDeskConfig {
     ...(inForce ? { inForce } : {}),
     isOwn,
     provider: JSON.parse(required(env.provider)),
-    ...(isOwn && reads ? { reads: JSON.parse(reads) } : {}),
+    // Given by the spawn only where its agents read (`pi-runtime.ts`).
+    ...(reads ? { reads: JSON.parse(reads) } : {}),
     results: join(process.env.PI_CODING_AGENT_DIR ?? ".", "results"),
     ...(rules ? { rules } : {}),
     search: isOwn ? JSON.parse(process.env[env.search] ?? "[]") : [],

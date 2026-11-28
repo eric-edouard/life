@@ -38,3 +38,6 @@ export function minutes(ms: number) {
     ? `${m} min`
     : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`;
 }
+
+/** Whether this Life is a frozen copy measured (`LIFE_NOW`: a question case's second Life), never his own. */
+export const isFrozen = () => Boolean(process.env.LIFE_NOW);
