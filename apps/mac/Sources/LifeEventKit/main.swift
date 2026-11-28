@@ -1,7 +1,8 @@
 import EventKit
 import Foundation
 
-// life-eventkit: the Past calendar on an Apple calendar, through EventKit, for an install without Google
+// life-eventkit: the permissions helper (`access`, Access.swift), and the Past calendar on an Apple calendar,
+// through EventKit, for an install without Google
 // (apps/server/src/memory/past-events.ts, `calendar held|create|delete`). Life's events carry their episode and hash in their URL,
 // `life://episode/<id>?hash=<hash>`, as Google's carry them in private properties. Reminders is remctl's, never this.
 
@@ -81,7 +82,11 @@ func episode(of e: EKEvent) -> (id: String, hash: String)? {
 }
 
 var args = Array(CommandLine.arguments.dropFirst())
-guard args.first == "calendar" else { fail("usage: life-eventkit calendar held|create|delete") }
+if args.first == "access" {
+  access(Array(args.dropFirst()))
+  exit(0)
+}
+guard args.first == "calendar" else { fail("usage: life-eventkit calendar held|create|delete, or access status|ask") }
 args.removeFirst()
 let sub = args.isEmpty ? "" : args.removeFirst()
 eventsAccess()
