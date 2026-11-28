@@ -110,7 +110,7 @@ const LISTED: Descriptor[] = [
     kind: "voice",
     label: "Pendant",
     missing: voiceServerMissing,
-    name: "lifelog",
+    name: "voice",
     silentAfter: 6 * HOUR,
   },
   {

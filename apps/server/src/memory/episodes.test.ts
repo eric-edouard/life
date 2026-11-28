@@ -520,7 +520,7 @@ test("a day holding units of a source that failed tonight waits for it, like one
   const stored = [
     unit({ date: "2026-10-08", source: "whatsapp" }),
     unit({ date: "2026-10-09", source: "mail" }),
-    unit({ date: "2026-10-10", source: "lifelog" }),
+    unit({ date: "2026-10-10", source: "voice" }),
   ];
   expect([
     ...heldDaysOf(stored, { failed: ["whatsapp"], skipped: ["mail"] }),

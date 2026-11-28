@@ -66,7 +66,7 @@ test("voice: a closed long conversation is read whole, every chunk in one pass",
   ).toEqual(
     [...long.spoken.values()]
       .flat()
-      .map((l) => `lifelog|${l.ref}`)
+      .map((l) => `voice|${l.ref}`)
       .toSorted()
   );
 });

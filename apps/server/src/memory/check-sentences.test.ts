@@ -101,7 +101,7 @@ test("a name's sentence is the unit's own line holding it, who said it and where
 
 test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the sentence, and a unit that cannot be read leaves no context", async () => {
   let held = [
-    unit({ hash: "h3", key: "conv-1", source: "lifelog", title: "conv-1" }),
+    unit({ hash: "h3", key: "conv-1", source: "voice", title: "conv-1" }),
   ];
   const spoken = spyOn(words, "spokenLines").mockResolvedValue(
     new Map([
@@ -141,7 +141,7 @@ test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the 
     expect(withClip?.said.to).toBeNull();
     clipRead.mockRejectedValue(new Error("down"));
     held = [
-      unit({ hash: "h4", key: "conv-1", source: "lifelog", title: "conv-1" }),
+      unit({ hash: "h4", key: "conv-1", source: "voice", title: "conv-1" }),
     ];
     const [noClip] = [
       ...(await readNameContexts(wanted, people, held)).values(),
@@ -152,7 +152,7 @@ test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the 
     });
     spoken.mockRejectedValue(new Error("lifelog down"));
     held = [
-      unit({ hash: "h5", key: "conv-1", source: "lifelog", title: "conv-1" }),
+      unit({ hash: "h5", key: "conv-1", source: "voice", title: "conv-1" }),
     ];
     expect((await readNameContexts(wanted, people, held)).size).toBe(0);
   } finally {
@@ -339,7 +339,7 @@ test("a spoken sentence whose turn he cut words in keeps its line and no clip: t
     schemaVersion: 1,
     withSources: false,
   };
-  const held = [unit({ hash: "h6", key: "conv-1", source: "lifelog" })];
+  const held = [unit({ hash: "h6", key: "conv-1", source: "voice" })];
   try {
     clipRead.mockResolvedValue(clip);
     writeFileSync(CORRECTIONS, `${JSON.stringify(correction)}\n`, {

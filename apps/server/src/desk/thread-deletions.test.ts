@@ -33,7 +33,7 @@ const TURN = turnRef(JOB, 0, AT);
 beforeEach(() => {
   setSettings({
     desk: { defaultRuntime: "claude", runtimes: { claude: {} } },
-    sources: ["lifelog"],
+    sources: ["voice"],
   });
   rmSync(dirname(DESK_STORE), { force: true, recursive: true });
 });

@@ -75,7 +75,7 @@ const mine = {
   now: NOW,
   o: {
     importance: 3,
-    source: { channel: "lifelog" as const, ref: "job:3@2026-10-21T09:00:00Z" },
+    source: { channel: "voice" as const, ref: "job:3@2026-10-21T09:00:00Z" },
     type: "to_do" as const,
   },
   state: "active",

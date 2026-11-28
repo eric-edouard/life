@@ -76,7 +76,7 @@ export const SourceEvent = z
     // The sender's handle as the source shows it: phone, email, a network's participant id; git: the author's name.
     sender: z.string(),
     // The voice server has turns in the watcher's store, not events.
-    source: SourceName.exclude(["lifelog"]),
+    source: SourceName.exclude(["voice"]),
     text: z.string(),
     // Mail only: Mail sorted it as a transaction (an order, booking, receipt, delivery or bank notice).
     transaction: z.literal(true).optional(),

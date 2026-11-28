@@ -241,7 +241,7 @@ test("the auto-add permission switches off when he deletes one of its to-do item
     now: AT,
     o: {
       importance: 3,
-      source: { channel: "lifelog" },
+      source: { channel: "voice" },
       type: "to_do",
     } as never,
     state: "active",

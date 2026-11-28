@@ -112,7 +112,7 @@ export async function readZoneHere(
     log("source.read", {
       ...errorOf(e),
       ok: false,
-      source: "lifelog",
+      source: "voice",
       what: "zone",
     });
   }

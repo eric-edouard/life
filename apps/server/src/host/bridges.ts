@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { stringify } from "yaml";
 import { bundledBridge, WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
 import { writeSecret } from "../core/secret";
@@ -49,7 +50,7 @@ const HOMESERVER_YAML = join(SYNAPSE_DIR, "homeserver.yaml");
 const PORT = Number(new URL(HOMESERVER_URL).port);
 
 const writeYaml = (path: string, value: unknown) =>
-  writeFileSync(path, Bun.YAML.stringify(value, null, 2));
+  writeFileSync(path, stringify(value, { indent: 2 }));
 
 /** The config with each key set (a dotted path), the rest kept. */
 export function withKeys(config: unknown, values: Record<string, unknown>) {

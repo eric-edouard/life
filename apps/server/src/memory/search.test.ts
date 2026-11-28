@@ -41,7 +41,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
     id: "obs_1",
     importance: 2,
     quote: "il est à rework",
-    source: { channel: "lifelog", ref: "j:0@x" },
+    source: { channel: "voice", ref: "j:0@x" },
     subjects: ["project:photo-app"],
     text: "Jean will rework the photo-app beautify prompt.",
     type: "to_do",
@@ -51,7 +51,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
     date: "2026-10-14",
     id: "unit_000000000001",
     people: ["person:jerome", "unknown:Bob"],
-    source: "lifelog",
+    source: "voice",
     stats: { chars: 0, fromMe: 0, items: 1 },
     title: "Improving output prompts before advertising tests",
   } as unknown as Unit;
@@ -65,7 +65,7 @@ test("search: an observation hit names the unit it comes from and who is in it",
   const db = new Database(path, { readonly: true });
   const [hit] = searchMatches(db, "beautify");
   expect(hit).toEndWith(
-    '(lifelog "Improving output prompts before advertising tests"; jerome, Bob)'
+    '(voice "Improving output prompts before advertising tests"; jerome, Bob)'
   );
   // A handle held across a rebuild reads the new index (one held across a file swap failed).
   buildIndex(
@@ -112,16 +112,16 @@ test("search: an observation hit names the unit it comes from and who is in it",
   // What Life holds about someone: by source and by month, and what it can't hold.
   const cover = heldLines(db, "person:jerome", []);
   expect(cover).toContain(
-    "- lifelog: 1 units, 2026-10-14 to 2026-10-14 (Life holds it since 2026-10-14)"
+    "- voice: 1 units, 2026-10-14 to 2026-10-14 (Life holds it since 2026-10-14)"
   );
   // The pendant's other days of the month, from its first day on: the voice server was never asked, so nobody can tell.
   expect(cover).toContain(
-    "- 2026-10: 1 units (lifelog 1), 0 observations, 0 episodes; unknown: lifelog 17 days"
+    "- 2026-10: 1 units (voice 1), 0 observations, 0 episodes; unknown: voice 17 days"
   );
   expect(cover.at(-1)).toContain("calls");
   // A unit rewritten in place takes its rows alone: the observations stay.
   await reindexUnits([{ ...unit, title: "Plumbing call" }], path);
-  expect(searchMatches(db, "beautify")[0]).toContain('lifelog "Plumbing call"');
+  expect(searchMatches(db, "beautify")[0]).toContain('voice "Plumbing call"');
   expect(db.query("select count(*) as n from units").get()).toEqual({ n: 1 });
   db.close();
 });

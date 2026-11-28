@@ -747,7 +747,7 @@ function namingsOf(
         firstAt: part.at,
         input: n.input,
         keys: n.keys,
-        reads: readsOf(part.units.map((unit) => ({ source: "lifelog", unit }))),
+        reads: readsOf(part.units.map((unit) => ({ source: "voice", unit }))),
         starts: [0],
       },
       read: VOICE_NAMING_READ,
