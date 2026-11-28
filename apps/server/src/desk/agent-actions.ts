@@ -35,6 +35,7 @@ import { agentCardOf } from "../memory/card-problems";
 import { type DecisionRequest, RECIPIENT_RULE } from "../memory/card-request";
 import { communicationStylesOf } from "../memory/communication-styles";
 import { decisionsNow, requestDecision } from "../memory/decisions";
+import { onlyDraftOf } from "../memory/draft";
 import { isPending } from "../memory/draft-contest";
 import { lifeVoice } from "../memory/instructions";
 import { oneMatter, readPacketMatter } from "../memory/read-matters";
@@ -585,20 +586,18 @@ export function readCard({ db }: Desk, s: AssignmentRow, id: string) {
   if (!(d && (mine.has(d.id) || mine.has(d.contests ?? "")))) {
     throw new Error(`Not done: ${id} is in no contest with a card of ${s.id}.`);
   }
-  const { agent, asker, context, contests, draft, kept, options } = d;
-  const { question, replaces, state, title } = d;
   return {
-    asker: agent ?? asker,
-    contests: contests ?? null,
-    context,
-    draft: draft ?? null,
+    asker: d.agent ?? d.asker,
+    contests: d.contests ?? null,
+    context: d.context,
+    draft: onlyDraftOf(d) ?? null,
     id,
-    kept: kept?.why ?? null,
-    options: options.map((o) => o.label),
-    question,
-    replaces: replaces ?? null,
-    state,
-    title,
+    kept: d.kept?.why ?? null,
+    options: d.options.map((o) => o.label),
+    question: d.question,
+    replaces: d.replaces ?? null,
+    state: d.state,
+    title: d.title,
   };
 }
 

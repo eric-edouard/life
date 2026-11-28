@@ -22,7 +22,7 @@ import {
   ranNeverEndedOf,
 } from "./decision-add";
 import { deliveryOf } from "./decision-delivery";
-import { readAll, voidedBy } from "./decision-fold";
+import { isSendEndedOf, readAll, voidedBy } from "./decision-fold";
 import {
   Added,
   Answered,
@@ -37,16 +37,16 @@ import {
   Kept,
   Line,
   Ran,
-  SendFailed,
-  Sent,
   Withdrawn,
   withdrawnOf,
 } from "./decision-lines";
-import { isSendable } from "./draft";
+import { sendOnAnswer, sendsNeverEndedOf, sinceOf } from "./decision-send";
+import { draftsOf, isSendable, type StoredDraft } from "./draft";
 import {
   contestOf,
   editReplacesOf,
   heldChatOf,
+  isChatTwiceOf,
   isPending,
   isSameChat,
   mergeWithdrawalsOf,
@@ -59,13 +59,15 @@ import { isAwaitingHisWord, matterOfSteps, openStepsOf } from "./matter-read";
 import { amountOf, apifyRunOf, eventOf } from "./needs";
 
 // The decisions: a question an agent puts to him, as one card: a title and a question of one line each, the exact
-// draft he approves when there is one, 2 or 3 options (the recommended one first; older lines hold up to 4), its
+// draft he approves when there is one (or a batch's drafts, each into its own chat, all sent by his one pick: the
+// owner's decision of 28 Nov 2026), 2 or 3 options (the recommended one first; older lines hold up to 4), its
 // context folded, a deadline. Append-only, one synchronous line each, outside the lock like a correction: `asked`
 // (`requestDecision`), his `answered` (the first wins; his own words alone are his "something else"), the asker's
 // `withdrawn` (or Life's: he answered in a draft's chat himself, `withdrawDraftsAnsweredInChat`; a redraft took its
 // place), and the outcome of an answer's act: `sent` or `send-failed` (a draft's outgoing option alone, `draft-send.ts`),
-// `ended` (`ends`, `endByHisWord`), `added` (`adds`) and `ran` (`runs`), each written once. A send that ended `not sent:`
-// voids its answer and the card is open again (his yes of 18 Nov 2026); `may have gone:` stays answered; his Undo
+// `ended` (`ends`, `endByHisWord`), `added` (`adds`) and `ran` (`runs`), each written once (a send's once per draft). A
+// send whose every draft ended `not sent:` voids its answer and the card is open again (his yes of 18 Nov 2026); once
+// any went or `may have gone:`, it stays answered; his Undo
 // (`answer-withdrawn`) voids it too. Life's own look for a step done is `done-seen` (`recordDoneSeen`): `not_found`
 // voids his `looks` answer, `seen` settles the card. The gate's `delivered` (`deliveryOf`) keeps a held card out of
 // every list. A draft into a chat another asker's open card holds waits on it (`contests`; his yes of 21 Nov 2026): the
@@ -104,7 +106,7 @@ export const doneSeenByOf = (
 
 /** What an option does when he picks it alone with no words: `send` the card's draft (its `outgoing` option), `look` for its step done (`looks`, while Life can), `end` its step or matter (`ends`), else nothing. */
 const actOfOption = (
-  d: Pick<Decision, "doneSeenBy" | "draft" | "needs">,
+  d: Pick<Decision, "doneSeenBy" | "drafts" | "needs">,
   o?: z.infer<typeof Option>
 ) => {
   if (o?.adds && eventOf(d.needs)) {
@@ -113,7 +115,7 @@ const actOfOption = (
   if (o?.runs && apifyRunOf(d.needs)) {
     return "run";
   }
-  if (o?.outgoing && isSendable(d.draft)) {
+  if (o?.outgoing && d.drafts.length > 0 && d.drafts.every(isSendable)) {
     return "send";
   }
   if (o?.looks && doneSeenByOf(d) !== "tap") {
@@ -124,7 +126,7 @@ const actOfOption = (
 
 /** What an answer does besides being recorded: its one option picked alone, with no words of his changing it (`actOfOption`). */
 export const actOf = (
-  d: Pick<Decision, "doneSeenBy" | "draft" | "needs" | "options">,
+  d: Pick<Decision, "doneSeenBy" | "drafts" | "needs" | "options">,
   options: string[],
   note?: string
 ): Act | undefined =>
@@ -139,14 +141,18 @@ export const actOf = (
 export const actDueOf = (d: Omit<Decision, "state">) =>
   d.answer ? actOf(d, d.answer.options, d.answer.note) : undefined;
 
-/** The outcome of his answer's act, as stored: the send's, the look's, or the end's. */
+/** The outcome of his answer's act, as stored: the send's (its last draft's line, once every draft has one), the look's, or the end's. */
 export const actOutcomeOf = (
-  d: Pick<Decision, "added" | "doneSeen" | "end" | "ran" | "send">,
+  d: Pick<Decision, "added" | "doneSeen" | "drafts" | "end" | "ran" | "sends">,
   act: Act
 ) =>
-  ({ add: d.added, end: d.end, look: d.doneSeen, run: d.ran, send: d.send })[
-    act
-  ];
+  ({
+    add: d.added,
+    end: d.end,
+    look: d.doneSeen,
+    run: d.ran,
+    send: isSendEndedOf(d) ? d.sends.at(-1) : undefined,
+  })[act];
 
 /** An act with no outcome this long past its own limit never ended (a crash): the reads before it and the line's write. */
 const ACT_GRACE = MIN;
@@ -170,7 +176,7 @@ function withOutcomeOf(
     end: END_LIMIT_MS,
     look: LOOK_LIMIT_MS,
     run: RUN_LIMIT_MS,
-    send: d.draft ? sendLimitMs(d.draft) : END_LIMIT_MS,
+    send: sendLimitMs(d.drafts),
   };
   const end = Date.parse(d.answer.at) + limits[act] + ACT_GRACE;
   if (now.getTime() < end) {
@@ -197,15 +203,7 @@ function withOutcomeOf(
     return { ...d, ran: ranNeverEndedOf(d, line.at) };
   }
   return act === "send"
-    ? {
-        ...d,
-        send: {
-          ...line,
-          error:
-            "may have gone: a send started and never ended: read the chat before asking again",
-          kind: "send-failed",
-        },
-      }
+    ? { ...d, sends: sendsNeverEndedOf(d, line.at) }
     : {
         ...d,
         end: {
@@ -248,27 +246,27 @@ export function decisionsNow(now = clock()): Decision[] {
 function contestOfAsk(
   ask: Pick<Decision, "agent" | "changed" | "merges">,
   asker: string,
-  draft: Decision["draft"],
+  drafts: Decision["drafts"],
   now: Date
 ) {
   const by = { agent: ask.agent, asker };
   const all = decisionsNow(now);
   // A redraft takes the place of the cards into its chat at once (his yes of 25 Nov 2026, question 10).
-  const replacing = editReplacesOf(all, ask.changed, draft, by, isSendingOf);
+  const replacing = editReplacesOf(all, ask.changed, drafts, by, isSendingOf);
   if (replacing) {
     return { replacing };
   }
   const merged = ask.merges ? waitingOnOf(all, ask.merges, by) : undefined;
   const merging = merged ? [merged.held.id, merged.waiting.id] : [];
   return {
-    contests: heldChatOf(all, draft, by, merging, isSendingOf),
+    contests: heldChatOf(all, drafts, by, merging, isSendingOf),
     merged,
   };
 }
 
 /** Whether his answer to `d` started sending its draft and its outcome is not in: its chat is still held. */
 const isSendingOf = (d: Decision) =>
-  d.state === "answered" && actDueOf(d) === "send" && !d.send;
+  d.state === "answered" && actDueOf(d) === "send" && !isSendEndedOf(d);
 
 /** Decision `id` while it is open (`isWaitingToo`: or waiting); throws otherwise. */
 function readOpenDecision(id: string, now: Date, isWaitingToo = false) {
@@ -292,10 +290,6 @@ export const isOnMatter = (subject?: string): subject is string =>
 const isWithdrawnForIt = (w?: Withdrawn) =>
   w?.answeredInChatAt !== undefined || w?.replacedBy !== undefined;
 
-/** "Someone wrote since" counts from his last attempt that went nowhere, else from the card. */
-const sinceOf = (d: Pick<Decision, "at" | "notSent">) =>
-  new Date(d.notSent?.at ?? d.at);
-
 /** Why Life withdraws a card whose chat he answered himself, as its asker reads it. */
 const ANSWERED_IN_CHAT = "he answered in the chat himself";
 
@@ -309,18 +303,25 @@ export function withdrawDraftsAnsweredInChat(
   now = clock(),
   wrote = wroteSince
 ) {
+  // Each draft's chat: his message in any one of a batch's withdraws the whole card.
   const open = decisionsNow(now).flatMap((d) =>
-    d.state === "open" && d.draft?.chat ? [{ d, draft: d.draft }] : []
+    d.state === "open"
+      ? d.drafts.flatMap((draft) => (draft.chat ? [{ d, draft }] : []))
+      : []
   );
   const found = wrote(
     open.map(({ d, draft }) => ({ draft, since: sinceOf(d) }))
   );
-  const lines = open.flatMap(({ d }, i): Withdrawn[] => {
-    const his = found[i]?.find((e) => e.fromMe);
-    return his
-      ? [withdrawnOf(d.id, now, ANSWERED_IN_CHAT, { answeredInChatAt: his.at })]
-      : [];
+  const his = new Map<string, string>();
+  open.forEach(({ d }, i) => {
+    const at = found[i]?.find((e) => e.fromMe)?.at;
+    if (at && !his.has(d.id)) {
+      his.set(d.id, at);
+    }
   });
+  const lines = [...his].map(([id, at]) =>
+    withdrawnOf(id, now, ANSWERED_IN_CHAT, { answeredInChatAt: at })
+  );
   appendWithdrawals(lines, "life");
   return lines.map((l) => l.id);
 }
@@ -433,6 +434,25 @@ type Claim = (
   write: (stamps: Pick<Asked, "assignment">) => void
 ) => void;
 
+/** A card's drafts, each with its chat resolved now (`readChat`); refused when two go into one chat. */
+async function resolveDrafts(
+  ask: z.infer<typeof Ask>,
+  readChat: typeof resolveDraft,
+  now: Date
+) {
+  const drafts = await Promise.all(draftsOf(ask).map((x) => readChat(x, now)));
+  if (isChatTwiceOf(drafts)) {
+    throw new Error(
+      "Not done: two drafts go into one chat: one draft per chat, so write them as one."
+    );
+  }
+  return drafts;
+}
+
+/** How a card's drafts are stored: a batch as `drafts`, one as `draft` (as before batches), none as nothing. */
+const storedDraftsOf = (drafts: StoredDraft[]) =>
+  drafts.length > 1 ? { drafts } : { draft: drafts[0] };
+
 /** A new card (`requestDecision`): checked, its draft's chat resolved and its contest found, then written. */
 async function askCard(
   asker: string,
@@ -491,14 +511,14 @@ async function askCard(
     : matter?.steps.at(-1);
   const subject =
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
-  const draft = ask.draft && (await readChat(ask.draft, now));
-  const digest = seen !== undefined && cardDigestOf(ask, draft);
+  const drafts = await resolveDrafts(ask, readChat, now);
+  const digest = seen !== undefined && cardDigestOf(ask, drafts);
   if (digest && digest !== seen) {
-    throw new CardPreview(cardPreviewOf(ask, draft, digest), digest);
+    throw new CardPreview(cardPreviewOf(ask, drafts, digest), digest);
   }
-  const { contests, merged, replacing } = contestOfAsk(ask, asker, draft, now);
+  const { contests, merged, replacing } = contestOfAsk(ask, asker, drafts, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  const { draft: _given, ...given } = ask; // The draft is stored as Life resolved it.
+  const { draft: _one, drafts: _batch, ...given } = ask; // Stored as Life resolved them.
   const write = (stamps: Pick<Asked, "assignment">) =>
     appendJsonl(DECISIONS, Line, [
       ...mergeWithdrawalsOf(merged, id, now, replacing), // In the same append as its card.
@@ -508,7 +528,7 @@ async function askCard(
         ...(matter ? { matter: matter.id } : {}),
         ...(instructions.length > 0 ? { instructions } : {}),
         ...(contests ? { contests } : {}),
-        ...(draft ? { draft } : {}),
+        ...storedDraftsOf(drafts),
         ...(subject ? { subject } : {}),
         asker,
         at: now.toISOString(),
@@ -520,10 +540,10 @@ async function askCard(
       },
     ]);
   claim(subject, id, merged?.held.id, write);
-  logAsked(ask, asker, id, !!draft, [
+  logAsked(ask, asker, id, drafts.length > 0, [
     ...(merged ? [merged.held, merged.waiting] : (replacing ?? [])),
   ]);
-  return { id, ...waitsOf(contests, draft, now) };
+  return { id, ...waitsOf(contests, drafts, now) };
 }
 
 /** A card's `decision.asked` line, after the `decision.withdrawn` lines of the cards a merge or a redraft withdraws. */
@@ -751,10 +771,10 @@ export async function answerDecision(
   if (act === "look" && look) {
     return [line, await lookOnAnswer(stored, look, onStep)];
   }
-  if (!(act === "send" && isSendable(stored.draft))) {
+  if (act !== "send") {
     return [line];
   }
-  // His Send withdraws every other card into its chat first, open or waiting (the one it `replaces`, any other a
+  // His Send withdraws every other card into its chats first, open or waiting (the one it `replaces`, any other a
   // contest opened): one draft per chat when it goes.
   appendWithdrawals(
     decisionsNow(now)
@@ -766,26 +786,7 @@ export async function answerDecision(
       ),
     "send"
   );
-  const outcome = await deliver(stored.draft, id, {
-    onStep,
-    since: sinceOf(stored),
-  }).then(
-    (eventId) => ({ eventId, kind: "sent" as const }),
-    (e: Error & { canRetry?: false; wrote?: SendFailed["wrote"] }) => ({
-      error: e.message,
-      kind: "send-failed" as const,
-      ...(e.canRetry === false ? { canRetry: false as const } : {}),
-      ...(e.wrote ? { wrote: e.wrote } : {}),
-    })
-  );
-  const sent = {
-    at: clock().toISOString(),
-    id,
-    schemaVersion: DECISIONS_VERSION,
-    ...outcome,
-  };
-  appendJsonl(DECISIONS, z.union([Sent, SendFailed]), [sent]);
-  return [line, sent];
+  return [line, ...(await sendOnAnswer(stored, { deliver, onStep }))];
 }
 
 /**

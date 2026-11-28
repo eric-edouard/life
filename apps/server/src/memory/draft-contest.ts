@@ -41,14 +41,30 @@ export const cardsHearingOf = (d: Decision, list: readonly Decision[]) => {
 const isSameAsker = (a: Asker, b: Asker) =>
   a.asker === b.asker && a.agent === b.agent;
 
-/** Whether `a`'s and `b`'s drafts go into the same chat (a chat key: a mail or a new 1:1 chat has none). */
+/** The chats `d`'s drafts go into, as keys (a mail or a new 1:1 chat has none). */
+const chatKeysOf = (drafts: readonly Pick<StoredDraft, "channel" | "chat">[]) =>
+  drafts.flatMap((x) => (x.chat ? [`${x.channel} ${x.chat}`] : []));
+
+/** Whether a draft of `a` and one of `b` go into the same chat: a batch is held and contested per chat. */
 export const isSameChat = (
-  a: Pick<Decision, "draft">,
-  b: Pick<Decision, "draft">
-) =>
-  Boolean(a.draft?.chat) &&
-  a.draft?.channel === b.draft?.channel &&
-  a.draft?.chat === b.draft?.chat;
+  a: Pick<Decision, "drafts">,
+  b: Pick<Decision, "drafts">
+) => {
+  const chats = new Set(chatKeysOf(b.drafts));
+  return chatKeysOf(a.drafts).some((k) => chats.has(k));
+};
+
+/** Whether two of `drafts` go into the same chat: the first sent would refuse the next ("someone wrote since"). */
+export const isChatTwiceOf = (
+  drafts: readonly Pick<StoredDraft, "channel" | "chat">[]
+) => {
+  const keys = chatKeysOf(drafts);
+  return new Set(keys).size < keys.length;
+};
+
+/** The chats `drafts` go into, by name, for an asker's words. */
+const chatNamesOf = (drafts: readonly StoredDraft[]) =>
+  drafts.map((x) => x.to).join(", ");
 
 /**
  * Card `d`, open by its own lines, as its contest leaves it: withdrawn when the holder's card `merger` merges it; else
@@ -82,13 +98,14 @@ export function contestOf(
 }
 
 /**
- * One open draft per chat, among `list`: the newest card of another asker holding `draft`'s chat (pending, or its send
- * running: `isSending`), which a new card of `asker`'s contests (it waits on it), if any. Throws when `asker`'s own card
- * holds the chat, or a card already waits on it. The cards a merge settles (`merging`) are out of the way.
+ * One open draft per chat, among `list`: the newest card of another asker holding a chat of `drafts` (pending, or its
+ * send running: `isSending`), which a new card of `asker`'s contests (it waits on it), if any. Throws when `asker`'s own
+ * card holds one of them, a card already waits on one, or the new card is a batch (it waits on no card: `contests`
+ * names one). The cards a merge settles (`merging`) are out of the way.
  */
 export function heldChatOf(
   list: Decision[],
-  draft: StoredDraft | undefined,
+  drafts: StoredDraft[],
   asker: Asker,
   merging: string[],
   isSending: (d: Decision) => boolean
@@ -97,40 +114,40 @@ export function heldChatOf(
     (d) =>
       (isPending(d) || isSending(d)) &&
       !merging.includes(d.id) &&
-      isSameChat(d, { draft })
+      isSameChat(d, { drafts })
   );
   const blocking =
     same.find((d) => d.state === "waiting") ??
-    same.find((d) => isSameAsker(d, asker));
+    same.find((d) => isSameAsker(d, asker)) ??
+    (drafts.length > 1 ? same[0] : undefined);
   if (blocking) {
     throw new Error(
-      `Not done: ${blocking.id} already ${blocking.state === "waiting" ? "waits to ask" : "asks"} a draft into ${draft?.to}; wait until it is answered or withdrawn, then read the chat again.`
+      `Not done: ${blocking.id} already ${blocking.state === "waiting" ? "waits to ask" : "asks"} a draft into ${chatNamesOf(drafts)}; wait until it is answered or withdrawn, then read the chat again.`
     );
   }
   return same.at(-1)?.id;
 }
 
 /**
- * The cards a redraft (`changed` says `edit:tap` or `edit:words`, `isRedraftOf`) by `asker` into `draft`'s chat takes
- * the place of at once: its asker's own pending cards there (no agent withdraws another's card). None, so it is asked
- * as any card, for a card that is no redraft, or while a send runs there, another asker's card is pending there, or it
- * has none of its own there.
+ * The cards a redraft (`changed` says `edit:tap` or `edit:words`, `isRedraftOf`) by `asker` into its drafts' chats
+ * takes the place of at once: its asker's own pending cards there (no agent withdraws another's card). None, so it is
+ * asked as any card, for a card that is no redraft, or while a send runs there, another asker's card is pending there,
+ * or it has none of its own there.
  */
 export function editReplacesOf(
   list: Decision[],
   changed: readonly string[] | undefined,
-  draft: StoredDraft | undefined,
+  drafts: StoredDraft[],
   asker: Asker,
   isSending: (d: Decision) => boolean
 ) {
   if (!isRedraftOf(changed)) {
     return;
   }
-  const same = list.filter((d) => isSameChat(d, { draft }));
+  const same = list.filter((d) => isSameChat(d, { drafts }));
   const pending = same.filter(isPending);
   const own = pending.filter((d) => isSameAsker(d, asker));
-  return draft &&
-    own.length > 0 &&
+  return own.length > 0 &&
     own.length === pending.length &&
     !same.some(isSending)
     ? own
@@ -177,7 +194,7 @@ export const mergeWithdrawalsOf = (
 /** What `request_decision` tells the asker of a card that waits on the held card `on`: until when, and why. */
 export const waitsOf = (
   on: string | undefined,
-  draft: StoredDraft | undefined,
+  drafts: StoredDraft[],
   now: Date
 ) =>
   on
@@ -185,7 +202,7 @@ export const waitsOf = (
         waits: {
           on,
           until: new Date(now.getTime() + CONTEST_WAIT).toISOString(),
-          why: `${on}, another asker's card, holds a draft into ${draft?.to}: yours waits until its agent yields, merges or keeps, at most until \`until\`; then it is asked, replacing that card, and his Send withdraws it.`,
+          why: `${on}, another asker's card, holds a draft into ${chatNamesOf(drafts)}: yours waits until its agent yields, merges or keeps, at most until \`until\`; then it is asked, replacing that card, and his Send withdraws it.`,
         },
       }
     : {};
