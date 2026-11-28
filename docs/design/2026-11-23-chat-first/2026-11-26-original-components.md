@@ -283,7 +283,7 @@ Beyond principles 1, 7 and 10 (no "more details", no word where a mark says it, 
 | Rule | Example | Why |
 |---|---|---|
 | The cream button (principles 2 and 3): full width, 50 px, a pill, the result's word and a mark | `.prim` (`:400`); "Send both ↑", "I paid it ✓" (`:583`, `:616`) | See principle 3. |
-| The other answers: equal quiet `tint` pills in one row under it | `.two .sec` (`:362`); "Not now", "Recap only" (`:664-666`) | Log: "Never bare text". |
+| The other answers: small quiet `tint` pills (36 px, sized to their words), centred in one row under it (28 Nov: one main button, the rest small pills) | `.two .sec` (`:362`); "Not now", "Recap only" (`:664-666`) | Log: "Never bare text". |
 | "Later" (or the card's own word) is always the first quiet pill | `m.defer||'Later'` (`:664`); "Not now", "When I find it" (`:609`) | brand.md: "Later" is the one word on a quiet pill; a clock confused. |
 | A pick's button waits for a pick, then names it | disabled until picked; "Contact Dr. Ink", "Book Harbour Physio" (`:662-663`) | Log: "the pick is preselected and the button names it". Life's pick is preselected (`picked:0`). |
 | A question's two answers are equal pills; the likelier is inverted (cream) and on the right | `ord` sorts `rec` last (`:1009`); `.xyn button.rec` (`:254`) | Spec, "Life's questions" (owner, 24 Nov). |
