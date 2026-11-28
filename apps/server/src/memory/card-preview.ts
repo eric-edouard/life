@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import { type Ask, CARD_SELF_CHECK } from "./card-request";
-import type { StoredDraft } from "./draft";
+import { onlyDraftOf, type StoredDraft } from "./draft";
 import { needLineOf } from "./needs";
 
 // The card preview: a card as his phone shows it, in text, handed to the asking agent before it is asked (the door's
@@ -21,10 +21,10 @@ export class CardPreview extends Error {
   }
 }
 
-/** The digest of a checked card and its draft as Life resolved it (its chat's last messages included). */
-export const cardDigestOf = (ask: z.infer<typeof Ask>, draft?: StoredDraft) =>
+/** The digest of a checked card and its drafts as Life resolved them (their chats' last messages included). */
+export const cardDigestOf = (ask: z.infer<typeof Ask>, drafts: StoredDraft[]) =>
   createHash("sha256")
-    .update(JSON.stringify([ask, draft ?? null]))
+    .update(JSON.stringify([ask, drafts]))
     .digest("hex")
     .slice(0, 12);
 
@@ -44,16 +44,17 @@ const draftLinesOf = (d: StoredDraft) => [
 /** The card in text, in his app's order, then the self-check and how to ask it. */
 export function cardPreviewOf(
   ask: z.infer<typeof Ask>,
-  draft: StoredDraft | undefined,
+  drafts: StoredDraft[],
   digest: string
 ) {
+  const draft = onlyDraftOf({ drafts });
   const [first, ...rest] = ask.options;
   const tile = [
     ...(ask.plan ?? []).map(
       (p, i) =>
         `${i + 1}. ${p.text} (${p.by === "owner" ? "you" : "Life"})${p.when ? `, ${p.when}` : ""}`
     ),
-    ...(draft ? draftLinesOf(draft) : []),
+    ...drafts.flatMap(draftLinesOf),
     ...(ask.needs ?? []).map(needLineOf),
   ];
   return [

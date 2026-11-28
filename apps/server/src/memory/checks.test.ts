@@ -711,14 +711,15 @@ test("a decision whose draft goes to a guessed person carries that guess; a matt
     waitingOn: [],
     with: [],
   };
+  const draft = {
+    channel: "whatsapp",
+    chat: "33600000001@s.whatsapp.net",
+    text: "Friday?",
+    to: "Kit",
+  };
   const sent = {
     ...decision("dec_00000000000c", "2026-11-20T09:00:00.000Z"),
-    draft: {
-      channel: "whatsapp",
-      chat: "33600000001@s.whatsapp.net",
-      text: "Friday?",
-      to: "Kit",
-    },
+    drafts: [draft],
   };
   const base = inputs([about(REF)], {
     decisions: [sent],
@@ -739,7 +740,7 @@ test("a decision whose draft goes to a guessed person carries that guess; a matt
   expect(
     checksOf({
       ...base,
-      decisions: [{ ...sent, draft: { ...sent.draft, chat: "room-1" } }],
+      decisions: [{ ...sent, drafts: [{ ...draft, chat: "room-1" }] }],
     })[0]?.confirm
   ).toEqual([]);
   // A check on a matter by its subject, or by what rides on it.

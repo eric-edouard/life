@@ -5,7 +5,7 @@ import { isInboxCheck } from "../memory/check-urgency";
 import { rateOffersOf } from "../memory/decision-after-answer";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
-import { decisionsNow } from "../memory/decisions";
+import { actOutcomeOf, decisionsNow } from "../memory/decisions";
 import type {
   DeletionCopy,
   ThreadEntriesHolding,
@@ -185,6 +185,14 @@ export const withMatterIcons = <
   };
 };
 
+/** When his answer's send ended with every draft sent (the last one's line); null when it sent nothing, or not all. */
+const sentAtOf = (d: Decision) => {
+  const last = actOutcomeOf(d, "send");
+  return last && d.sends.every((s) => s.kind === "sent")
+    ? { at: last.at }
+    : null;
+};
+
 /** A card he no longer needs to answer, as the thread shows it: what was asked, his answer and what came of it, and his Undo while there is one. */
 const closedCardOf = (
   d: Decision,
@@ -202,7 +210,7 @@ const closedCardOf = (
   question: d.question,
   /** "How am I doing?" on it (`rateOffersOf`): his mark so far, null when none; null when not asked. */
   rate: offers.has(d.id) ? { mark: offers.get(d.id)?.mark ?? null } : null,
-  sent: d.send?.kind === "sent" ? { at: d.send.at } : null,
+  sent: sentAtOf(d),
   title: d.title,
   undo: undoOf(d),
   withdrawn: d.withdrawn

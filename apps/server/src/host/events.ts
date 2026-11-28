@@ -14,8 +14,10 @@ import {
   type Source,
 } from "../memory/changes";
 import { directChats } from "../memory/closeness";
+import { sendOf } from "../memory/decision-fold";
 import type { Decision } from "../memory/decision-lines";
 import { decisionsNow, settledAtOf, settledBetween } from "../memory/decisions";
+import { isBatchOf } from "../memory/draft";
 import { cardsHearingOf } from "../memory/draft-contest";
 import { hearVoiceNotes, readFiles, showFiles } from "../memory/message-files";
 import { overlappingPhoneCallsOf } from "../memory/naming-context";
@@ -148,6 +150,11 @@ export function messagePayloadOf(
   };
 }
 
+/** One draft's send, as its asker hears it. */
+const SentShown = z.object({
+  error: z.string().optional(),
+  eventId: z.string().optional(),
+});
 const DecisionPayload = z.object({
   added: z
     .object({ error: z.string().optional(), eventId: z.string().optional() })
@@ -200,22 +207,31 @@ const DecisionPayload = z.object({
     .describe(
       "Withdrawn because another card took its place: the newer card he sent, or the holder's card that merged yours"
     ),
-  send: z
-    .object({ error: z.string().optional(), eventId: z.string().optional() })
+  send: SentShown.optional().describe(
+    "Its draft, sent on his answer: the event, or why not"
+  ),
+  sends: z
+    .array(SentShown)
     .optional()
-    .describe("Its draft, sent on his answer: the event, or why not"),
+    .describe(
+      "A batch's drafts, sent on his answer, in order: each one's event, or why not; ask a new card for those that did not go"
+    ),
   why: z
     .string()
     .optional()
     .describe("Why Life withdrew it: he answered in the chat himself"),
 });
 
+/** One draft's send as its asker hears it: the event, or why not (none while it runs). */
+const sentShownOf = (s?: Decision["sends"][number]) =>
+  s?.kind === "sent" ? { eventId: s.eventId } : { error: s?.error };
+
 /** What came of a settled decision besides his answer: Life saw its step done (`doneSeen`), its end, its send. */
 const outcomesOf = (
   d: Decision
 ): Pick<
   z.infer<typeof DecisionPayload>,
-  "added" | "doneSeen" | "end" | "ran" | "send"
+  "added" | "doneSeen" | "end" | "ran" | "send" | "sends"
 > => ({
   ...(d.ran
     ? { ran: d.ran.error ? { error: d.ran.error } : { runId: d.ran.runId } }
@@ -231,13 +247,11 @@ const outcomesOf = (
     ? { doneSeen: { eventId: d.doneSeen.eventId, state: "seen" } }
     : {}),
   ...(d.end ? { end: d.end.error ? { error: d.end.error } : {} } : {}),
-  ...(d.send
-    ? {
-        send:
-          d.send.kind === "sent"
-            ? { eventId: d.send.eventId }
-            : { error: d.send.error },
-      }
+  ...(d.sends.length > 0 && !isBatchOf(d)
+    ? { send: sentShownOf(d.sends[0]) }
+    : {}),
+  ...(d.sends.length > 0 && isBatchOf(d)
+    ? { sends: d.drafts.map((_, i) => sentShownOf(sendOf(d.sends, i))) }
     : {}),
 });
 

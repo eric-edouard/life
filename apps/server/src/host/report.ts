@@ -8,7 +8,7 @@ import { LIFE_STATE_DIR } from "../core/paths";
 import { notifyArgs } from "../core/platform";
 import { execOk } from "../core/proc";
 import { settings } from "../core/settings";
-import { draftWords } from "../memory/draft";
+import { draftsOf, draftWords } from "../memory/draft";
 import {
   type Digest,
   LIFE_MAIL,
@@ -105,7 +105,7 @@ function waitingRow(c: Check) {
     name: c.title,
     relation: [
       c.question,
-      ...(c.draft ? draftWords(c.draft) : []),
+      ...draftsOf(c).flatMap(draftWords),
       ...(first && c.options.length > 1 ? [`Recommended: ${first.label}`] : []),
       ...(c.deadline ? [`by ${localTime(c.deadline)}`] : []),
       `asked by ${c.asker}`,

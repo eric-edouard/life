@@ -44,6 +44,7 @@ import {
 import { monthBudgetOf, spendingStopOf } from "../host/spending";
 import { MAX_PAGE } from "../memory/changes";
 import { decisionsNow } from "../memory/decisions";
+import { onlyDraftOf } from "../memory/draft";
 import { CONTEST_WAIT, cardsHearingOf } from "../memory/draft-contest";
 import { instructionsFor } from "../memory/instructions";
 import { readMatterBook } from "../memory/matters";
@@ -326,8 +327,8 @@ export function pollAnswers({ db }: Desk) {
           ? []
           : wakesOf([d.contests], `${d.id}.${DRAFT_CONTESTED}`, {
               asker: d.agent ?? d.asker,
-              channel: d.draft?.channel,
-              chat: d.draft?.chat,
+              channel: onlyDraftOf(d)?.channel,
+              chat: onlyDraftOf(d)?.chat,
               held: d.contests,
               id: d.id,
               until: new Date(Date.parse(d.at) + CONTEST_WAIT).toISOString(),
