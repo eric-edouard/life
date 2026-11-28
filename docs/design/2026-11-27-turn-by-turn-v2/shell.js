@@ -6,7 +6,8 @@
    ctx.lock(time) shows the phone locked at that time (ctx.lock(false) unlocks); ctx.notify({title, body}) shows Life's
    one notification on it, replacing the last (a push replaced by its outcome), and resolves when he taps it.
    App v4's two top controls stay on every screen: the "Waiting on you" count (a tap plays the scene 'waiting-list') and
-   the pendant (a tap opens its page over whatever shows, ctx.pendant()); ctx.count(n) sets the count.
+   the pendant (a tap opens its page over whatever shows, ctx.pendant()). The count is worked out, never set: what waits
+   on him (DATA.waiting) and every card drawn since, less what he settled.
    ctx.cards(items) makes the cards: one per item, side by side, swiped sideways. What a card holds is drawn here only
    (cardHtml), so it changes in one place; a variant places the row and may set --s-pad, --s-card-bg,
    --s-card-radius, --s-card-shadow. */
@@ -15,7 +16,7 @@ window.Shell=(function(){
   var UP='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/><path d="M12 8v10"/></svg>';
   var BACK='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>';
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var CANCEL={cancelled:true},run=0,scenes=[],opts,phone,stage,field,lock,count,pend,buttons={},kept=new WeakMap();
+  var CANCEL={cancelled:true},run=0,scenes=[],opts,phone,stage,field,lock,count,pend,buttons={},kept=new WeakMap(),open=new Set();
   function esc(t){return String(t).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
 
   /* a card, as App v4 draws it: who (face or initial), what, its line; a matter's one sentence of why; a draft's message
@@ -31,19 +32,21 @@ window.Shell=(function(){
   function paint(e,k,token){var act=e.querySelector('.s-act'),st=kept.get(k);e.classList.toggle('sent',st==='done');e.classList.toggle('undone',st==='undone');
     if(!st){act.innerHTML='<button type="button" class="s-go">'+esc(k.send||k.act)+'</button>';var b=act.firstChild;
       b.onclick=function(){if(b.disabled)return;b.disabled=true;b.textContent=k.sending||k.doing;
-        setTimeout(function(){if(token!==run)return;kept.set(k,'done');paint(e,k,token);Edge.set('landed');},k.sendMs);};return;}
+        setTimeout(function(){if(token!==run)return;kept.set(k,'done');open.delete(k);showCount();paint(e,k,token);Edge.set('landed');},k.sendMs);};return;}
     act.innerHTML='<div class="s-done"><span>'+esc(st==='undone'?'Deleted for everyone':k.sent||k.ok)+'</span>'+(st==='done'&&k.undo?'<button type="button">'+esc(k.undo)+'</button>':'')+'</div>';
     var u=act.querySelector('button');if(u)u.onclick=function(){kept.set(k,'undone');paint(e,k,token);};}
   function cards(items,token){var row=document.createElement('div'),list=document.createElement('div');row.className='s-cards';list.className='s-row';row.appendChild(list);
-    items.forEach(function(k){var w=document.createElement('div');w.innerHTML=cardHtml(k);var e=w.firstChild;list.appendChild(e);paint(e,k,token);});
+    items.forEach(function(k){if(!kept.has(k))open.add(k);var w=document.createElement('div');w.innerHTML=cardHtml(k);var e=w.firstChild;list.appendChild(e);paint(e,k,token);});
     if(items.length>1){row.classList.add('many');var dots=document.createElement('div');dots.className='s-dots';dots.setAttribute('aria-hidden','true');
       dots.innerHTML=items.map(function(){return '<i></i>';}).join('');row.appendChild(dots);
       var at=function(){var w=list.firstChild.offsetWidth+10,i=Math.round(list.scrollLeft/w);[].forEach.call(dots.children,function(d,j){d.classList.toggle('on',j===i);});};
       list.addEventListener('scroll',at,{passive:true});at();}
-    /* a mouse drag pages by one card (touch and trackpads scroll natively); the row keeps its swipes from the variant */
+    showCount();
+    /* a mouse drag pages by one card: a mouse has no sideways scroll, and the designs are mostly viewed with one (touch and
+       trackpads scroll natively). Its pointerdown stays in the row, so variant A's reel never takes a card swipe as a shot's */
     var x0=null;
     list.addEventListener('pointerdown',function(e){e.stopPropagation();if(e.pointerType==='mouse')x0=e.clientX;});
-    list.addEventListener('pointerup',function(e){e.stopPropagation();if(x0===null)return;var dx=e.clientX-x0;x0=null;
+    list.addEventListener('pointerup',function(e){if(x0===null)return;var dx=e.clientX-x0;x0=null;
       if(Math.abs(dx)>30)list.scrollBy({left:(dx<0?1:-1)*(list.firstChild.offsetWidth+10),behavior:reduce?'auto':'smooth'});});
     return row;}
 
@@ -58,16 +61,19 @@ window.Shell=(function(){
       pend.setAttribute('aria-label',p?'Pendant, paused':'Pendant, recording');}
     show(paused);sw.onclick=function(){show(sw.getAttribute('aria-checked')!=='true');};
     requestAnimationFrame(function(){o.classList.add('on');});
-    if(av.animate&&!reduce)av.animate([{left:'334px',top:'60px',width:'40px',height:'40px'},{left:'135px',top:'118px',width:'120px',height:'120px'}],{duration:550,easing:'cubic-bezier(.2,.9,.22,1.06)'});
+    /* the face grows from the pill: both places read from the page, so shell.css alone says where they are */
+    var k=phone.getBoundingClientRect().width/phone.offsetWidth,p=pend.getBoundingClientRect(),a=av.getBoundingClientRect();
+    var pill='translate('+(p.left-a.left)/k+'px,'+(p.top-a.top)/k+'px) scale('+p.width/a.width+')';
+    if(av.animate&&!reduce)av.animate([{transform:pill},{transform:'none'}],{duration:550,easing:'cubic-bezier(.2,.9,.22,1.06)'});
     o.querySelector('.s-pback').onclick=function(){o.classList.remove('on');
-      if(av.animate&&!reduce)av.animate([{left:'135px',top:'118px',width:'120px',height:'120px'},{left:'334px',top:'60px',width:'40px',height:'40px',opacity:0}],{duration:380,easing:'cubic-bezier(.3,0,.2,1)',fill:'forwards'});
+      if(av.animate&&!reduce)av.animate([{transform:'none'},{transform:pill,opacity:0}],{duration:380,easing:'cubic-bezier(.3,0,.2,1)',fill:'forwards'});
       setTimeout(function(){o.remove();},reduce?0:400);};}
-  function setCount(n){count.textContent=n;count.setAttribute('aria-label',n+' waiting on you');count.style.visibility=n?'visible':'hidden';}
+  function showCount(){var n=open.size;count.textContent=n;count.setAttribute('aria-label',n+' waiting on you');count.style.visibility=n?'visible':'hidden';}
 
   function ctxFor(token){
     function alive(){if(token!==run)throw CANCEL;}
     function wait(ms){return new Promise(function(ok,no){setTimeout(function(){token===run?ok():no(CANCEL);},ms);});}
-    return {phone:phone,stage:stage,field:field,edge:Edge,wait:wait,pendant:pendant,count:setCount,
+    return {phone:phone,stage:stage,field:field,edge:Edge,wait:wait,pendant:pendant,
       cards:function(items){return cards(items,token);},
       cancelled:function(){return token!==run;},
       lock:function(time){lock.hidden=time===false;if(time!==false){lock.querySelector('.lk-t').textContent=time||DATA.now.time;lock.querySelector('.lk-d').textContent=DATA.now.day;}},
@@ -84,7 +90,7 @@ window.Shell=(function(){
           for(var j=0;j<6;j++){Edge.level(.45+.55*Math.random());await wait(55);}}
         Edge.level(1);await wait(300);field.live(false);}};}
 
-  function reset(){kept=new WeakMap();phone.querySelectorAll('.s-pov').forEach(function(o){o.remove();});pend.classList.remove('paused');setCount(DATA.waiting.length);
+  function reset(){kept=new WeakMap();open=new Set(DATA.waiting);showCount();phone.querySelectorAll('.s-pov').forEach(function(o){o.remove();});pend.classList.remove('paused');
     lock.hidden=true;lock.querySelector('.lk-n').hidden=true;stage.innerHTML='';field.clear();field.live(false);Edge.set('rest');Edge.level(1);}
 
   function start(id){var s=scenes.find(function(x){return x.id===id;});if(!s)return Promise.resolve();

@@ -237,7 +237,7 @@ Shell.mount({title:'Turn by turn v2: E, path of work',scenes:[
   {id:'answer-day',label:'Answer: the day',run:function(c){return full(c,turn(c),D.asks.day,dayAnswer);}},
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return full(c,turn(c),D.asks.jade,jadeAnswer);}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return full(c,turn(c),D.asks.tell,tellAnswer);}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var g=greet(c,c.stage);await c.wait(D.arrives.arriveMs);c.count(D.waiting.length+1);
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var g=greet(c,c.stage);await c.wait(D.arrives.arriveMs);
     var t=el(c.stage,'turn arrived','');t.style.paddingTop='20px';cardRow(c,t,[D.arrives.card],0,'<i class="node" style="background:var(--muted)"></i>');scrollEnd(c);}},
   {id:'slow',label:'A slow ask',run:function(c){return full(c,turn(c),D.slow,slowAnswer);}},
   {id:'failure',label:'A read fails',run:function(c){return full(c,turn(c),D.failure,failAnswer);}},

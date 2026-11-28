@@ -255,7 +255,7 @@ Shell.mount({title:'Turn by turn v2: D, cards on the table',scenes:[
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(c,D.asks.jade,'voice',jadeObjects);}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){var a=D.asks.tell;
     return turn(c,a,'typed',function(t){return [cardsObj(t,[a.answer.card])];});}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var w=begin(c),x=hi(w);ink(x);await c.wait(D.arrives.arriveMs);c.count(D.waiting.length+1);
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var w=begin(c),x=hi(w);ink(x);await c.wait(D.arrives.arriveMs);
     anim(x,[{opacity:1},{opacity:.45}],{duration:600,fill:'forwards'});
     var e=cardsObj(w.table,[D.arrives.card]);w.table.classList.add('edge-of');
     anim(e,[{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1}],{duration:900,easing:SOFT});}},

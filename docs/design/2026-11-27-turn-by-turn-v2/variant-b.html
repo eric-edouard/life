@@ -191,7 +191,7 @@ Shell.mount({title:'Turn by turn v2: B, living page',scenes:[
   scene('answer-day','Answer: the day',function(c){return turn(c,D.asks.day,D.asks.day.answer.lead,dayBlocks);}),
   scene('answer-jade','Answer: Jade, with her draft',function(c){return turn(c,D.asks.jade,D.asks.jade.answer.lead,jadeBlocks);}),
   scene('tell','Tell Ben: a draft on his words',function(c){var a=D.asks.tell;return turn(c,a,a.answer.lead,function(c){return [cards(c,[a.answer.card])];});}),
-  scene('card-arrives','A card arrives',async function(c){var pg=idle(c);await c.wait(D.arrives.arriveMs);c.count(D.waiting.length+1);var f=h('div','foot','',pg);
+  scene('card-arrives','A card arrives',async function(c){var pg=idle(c);await c.wait(D.arrives.arriveMs);var f=h('div','foot','',pg);
     f.appendChild(cards(c,[D.arrives.card]));
     A(f,[{opacity:0,transform:'translateY(60px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'blur(0)'}],700,SETTLE);
     c.stage.scrollTo({top:c.stage.scrollHeight,behavior:R?'auto':'smooth'});}),

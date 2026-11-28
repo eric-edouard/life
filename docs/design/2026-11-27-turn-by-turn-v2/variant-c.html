@@ -218,7 +218,7 @@ Shell.mount({title:'Turn by turn v2: C, face to face',scenes:[
   {id:'answer-day',label:'Answer: the day',run:function(c){return turn(view(c),D.asks.day,dayLines());}},
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(view(c),D.asks.jade,jadeLines(c),'voice');}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return turn(view(c),D.asks.tell,tellLines(c));}},
-  {id:'card-arrives',label:'A card arrives',run:async function(c){var V=view(c);await greet(V);await c.wait(Math.max(0,D.arrives.arriveMs-1300));c.count(D.waiting.length+1);
+  {id:'card-arrives',label:'A card arrives',run:async function(c){var V=view(c);await greet(V);await c.wait(Math.max(0,D.arrives.arriveMs-1300));
     var g=h('div','cg');g.appendChild(cardEl(c,[D.arrives.card]));V.d.appendChild(g);
     anim(g,[{opacity:0,transform:'translateY(48px)',filter:'blur(6px)'},{opacity:1,transform:'none',filter:'blur(0)'}],1100,GLIDE);}},
   {id:'slow',label:'A slow ask',run:function(c){var a=D.slow.answer;return turn(view(c),D.slow,plain(a.lead,group(placeHTML(a.place))));}},

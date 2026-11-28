@@ -253,7 +253,7 @@ Shell.mount({title:'Turn by turn v2: A, cinema',
   {id:'answer-jade',label:'Answer: Jade, with her draft',run:function(c){return turn(c,D.asks.jade,jadeShots(c));}},
   {id:'tell',label:'Tell Ben: a draft on his words',run:function(c){return turn(c,D.asks.tell,tellShots(c));}},
   {id:'card-arrives',label:'A card arrives',run:async function(c){var r=root(c),h=hi(r);
-    await c.wait(D.arrives.arriveMs);c.count(D.waiting.length+1);
+    await c.wait(D.arrives.arriveMs);
     var p=el(r,'a-arr','');p.appendChild(c.cards([D.arrives.card]));mv(h,{transform:'none'},{transform:'translateY(-120px)',opacity:.5},900,SOFT);
     mv(p,{transform:'translateY(110%)',opacity:0},{transform:'none',opacity:1},900,SPRING);}},
   {id:'slow',label:'A slow ask',run:function(c){var a=D.slow;return turn(c,a,oneShot(a.answer.lead,'. ',placeHtml(a.answer.place)));}},
