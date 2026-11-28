@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { sha256Of } from "../core/hash";
+import { PROJECT_WORK_FOLDERS } from "../core/paths";
 import { SECRETS, writeSecret } from "../core/secret";
 import { PASSAGES } from "../memory/memory-files";
 import { LOCK } from "../memory/memory-lock";
@@ -59,9 +60,15 @@ test("an export holds everything with its checksum and counts, and never a secre
     );
     expect(existsSync(PASSAGES)).toBe(true);
 
+    // A one-off project's work folder: an agent's scratch work, never exported.
+    mkdirSync(join(PROJECT_WORK_FOLDERS, "bakery-page"), { recursive: true });
+    writeFileSync(join(PROJECT_WORK_FOLDERS, "bakery-page", "PLAN.md"), "x");
+
     const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
     const m = await stage(dir, archive);
+    rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
+    expect(paths.filter((p) => p.startsWith("state/projects/"))).toEqual([]);
     expect(paths).toContain("archive/whatsapp.sqlite");
     expect(paths).toContain("archive/phone.sqlite");
     expect(m.counts.rows["archive/phone.sqlite"]).toEqual({ calls: 1 });
