@@ -1,22 +1,171 @@
 import { existsSync, readFileSync } from "node:fs";
+import { cached } from "./cached";
+import { MIN } from "./clock";
+import { log } from "./log";
+import { errorOf } from "./log-line";
+import { exec } from "./proc";
 import { SECRETS } from "./secret";
 
+/** What Life runs gog for: his accounts (the sign-in), the calendar, Gmail send, Google Tasks, Google Contacts. */
+export type GogKind = "auth" | "calendar" | "contacts" | "gmail" | "tasks";
+
+/** What running one `gog` command line gave, as `exec` answers it; a test passes its own. */
+export type GogRunner = (
+  cmd: string[],
+  o: { env: Record<string, string | undefined>; timeout: number }
+) => Promise<{
+  code: number;
+  killed?: unknown;
+  stderr: string;
+  stdout: string;
+}>;
+
 /**
- * The one way Life runs `gog` (Google Calendar, Google Tasks, Gmail send): its command line and environment, as `exec`'s two
- * arguments. gog keeps its tokens in a file keyring that needs `GOG_KEYRING_PASSWORD`; Life.app's helper has no shell
- * profile, so the password comes from `SECRETS.gogKeyring` (`bun life gog-keyring`) unless the process already has one.
+ * gog's keyring password: this process's own `GOG_KEYRING_PASSWORD`, else the one `connectGoogle` made and Life keeps
+ * in `SECRETS.gogKeyring`, else none. Found here alone, so a keyring never gets a second password (`connect-google.ts`).
+ */
+export function gogKeyringPassword(): string | undefined {
+  const own = process.env.GOG_KEYRING_PASSWORD?.trim();
+  if (own) {
+    return own;
+  }
+  const kept = existsSync(SECRETS.gogKeyring)
+    ? readFileSync(SECRETS.gogKeyring, "utf8").trim()
+    : "";
+  return kept || undefined;
+}
+
+/** The client Life's OAuth credentials and tokens live under (gog's `--client`), unless a process names its own. */
+export const gogClient = () => process.env.GOG_CLIENT?.trim() || "life";
+
+/**
+ * The one way Life runs `gog` (his accounts, the calendar, Gmail, Google Tasks, Contacts): its command line and
+ * environment, as `exec`'s two arguments. The keyring is a file (`GOG_KEYRING_BACKEND`), never a Keychain item: the
+ * app's helper has no shell profile, and macOS blocks on the prompt a new item raises. `account` is left out for a call
+ * that names none (`auth list`); `auth add` keeps its prompts, since it opens his browser for the sign-in.
  */
 export function gogCall(
-  kind: "calendar" | "gmail" | "tasks",
-  account: string,
+  kind: GogKind,
+  account: string | undefined,
   args: string[]
 ): [string[], { env: Record<string, string | undefined> }] {
-  const env: Record<string, string | undefined> = { ...process.env };
-  if (!env.GOG_KEYRING_PASSWORD && existsSync(SECRETS.gogKeyring)) {
-    env.GOG_KEYRING_PASSWORD = readFileSync(SECRETS.gogKeyring, "utf8").trim();
+  const env: Record<string, string | undefined> = {
+    ...process.env,
+    GOG_CLIENT: gogClient(),
+    GOG_KEYRING_BACKEND: "file",
+  };
+  const password = gogKeyringPassword();
+  if (password) {
+    env.GOG_KEYRING_PASSWORD = password;
   }
+  const signingIn = kind === "auth" && args[0] === "add";
   return [
-    ["gog", kind, ...args, `--account=${account}`, "--json", "--no-input"],
+    [
+      "gog",
+      kind,
+      ...args,
+      ...(account ? [`--account=${account}`] : []),
+      "--json",
+      ...(signingIn ? [] : ["--no-input"]),
+    ],
     { env },
   ];
+}
+/**
+ * Runs one `gog` call (`gogCall`'s own kind, account and arguments) and parses its JSON answer, `{}` when it says
+ * nothing: the one place a call's output is decoded. A kill or a non-zero code throws gog's own words, the last 300
+ * characters of its stderr (else its stdout).
+ */
+export async function gogJson<T>(
+  kind: GogKind,
+  account: string | undefined,
+  args: string[],
+  run: GogRunner = (cmd, o) => exec(cmd, o),
+  timeout = MIN
+): Promise<T> {
+  const [cmd, { env }] = gogCall(kind, account, args);
+  const r = await run(cmd, { env, timeout });
+  if (r.killed || r.code !== 0) {
+    throw new Error((r.stderr || r.stdout).trim().slice(-300));
+  }
+  return JSON.parse(r.stdout.trim() || "{}") as T;
+}
+/** An account gog holds under Life's OAuth client, as `gog auth list --check --json` gives it. */
+export interface GoogleAccount {
+  /** Its address, as gog reports it. */
+  address: string;
+  /** Its granted scopes, as their full URLs: a read that needs one checks it here. */
+  scopes: string[];
+  /** The services it was authorized for (`gmail`, `calendar`, `tasks`, …). */
+  services: string[];
+  /** Whether gog could still exchange its refresh token for an access token (the `--check`). */
+  valid: boolean;
+}
+
+/** Whether an account's grant covers `scope`: a token that still works, and a granted scope URL starting with it. */
+export const hasGrant = (account: GoogleAccount, scope: string) =>
+  account.valid && account.scopes.some((s) => s.startsWith(scope));
+
+/** `gog auth list --check --json`'s answer, as gog writes it. */
+interface AccountsAnswer {
+  accounts?: {
+    email?: string;
+    scopes?: string[];
+    services?: string[];
+    valid?: boolean;
+  }[];
+}
+
+/** The accounts in that answer, one per address it holds. */
+export function googleAccountsOf(answer: AccountsAnswer): GoogleAccount[] {
+  return (answer.accounts ?? []).flatMap((a) =>
+    a.email
+      ? [
+          {
+            address: a.email,
+            scopes: a.scopes ?? [],
+            services: a.services ?? [],
+            valid: a.valid !== false,
+          },
+        ]
+      : []
+  );
+}
+
+const ACCOUNTS_MS = 5 * MIN;
+let accounts: GoogleAccount[] = [];
+
+/**
+ * The accounts gog holds under Life's OAuth client, each with whether its token still works and the scopes gog reports:
+ * one read per 5 minutes, its answer also kept for the callers that can't wait (`latestGoogleAccounts`). A read that
+ * fails is logged and reads as no accounts: a status read never throws.
+ */
+export const readGoogleAccounts = (): Promise<GoogleAccount[]> =>
+  cached("gog accounts", ACCOUNTS_MS, async () => {
+    accounts = await readAccountsNow();
+    return accounts;
+  });
+
+/** The accounts as `readGoogleAccounts` last read them, for a caller that can't wait (his own mail addresses). */
+export const latestGoogleAccounts = () => accounts;
+
+async function readAccountsNow() {
+  // No password means no keyring yet, so no account: the first `connectGoogle` makes it, and until then this is no call.
+  if (!gogKeyringPassword()) {
+    return [];
+  }
+  try {
+    const answer: AccountsAnswer = await gogJson("auth", undefined, [
+      "list",
+      "--check",
+    ]);
+    return googleAccountsOf(answer);
+  } catch (e) {
+    log("source.read", {
+      ...errorOf(e),
+      ok: false,
+      source: "google accounts",
+    });
+    return [];
+  }
 }

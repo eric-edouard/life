@@ -2,15 +2,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { MIN } from "../core/clock";
-import { gogCall } from "../core/gog";
+import { gogCall, latestGoogleAccounts } from "../core/gog";
 import { exec } from "../core/proc";
 import { takesProblemOf } from "./chat-takes";
 import type { ChatTakes, Outgoing, SendPath } from "./contract";
-import { messageIdOfMail, readMailAddresses } from "./mail";
+import { messageIdOfMail, readMailAddressesOrNone } from "./mail";
 
 // The one mail send: gog's Gmail does it, from an account gog holds (the only place Life names `gogCall("gmail"`,
-// `scripts/imports.test.ts`). A new mail, or a reply in the thread of one message of his; never reply-all, a quote, a
-// signature or tracking: the mail is exactly what his card showed.
+// `scripts/imports.test.ts`; the archive's copy reads, `--readonly`, in `gmail-archive.ts`). A new mail, or a reply in
+// the thread of one message of his; never reply-all, a quote, a signature or tracking: the mail is exactly what his card showed.
 
 interface Run {
   code: number;
@@ -54,9 +54,22 @@ const addressesIn = (list: string) => list.split(",").map((a) => a.trim());
 const isAddresses = (list: string) =>
   addressesIn(list).every((a) => ADDRESS.test(a));
 
-/** What he does when gog can't act as `account` for Gmail: one step, gog's own. */
+/**
+ * His own mail addresses: Apple Mail's, and the Google accounts gog holds whose token still works, as
+ * `readGoogleAccounts` last read them (this is called where gog can't be awaited: the send guard's facts at each
+ * spawn). Mail unreadable leaves his Google accounts' alone.
+ */
+export function readOwnMailAddresses(): string[] {
+  const mail = readMailAddressesOrNone();
+  const google = latestGoogleAccounts()
+    .filter((a) => a.valid)
+    .map((a) => a.address);
+  return [...new Set([...mail, ...google])];
+}
+
+/** What he does when gog can't act as `account` for Gmail: sign in again, the one way Life signs in (`connectGoogle`). */
 const reauthorize = (account: string) =>
-  `gog can't use ${account} for Gmail: run \`gog auth add ${account} --services=gmail --force-consent\` and sign in`;
+  `Sign in with Google again: \`bun life connect-google ${account}\``;
 
 /** gog's answer to the send: the sent id, or `not sent` (gog didn't start, or can't act for the account) or `may have gone`. */
 function answerOf(r: Run, from: string) {
@@ -89,7 +102,7 @@ function answerOf(r: Run, from: string) {
  * gives it, not Life's `mail:<Message-ID>` (gog's answer holds no RFC id; Mail's copy has its own id later).
  */
 export function gmailSend({
-  addresses = readMailAddresses,
+  addresses = readOwnMailAddresses,
   run = (cmd, o) => exec(cmd, o),
   staging = tmpdir(),
 }: Options = {}): SendPath {

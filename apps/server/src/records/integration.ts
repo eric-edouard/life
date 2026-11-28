@@ -17,7 +17,7 @@ export type AccessCheck = (typeof ACCESS_CHECKS)[number];
 /** What an integration takes, in the order the user meets it; whether each is done is worked out when read, never stored. Not a card's need (`memory/needs.ts`). */
 export type Requirement =
   | { kind: "permission"; check: "full_disk_access" }
-  | { kind: "sign_in"; with: "network" | "claude" }
+  | { kind: "sign_in"; with: "google" | "network" | "claude" }
   | { kind: "key"; name: string; opens: string; optional?: true }
   | { kind: "credits"; with: "openrouter" }
   | { kind: "install"; what: "claude_code" }

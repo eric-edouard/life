@@ -7,7 +7,9 @@
 
 import { cached, safe } from "../core/cached";
 import { clock, MIN } from "../core/clock";
+import { readGoogleAccounts } from "../core/gog";
 import { systemZone } from "../core/platform";
+import { settings } from "../core/settings";
 import { appHere, enabledSources, SOURCES } from "../memory/sources";
 import { providerOf, readEngine, readEngineCheck } from "../models/llm";
 import type { IntegrationTerms, Requirement } from "../records/integration";
@@ -52,7 +54,7 @@ const newestOf = async () =>
 
 /** What the integration facts read, each cached (the snapshot's reads hold the same, under the same cache keys). */
 export async function readIntegrationReads(now: Date) {
-  const [failingStores, bridgeChecks, life, newest, turn, mac] =
+  const [failingStores, bridgeChecks, life, newest, turn, mac, google] =
     await Promise.all([
       cached("failing", 15_000, async () => new Map(await archiveFailing())),
       latestBridgeChecks(),
@@ -65,11 +67,14 @@ export async function readIntegrationReads(now: Date) {
         missing: new Map(SOURCES.map((d) => [d.name as string, d.missing?.()])),
         on: new Set(enabledSources().map((d) => d.name as string)),
       })),
+      // Who is signed in with Google: gog's own list, read once per 5 minutes and no accounts when it fails.
+      readGoogleAccounts(),
     ]);
   return {
     ...mac,
     bridges: bridgeChecks,
     failingStores,
+    google,
     life,
     newest,
     now,
@@ -123,9 +128,10 @@ export function isDoneOf(
     case "permission":
       return reads.fullDiskAccess === "done";
     case "sign_in":
-      return (
-        r.with !== "network" || reads.bridges.get(name)?.signedIn !== false
-      );
+      // Google is done once one of his accounts still works; Claude's is the engine check's (`isEngineDoneOf`).
+      return r.with === "google"
+        ? reads.google.some((a) => a.valid)
+        : r.with !== "network" || reads.bridges.get(name)?.signedIn !== false;
     case "key":
       return reads.bridges.get(name)?.needsKeys !== true;
     case "device":
@@ -240,6 +246,28 @@ const VOICE_TERMS: IntegrationTerms = {
   },
 };
 
+/** Google's terms: his sign-in alone, under Life's OAuth client or one of his own (`connectGoogle`). */
+const GOOGLE_TERMS: IntegrationTerms = {
+  privacy:
+    "Gmail, Google Calendar and Google Contacts are read by this computer with your own sign-in; the tokens stay on this computer; what Life reads goes to the AI you chose.",
+  requirements: [{ kind: "sign_in", with: "google" }],
+  value: {
+    answer: "Ana sent the quote on Friday and asked for an answer by Tuesday.",
+    ask: "What did Ana send me by mail this week?",
+  },
+};
+
+/** Whether anything of Life's reads Google: the Gmail source, his appointments calendar, a Google past calendar or a Google to-do list. */
+function isGoogleSet(on: ReadonlySet<string>) {
+  const s = settings();
+  return (
+    on.has("gmail") ||
+    !!s.appointmentsCalendar ||
+    !!s.pastCalendar?.account ||
+    s.todoList?.backend === "google"
+  );
+}
+
 /** Each messaging network as an integration: each is a source by name, its own entry holding its terms. */
 export const networkIntegrationsOf = (reads: IntegrationReads) =>
   NETWORKS.map((n) => ({ d: SOURCES.find((s) => s.name === n.name), n }))
@@ -283,8 +311,8 @@ export function aiFactsOf(
 }
 
 /**
- * Every integration now, in the order a user meets them: the AI, voice, each source on this system, then each messaging
- * network. Served to the host app's setup window and the phone.
+ * Every integration now, in the order a user meets them: the AI, voice, Google, each source on this system, then each
+ * messaging network. Served to the host app's setup window and the phone.
  */
 export async function integrationsNow(now = clock()): Promise<Integration[]> {
   const engine = readEngine();
@@ -317,6 +345,21 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
     name: "Voice",
     terms: VOICE_TERMS,
   });
+  const google = integrationOf({
+    facts: {
+      kind: "google",
+      on: isGoogleSet(reads.on),
+      requirements: GOOGLE_TERMS.requirements.map((x) => ({
+        ...x,
+        done: isDoneOf(x, "google", reads),
+      })),
+    },
+    group: "sources",
+    icon: "google",
+    id: "google",
+    name: "Google",
+    terms: GOOGLE_TERMS,
+  });
   const sources = SOURCES.filter((d) => d.integration && appHere(d)).map((d) =>
     integrationOf({
       facts: integrationFactsOf(d, reads),
@@ -327,5 +370,5 @@ export async function integrationsNow(now = clock()): Promise<Integration[]> {
       terms: d.integration as IntegrationTerms,
     })
   );
-  return [ai, voice, ...sources, ...networkIntegrationsOf(reads)];
+  return [ai, voice, google, ...sources, ...networkIntegrationsOf(reads)];
 }

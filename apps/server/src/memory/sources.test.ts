@@ -37,6 +37,7 @@ test("every stored source name has one descriptor, in the cut order", () => {
     "linkedin",
     "github",
     "mail",
+    "gmail",
     "notes",
     "claude",
     "chatgpt",
@@ -82,6 +83,7 @@ test("a new source is one descriptor: every table picks it up", () => {
     "linkedin",
     "github",
     "mail",
+    "gmail",
     "told-life",
     "radio",
   ]);
@@ -103,7 +105,10 @@ test("a new source is one descriptor: every table picks it up", () => {
     "told-life",
     "photos",
   ]);
-  expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual(["mail"]);
+  expect(Object.keys(tablesOf(SOURCES).SEARCHED_MAIL)).toEqual([
+    "mail",
+    "gmail",
+  ]);
 });
 
 test("a chat app's ids say which chats are groups: the closeness counts leave them out", () => {

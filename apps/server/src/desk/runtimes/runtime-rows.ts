@@ -4,7 +4,6 @@ import { APIFY_KEY_ENV } from "../../apify/backend";
 import { clock, MIN } from "../../core/clock";
 import { linesOf } from "../../core/files";
 import { log } from "../../core/log";
-import { errorOf } from "../../core/log-line";
 import type { RuntimeName } from "../../core/names";
 import { LIFE_CODE_DIR } from "../../core/paths";
 import { cliEnv, HOME, isOwnLife, WINDOWS } from "../../core/platform";
@@ -13,7 +12,7 @@ import { settings } from "../../core/settings";
 import { readOpenSessionRecords } from "../../host/open-session-records";
 import { mailedTo } from "../../host/report";
 import { CODEX_AGENT_OFF, CODEX_HOME, CODEX_OFF } from "../../models/llm";
-import { readMailAddresses } from "../../sources/mail";
+import { readOwnMailAddresses } from "../../sources/gmail";
 import { SEND_FACTS_ENV, SEND_GUARD_HOOK, type SendFacts } from "../send-guard";
 import { type Agent, DOOR_KEY_ENV } from "./contract";
 
@@ -136,16 +135,11 @@ const GUARD_HOOKS = {
   ],
 };
 
-/** His own addresses, as Mail knows them, and Life's mail to him: none when Mail can't be read (resend then goes nowhere). */
-function readOwnAddresses() {
+/** His own addresses, as Mail and his Google accounts know them, and Life's mail to him (resend then goes nowhere without one). */
+const readOwnAddresses = () => {
   const to = mailedTo();
-  try {
-    return [...readMailAddresses(), ...(to ? [to] : [])];
-  } catch (e) {
-    log("desk.runtime", { ...errorOf(e), ok: false, what: "send facts" });
-    return to ? [to] : [];
-  }
-}
+  return [...readOwnMailAddresses(), ...(to ? [to] : [])];
+};
 
 /** What the guard reads beside a call (`SendFacts`): the hook's environment at each spawn, the door's `/guard`. */
 export const readSendFacts = (): SendFacts => ({

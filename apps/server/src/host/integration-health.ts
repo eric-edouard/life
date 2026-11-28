@@ -101,6 +101,7 @@ export type IntegrationFacts = {
     }
   | { kind: "ai"; online: boolean; host: string }
   | { kind: "voice"; answering: boolean; line: string }
+  | { kind: "google" }
 );
 
 /** An integration's state, in the order the user meets it: off, a requirement missing, not readable, then by kind. */
@@ -135,6 +136,9 @@ export function integrationHealthOf(f: IntegrationFacts): IntegrationHealth {
       return pendantHealthOf(f);
     case "ai":
       return aiHealthOf(f);
+    case "google":
+      // Signed out, its sign-in requirement has already stopped it: here it reads his Google accounts.
+      return { state: "working", tone: "ok", word: "connected" };
     default:
       return voiceHealthOf(f);
   }
@@ -230,8 +234,9 @@ function voiceHealthOf(f: VoiceFacts): IntegrationHealth {
 }
 
 /** What each sign-in's requirement asks him to do, in plain words. */
-const SIGN_IN_WHY: Record<"network" | "claude", string> = {
+const SIGN_IN_WHY: Record<"google" | "network" | "claude", string> = {
   claude: "Sign in to Claude.",
+  google: "Sign in with Google.",
   network: "Sign in from your phone.",
 };
 

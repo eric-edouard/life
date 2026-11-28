@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { EMBEDDER_FILE } from "@life/server/src/core/embedder";
 import {
@@ -43,6 +43,28 @@ const run = (cmd: string[], cwd = ROOT) =>
   execOk(cmd, { cwd, timeout: 900_000 });
 const sign = (file: string) =>
   run(["codesign", "--force", "--sign", identity, ...hardened, file]);
+
+/**
+ * The Google OAuth client this build carries: `LIFE_GOOGLE_CLIENT` (1Password's document, docs/releasing.md), checked
+ * as a Desktop client's JSON and copied into the app's resources, where `bun life connect-google` stores it in gog
+ * (`LIFE_CODE_DIR` at run time). Never printed; a build without one says so and carries none.
+ */
+async function googleClient(dir: string) {
+  const file = process.env.LIFE_GOOGLE_CLIENT;
+  if (!file) {
+    console.log("no Google client in this build");
+    return;
+  }
+  const client = JSON.parse(await readFile(file, "utf8")) as {
+    installed?: { client_id?: string };
+  };
+  if (!client.installed?.client_id?.endsWith(".apps.googleusercontent.com")) {
+    throw new Error(
+      `${basename(file)} is not a Desktop OAuth client's JSON (installed.client_id)`
+    );
+  }
+  await cp(file, join(dir, "google-client.json"));
+}
 
 /** Sparkle, pinned: its release for Swift packages, checked against this checksum before it is unpacked. */
 const SPARKLE = {
@@ -228,6 +250,7 @@ await cp(join(helper, "life"), join(contents, "Helpers", "life"));
 await cp(join(helper, "resources"), join(contents, "Resources", "life"), {
   recursive: true,
 });
+await googleClient(join(contents, "Resources", "life"));
 // Life's type (docs/brand.md), Source Serif 4 and IBM Plex Mono (OFL, their licences beside them), registered by
 // ATSApplicationFontsPath.
 await cp(join(MAC, "Fonts"), join(contents, "Resources", "Fonts"), {

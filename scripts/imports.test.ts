@@ -13,8 +13,13 @@ const SPACE = /\s+/;
 const REMCTL = /"bin",\s*"remctl"/;
 const GOG = /"gog"/;
 const GH = /"gh"/;
-const GOG_TASKS = /gogCall\(\s*"tasks"/;
-const GOG_GMAIL = /gogCall\(\s*"gmail"/;
+// A read's answer is parsed by `gogJson`, which runs `gogCall`: both name the kind first.
+const GOG_KIND = (kind: string) =>
+  new RegExp(`gog(?:Call|Json)(?:<\\w+>)?\\(\\s*"${kind}"`);
+const GOG_TASKS = GOG_KIND("tasks");
+const GOG_GMAIL = GOG_KIND("gmail");
+const GOG_AUTH = GOG_KIND("auth");
+const GOG_CONTACTS = GOG_KIND("contacts");
 const MONEY = /\["money",/;
 const MESSAGES_APP = /tell application "Messages"/;
 const MATRIX_SEND = /\/send\/|\/media\/v3\/upload/;
@@ -128,8 +133,20 @@ test("only changeTodoItem writes his to-do list: it alone imports the backend, o
   ]);
   expect(running(REMCTL)).toEqual(["apps/server/src/todo-list/remctl.ts"]);
   expect(running(GOG_TASKS)).toEqual(["apps/server/src/todo-list/google.ts"]);
-  // His mail is sent only by Gmail through gog, in one file.
-  expect(running(GOG_GMAIL)).toEqual(["apps/server/src/sources/gmail.ts"]);
+  // His mail is sent only by Gmail through gog, in one file; the archive's copy reads it (`--readonly`) in another.
+  expect(running(GOG_GMAIL).sort()).toEqual([
+    "apps/server/src/sources/gmail-archive.ts",
+    "apps/server/src/sources/gmail.ts",
+  ]);
+  // His sign-in and who is signed in: the one read in `core/gog.ts`, and the sign-in itself.
+  expect(running(GOG_AUTH).sort()).toEqual([
+    "apps/server/src/core/gog.ts",
+    "apps/server/src/host/connect-google.ts",
+  ]);
+  // Google Contacts: read in one file.
+  expect(running(GOG_CONTACTS)).toEqual([
+    "apps/server/src/sources/google-contacts.ts",
+  ]);
   // Nothing else spawns gog: its name as a literal is in `core/gog.ts` alone.
   expect(running(GOG)).toEqual(["apps/server/src/core/gog.ts"]);
   // GitHub is read and written through `gh` in one file.

@@ -42,7 +42,7 @@ export const uvRelease = (arch: "amd64" | "arm64"): Pin => ({
   url: `https://github.com/astral-sh/uv/releases/download/0.12.24/uv-${arch === "arm64" ? "aarch64" : "x86_64"}-apple-darwin.tar.gz`,
 });
 
-/** gog (Google Calendar, Tasks, Gmail send; `core/gog.ts`), from its release: a folder holding the `gog` program. */
+/** gog (his Google accounts, Calendar, Contacts, Gmail send, Tasks; `core/gog.ts`), from its release: a folder holding the `gog` program. */
 export const GOG_VERSION = "0.48.0";
 export const gogRelease = (arch: "amd64" | "arm64"): Pin => ({
   sha256:

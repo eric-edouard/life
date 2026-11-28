@@ -215,3 +215,28 @@ test("the AI offline is broken, and says where it could not reach", () => {
     word: "offline",
   });
 });
+
+test("Google reads his accounts once he's signed in: before that it waits on him, and off it's off", () => {
+  const google = (on: boolean, done: boolean) =>
+    integrationHealthOf({
+      kind: "google",
+      on,
+      requirements: [{ done, kind: "sign_in", with: "google" }],
+    });
+  expect(google(true, true)).toEqual({
+    state: "working",
+    tone: "ok",
+    word: "connected",
+  });
+  expect(google(true, false)).toEqual({
+    state: "waiting_on_user",
+    tone: "bad",
+    why: "Sign in with Google.",
+    word: "can't read",
+  });
+  expect(google(false, false)).toEqual({
+    state: "off",
+    tone: "idle",
+    word: "off",
+  });
+});

@@ -1,5 +1,6 @@
 import { clock } from "../core/clock";
 import { appendJsonl } from "../core/files";
+import { readGoogleAccounts } from "../core/gog";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import type { SourceName } from "../core/names";
@@ -11,13 +12,14 @@ import {
   readContactRecords,
   writtenContactKeyOf,
 } from "../sources/contacts";
+import { readGoogleContacts } from "../sources/google-contacts";
 import {
   CONTACT_PEOPLE,
   readContactLines,
   readIndex,
   readInferred,
 } from "./memory-files";
-import { sourceOf } from "./sources";
+import { enabledSources, sourceOf } from "./sources";
 import { nameKey, UNKNOWN } from "./units";
 
 // The contact people (docs/glossary.md): who a handle is, as his Contacts name it, for the handles his messages hold.
@@ -176,14 +178,23 @@ function seenHandles() {
 }
 
 /**
+ * The cards of his Google Contacts, while the `gmail` source is on (its off switch): names and handles only, so a
+ * birthday and the rest still come from his Mac's Contacts (`memory/details.ts`).
+ */
+async function googleCards(): Promise<Contact[]> {
+  const gmailOn = enabledSources().some((d) => d.name === "gmail");
+  return gmailOn ? readGoogleContacts(await readGoogleAccounts()) : [];
+}
+
+/**
  * The night's step: reads his Contacts and appends what changed (`contactPeopleOf`). Contacts unread (no Mac, no
  * access) gives no card, so nothing is appended and the people kept still read; a failure is logged and never stops
  * the night.
  */
-export function writeContactPeople() {
+export async function writeContactPeople() {
   try {
     const lines = contactPeopleOf(
-      readContactRecords(),
+      [...readContactRecords(), ...(await googleCards())],
       readContactLines(),
       seenHandles(),
       clock().toISOString()

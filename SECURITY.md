@@ -30,7 +30,8 @@ agents that act for him. This page says what it protects and what it does not.
   (`derived/memory/vectors.sqlite`), kept out of exports.
 - Secrets are in the macOS Keychain (Life.app) or `.env` (a checkout, gitignored); the secret files Life writes are
   named in `SECRETS` (`apps/server/src/core/secret.ts`), mode 600, and kept out of every export and backup. One is gog's keyring
-  password (`bun life gog-keyring`), a file and not a Keychain item: the app blocks on the prompt a new item raises.
+  password, a file and not a Keychain item: the app blocks on the prompt a new item raises. Life makes it at the first
+  Connect Google (`bun life connect-google`), or keeps one from a shell with `bun life gog-keyring`.
 
 ## Models
 
@@ -200,8 +201,12 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
   its bridge where the room's own features allow it then, or his GitHub comment deleted through `gh`; never iMessage or mail.
 - To Google, when he set it: the Past calendar (its episodes, and its screen blocks: a device, its time span and its top apps by name; his yes of 22 Nov 2026), the appointments (`appointmentsCalendar` setting, his request of 8 Nov 2026), an agent's event he said yes to on its card (its title, times, reminders and place, once, into the same calendar; his word of 21 Nov 2026),
   and the to-do items with Google Tasks as the backend. All through `gog`, to Google's APIs; unset, none.
-  <!-- Placeholder for bundle G (life#1576, branch packaging-g): Gmail reading and Life's own Google OAuth client
-  (desktop, PKCE, loopback; its tokens on the Mac) go here. -->
+  Every gog call runs under Life's own OAuth client (a desktop client; a user may store their own) with the owner's
+  sign-in (`connectGoogle`, `host/connect-google.ts`), to Google's APIs (`www.googleapis.com`, `gmail.googleapis.com`,
+  `people.googleapis.com`); the sign-in is between this computer and Google, and gog's tokens stay in its file keyring
+  on this computer. With the `gmail` source on, requests for each signed-in mailbox's messages (copied into
+  `archive/gmail.sqlite`, `sources/gmail-archive.ts`) and for his Google Contacts' names and handles
+  (`sources/google-contacts.ts`). Nothing goes to Life's developer.
 - To his own voice server: his corrections about recordings, for each voice ask a "Life heard you" notice, then its outcome
   under the same id ("Life answered" or "Life couldn't do it"), never his words or Life's, and, for each new card in his
   inbox, a push (his yes of 18 Nov 2026; every kind of card since 19 Nov 2026): the words "1 new card" or "N more new

@@ -23,7 +23,7 @@ export const SECRETS = {
   backupKey: join(LIFE_STATE_DIR, "backup.key"),
   /** The desk's key: each registered agent's door key is derived from it (`desk/desk-door.ts`). */
   deskKey: join(LIFE_STATE_DIR, "desk", "desk.key"),
-  /** gog's keyring password for the helper, which has no shell profile (`core/gog.ts`); kept by `bun life gog-keyring`. */
+  /** gog's keyring password for the helper, which has no shell profile (`core/gog.ts`): made at the first `bun life connect-google`, or kept from a shell by `bun life gog-keyring`. */
   gogKeyring: join(LIFE_STATE_DIR, "gog-keyring"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
   /** The Mac's key on the Mac link (`host/http/mac-link.ts`), made at the first pairing: the iPhone app dials this Mac by its public half. */

@@ -34,6 +34,7 @@ import {
   readGithub,
 } from "../sources/github";
 import { gmailSend } from "../sources/gmail";
+import { copyGmail, newestGmail, readGmail } from "../sources/gmail-archive";
 import {
   DB,
   handleOf,
@@ -274,6 +275,31 @@ const LISTED: Descriptor[] = [
     read: (since, before) => readMail(since, undefined, undefined, before),
     send: gmailSend(),
     silentAfter: 12 * HOUR,
+  },
+  {
+    capturesOnItsOwn: true,
+    chatLinkOf: (handle) =>
+      handle.includes("@") ? `mailto:${handle}` : undefined,
+    incoming: (from?: number) => incomingArchived("gmail", "eventId", from),
+    integration: {
+      privacy:
+        "Read from Gmail by this computer with your own Google sign-in; Google Contacts' names come with it; what Life reads goes to the AI you chose, and turning the source off stops both.",
+      requirements: [{ kind: "sign_in", with: "google" }],
+      value: {
+        answer:
+          "Ana wrote on Monday about the invoice; you said you would send it that week.",
+        ask: "What did Ana write me about the invoice?",
+      },
+    },
+    kind: "mail",
+    label: "Gmail",
+    messageAt: (id) => readArchivedMessageAt("gmail", id),
+    name: "gmail",
+    newest: newestGmail,
+    read: (since, before) => readGmail(since, undefined, before),
+    send: gmailSend(),
+    silentAfter: 12 * HOUR,
+    store: { copies: "messages", copy: copyGmail },
   },
   {
     integration: {

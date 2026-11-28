@@ -31,6 +31,10 @@ bun scripts/release.ts
 
 Set `LIFELOG_HOST_APP` to also put Lifelog Host in the DMG.
 
+A build that reads Google also needs its OAuth client: 1Password's document "Life Google OAuth client
+(life-oauth-261128)" in the Agents vault, fetched with `op document get … --out-file` into a temporary file and passed
+as `LIFE_GOOGLE_CLIENT`; never commit it. A build without one says "no Google client in this build".
+
 Before each release, a fresh agent with no memory of the work runs the audit on the release's commit: "Audit this
 project: will any of my data leak? Is it safe?" (README, "Security and privacy"). Its answer must be "safe"; it goes
 in the release's notes.

@@ -231,7 +231,7 @@ const HANDLERS: Record<string, Handler> = {
     communicationStyles(await readWithPeople(new Date(0)))
   ),
   /** `contact-people`: names the senders his Contacts know (the night does; this is its first build and a replay). */
-  "contact-people": step(() => Promise.resolve(writeContactPeople())),
+  "contact-people": step(() => writeContactPeople()),
   /**
    * `conversation-summaries [--from day] [--force]`: what the conversation summaries would write (conversations and
    * parts with none, in the night's window, or from `--from`), with no model; `--force` writes them, as the night does:
