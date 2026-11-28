@@ -69,9 +69,10 @@ step with its regression case, never a `correct` line, even when he confirms it.
 
 ## Anything a person sees
 
-Anything a person sees (the iPhone app, the Mac app, notifications, mail, Ask Life's answers, cards) starts from
-`docs/design/sources-of-truth.md` and follows its order: product rules, philosophy and guidelines, App v4 and its
-rulebook, the brand, the glossary; then what the system really does; then what is built. Decisions in
+Anything a person sees (the iPhone app, the Mac app, notifications, mail, Ask Life's answers, cards) starts from the
+life-design skill (`.claude/skills/life-design/SKILL.md`, the rules in force; every design brief names it), then
+`docs/design/sources-of-truth.md` when it needs more, in its order: product rules, philosophy and guidelines, App v4
+and its rulebook, the brand, the glossary; then what the system really does; then what is built. Decisions in
 `docs/design/philosophy.md` are never asked again or designed away. Designs and "done means ran live":
 `.claude/rules/surfaces.md`.
 
