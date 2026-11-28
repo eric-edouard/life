@@ -36,7 +36,7 @@ import { markDirty, regroupAfterCommit } from "./grouping";
 import { hearRouted } from "./hear-routed";
 import { back, fail, MAX_ATTEMPTS, onSend, retry } from "./job-sends";
 import { type MacSocket, macSocket } from "./mac-socket";
-import { barOf, type Route, routeTurns } from "./route-turns";
+import { barOf, type Route, routeIn } from "./route-turns";
 import { creditsWatch } from "./scribe-credits";
 import {
   atScribe,
@@ -376,9 +376,10 @@ function answered(
   }
 }
 
-// Who transcribes the next blocks: the speech service when switched to it and set up, else Scribe.
+// Who transcribes the next blocks: the speech service when switched to it (`speech` or `local`) and set up, else Scribe.
 const transcriberNow = (config: Config) =>
-  switches().transcriber === "speech" && speechServiceSet(config)
+  ["speech", "local"].includes(switches().transcriber) &&
+  speechServiceSet(config)
     ? ("speech" as const)
     : ("scribe" as const);
 
@@ -610,10 +611,10 @@ export function jobWorker(
       return;
     }
     const zone = ownerZoneAt(db, job.captureStart ?? undefined);
-    const route =
+    const route: Route =
       "heard" in said
-        ? routeTurns(said.heard, barOf(zone))
-        : { kind: "whole" as const };
+        ? routeIn(switches().transcriber, said.heard, zone)
+        : { kind: "whole" };
     record(db, "speech.heard", {
       bar: barOf(zone),
       job: job.id,

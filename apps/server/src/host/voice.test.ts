@@ -44,7 +44,6 @@ import {
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const at: VoicePaths = {
-  backups: "/icloud/restic",
   codex: "/app/codex",
   helpers: "/app/Helpers",
   resources: "/app/Resources",
@@ -65,7 +64,11 @@ const inputs = (o: Partial<VoiceInputs> = {}): VoiceInputs => ({
 const VOICE_SECRETS = SECRETS.voiceSecrets;
 const minted = {
   identitySecret: "made-up-identity-secret",
-  resticPassword: "made-up-restic-password",
+};
+/** Life's backup, as `readBackupTarget` gives it. */
+const backup = {
+  password: "made-up-restic-password",
+  repository: "/cloud/Life backup/restic",
 };
 
 test("the server gets hashes, never tokens, and listens on loopback", () => {
@@ -125,14 +128,11 @@ test("minting fills only the missing secrets, keeps every key voice doesn't own,
     expect(secrets.macToken).toBe("kept");
     expect(secrets.claudeToken).toBe("claude");
     expect(secrets.future).toBe(1);
-    for (const k of [
-      "deviceToken",
-      "readerToken",
-      "resticPassword",
-      "identitySecret",
-    ]) {
+    for (const k of ["deviceToken", "readerToken", "identitySecret"]) {
       expect(String(secrets[k])).toMatch(TOKEN);
     }
+    // Life's own secret (`SECRETS.backupKey`), never voice's.
+    expect(secrets.resticPassword).toBeUndefined();
     expect(secrets.deviceToken).not.toBe(secrets.readerToken);
     expect(readVoiceSecrets()).toEqual(secrets);
     expect(statSync(VOICE_SECRETS).mode.toString(8)).toEndWith("600");
@@ -174,14 +174,15 @@ EMPTY=
   expect(env.BUILD_SHA).toBe("abc1234");
 });
 
-test("restic only when backups are on", () => {
-  const off = serverEnvOf(inputs({ secrets: minted }));
-  expect(off.RESTIC_PASSWORD).toBeUndefined();
-  expect(off.RESTIC_REPOSITORY).toBeUndefined();
-  const on = serverEnvOf(inputs({ backups: true, secrets: minted }));
-  expect(on.RESTIC_PASSWORD).toBe(minted.resticPassword as string);
+test("restic gets Life's own backup target, and only when there is one", () => {
+  // Switched on with no Life backup to snapshot into: nothing to give restic.
+  const unwritten = serverEnvOf(inputs({ backups: true, secrets: minted }));
+  expect(unwritten.RESTIC_PASSWORD).toBeUndefined();
+  expect(unwritten.RESTIC_REPOSITORY).toBeUndefined();
+  const on = serverEnvOf(inputs({ backup, backups: true, secrets: minted }));
+  expect(on.RESTIC_PASSWORD).toBe(backup.password);
   expect(on.RESTIC_BINARY).toBe("/app/Helpers/restic");
-  expect(on.RESTIC_REPOSITORY).toBe("/icloud/restic");
+  expect(on.RESTIC_REPOSITORY).toBe(backup.repository);
 });
 
 test("export and import get only the recordings", () => {

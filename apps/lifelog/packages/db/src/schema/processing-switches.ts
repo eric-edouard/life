@@ -5,7 +5,9 @@ import { boolean, instant } from "./columns";
 // Who transcribes a block: ElevenLabs Scribe whole, or the speech service with Scribe for the turns
 // it routes (route-turns.ts). The owner's switch picks it; a job keeps the one it was sent with.
 export const transcribers = ["scribe", "speech"] as const;
-export type Transcriber = (typeof transcribers)[number];
+// The language mode, the owner's `transcriber` switch: `scribe`, `speech`, or `local` (the speech
+// service alone, nothing routed to Scribe: every language heard is within its set).
+export const transcriberChoices = [...transcribers, "local"] as const;
 export const macEngines = ["claude", "codex"] as const;
 export type MacEngine = (typeof macEngines)[number];
 // Where a field's dictation on the phone is heard: on the Mac after each pause (`POST
@@ -27,7 +29,7 @@ export const processingSwitches = sqliteTable("processing_switches", {
   // Minutes the Pendant's audio may wait on the phone before the server asks the owner to open
   // the app (latency.ts); 0 is off. Its default is `switches.ts` DEFAULTS.
   openAppAfterMinutes: integer("open_app_after_minutes").notNull(),
-  transcriber: text("transcriber", { enum: transcribers })
+  transcriber: text("transcriber", { enum: transcriberChoices })
     .notNull()
     .default("scribe"),
   transcription: boolean("transcription").notNull(),

@@ -79,8 +79,12 @@ export const CODEX_OFF =
     " "
   );
 
-/** The engine he chose (a test run reads its own settings: claude, so no test reaches Codex). */
-export const readEngine = (): Engine => settings().engine;
+/**
+ * The engine he chose at `init`; a Life set up before `init --engine` keeps the old default, claude (a test run's
+ * settings name claude, so no test reaches Codex).
+ */
+export const readEngine = ({ engine } = settings()): Engine =>
+  engine ?? "claude";
 
 /**
  * `LIFE_LLM=engine/model[/effort]`: one process's model for every tier, set by the bench for a candidate and for its
