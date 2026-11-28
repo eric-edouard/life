@@ -1,7 +1,13 @@
 import { expect, test } from "bun:test";
 import { createHash, randomBytes } from "node:crypto";
 import { setSettings, settings } from "../../core/settings";
-import { connector, OWN_PORT, PUBLIC_PORT, portOf } from "./http";
+import {
+  connector,
+  connectorOrigin,
+  OWN_PORT,
+  PUBLIC_PORT,
+  portOf,
+} from "./http";
 import { pair } from "./oauth";
 import { publicPortRoutes } from "./server";
 
@@ -80,19 +86,24 @@ test("the public port refuses /mcp without a token, serves Life's brand to anyon
   expect([none.status, await none.text()]).toEqual([404, "not found"]);
 });
 
-test("the connector's origin is the one set, else this Mac's loopback, never written; off, it is not asked", () => {
+test("the connector's origin is the one a tunnel set, else this Mac's loopback, never written; off, none", () => {
   const set = settings().connector;
   try {
     setSettings({ connector: null });
     expect(connector()).toEqual({
+      hasTunnel: false,
       metadata: `http://127.0.0.1:${PUBLIC_PORT}/.well-known/oauth-protected-resource/mcp`,
       origin: `http://127.0.0.1:${PUBLIC_PORT}`,
       resource: `http://127.0.0.1:${PUBLIC_PORT}/mcp`,
     });
     expect(settings().connector).toBeUndefined();
     setSettings({ connector: { origin: "https://life.example.test" } });
-    expect(connector().resource).toBe("https://life.example.test/mcp");
+    expect(connector()).toMatchObject({
+      hasTunnel: true,
+      resource: "https://life.example.test/mcp",
+    });
     setSettings({ connector: false });
+    expect(connectorOrigin()).toBeUndefined();
     expect(() => connector()).toThrow("Connector is off");
   } finally {
     setSettings({ connector: set ?? null });

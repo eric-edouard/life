@@ -6,11 +6,11 @@ import {
   SignJWT,
 } from "jose";
 import { ownerTokens } from "./auth";
-import { connector as settingsOf } from "./http";
+import { connector } from "./http";
 import { createMcp } from "./mcp";
 
 /** What the connector's tests share: an issuer's key, the connector built on it, a signed token and one JSON-RPC call to /mcp. */
-const settings = settingsOf();
+const settings = connector();
 export const { metadata, resource: RESOURCE } = settings;
 export const ISSUER = `${settings.origin}/auth`;
 

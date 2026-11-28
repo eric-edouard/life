@@ -24,6 +24,8 @@ export const SECRETS = {
   /** gog's keyring password for the helper, which has no shell profile (`core/gog.ts`); kept by `bun life gog-keyring`. */
   gogKeyring: join(LIFE_STATE_DIR, "gog-keyring"),
   localKey: join(LIFE_STATE_DIR, "local.key"),
+  /** The Mac's key on the Mac link (`host/http/mac-link.ts`), made at the first pairing: the iPhone app dials this Mac by its public half. */
+  macLinkKey: join(LIFE_STATE_DIR, "mac-link.key"),
   /**
    * His account on the bridges' homeserver (`sources/matrix.ts`): `{password, token}`, written when `bun life bridge`
    * sets the homeserver up. Beside the homeserver, which every install on this Mac shares (`MACHINE_DIR`).
@@ -31,8 +33,6 @@ export const SECRETS = {
   matrix: join(MACHINE_DIR, "bridges", "owner.json"),
   /** Life's own sign-in: its key, the apps and their tokens. */
   oauth: join(LIFE_STATE_DIR, "oauth", "state.json"),
-  /** The Mac's key on the phone link (`host/http/phone-link.ts`): the iPhone app dials this Mac by its public half. */
-  phoneLinkKey: join(LIFE_STATE_DIR, "phone-link.key"),
   /** A pi session's launch in Terminal (`continue_on_mac`): Life's part of its environment, deleted by the launcher as it reads it (`desk/runtimes/pi-terminal.ts`). */
   piTerminalLaunch: join(LIFE_STATE_DIR, "desk", "pi", "terminal-launch.json"),
   /** The key a card's push id is made with (`pushIdOf`, `sources/voice-server-push.ts`); it never leaves the Mac. */
@@ -76,7 +76,7 @@ const KEY = /^[0-9a-f]{64}$/;
  * fails if another process got there first (its key it is), so no reader ever sees half a key or an empty one.
  */
 export function secretIn(
-  name: "deskKey" | "localKey" | "phoneLinkKey" | "pushIdKey"
+  name: "deskKey" | "localKey" | "macLinkKey" | "pushIdKey"
 ): string {
   const path = SECRETS[name];
   if (existsSync(path)) {

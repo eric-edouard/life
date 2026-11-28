@@ -49,9 +49,9 @@ import { memoryCommand, step } from "./command";
 import { stage } from "./export";
 import { connector, LOCAL_PORT } from "./http/http";
 import { localKey } from "./http/local-key";
+import { macLinkAddress } from "./http/mac-link";
 import { buildServer } from "./http/mcp";
 import { pair } from "./http/oauth";
-import { readPhoneLinkAddress } from "./http/phone-link";
 import { connect } from "./http/tailscale";
 import { init, started } from "./init";
 import { migrateSettings } from "./migrate";
@@ -385,25 +385,25 @@ const commands: Record<string, () => number | Promise<number>> = {
    * as that agent (any name but a role's, `ROLE_ASKERS`); `pair` alone, a plain app. `--link` prints the link the phone
    * opens instead of the code (`pairLinkOf`).
    */
-  pair() {
+  async pair() {
     const args = process.argv.slice(3);
     const agent = args.find((a) => !a.startsWith("--"));
     if (agent && ROLE_ASKERS.includes(agent)) {
       console.error(
         `bun life pair [--link] [<agent>]: ${ROLE_ASKERS.join(", ")} are roles, not agents`
       );
-      return Promise.resolve(2);
+      return 2;
     }
     const code = pair(agent);
     if (!args.includes("--link")) {
       console.log(code);
-      return Promise.resolve(0);
+      return 0;
     }
     const { origin } = connector();
     console.log(
-      pairLinkOf(origin, code, pairTokenOf(), readPhoneLinkAddress())
+      pairLinkOf(origin, code, pairTokenOf(), await macLinkAddress())
     );
-    return Promise.resolve(0);
+    return 0;
   },
   /**
    * The settings as JSON (`settings`), or some parts of them replaced (`settings set '<json>'`, checked whole before

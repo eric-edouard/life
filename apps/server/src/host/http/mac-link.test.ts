@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { RecvStream, SendStream } from "@number0/iroh";
-import { pipe } from "./phone-link";
+import { pipe } from "./mac-link";
 
 /** A phone's stream, made up: `request` read in pieces, the answer kept as written, slowly (a phone on a slow link). */
 function streamOf(request: Uint8Array) {

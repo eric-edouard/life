@@ -12,7 +12,7 @@ export const OUTPUTS = {
   },
   /** The daily restic snapshot (`backup.ts`). */
   backup: { label: "Backup", on: () => Boolean(settings().backup) },
-  /** The connector, its OAuth issuer and the phone link (`server.ts`): on unless set to `false`. */
+  /** The connector, its OAuth issuer and the Mac link (`server.ts`): on unless set to `false`. */
   connector: { label: "Connector", on: () => settings().connector !== false },
   /** The desk, which starts and wakes his registered agents (`apps/server/src/desk/`). */
   desk: { label: "Desk", on: () => Boolean(settings().desk) },

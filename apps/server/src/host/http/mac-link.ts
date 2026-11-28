@@ -1,57 +1,77 @@
 import { once } from "node:events";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { connect, type Socket } from "node:net";
-import { join } from "node:path";
-import {
-  Endpoint,
-  type Incoming,
-  presetMinimal,
-  type RecvStream,
-  RelayMode,
-  type SendStream,
-} from "@number0/iroh";
-import { LIFE_STATE_DIR } from "../../core/paths";
-import { secretIn } from "../../core/secret";
+import type { Incoming, RecvStream, SendStream } from "@number0/iroh";
+import { SECRETS, secretIn } from "../../core/secret";
 import { PUBLIC_PORT } from "./http";
 
-// The phone link: the iPhone app reaches this Mac by its key from anywhere, with nothing to set up. Each stream it opens
+// The Mac link: the iPhone app reaches this Mac by its key from anywhere, with nothing to set up. Each stream it opens
 // is piped as bytes to the connector's port on loopback, where Life's tokens gate every route as for any other caller:
-// the link carries requests, it grants nothing.
+// the link carries requests, it grants nothing. iroh is loaded only here, at its start: a missing addon turns the link
+// off, never the server.
 
 /** The protocol the iPhone app opens its streams with; any other is refused at the handshake. */
 const ALPN = [...Buffer.from("life/1")];
 
 /**
- * Privacy: n0's public iroh relays carry the link until the two devices reach each other directly. They see both
+ * The one relay the link keeps its home on (`RelayMode.customFromUrls`), so the pairing link can name it: n0's public
+ * relay in Singapore. Privacy: it carries the link until the two devices reach each other directly, and sees both
  * devices' IP addresses, their endpoint ids, when and how much is sent; never content, encrypted end to end between the
- * two keys. Public discovery is off: only a phone given the Mac's id and relay (the pairing QR) finds it. Off with the
- * connector (`connector: false` in settings).
+ * two keys. Public discovery is off: only a phone given the Mac's id (the pairing QR) finds it. Nothing goes to it
+ * before the first pairing (no key, no endpoint); off with the connector (`connector: false` in settings).
  */
-const RELAYS = RelayMode.defaultMode();
+const RELAY = "https://aps1-1.relay.n0.iroh.link./";
 
-/** The running endpoint's address, for the pairing link (`bun life pair --link` runs in another process). */
-const ADDRESS = join(LIFE_STATE_DIR, "phone-link.json");
-export interface PhoneLinkAddress {
+/** What the pairing link carries for the Mac link. */
+export interface MacLinkAddress {
   /** The Mac's endpoint id: the public half of its key. */
   mac: string;
-  /** The relay it keeps its home on. */
   relay: string;
 }
 
 /** A stream's bytes in one read at most. */
 const CHUNK = 64 * 1024;
+/** How often the server looks for the key the first pairing makes. */
+const KEY_EVERY = 5000;
 
-/** The phone link's endpoint, by the Mac's key, accepting until the process ends; its address written once online. */
-export async function startPhoneLink() {
+/** The Mac link's address, the Mac's key made if this is the first pairing. */
+export async function macLinkAddress(): Promise<MacLinkAddress> {
+  const { SecretKey } = await import("@number0/iroh");
+  return {
+    mac: SecretKey.fromBytes(keyBytes()).public().toString(),
+    relay: RELAY,
+  };
+}
+
+const keyBytes = () => [...Buffer.from(secretIn("macLinkKey"), "hex")];
+
+/** Starts the Mac link once the Mac's key exists (the first `pair --link` makes it); it ends with the process. */
+export function startMacLinkOnceKeyed() {
+  const started = () => {
+    if (!existsSync(SECRETS.macLinkKey)) {
+      return false;
+    }
+    startMacLink().catch((e: Error) =>
+      console.error(`Life: the Mac link is off: ${e.message}`)
+    );
+    return true;
+  };
+  if (!started()) {
+    const timer = setInterval(
+      () => started() && clearInterval(timer),
+      KEY_EVERY
+    );
+  }
+}
+
+async function startMacLink() {
+  const { Endpoint, presetMinimal, RelayMode } = await import("@number0/iroh");
   const builder = Endpoint.builder();
   presetMinimal(builder);
-  builder.relayMode(RELAYS);
-  builder.secretKey([...Buffer.from(secretIn("phoneLinkKey"), "hex")]);
+  builder.relayMode(RelayMode.customFromUrls([RELAY]));
+  builder.secretKey(keyBytes());
   builder.alpns([ALPN]);
   const endpoint = await builder.bind();
-  writeAddressOnline(endpoint).catch((e: Error) =>
-    console.error(`Life: the phone link has no relay: ${e.message}`)
-  );
   for (;;) {
     // biome-ignore lint/performance/noAwaitInLoops: one accept at a time; each connection runs on its own
     const incoming = await endpoint.acceptNext();
@@ -63,20 +83,6 @@ export async function startPhoneLink() {
     });
   }
 }
-
-// ponytail: written once; a home relay that changes later is followed only at the next start.
-async function writeAddressOnline(endpoint: Endpoint) {
-  await endpoint.online();
-  const relay = endpoint.addr().relayUrl();
-  if (relay) {
-    const address: PhoneLinkAddress = { mac: endpoint.id().toString(), relay };
-    writeFileSync(ADDRESS, JSON.stringify(address));
-  }
-}
-
-/** The address the running endpoint wrote, if it ever came online. */
-export const readPhoneLinkAddress = (): PhoneLinkAddress | undefined =>
-  existsSync(ADDRESS) ? JSON.parse(readFileSync(ADDRESS, "utf8")) : undefined;
 
 async function carryConnection(incoming: Incoming) {
   const connection = await (await incoming.accept()).connect();

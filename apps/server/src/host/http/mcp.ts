@@ -85,7 +85,7 @@ import {
 import { readMatterSpending, withAgentSpending } from "../spending-read";
 import { lifeStatus } from "../status/life";
 import { type Refused, SCOPE, type Verify } from "./auth";
-import { connector, text } from "./http";
+import { connector, connectorOrigin, text } from "./http";
 import { appointmentTools } from "./mcp-appointments";
 import { deleteFromMemoryTool } from "./mcp-deletions";
 import { mainSessionTool } from "./mcp-main-session";
@@ -226,7 +226,7 @@ export async function correct(
  */
 export function buildServer(readsOnly = false, logsArguments = false) {
   // Over stdio (reads only) the connector may be off: no icons.
-  const origin = isOn("connector") ? connector().origin : undefined;
+  const origin = connectorOrigin();
   const server = new McpServer(
     {
       icons: origin

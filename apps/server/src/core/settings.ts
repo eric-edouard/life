@@ -111,7 +111,7 @@ export const Settings = z
      */
     budget: z.object({ monthlyUsd: z.number().positive() }).strict().optional(),
     /**
-     * The connector (/mcp), its sign-in (Life's own issuer, `oauth.ts`) and the phone link: on unless `false`. Absent, its
+     * The connector (/mcp), its sign-in (Life's own issuer, `oauth.ts`) and the Mac link: on unless `false`. Absent, its
      * origin is this Mac's loopback (`connector`, `host/http/http.ts`).
      */
     connector: z

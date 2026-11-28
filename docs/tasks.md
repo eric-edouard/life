@@ -258,7 +258,7 @@ permission.
 - **Logging:** a refused token (not a missing one, never its body), the SDK's own rejections (`onerror`) and invalid
   arguments (`tool()` validates them itself) are logged as `mcp.call` with `error`. Nothing reads a response back.
 - **Origin:** this Mac's loopback (`http://127.0.0.1:46200`) unless a tunnel set one, worked out at read and never
-  written (`connector`, `host/http/http.ts`); the iPhone app reaches it from anywhere through the phone link. A tunnel's: the Mac's tailnet name (`bun life connect`; `--public` through Tailscale Funnel for ChatGPT and
+  written (`connector`, `host/http/http.ts`); the iPhone app reaches it from anywhere through the Mac link. A tunnel's: the Mac's tailnet name (`bun life connect`; `--public` through Tailscale Funnel for ChatGPT and
   Claude.ai, `apps/server/src/host/http/tailscale.ts`), or the owner's edge Worker until #137 (`docs/architecture.md`). Docs write it as
   `<your connector origin>`.
 

@@ -9,9 +9,9 @@ import { VOICE_URL } from "../../sources/voice-server-call";
 import { ownerTokens } from "./auth";
 import { connector, HEADERS, LOCAL_PORT, PUBLIC_PORT } from "./http";
 import { keyRefusal } from "./local-key";
+import { startMacLinkOnceKeyed } from "./mac-link";
 import { createMcp } from "./mcp";
 import { createIssuer } from "./oauth";
-import { startPhoneLink } from "./phone-link";
 import { createStatusReads } from "./status-reads";
 import { forwardToVoice } from "./voice-forward";
 
@@ -23,7 +23,7 @@ const BODY = 256 * 1024;
 
 /**
  * Serves on loopback, bodies up to 256 KiB: the app's status reads on `LOCAL_PORT`, by its local key, always; and
- * unless the connector is off, on `PUBLIC_PORT` (where a tunnel forwards its origin, and the phone link its streams) the
+ * unless the connector is off, on `PUBLIC_PORT` (where a tunnel forwards its origin, and the Mac link its streams) the
  * connector, its issuer, Life's brand and the voice server's routes (`/voice/*`, its bodies capped by the voice
  * server). The key is never taken on the public port. 404 for any other path.
  */
@@ -47,10 +47,7 @@ export function serve() {
   }
   // Bun's own cap only: Life's routes keep theirs (`bodyLimit`), and the voice server caps its own.
   listen(PUBLIC_PORT, publicPortRoutes());
-  // Ends with the process, as the listeners do.
-  startPhoneLink().catch((e: Error) =>
-    console.error(`Life: the phone link is off: ${e.message}`)
-  );
+  startMacLinkOnceKeyed();
 }
 
 /** Any path a port's app has no route for. */

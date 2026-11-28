@@ -56,6 +56,7 @@ const inputs = (o: Partial<VoiceInputs> = {}): VoiceInputs => ({
   backups: false,
   build: "b1",
   extra: {},
+  hasTunnel: false,
   publicUrl: "http://127.0.0.1:47613",
   secrets: {},
   speakers: false,
@@ -91,10 +92,10 @@ test("the server gets hashes, never tokens, and listens on loopback", () => {
   expect(Object.values(env).some((v) => v.includes("token"))).toBe(false);
 });
 
-test("server.env's ElevenLabs webhook is kept on a public address, dropped on loopback, where no one can call it", () => {
+test("server.env's ElevenLabs webhook is kept behind a tunnel, dropped without one, where no one can call it", () => {
   const extra = { ELEVENLABS_WEBHOOK_SECRET: "whsec", KEEP: "k" };
   const on = serverEnvOf(
-    inputs({ extra, publicUrl: "https://life.example/voice" })
+    inputs({ extra, hasTunnel: true, publicUrl: "https://life.example/voice" })
   );
   const off = serverEnvOf(
     inputs({ extra, publicUrl: "http://127.0.0.1:46200/voice" })

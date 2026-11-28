@@ -49,17 +49,25 @@ export function portOf(set = process.env.LIFE_PORT, isOwn = isOwnLife()) {
  * two after it, for a second Life on this Mac (a demo, `scripts/demo.ts`).
  */
 export const PUBLIC_PORT = portOf();
+/** The connector's origin when no tunnel set one: this Mac's loopback. */
+const LOOPBACK_ORIGIN = `http://127.0.0.1:${PUBLIC_PORT}`;
+/** The connector's origin, worked out at read: the one a tunnel set, else this Mac's loopback, never written; none when off. */
+export function connectorOrigin() {
+  const set = settings().connector;
+  return set === false ? undefined : (set?.origin ?? LOOPBACK_ORIGIN);
+}
 /**
- * The connector, worked out at read: its origin is the one set (a tunnel's), else this Mac's loopback, never written;
- * its issuer and resource follow it. Off, it throws: only code behind it (server.ts checks it is on) asks.
+ * The connector: its origin (`connectorOrigin`), whether a tunnel serves it (`hasTunnel`: without one, only this Mac and
+ * the Mac link reach it), and its issuer's resource and metadata. Off, it throws: only code behind it (server.ts checks
+ * it is on) asks.
  */
 export function connector() {
-  const set = settings().connector;
-  if (set === false) {
+  const origin = connectorOrigin();
+  if (!origin) {
     throw new Error(off("connector"));
   }
-  const origin = set?.origin ?? `http://127.0.0.1:${PUBLIC_PORT}`;
   return {
+    hasTunnel: origin !== LOOPBACK_ORIGIN,
     /** The resource's OAuth metadata. */
     metadata: `${origin}/.well-known/oauth-protected-resource/mcp`,
     origin,
