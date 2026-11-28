@@ -1,6 +1,13 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
-import { WINDOWS } from "../core/platform";
+import { bundledBridge, WINDOWS } from "../core/platform";
 import { execOk, untilAnswers } from "../core/proc";
 import { writeSecret } from "../core/secret";
 import { keepRunning } from "../core/service";
@@ -250,26 +257,6 @@ function setRegistration(network: string, on: boolean) {
   });
 }
 
-/** Its newest release tag, from git itself (no API, no rate limit). */
-async function newestTag(n: Network) {
-  const tag = (
-    await execOk([
-      "git",
-      "ls-remote",
-      "--tags",
-      "--refs",
-      "--sort=-v:refname",
-      `https://github.com/${n.repo}`,
-    ])
-  )
-    .split("\n")[0]
-    ?.split("refs/tags/")[1];
-  if (!tag) {
-    throw new Error(`${n.repo}: no release tag`);
-  }
-  return tag;
-}
-
 /** Its config, the first time: this homeserver, SQLite, him as its admin, catch-up on. */
 async function writeConfig(n: Network, bin: string, dir: string) {
   const config = configPath(n);
@@ -303,36 +290,24 @@ async function writeConfig(n: Network, bin: string, dir: string) {
   setRegistration(n.name, true);
 }
 
-/** Adds a network's bridge, or rebuilds it at its newest release when it is there; links it unless it is linked. */
+/**
+ * Adds a network's bridge, or puts the app's build of it in place again when it is there (an update brings a newer one);
+ * links it unless it is linked. The program is built into the app (`bundledBridge`): nothing is built on his computer.
+ */
 async function add(n: Network) {
+  const built = bundledBridge(n.name);
+  if (!(built && existsSync(built))) {
+    throw new Error(
+      `no ${n.label} bridge in this build: bun scripts/bundled-tools.ts <folder>, then LIFE_BRIDGES_DIR=<folder>`
+    );
+  }
   await addHomeserver();
   const dir = join(BRIDGES, n.name);
-  const src = join(dir, "src");
   const bin = join(dir, "bridge");
-  const tag = await newestTag(n);
-  console.log(`Building the ${n.label} bridge (${n.repo} ${tag})…`);
-  rmSync(src, { force: true, recursive: true });
   mkdirSync(dir, { recursive: true });
-  await execOk(
-    [
-      "git",
-      "clone",
-      "-q",
-      "--depth",
-      "1",
-      "--branch",
-      tag,
-      `https://github.com/${n.repo}`,
-      src,
-    ],
-    {
-      timeout: 300_000,
-    }
-  );
-  await execOk(["go", "build", "-tags", "goolm", "-o", bin, `./${n.cmd}`], {
-    cwd: src,
-    timeout: 900_000,
-  });
+  // Copied then renamed: a running bridge keeps its old file until the job restarts it.
+  copyFileSync(built, `${bin}.new`);
+  renameSync(`${bin}.new`, bin);
   if (!isAdded(n)) {
     await writeConfig(n, bin, dir);
   }
