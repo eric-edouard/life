@@ -48,6 +48,16 @@ extension Check {
         let googleMapsUrl: URL?
         let appleMapsUrl: URL?
         let boltUrl: URL?
+        /// An access card's steps, each as Life read it on the Mac (until the card's own view, life#1558).
+        public let steps: [AccessStep]?
+
+        /// An access card's step: what Life checks silently (`check`, `freeGb` for free space) and its `status`.
+        public struct AccessStep: Decodable, Sendable, Equatable {
+            public let text: String
+            public let check: String
+            public let freeGb: Double?
+            public let status: String?
+        }
 
         public init(from decoder: any Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -69,6 +79,7 @@ extension Check {
             payload = try? c.decodeIfPresent(String.self, forKey: .payload)
             source = try? c.decodeIfPresent(String.self, forKey: .source)
             ref = try? c.decodeIfPresent(String.self, forKey: .ref)
+            steps = try? c.decodeIfPresent([AccessStep].self, forKey: .steps)
             func link(_ key: CodingKeys) -> URL? {
                 (try? c.decodeIfPresent(String.self, forKey: key)).flatMap { $0.flatMap(URL.init(string:)) }
             }
@@ -82,7 +93,7 @@ extension Check {
             case kind, line, bank, number, holder, scheme, value, currency, label, text, url, vendor, name, place,
                 reminders, copy,
                 payload,
-                source, ref, googleMapsUrl, appleMapsUrl, boltUrl
+                source, ref, googleMapsUrl, appleMapsUrl, boltUrl, steps
         }
 
         /// The rows the card draws, decided here once: the view only draws them. A need whose fields say nothing
