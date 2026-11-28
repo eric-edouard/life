@@ -61,6 +61,16 @@ export function pageHintOf(request: { needs?: unknown }, error: z.ZodError) {
   return page ? ` Read fetch("ask/${page}").` : "";
 }
 
+/** What breaks a card's draft rules: `edits` only with one `draft`, `draft` or `drafts`, and the one option that sends them. */
+const draftRulesProblemOf = (ask: z.infer<typeof Ask>) =>
+  (ask.edits &&
+    !ask.draft &&
+    "`edits` go only with a `draft`: quick changes to its message") ||
+  (ask.draft && ask.drafts && "a card has `draft` or `drafts`, not both") ||
+  (draftsOf(ask).length > 0 &&
+    ask.options.filter((o) => o.outgoing).length !== 1 &&
+    "a `draft` needs the one option that sends it marked `outgoing`");
+
 /** What breaks the card's rules beyond its shape, in words the agent can fix; false when nothing does. */
 export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const ids = ask.options.map((o) => o.id);
@@ -68,18 +78,12 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
   const silence = ask.options.find((o) => o.id === ask.onSilence);
   return (
     (new Set(ids).size !== ids.length && "option ids repeat") ||
-    (ask.edits &&
-      !ask.draft &&
-      "`edits` go only with a `draft`: quick changes to its message") ||
+    draftRulesProblemOf(ask) ||
     silenceProblemOf(ask, silence) ||
     lookProblemOf(ask, silence) ||
     addsProblemOf(ask, silence) ||
     runsProblemOf(ask, silence) ||
     planProblemOf(ask) ||
-    (ask.draft && ask.drafts && "a card has `draft` or `drafts`, not both") ||
-    (draftsOf(ask).length > 0 &&
-      ask.options.filter((o) => o.outgoing).length !== 1 &&
-      "a `draft` needs the one option that sends it marked `outgoing`") ||
     (!ask.question.trim().endsWith("?") && "`question` must end in a ?") ||
     ((ahead < HOUR || ahead > 14 * DAY) &&
       "the deadline must be 1 hour to 14 days ahead") ||

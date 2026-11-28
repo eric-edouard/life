@@ -41,7 +41,7 @@ import {
   withdrawnOf,
 } from "./decision-lines";
 import { sendOnAnswer, sendsNeverEndedOf, sinceOf } from "./decision-send";
-import { draftsOf, isSendable } from "./draft";
+import { draftsOf, isSendable, type StoredDraft } from "./draft";
 import {
   contestOf,
   editReplacesOf,
@@ -434,6 +434,25 @@ type Claim = (
   write: (stamps: Pick<Asked, "assignment">) => void
 ) => void;
 
+/** A card's drafts, each with its chat resolved now (`readChat`); refused when two go into one chat. */
+async function resolveDrafts(
+  ask: z.infer<typeof Ask>,
+  readChat: typeof resolveDraft,
+  now: Date
+) {
+  const drafts = await Promise.all(draftsOf(ask).map((x) => readChat(x, now)));
+  if (isChatTwiceOf(drafts)) {
+    throw new Error(
+      "Not done: two drafts go into one chat: one draft per chat, so write them as one."
+    );
+  }
+  return drafts;
+}
+
+/** How a card's drafts are stored: a batch as `drafts`, one as `draft` (as before batches), none as nothing. */
+const storedDraftsOf = (drafts: StoredDraft[]) =>
+  drafts.length > 1 ? { drafts } : { draft: drafts[0] };
+
 /** A new card (`requestDecision`): checked, its draft's chat resolved and its contest found, then written. */
 async function askCard(
   asker: string,
@@ -492,21 +511,14 @@ async function askCard(
     : matter?.steps.at(-1);
   const subject =
     matter && matter.id === ask.subject ? newest?.ref : ask.subject;
-  const drafts = await Promise.all(draftsOf(ask).map((x) => readChat(x, now)));
-  if (isChatTwiceOf(drafts)) {
-    throw new Error(
-      "Not done: two drafts go into one chat: one draft per chat, so write them as one."
-    );
-  }
+  const drafts = await resolveDrafts(ask, readChat, now);
   const digest = seen !== undefined && cardDigestOf(ask, drafts);
   if (digest && digest !== seen) {
     throw new CardPreview(cardPreviewOf(ask, drafts, digest), digest);
   }
   const { contests, merged, replacing } = contestOfAsk(ask, asker, drafts, now);
   const id = `dec_${randomBytes(6).toString("hex")}`;
-  // The drafts are stored as Life resolved them: a one-draft card as `draft`, as before batches.
-  const { draft: _one, drafts: _batch, ...given } = ask;
-  const stored = drafts.length > 1 ? { drafts } : { draft: drafts[0] };
+  const { draft: _one, drafts: _batch, ...given } = ask; // Stored as Life resolved them.
   const write = (stamps: Pick<Asked, "assignment">) =>
     appendJsonl(DECISIONS, Line, [
       ...mergeWithdrawalsOf(merged, id, now, replacing), // In the same append as its card.
@@ -516,7 +528,7 @@ async function askCard(
         ...(matter ? { matter: matter.id } : {}),
         ...(instructions.length > 0 ? { instructions } : {}),
         ...(contests ? { contests } : {}),
-        ...(drafts.length > 0 ? stored : {}),
+        ...storedDraftsOf(drafts),
         ...(subject ? { subject } : {}),
         asker,
         at: now.toISOString(),
