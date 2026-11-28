@@ -1,5 +1,26 @@
+import { isOwnLife } from "./platform";
+
+/**
+ * A second Life's frozen instant (`LIFE_NOW`, an ISO instant): a question case's copy reads the same "now" on every
+ * run, so the same ask reads the same lines. Never with his own data.
+ */
+const FROZEN = (() => {
+  const set = process.env.LIFE_NOW;
+  if (!set) {
+    return null;
+  }
+  if (isOwnLife()) {
+    throw new Error("LIFE_NOW is for a second Life, never his own data");
+  }
+  const at = Date.parse(set);
+  if (Number.isNaN(at)) {
+    throw new Error(`LIFE_NOW is not an instant: ${set}`);
+  }
+  return at;
+})();
+
 // Life's one clock: every read of "now" goes through `clock()`, so a test can stop it.
-export const clock = () => new Date();
+export const clock = () => (FROZEN === null ? new Date() : new Date(FROZEN));
 
 export const SECOND = 1000;
 export const MIN = 60 * SECOND;
