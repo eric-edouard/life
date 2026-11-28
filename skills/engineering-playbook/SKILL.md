@@ -11,6 +11,7 @@ The aim: a result that looks and feels great (the approved preview), works with 
 
 - Your folder is the project's work folder, with its own git. Work there; nothing of yours goes elsewhere.
 - Read `PLAN.md` first; tick a box only after its step is checked.
+- Keys and secrets live in the macOS Keychain (`security add-generic-password`, synchronizable where possible), read at run time; never in `.env` or any file: a backup leaves those out.
 - One commit per checked step. No GitHub, no PR, no remote.
 - Weigh every step's token cost: small command outputs, files read by range, no full logs.
 

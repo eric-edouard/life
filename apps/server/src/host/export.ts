@@ -17,6 +17,7 @@ import {
   LIFE_CODE_DIR,
   LIFE_STATE_DIR,
   OWNER_DATA_DIR,
+  PROJECT_WORK_FOLDERS,
 } from "../core/paths";
 import { pathInside, slashed } from "../core/platform";
 import { execOk } from "../core/proc";
@@ -49,7 +50,7 @@ export const pathIn = (dir: string, p: string) => slashed(relative(dir, p));
 
 /**
  * In Life's state but never exported: rebuilt (the index, passages, vectors, the exchange counts, the mentions, the recorded days), the watcher's store (copied whole on its own) and the
- * secrets. One-off projects' work folders (`state/projects/`) are exported whole, node_modules and all: a finished result may live only there (the owner, 28 Nov 2026); no pattern excludes bulk inside a folder yet.
+ * secrets. One-off projects' work folders (`state/projects/`) are copied apart by `stageProjects`.
  */
 const KEPT_OUT = [
   WATCH,
@@ -59,9 +60,30 @@ const KEPT_OUT = [
   EXCHANGE_COUNTS,
   MENTIONS,
   RECORDED_DAYS,
+  PROJECT_WORK_FOLDERS,
   ...Object.values(SECRETS),
 ].map((p) => pathIn(LIFE_STATE_DIR, p));
+/** Inside a project's work folder, never exported: its secret files (its keys live in the Keychain) and its installed packages and build caches, which a restore reinstalls (the owner, 28 Nov 2026). */
+const PROJECT_LEFT_OUT =
+  /(^|\/)(node_modules|\.cache|\.turbo|\.next|\.env(\..*)?)(\/|$)/;
 const KEPT_OUT_END = [".bak", ".lock", "-wal", "-shm", ".tmp"];
+
+/**
+ * One-off projects' work folders, as plain files (the owner, 28 Nov 2026): links followed (a broken one skipped), nothing
+ * renamed, filtered or opened as a store, so a `.bak` result or a `.sqlite` file of a project is kept as it is.
+ */
+function stageProjects(dir: string) {
+  if (!existsSync(PROJECT_WORK_FOLDERS)) {
+    return;
+  }
+  cpSync(PROJECT_WORK_FOLDERS, join(dir, "state", "projects"), {
+    dereference: true,
+    filter: (from) =>
+      !PROJECT_LEFT_OUT.test(pathIn(PROJECT_WORK_FOLDERS, from)) &&
+      existsSync(from),
+    recursive: true,
+  });
+}
 
 /** Every file under `dir`, its path relative to `dir` (a link is not a file: a broken one never stops an export). */
 export const filesUnder = (dir: string) =>
@@ -130,7 +152,9 @@ export async function inventory(dir: string) {
     lines: linesIn(join(dir, "data")),
     rows: Object.fromEntries(
       filesUnder(dir)
-        .filter((p) => p.endsWith(".sqlite"))
+        .filter(
+          (p) => p.endsWith(".sqlite") && !p.startsWith("state/projects/")
+        )
         .map((p) => [p, rowsIn(join(dir, p))])
     ),
   };
@@ -227,7 +251,11 @@ export async function stage(
     },
     recursive: true,
   });
+  stageProjects(dir);
   for (const p of filesUnder(join(dir, "state"))) {
+    if (p.startsWith("projects/")) {
+      continue;
+    }
     const staged = join(dir, "state", p);
     if (KEPT_OUT_END.some((e) => p.endsWith(e))) {
       rmSync(staged, { force: true });

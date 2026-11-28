@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -22,7 +23,7 @@ import { stage, stateInDataOf } from "./export";
 const SECRET = /oauth|local\.key|\.bak$/;
 
 test("an export holds everything with its checksum and counts, and never a secret", async () => {
-  // A secret and a key in Life's state, as a real install has them: exported whole (the owner, 28 Nov 2026). The test run's own are put back
+  // A secret and a key in Life's state, as a real install has them: never exported. The test run's own are put back
   // after: other tests read them.
   const before = Object.values(SECRETS).map((p) =>
     existsSync(p) ? readFileSync(p, "utf8") : undefined
@@ -60,15 +61,26 @@ test("an export holds everything with its checksum and counts, and never a secre
     );
     expect(existsSync(PASSAGES)).toBe(true);
 
-    // A one-off project's work folder: an agent's scratch work, never exported.
-    mkdirSync(join(PROJECT_WORK_FOLDERS, "bakery-page"), { recursive: true });
-    writeFileSync(join(PROJECT_WORK_FOLDERS, "bakery-page", "PLAN.md"), "x");
+    // A one-off project's work folder: what a project made, exported apart from the filters.
+    const project = join(PROJECT_WORK_FOLDERS, "bakery-page");
+    mkdirSync(join(project, "node_modules"), { recursive: true });
+    writeFileSync(join(project, "PLAN.md"), "x");
+    writeFileSync(join(project, "result.tmp"), "y");
+    writeFileSync(join(project, "notes.sqlite"), "not a database");
+    writeFileSync(join(project, ".env.local"), "KEY=made-up");
+    writeFileSync(join(project, "node_modules", "pkg.js"), "z");
+    symlinkSync(join(project, "PLAN.md"), join(project, "link.md"));
 
     const dir = join(mkdtempSync(join(tmpdir(), "life-export-")), "out");
     const m = await stage(dir, archive);
     rmSync(PROJECT_WORK_FOLDERS, { force: true, recursive: true });
     const paths = m.files.map((f) => f.path);
-    expect(paths).toContain("state/projects/bakery-page/PLAN.md");
+    // A project's files, links followed, odd names kept; its secret files and packages left out.
+    expect(paths.filter((p) => p.startsWith("state/projects/")).sort()).toEqual(
+      ["PLAN.md", "link.md", "notes.sqlite", "result.tmp"].map(
+        (f) => `state/projects/bakery-page/${f}`
+      )
+    );
     expect(paths).toContain("archive/whatsapp.sqlite");
     expect(paths).toContain("archive/phone.sqlite");
     expect(m.counts.rows["archive/phone.sqlite"]).toEqual({ calls: 1 });
