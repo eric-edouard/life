@@ -4,7 +4,7 @@ import { isoDateTime, MadeBy } from "./fields";
 // A matter's icon (docs/glossary.md: matter icon): one key of this fixed set, saying what is being done. Each key's line
 // is what Life's pick is shown beside a matter's text (`memory/matter-icons.ts`); the phone maps a key to its symbol
 // (`MatterIcons.swift`, checked against this list). A key is stored in his corrections (`matter-icon`) and in Life's
-// picks, so removing or renaming one is a rename with its migration (AGENTS.md, "A rename or a new field backfills"); a
+// picks, so removing or renaming one is a rename with its migration (.claude/rules/memory.md, "A rename or a new field backfills"); a
 // line may change freely: Life's picks are asked again (their key holds the lines).
 
 /** Each key and the line Life's pick is shown, in the grid's order (an array: the formatter sorts object keys). */

@@ -4,7 +4,7 @@ import { held, take } from "../core/lock";
 import { OWNER_DATA_DIR } from "../core/paths";
 import { OUT } from "./memory-files";
 
-// Memory's one lock: everything that writes memory/ holds it (AGENTS.md, "One lock").
+// Memory's one lock: everything that writes memory/ holds it (.claude/rules/memory.md, "One lock").
 
 /** In the data repo, not in derived/: every worktree shares one lock with production. */
 export const LOCK = join(OWNER_DATA_DIR, ".nightly.lock");
