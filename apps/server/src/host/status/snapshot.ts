@@ -201,6 +201,8 @@ async function reads(now: Date) {
     mem,
     models: of("model.run", 1),
     open,
+    // The watcher's own rule (`health.ts`), as `lifeStatus` reports it.
+    polling: status.watcher.state === "ok",
     quotas: of("quota.read", 8),
     recentRuns,
     sent: of("email.sent", 2),
@@ -259,7 +261,7 @@ function pendantCard(r: Reads, d: Descriptor, h: IntegrationHealth): Card {
 
 /** What the voice server card says: why when the watcher stopped polling (its last error), else whether it ever polled. */
 const polledHeadline = (r: Reads) => {
-  if (r.status.watcher.state !== "ok") {
+  if (!r.polling) {
     return r.health?.lastError ?? "no poll for 15 minutes";
   }
   return r.health?.lastOkAt ? "polling" : "never polled";
@@ -273,7 +275,7 @@ function voiceServerCard(r: Reads): Card {
   return {
     ...firstOf(
       [
-        r.status.watcher.state !== "ok",
+        !r.polling,
         {
           ask: ASK("that the watcher has not polled it for 15 minutes"),
           tone: "bad",
@@ -336,13 +338,7 @@ function sourceCard(r: Reads, d: Descriptor, h: IntegrationHealth): Card {
     ...(red ? { ask: ASK(`that ${d.label}: ${cause}`) } : {}),
     content: [
       ...(n.words ?? []).map((w) => clip(w, 140)),
-      ...(h.why
-        ? [
-            h.word === "bridge down"
-              ? clip(h.why, 300)
-              : `Error: ${clip(h.why, 300)}`,
-          ]
-        : []),
+      ...(h.why ? [clip(h.why, 300)] : []),
     ],
     facts: sourceFacts(n, copiedAt, broken?.at),
     group: "sources",
@@ -454,7 +450,7 @@ function captureCards(r: Reads): Card[] {
           },
         ],
         [
-          r.status.watcher.state !== "ok",
+          !r.polling,
           {
             ask: ASK("that the watcher is running but not polling"),
             tone: "bad",
@@ -468,7 +464,7 @@ function captureCards(r: Reads): Card[] {
         { label: "Asks heard today", value: String(asksToday) },
       ],
       group: "capture",
-      headline: r.status.watcher.state === "ok" ? "hearing" : "not polling",
+      headline: r.polling ? "hearing" : "not polling",
       id: "watcher",
       name: "Watcher",
     },

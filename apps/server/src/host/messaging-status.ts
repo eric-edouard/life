@@ -1,5 +1,5 @@
-import { latestBridgeChecks } from "./bridge-check";
-import { integrationsNow } from "./integrations";
+import { clock } from "../core/clock";
+import { networkIntegrationsOf, readIntegrationReads } from "./integrations";
 
 // `bun life bridge` without a verb (docs/use/bridges.md): every messaging integration that is on, one line each: ✓ when
 // it works or is connecting, ✗ with its state and why when it doesn't, and the command that fixes its bridge when one
@@ -7,11 +7,8 @@ import { integrationsNow } from "./integrations";
 
 /** Prints one line per messaging integration; exits 1 when one is ✗. */
 export async function messagingStatus() {
-  const [list, bridges] = await Promise.all([
-    integrationsNow(),
-    latestBridgeChecks(),
-  ]);
-  const on = list.filter((i) => i.group === "messaging" && i.state !== "off");
+  const reads = await readIntegrationReads(clock());
+  const on = networkIntegrationsOf(reads).filter((i) => i.state !== "off");
   const color = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
   const mark = (ok: boolean) => {
     const sign = ok ? "✓" : "✗";
@@ -23,7 +20,7 @@ export async function messagingStatus() {
   }
   const lines = on.map((i) => {
     const ok = i.state === "working" || i.state === "connecting";
-    const command = bridges.get(i.id.slice("network:".length))?.command;
+    const command = reads.bridges.get(i.id.slice("network:".length))?.command;
     return {
       ok,
       text: `${mark(ok)} ${i.name.padEnd(10)} ${i.state}${i.why ? `: ${i.why}` : ""}${command ? ` (run: ${command})` : ""}`,
