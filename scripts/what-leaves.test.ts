@@ -68,7 +68,7 @@ for (const file of repoFiles(
   for (const match of readFileSync(join(LIFE_CODE_DIR, file), "utf8").matchAll(
     URL_HOST
   )) {
-    const host = match[1].toLowerCase().replace(/\.$/, "");
+    const host = (match[1] ?? "").toLowerCase().replace(/\.$/, "");
     if (LOOPBACK.has(host) || !host.includes(".") || isReserved(host)) {
       continue;
     }
