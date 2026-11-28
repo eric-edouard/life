@@ -1,34 +1,40 @@
 <!doctype html>
-<!-- The chat, one component (exploration, 28 Nov 2026): the one global chat Life shows wherever a chat shows (a draft
-     card, an answer quoting a chat), in three variations side by side. The owner's rules are philosophy.md's Drafts
-     (28 Nov). Each app's capabilities are Life's grid (`ChatTakes`, apps/server/src/sources/contract.ts: reply,
-     mentions, reaction or a set of them, file; a bridge's room features add whether a file takes a caption,
-     sources/matrix-content.ts; a voice note is an audio file). Per room the bridge says what it takes: the values below
-     are what each app's bridge usually says. Made-up people only. -->
+<!-- The chat, one component (exploration, 28 Nov 2026): the one chat Life shows wherever a chat shows, in three
+     variations side by side, to philosophy.md's Drafts (28 Nov). Faces, quick edits, answers, the spinner, the voice
+     clip, icons, app marks and app colours come from the design system (card-blocks.js, window.CB).
+     Page-local on purpose: LOOK, each real app's window (bubbles, window, corners, where times sit), since that look is
+     what this exploration proposes and nothing shared draws it yet; and the head (face, name, app, arrow), the owner's
+     28 Nov head that replaces card-blocks' Source pill. The chosen variation moves into card-blocks.js; the other two go.
+     What each app takes is Life's grid, what a chat takes (`ChatTakes`, sources/contract.ts: reply, mentions, a
+     reaction or a set of them, a file). Two page-local words beside it: `caption` (a bridge's caption on a file,
+     sources/matrix-content.ts) and `voice` (a voice note, which Life sends as an audio file). Per room the bridge says
+     what it takes: these are what each app's bridge usually says. Made-up people only. -->
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>The chat, one component</title>
 <link href="../../../assets/brand/tokens.css" rel="stylesheet">
+<script src="../2026-11-23-chat-first/2026-11-26-design-lab/card-blocks.js" charset="utf-8"></script>
 <style>
+:root{--chat-max:340px;--dash-width:1.5px}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:var(--text-body);font-weight:450;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer}
 a{color:inherit;text-decoration:none}
 .top{max-width:1180px;margin:0 auto;padding:24px 16px 8px}
 .top h1{font-size:var(--text-header);font-weight:650;margin:0 0 4px}
 .top p{margin:0 0 16px;color:var(--muted);font-size:var(--text-line);line-height:1.45;max-width:720px}
+.top p a{color:var(--fg);font-weight:600}
 .pick{display:flex;gap:8px;margin:0 -16px 8px;padding:0 16px;align-items:center;overflow-x:auto;scrollbar-width:none}
 .pick::-webkit-scrollbar{display:none}
 .pick .lb{font-size:var(--text-meta);color:var(--muted);width:44px;flex:none}
-.pick button{flex:none}
-.pick button{height:32px;padding:0 12px;border-radius:16px;background:var(--tint);font-size:var(--text-line);font-weight:600;transition:background .2s,color .2s,opacity .2s}
+.pick button{flex:none;height:32px;padding:0 12px;border-radius:16px;background:var(--tint);font-size:var(--text-line);font-weight:600;transition:background .2s,color .2s,opacity .2s}
 .pick button[aria-pressed=true]{background:var(--fg);color:var(--on)}
 .pick button:disabled{opacity:.3;cursor:default}
 .takes{font-size:var(--text-meta);color:var(--muted);margin:4px 0 0 52px;min-height:16px}
 .vars{max-width:1180px;margin:0 auto;padding:16px 16px 48px;display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:48px 24px}
 .var h2{font-size:var(--text-title);font-weight:650;margin:0}
 .var>p{font-size:var(--text-line);color:var(--muted);margin:4px 0 16px;line-height:1.45}
-.comp{max-width:358px}
+.comp{max-width:358px;gap:0!important}
 .grid{max-width:1180px;margin:0 auto;padding:0 16px 64px}
 .grid h2{font-size:var(--text-title);font-weight:650;margin:0 0 4px}
 .grid p{font-size:var(--text-line);color:var(--muted);margin:0 0 16px;line-height:1.45;max-width:720px}
@@ -36,53 +42,42 @@ a{color:inherit;text-decoration:none}
 .grid th{font-weight:600;color:var(--muted);text-align:left;padding:8px 16px 8px 0;font-size:var(--text-meta)}
 .grid td{padding:8px 16px 8px 0;white-space:nowrap}
 .grid td.no{color:var(--faint)}
-/* shared parts */
+/* the parts card-blocks has no piece for */
 .mk{width:16px;height:16px;flex:none;display:inline-flex}.mk svg{width:100%;height:100%}
-.face{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:var(--text-heading);font-weight:650;color:var(--on)}
-.face.s{width:28px;height:28px;font-size:var(--text-meta)}
-.arrow{margin-left:auto;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--brand);background:color-mix(in srgb,var(--brand) 14%,transparent);flex:none}
+.me-face{visibility:hidden}
+.arrow{margin-left:auto;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--appink);background:rgba(var(--app),.14);flex:none}
 .arrow svg{width:16px;height:16px}
-.scroll{max-height:340px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:4px;padding:8px 4px 12px}
+.scroll{max-height:var(--chat-max);overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;gap:4px;padding:8px 4px 12px}
 .scroll::-webkit-scrollbar{display:none}
 .unrel{align-self:center;font-size:var(--text-meta);color:var(--muted);padding:8px 0}
 .earlier{align-self:center;font-size:var(--text-meta);color:var(--muted);font-weight:600;padding:0 0 8px}
-.draft{outline:1.5px dashed var(--dash);outline-offset:2px}
+.draft{outline:var(--dash-width) dashed var(--dash);outline-offset:2px}
 .draft.fading{animation:fadeline .6s ease forwards}
 @keyframes fadeline{to{outline-color:transparent}}
 .ink{animation:ink .45s ease-out}
 @keyframes ink{from{opacity:0;filter:blur(6px)}to{opacity:1;filter:none}}
-.mention{font-weight:650;color:var(--mcol,inherit)}
+.mention{font-weight:650}
 .emo{filter:grayscale(1) brightness(1.15)}
-.photo{width:208px;height:136px;border-radius:12px;background:var(--tile);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.photo{width:208px;height:136px;border-radius:var(--control-radius);background:var(--tile);display:flex;align-items:center;justify-content:center;color:var(--muted)}
 .photo svg{width:40px;height:40px}
-.voice{display:flex;align-items:center;gap:8px;min-width:196px}
-.voice .play{width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,currentColor 18%,transparent);display:flex;align-items:center;justify-content:center;flex:none}
-.voice .play svg{width:12px;height:12px}
-.voice .bars{display:flex;align-items:center;gap:2px;flex:1;height:24px}
-.voice .bars i{width:2.5px;border-radius:2px;background:currentColor;opacity:.75}
-.voice small{font-size:var(--text-meta);opacity:.8}
-.qes{display:flex;justify-content:flex-end;gap:8px;margin:12px 0 0;flex-wrap:wrap}
-.qes button{height:32px;padding:0 12px;border-radius:16px;background:var(--tint);font-size:var(--text-line);font-weight:600}
-.qes .back{width:32px;padding:0;display:flex;align-items:center;justify-content:center}
-.qes .back svg{width:16px;height:16px}
-.ans{display:flex;gap:8px;margin-top:16px}
-.ans button{height:48px;border-radius:24px;font-weight:650;font-size:var(--text-body);display:flex;align-items:center;justify-content:center;gap:8px;transition:background .25s,color .25s}
-.ans .later{padding:0 20px;background:var(--tint)}
-.ans .go{flex:1;background:var(--fg);color:var(--on)}
-.ans .go.doing{opacity:.85}
-.ans .go.done{background:var(--ok);color:var(--on)}
-.ans .go.fail{background:var(--tint);color:var(--flag)}
-.spin{width:16px;height:16px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite;box-sizing:border-box}
-@keyframes spin{to{transform:rotate(360deg)}}
+.comp .qes{margin-top:12px}
+.comp .answers{margin-top:16px}
+.comp .prim.done{background:var(--ok)}
+.comp .prim.fail{background:var(--tint);color:var(--flag)}
 .settled{margin-top:16px;font-size:var(--text-line);color:var(--muted);display:flex;gap:8px;align-items:center;animation:ink .45s ease-out}
 .settled b{color:var(--ok);font-weight:650}
+.att{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;border-radius:var(--control-radius);background:var(--tint);font-size:var(--text-heading)}
+.att svg{width:16px;height:16px}
+.q svg,.rq svg{width:14px;height:14px;flex:none;margin-top:1px}
+.rx{position:absolute;bottom:-12px;height:24px;min-width:24px;padding:0 4px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:var(--text-heading);box-sizing:border-box}
+.rx.draft{background:var(--sent)}
 /* A: the app's window */
 .A .win{border-radius:var(--block-radius);overflow:hidden;background:var(--paper-app)}
 .A .bar{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bar-app)}
 .A .bar b{display:block;font-weight:600;font-size:var(--text-body);color:var(--ink-app)}
 .A .bar small{display:flex;align-items:center;gap:4px;font-size:var(--text-meta);color:var(--meta-app);margin-top:2px}
 .A .scroll{padding:12px 10px}
-.A .m{max-width:80%;padding:6px 10px 6px;border-radius:var(--r-app);font-size:var(--text-body);line-height:1.35;color:var(--ink-app);position:relative}
+.A .m{max-width:80%;padding:6px 10px;border-radius:var(--r-app);font-size:var(--text-body);line-height:1.35;color:var(--ink-app);position:relative}
 .A .m.them{align-self:flex-start;background:var(--recv)}
 .A .m.me{align-self:flex-end;background:color-mix(in srgb,var(--sent) 55%,black);color:var(--sent-ink)}
 .A .m.me.draft{background:var(--sent)}
@@ -91,78 +86,70 @@ a{color:inherit;text-decoration:none}
 .A .m.me .t{color:color-mix(in srgb,var(--sent-ink) 65%,transparent)}
 .A .m .t .tk{color:var(--tick,inherit)}
 .A .who{font-size:var(--text-heading);font-weight:650;margin-bottom:2px}
-.A .q{border-radius:6px;padding:6px 8px;margin:2px -4px 6px;background:color-mix(in srgb,black 22%,transparent);font-size:var(--text-heading);border-left:3px solid var(--qbar,var(--brand))}
-.A .q b{display:block;color:var(--qbar,var(--brand));font-weight:650}
+.A .q{border-radius:6px;padding:6px 8px;margin:2px -4px 6px;background:color-mix(in srgb,black 22%,transparent);font-size:var(--text-heading);border-left:3px solid var(--qbar)}
+.A .q b{display:block;color:var(--qbar);font-weight:650}
+.A .mention{color:var(--appink)}
 .A .side{display:flex;align-items:flex-end;gap:6px;align-self:flex-end;max-width:86%}
+.A .side.them{align-self:flex-start}
 .A .side .m{max-width:none}
 .A .side .t2{font-size:var(--text-meta);color:var(--meta-app);text-align:right;line-height:1.3;white-space:nowrap}
+.A .side.them .t2{text-align:left}
 .A .below{align-self:flex-end;font-size:var(--text-meta);color:var(--meta-app);margin:2px 4px 0}
 .A .stamp{align-self:center;font-size:var(--text-meta);color:var(--meta-app);padding:6px 0}
-.A .rx,.B .rx{position:absolute;bottom:-12px;height:24px;min-width:24px;padding:0 4px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:var(--text-heading);background:var(--recv);box-shadow:0 0 0 2px var(--paper-app);box-sizing:border-box}
+.A .rx{background:var(--recv);box-shadow:0 0 0 2px var(--paper-app)}
 .A .m.them .rx{left:8px}.A .m.has-rx{margin-bottom:14px}
-.A .rx.draft,.B .rx.draft,.C .rx.draft{background:var(--sent)}
-/* A, flat apps (LinkedIn) and mail */
 .A .row{display:flex;gap:10px;padding:6px 2px;align-items:flex-start}
 .A .row .tx{flex:1;min-width:0;color:var(--ink-app)}
 .A .row .nm{font-size:var(--text-heading);font-weight:650}.A .row .nm small{font-weight:450;color:var(--meta-app);font-size:var(--text-meta);margin-left:6px}
 .A .row .body{font-size:var(--text-body);line-height:1.4;margin-top:2px}
-.A .row.draft{background:color-mix(in srgb,var(--sent) 30%,var(--paper-app));border-radius:12px;padding:8px}
-.A .mail{background:var(--recv);border-radius:12px;padding:10px 12px;color:var(--ink-app)}
+.A .row .rx{position:static;display:inline-flex;margin-top:6px}
+.A .row.draft{background:color-mix(in srgb,var(--sent) 30%,var(--paper-app));border-radius:var(--control-radius);padding:8px}
+.A .mail{background:var(--recv);border-radius:var(--control-radius);padding:10px 12px;color:var(--ink-app)}
 .A .mail.me{background:color-mix(in srgb,var(--sent) 30%,var(--paper-app))}
 .A .mail.draft{background:color-mix(in srgb,var(--sent) 45%,var(--paper-app))}
 .A .mail .hd{display:flex;gap:8px;align-items:center;font-size:var(--text-heading)}
 .A .mail .hd b{font-weight:650}.A .mail .hd small{margin-left:auto;color:var(--meta-app);font-size:var(--text-meta)}
-.A .mail .body{font-size:var(--text-body);line-height:1.4;margin-top:6px;white-space:pre-line}
+.A .mail .body{font-size:var(--text-body);line-height:1.4;margin-top:6px}
 .A .mail .fld{font-size:var(--text-meta);color:var(--meta-app);margin-top:2px}
-.att{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;border-radius:12px;background:color-mix(in srgb,black 25%,transparent);font-size:var(--text-heading)}
-.att svg{width:16px;height:16px}
 /* B: Life's thread */
-.B .head{display:flex;align-items:center;gap:12px;padding:0 0 8px}
-.B .head b{display:block;font-weight:600;font-size:var(--text-title)}
-.B .head small{display:flex;align-items:center;gap:4px;font-size:var(--text-line);color:var(--muted);margin-top:2px}
+.B .head,.C .head{display:flex;align-items:center;gap:12px;padding:0 0 8px}
+.B .head b,.C .head b{display:block;font-weight:600;font-size:var(--text-title)}
+.B .head small,.C .head small{display:flex;align-items:center;gap:4px;font-size:var(--text-line);color:var(--muted);margin-top:2px}
 .B .scroll{gap:8px;padding:8px 4px 16px}
 .B .m{max-width:84%;padding:10px 14px;border-radius:var(--block-radius);font-size:var(--text-body);line-height:1.4;position:relative}
 .B .m.them{align-self:flex-start;background:var(--tile)}
-.B .m.me{align-self:flex-end;background:color-mix(in srgb,var(--sent) 40%,black);color:var(--fg)}
+.B .m.me{align-self:flex-end;background:color-mix(in srgb,var(--sent) 40%,black)}
 .B .m.me.draft{background:var(--sent);color:var(--sent-ink)}
 .B .grp{display:flex;gap:8px;align-items:flex-end;align-self:flex-start;max-width:90%}
 .B .grp .m{max-width:none}
 .B .m .who{font-size:var(--text-meta);color:var(--muted);font-weight:600;margin-bottom:2px}
-.B .q{font-size:var(--text-heading);color:var(--muted);padding:0 0 6px;display:flex;gap:6px}
-.B .m.me .q{color:color-mix(in srgb,currentColor 70%,transparent)}
-.B .q svg{width:14px;height:14px;flex:none;margin-top:1px}
+.B .rq{font-size:var(--text-heading);color:color-mix(in srgb,currentColor 70%,transparent);padding:0 0 6px;display:flex;gap:6px}
 .B .rx{box-shadow:0 0 0 2px var(--bg);background:var(--tile);right:8px}
 .B .m.has-rx{margin-bottom:14px}
 .B .day{align-self:center;font-size:var(--text-meta);color:var(--muted);padding:4px 0}
-.B .mail .sub{font-weight:650;font-size:var(--text-heading);margin-bottom:4px}
+.B .sub{font-weight:650;font-size:var(--text-heading);margin-bottom:4px}
 .B .fld{font-size:var(--text-meta);opacity:.75;margin-bottom:6px}
 /* C: a transcript */
-.C .head{display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--block-radius);background:var(--card)}
-.C .head b{display:block;font-weight:600;font-size:var(--text-title)}
-.C .head small{display:flex;align-items:center;gap:4px;font-size:var(--text-line);color:var(--muted);margin-top:2px}
+.C .head{padding:12px;border-radius:var(--block-radius);background:var(--card)}
 .C .scroll{gap:2px;padding:12px 4px}
-.C .row{display:flex;gap:12px;padding:8px;border-radius:12px;align-items:flex-start;position:relative}
+.C .row{display:flex;gap:12px;padding:8px;border-radius:var(--control-radius);align-items:flex-start}
 .C .row .tx{flex:1;min-width:0}
 .C .nm{font-size:var(--text-heading);font-weight:650;display:flex;gap:8px;align-items:baseline}
 .C .nm small{font-weight:450;color:var(--muted);font-size:var(--text-meta)}
-.C .body{font-size:var(--text-body);line-height:1.4;margin-top:2px;white-space:pre-line}
-.C .row.me .nm{color:color-mix(in srgb,var(--brand) 70%,var(--fg))}
+.C .body{font-size:var(--text-body);line-height:1.4;margin-top:2px}
+.C .row.me .nm{color:var(--appink)}
 .C .row.draft{background:var(--sent);color:var(--sent-ink)}
-.C .row.draft .nm small{color:color-mix(in srgb,var(--sent-ink) 70%,transparent)}
-.C .q{font-size:var(--text-heading);color:var(--muted);margin-top:2px;display:flex;gap:6px}
-.C .row.draft .q{color:color-mix(in srgb,var(--sent-ink) 75%,transparent)}
-.C .q svg{width:14px;height:14px;flex:none;margin-top:1px}
-.C .rx{display:inline-flex;align-items:center;justify-content:center;height:24px;min-width:24px;padding:0 4px;border-radius:12px;background:var(--tint);font-size:var(--text-heading);margin-top:6px;box-sizing:border-box}
+.C .row.draft .nm small,.C .row.draft .rq{color:color-mix(in srgb,var(--sent-ink) 75%,transparent)}
+.C .rq{font-size:var(--text-heading);color:var(--muted);margin-top:2px;display:flex;gap:6px}
+.C .rx{position:static;display:inline-flex;background:var(--tint);margin-top:6px}
 .C .unrel{align-self:flex-start;padding:8px 8px 8px 48px}
 @media (prefers-reduced-motion:reduce){.ink,.settled{animation:none}.draft.fading{animation-duration:.01s}}
 </style>
 
 <div class="top">
   <h1>The chat, one component</h1>
-  <p>Three answers to how Life shows a chat wherever one shows: a draft card, or an answer quoting a chat. Each keeps
-    the owner's rules of 28 Nov: only the messages that matter, the rest one quiet count; it scrolls and opens on the
-    latest; it looks like its app; the draft in the app's sent colour with a dashed outline that fades once sent; the
-    head with the picture, the name, the app and the arrow. Tap the quick edits and Send.</p>
+  <p>Three answers to how Life shows a chat, wherever one shows, to the owner's
+    <a href="../philosophy.md">Drafts rules of 28 Nov</a>. Tap the quick edits and Send.</p>
   <div class="pick" id="apps"><span class="lb">App</span></div>
   <div class="pick" id="kinds"><span class="lb">Draft</span></div>
   <div class="pick" id="phases"><span class="lb">Send</span></div>
@@ -170,61 +157,44 @@ a{color:inherit;text-decoration:none}
 </div>
 <div class="vars" id="vars"></div>
 <div class="grid">
-  <h2>The capability grid</h2>
-  <p>What a draft into each app can be, from Life's grid (<code>ChatTakes</code>: reply, mentions, reaction, file; the
-    bridge's room features add a caption on a file). A bridge says it per room: these are what each app's bridge
-    usually says. iMessage sends a file, then its words as a second message. A voice note is an audio file.</p>
+  <h2>What each chat takes</h2>
+  <p>A draft into each app, by Life's <code>ChatTakes</code> (reply, mentions, reaction, file) and a bridge's caption on a
+    file. A bridge says it per room: these are what each app's bridge usually says. iMessage sends a file, then its
+    words as a second message. A voice note is an audio file.</p>
   <div style="overflow-x:auto"><table id="grid"></table></div>
 </div>
 
 <script>
-const ICON = {
-  arrow: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 11 11 5M6 5h5v5"/></svg>',
-  reply: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4 2.5 7.5 6 11M3 7.5h6.5a4 4 0 0 1 4 4V13"/></svg>',
-  photo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/></svg>',
-  play: '<svg viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>',
-  back: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3 2.5 6l3 3M2.5 6h7a4 4 0 0 1 0 8H8"/></svg>',
-  doc: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5l3 3v10H4z"/><path d="M9 1.5v3h3"/></svg>',
-};
-// Each app's mark, simplified, in its own colours (an app's colours are the brand's allowed exception on its drafts).
-const MARK = {
-  whatsapp: '<svg viewBox="0 0 24 24"><path fill="#25D366" d="M12 1.8A10.2 10.2 0 0 0 3.2 17.2L1.8 22.2l5.2-1.4A10.2 10.2 0 1 0 12 1.8Z"/><path fill="#fff" d="M8.6 6.9c-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.7s1.2 3.2 1.3 3.4c.2.2 2.3 3.6 5.6 4.9 2.8 1.1 3.3.9 3.9.8.6-.1 1.9-.8 2.2-1.5.3-.8.3-1.4.2-1.5l-.6-.4-2.1-1c-.3-.1-.5-.2-.7.2l-1 1.2c-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.5-.6.3-.5c.1-.2.1-.4 0-.5l-1-2.6Z"/></svg>',
-  imessage: '<svg viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6" fill="#34C759"/><path fill="#fff" d="M12 5.5c-4.1 0-7.5 2.7-7.5 6.1 0 1.9 1 3.6 2.7 4.7-.1 1-.6 1.9-1.3 2.6 1.5 0 2.8-.6 3.7-1.3.8.2 1.6.3 2.4.3 4.1 0 7.5-2.7 7.5-6.2S16.1 5.5 12 5.5Z"/></svg>',
-  telegram: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#2AABEE"/><path fill="#fff" d="m5.5 11.6 11.6-4.5c.5-.2 1 .1.8.9l-2 9.3c-.1.6-.5.8-1 .5l-3-2.2-1.5 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5c.2-.2 0-.3-.4-.1l-6.9 4.4-3-.9c-.6-.2-.6-.6.2-1Z"/></svg>',
-  instagram: '<svg viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6.5" fill="#D62976"/><rect x="5.5" y="5.5" width="13" height="13" rx="4" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="16.1" cy="7.9" r="1" fill="#fff"/></svg>',
-  messenger: '<svg viewBox="0 0 24 24"><path fill="#0084FF" d="M12 1.5C6.1 1.5 1.5 5.8 1.5 11.6c0 3 1.2 5.6 3.3 7.4v3.5l3.2-1.8c1.2.3 2.6.5 4 .5 5.9 0 10.5-4.3 10.5-10.1S17.9 1.5 12 1.5Z"/><path fill="#fff" d="m5.8 14.6 3.1-4.9c.5-.8 1.5-1 2.3-.4l2.4 1.8c.2.2.6.2.8 0l3.3-2.5c.4-.3 1 .2.7.6l-3.1 4.9c-.5.8-1.5 1-2.3.4l-2.4-1.8a.6.6 0 0 0-.8 0l-3.3 2.5c-.4.3-1-.2-.7-.6Z"/></svg>',
-  line: '<svg viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="6" fill="#06C755"/><path fill="#fff" d="M12 5c-4.4 0-8 2.9-8 6.4 0 3.2 2.8 5.8 6.6 6.3.3.1.6.2.7.4.1.2 0 .6 0 .8l-.1.7c0 .2-.2.8.7.4s4.9-2.9 6.7-4.9c1.2-1.3 1.8-2.6 1.8-3.7C20.4 7.9 16.8 5 12 5Z"/></svg>',
-  linkedin: '<svg viewBox="0 0 24 24"><rect x="1" y="1" width="22" height="22" rx="4" fill="#0A66C2"/><path fill="#fff" d="M6 9.5h2.6V18H6zM7.3 5.3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM10.3 9.5h2.5v1.2c.4-.7 1.2-1.4 2.6-1.4 2.7 0 3.2 1.8 3.2 4.1V18H16v-4c0-1 0-2.2-1.3-2.2-1.4 0-1.6 1-1.6 2.1V18h-2.6z"/></svg>',
-  mail: '<svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="3" fill="#EA4335"/><path d="m3.5 7 8.5 6 8.5-6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-};
+const { I, APPS, face: Face, draw, esc } = window.CB;
+document.head.insertAdjacentHTML("beforeend", `<style>${CB.css.base}${CB.css.cards}</style>`);
 
-// The real apps' dark looks, approximated: sent and received bubbles, the window, ink, meta, corner, where the time sits.
-// takes: Life's grid (ChatTakes) plus caption (a file with words) and voice (an audio file).
+// Each real app's dark window, approximated (page-local: see the header). takes: Life's grid plus `caption` (a file
+// with words; `secondMessage`: its words go as a message of their own) and `voice` (an audio file).
 const ALL = { reply: true, mentions: true, reaction: true, file: true, caption: true, voice: true };
-const APPS = {
-  whatsapp: { name: "WhatsApp", brand: "#25D366", sent: "#005C4B", recv: "#202C33", paper: "#0B141A", bar: "#202C33", ink: "#E9EDEF", meta: "#8696A0", r: "8px", tail: true, time: "in", tick: "#53BDEB", takes: ALL },
-  imessage: { name: "iMessage", brand: "#0A84FF", sent: "#0A84FF", recv: "#262628", paper: "#000000", bar: "#161618", ink: "#FFFFFF", meta: "#8E8E93", r: "18px", time: "below", takes: { file: true, caption: "second", voice: true } },
-  telegram: { name: "Telegram", brand: "#2AABEE", sent: "#2B5278", recv: "#182533", paper: "#0E1621", bar: "#17212B", ink: "#F5F5F5", meta: "#6D7F8F", r: "14px", tail: true, time: "in", tick: "#64B5F6", takes: { ...ALL, reaction: ["👍", "❤️", "🔥", "🎉", "😁", "👎"] } },
-  instagram: { name: "Instagram", brand: "#D62976", sent: "#3797F0", recv: "#262626", paper: "#000000", bar: "#000000", ink: "#F5F5F5", meta: "#A8A8A8", r: "22px", time: "stamp", takes: { reply: true, reaction: true, file: true, voice: true } },
-  messenger: { name: "Messenger", brand: "#0084FF", sent: "#0084FF", recv: "#303030", paper: "#000000", bar: "#000000", ink: "#F5F5F5", meta: "#A8A8A8", r: "18px", time: "stamp", takes: { reply: true, mentions: true, reaction: true, file: true, voice: true } },
-  line: { name: "LINE", brand: "#06C755", sent: "#06C755", sentInk: "#0B0B0B", recv: "#2C2C2E", paper: "#1A1C20", bar: "#22252A", ink: "#F2F2F2", meta: "#8B8F96", r: "16px", tail: true, time: "side", takes: { reply: true, mentions: true, file: true } },
-  linkedin: { name: "LinkedIn", brand: "#0A66C2", sent: "#0A66C2", recv: "#1B1F23", paper: "#1B1F23", bar: "#1B1F23", ink: "#E9E9E9", meta: "#A0A0A0", flat: true, takes: { reaction: true, file: true, caption: true } },
-  mail: { name: "Gmail", brand: "#EA4335", sent: "#0B57D0", recv: "#1E1F20", paper: "#131314", bar: "#1E1F20", ink: "#E3E3E3", meta: "#9AA0A6", mail: true, takes: { reply: true, file: true, caption: true } },
+const LOOK = {
+  wa: { sent: "#005C4B", recv: "#202C33", paper: "#0B141A", bar: "#202C33", ink: "#E9EDEF", meta: "#8696A0", r: "8px", tail: true, time: "in", tick: "#53BDEB", takes: ALL },
+  imessage: { sent: "#0A84FF", recv: "#262628", paper: "#000000", bar: "#161618", ink: "#FFFFFF", meta: "#8E8E93", r: "18px", time: "below", takes: { file: true, secondMessage: true, voice: true } },
+  telegram: { sent: "#2B5278", recv: "#182533", paper: "#0E1621", bar: "#17212B", ink: "#F5F5F5", meta: "#6D7F8F", r: "14px", tail: true, time: "in", tick: "#64B5F6", takes: { ...ALL, reaction: ["👍", "❤️", "🔥", "🎉", "😁", "👎"] } },
+  instagram: { sent: "#3797F0", recv: "#262626", paper: "#000000", bar: "#000000", ink: "#F5F5F5", meta: "#A8A8A8", r: "22px", time: "stamp", takes: { reply: true, reaction: true, file: true, voice: true } },
+  messenger: { sent: "#0084FF", recv: "#303030", paper: "#000000", bar: "#000000", ink: "#F5F5F5", meta: "#A8A8A8", r: "18px", time: "stamp", takes: { reply: true, mentions: true, reaction: true, file: true, voice: true } },
+  line: { sent: "#06C755", sentInk: "#0B0B0B", recv: "#2C2C2E", paper: "#1A1C20", bar: "#22252A", ink: "#F2F2F2", meta: "#8B8F96", r: "16px", tail: true, time: "side", takes: { reply: true, mentions: true, file: true } },
+  linkedin: { sent: "#0A66C2", recv: "#1B1F23", paper: "#1B1F23", bar: "#1B1F23", ink: "#E9E9E9", meta: "#A0A0A0", flat: true, takes: { reaction: true, file: true, caption: true } },
+  mail: { sent: "#0B57D0", recv: "#1E1F20", paper: "#131314", bar: "#1E1F20", ink: "#E3E3E3", meta: "#9AA0A6", mail: true, takes: { reply: true, file: true, caption: true } },
 };
-const KINDS = [
-  ["text", "Text"], ["reply", "Reply"], ["mention", "Mention"], ["reaction", "Reaction"], ["photo", "Photo"], ["voice", "Voice note"],
-];
+const KINDS = [["text", "Text"], ["reply", "Reply"], ["mention", "Mention"], ["reaction", "Reaction"], ["photo", "Photo"], ["voice", "Voice note"]];
 const NEEDS = { reply: "reply", mention: "mentions", reaction: "reaction", photo: "file", voice: "voice" };
 const PHASES = [["ready", "Ready"], ["sending", "Sending…"], ["settled", "Sent"], ["failed", "Not sent"]];
+const SENDING_MS = 1400; // the real median Send to sent is 2.2 s (real-flow.md); shorter here
+const SENT_MS = 1000; // ✓ Sent shows for one second (philosophy, Taps and feedback)
+const FAIL_EVERY = 4; // every fourth Send fails, to show Not sent
 
-// Made-up people: Jade (1:1), and the "Saturday dinner" group (Jade, Sam, Tom and him).
+// Made-up people: Jade (1:1), and the "Saturday dinner" group (Jade, Sam, Tom and him). hue: card-blocks' face hue.
 const P = {
-  jade: { name: "Jade Moreau", short: "Jade", ini: "JM", hue: "var(--aura-rose)" },
-  sam: { name: "Sam Okafor", short: "Sam", ini: "SO", hue: "var(--aura-teal)" },
-  tom: { name: "Tom Varga", short: "Tom", ini: "TV", hue: "var(--aura-amber)" },
-  me: { name: "You", short: "You", ini: "", hue: "var(--aura-silver)" },
+  jade: { name: "Jade Moreau", short: "Jade", ini: "JM", hue: 339 },
+  sam: { name: "Sam Okafor", short: "Sam", ini: "SO", hue: 170 },
+  tom: { name: "Tom Varga", short: "Tom", ini: "TV", hue: 35 },
+  me: { name: "You", short: "You" },
 };
-const ASKED = "Sam says Café Dalon is closed on Saturdays 😕 Any other idea?";
 const DRAFTS = {
   text: ["Oh no. Mirabel instead, 8 pm? I'll book.", { Shorter: "Mirabel at 8 instead? I'll book.", Warmer: "Oh no, what a shame! How about Mirabel instead, 8 pm? I'll book us a table.", "Other words": "Then let's try Mirabel at 8. Shall I book?" }],
   mention: ["Mirabel at 8 then. @Tom can you bring the cake?", { Shorter: "Mirabel, 8. @Tom cake?", Warmer: "Mirabel at 8 then, it'll be lovely! @Tom could you bring the cake?", "Other words": "Let's say Mirabel, 8 pm. @Tom are you on cake?" }],
@@ -232,180 +202,166 @@ const DRAFTS = {
   mail: ["Hi Jade,\nShame about Café Dalon. Shall we try Mirabel at 8? I'll book a table.", { Shorter: "Hi Jade,\nMirabel at 8 instead? I'll book.", Warmer: "Hi Jade,\nWhat a shame about Café Dalon! Would Mirabel at 8 work for you? I'd love to book us a table.", "Other words": "Hi Jade,\nSince Café Dalon is closed, how about Mirabel at 8? Happy to book." }],
 };
 
-const S = { app: "whatsapp", kind: "text", phase: ["ready", "ready", "ready"], edits: [] };
-const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const S = { app: "wa", kind: "text", phase: ["ready", "ready", "ready"], run: [0, 0, 0], edits: [] };
 const emo = (s) => s.replace(/(\p{Extended_Pictographic}️?)/gu, '<span class="emo">$1</span>');
-const textOf = (s, mcol) => emo(esc(s)).replace(/@(Tom)\b/g, `<span class="mention"${mcol ? ` style="--mcol:${mcol}"` : ""}>@$1</span>`).replace(/\n/g, "<br>");
-const can = (app, kind) => !NEEDS[kind] || Boolean(APPS[app].takes[NEEDS[kind]]);
-// His own face is left out: a row of his keeps its place by an empty space.
-const face = (p, cls = "") => (p === P.me ? `<span class="face ${cls}"></span>` : `<span class="face ${cls}" style="background:${p.hue}">${p.ini}</span>`);
-const BARS = [6, 10, 16, 9, 20, 14, 8, 18, 22, 12, 7, 15, 19, 11, 6, 13, 17, 9, 5, 10, 14, 8];
-const voice = (len) => `<span class="voice"><span class="play">${ICON.play}</span><span class="bars">${BARS.map((h) => `<i style="height:${h}px"></i>`).join("")}</span><small>${len}</small></span>`;
+const textOf = (s) => emo(esc(s)).replace(/@(Tom)\b/g, '<span class="mention">@$1</span>').replace(/\n/g, "<br>");
+const can = (app, kind) => !NEEDS[kind] || Boolean(LOOK[app].takes[NEEDS[kind]]);
+const nameInk = (p) => `hsl(${p.hue} 60% 82%)`; // card-blocks' face ink for the same hue
+// His own face is left out: a row of his keeps its place.
+const face = (p, size) => (p === P.me ? Face("", `${size ?? ""} me-face`) : Face(`${p.ini}/${p.hue}`, size));
+const voiceClip = (len) => draw([["clip", "", len, "pill", 1]]);
 
 /** The conversation as Life would cut it: only the messages that matter, the rest one count, the draft last. */
 function convOf(app, kind) {
   const group = kind === "mention";
-  const chat = group
-    ? { name: "Saturday dinner", ini: "SD", hue: "var(--aura-sage)", people: 4, to: "the group" }
-    : { name: P.jade.name, ini: P.jade.ini, hue: P.jade.hue, to: "Jade" };
-  const draftText = (key) => S.edits.at(-1) ?? DRAFTS[key][0];
-  let items;
-  if (group) {
-    items = [
-      { who: P.sam, at: "18:02", text: "Café Dalon is closed on Saturdays, just checked" },
-      { who: P.jade, at: "18:04", text: "Ugh. Ideas?" },
-      { gap: 2 },
-      { who: P.tom, at: "18:20", text: "I can do 8 anywhere. Someone pick!" },
-    ];
-  } else {
-    items = [
-      { who: P.jade, at: "Thu 18:40", text: "Saturday still on? 🙂" },
-      { who: P.me, at: "Thu 18:52", text: "Yes! Café Dalon at 8?" },
-      { who: P.jade, at: "Thu 18:53", text: "Perfect" },
-      { gap: 3 },
-      { who: P.jade, at: "9:12", text: ASKED, id: "asked" },
-    ];
-  }
+  const chat = group ? { name: "Saturday dinner", ini: "SD", hue: 110, people: 4, to: "the group" } : { ...P.jade, to: "Jade" };
+  const mail = LOOK[app].mail;
+  const key = mail ? "mail" : group ? "mention" : "text";
+  const items = group
+    ? [
+        { who: P.sam, at: "18:02", text: "Café Dalon is closed on Saturdays, just checked" },
+        { who: P.jade, at: "18:04", text: "Ugh. Ideas?" },
+        { gap: 2 },
+        { who: P.tom, at: "18:20", text: "I can do 8 anywhere. Someone pick!" },
+      ]
+    : [
+        { who: P.jade, at: "Thu 18:40", text: "Saturday still on? 🙂" },
+        { who: P.me, at: "Thu 18:52", text: "Yes! Café Dalon at 8?" },
+        { who: P.jade, at: "Thu 18:53", text: "Perfect" },
+        { gap: 3 },
+        { who: P.jade, at: "9:12", text: "Sam says Café Dalon is closed on Saturdays 😕 Any other idea?" },
+      ];
+  const latest = (k) => S.edits.at(-1) ?? DRAFTS[k][0];
   let draft;
+  let editKey;
   if (kind === "reaction") {
     items.push({ who: P.me, at: "9:15", text: "Mirabel at 8?" }, { who: P.jade, at: "9:20", text: "Booked Mirabel for 8, see you there!", id: "react" });
     draft = { reaction: "👍", on: "react" };
   } else if (kind === "photo") {
-    const takes = APPS[app].takes;
-    draft = { photo: "mirabel-menu.jpg", caption: takes.caption === true ? draftText("photo") : undefined, second: takes.caption === "second" ? draftText("photo") : undefined };
+    const t = LOOK[app].takes;
+    editKey = t.caption || t.secondMessage ? "photo" : undefined;
+    draft = { photo: "mirabel-menu.jpg", caption: t.caption ? latest("photo") : undefined, second: t.secondMessage ? latest("photo") : undefined };
   } else if (kind === "voice") {
     draft = { voice: "0:14" };
   } else {
-    draft = { text: draftText(APPS[app].mail ? "mail" : group ? "mention" : "text"), quote: kind === "reply" ? items.at(-1) : undefined };
+    editKey = key;
+    draft = { text: latest(key), quote: kind === "reply" ? items.at(-1) : undefined };
   }
-  const editKey = draft.text ? (APPS[app].mail ? "mail" : group ? "mention" : "text") : draft.caption || draft.second ? "photo" : undefined;
   return { chat, items, draft, editKey, group };
 }
 
-/* ---------- shared: head line, quick edits, answers ---------- */
-const appLine = (a) => `<span class="mk">${MARK[S.app]}</span>${a.name}${S.conv.chat.people ? ` · ${S.conv.chat.people}` : ""}`;
-const arrow = (a) => `<a class="arrow" href="#" aria-label="Open in ${a.name}" onclick="return false">${ICON.arrow}</a>`;
-function quick(i) {
-  const k = S.conv.editKey;
-  if (!k || S.phase[i] !== "ready") return "";
-  return `<div class="qes">${S.edits.length ? `<button class="back" data-back aria-label="Back to the last version">${ICON.back}</button>` : ""}${Object.keys(DRAFTS[k][1]).map((w) => `<button data-edit="${w}">${w}</button>`).join("")}</div>`;
-}
-function answers(i) {
-  const p = S.phase[i];
-  const to = S.conv.chat.to;
-  if (p === "settled") return `<div class="settled"><b>✓</b> Sent to ${to}</div>`;
-  const go = { ready: [S.conv.draft.reaction ? `React to ${to}` : `Send to ${to}`, ""], sending: ['<span class="spin"></span>Sending…', "doing"], sent: ["✓ Sent", "done"], failed: ["Not sent · Try again", "fail"] }[p];
-  return `<div class="ans">${p === "ready" ? '<button class="later">Later</button>' : ""}<button class="go ${go[1]}" data-send="${i}">${go[0]}</button></div>`;
-}
+/* ---------- shared by the three: head line, arrow, draft states ---------- */
+const appLine = () => `<span class="mk">${I[APPS[S.app].mark]}</span>${APPS[S.app].n}${S.conv.chat.people ? ` · ${S.conv.chat.people}` : ""}`;
+const arrow = () => `<a class="arrow" href="#" aria-label="Open in ${APPS[S.app].n}" onclick="return false">${I.open}</a>`;
+const head = (cls) => `<div class="${cls}">${face(S.conv.chat)}<div><b>${S.conv.chat.name}</b><small>${appLine()}</small></div>${arrow()}</div>`;
 const drafted = (i) => (S.phase[i] === "settled" ? "draft fading" : "draft");
-const inked = () => (S.inked ? " ink" : "");
+const inked = () => (S.inked ? "ink" : "");
+const unrel = (n) => `<div class="unrel">${n} unrelated ${LOOK[S.app].mail ? "mails" : "messages"}</div>`;
+const earlier = (style = "") => `<div class="earlier"${style}>Earlier in ${APPS[S.app].n} ↗</div>`;
+const rxOf = (m, i) => (S.conv.draft.reaction && m.id === S.conv.draft.on ? `<div class="rx ${drafted(i)}">${emo(S.conv.draft.reaction)}</div>` : "");
+const replyLine = (q) => (q ? `<div class="rq">${I.reply}<span>${q.who.short}: ${textOf(q.text.slice(0, 40))}…</span></div>` : "");
+const mailTo = (d) => `To Jade Moreau · ${d.quote ? "Re: " : ""}Saturday dinner`;
+function draftBody(d, block) {
+  if (d.voice) return voiceClip(d.voice);
+  if (d.photo) return `<div class="photo">${I.photo}</div>${d.caption ? `<div class="${inked()}" style="margin-top:6px">${textOf(d.caption)}</div>` : ""}`;
+  return `<span class="${inked()}${block ? " body" : ""}" style="display:${block ? "block" : "inline"}">${textOf(d.text)}</span>`;
+}
+function mailBody(d) {
+  if (d.photo) return `<div class="body ${inked()}">${textOf(d.caption ?? "")}</div><div class="att">${I.doc}${d.photo} · 840 kB</div>`;
+  return `<div class="body ${inked()}">${textOf(d.text)}</div>`;
+}
 
 /* ---------- A: the app's window ---------- */
 function A(i) {
-  const a = APPS[S.app];
-  const { chat, items, draft, group } = S.conv;
-  const head = `<div class="bar">${face(chat)}<div><b>${chat.name}</b><small>${appLine(a)}</small></div>${arrow(a)}</div>`;
-  let body = `<div class="earlier">Earlier in ${a.name} ↗</div>`;
-  const nameCol = (p) => (p === P.jade ? "#E8A0BF" : p === P.sam ? "#6CD0C4" : "#F2AD5B");
+  const a = LOOK[S.app];
+  const { items, draft, group } = S.conv;
+  const win = (body) => `<div class="win">${head("bar")}<div class="scroll">${earlier()}${body}</div></div>`;
+  let body = "";
   if (a.mail) {
-    const subj = "Saturday dinner";
-    for (const m of items) {
-      if (m.gap) { body += `<div class="unrel">${m.gap} unrelated mails</div>`; continue; }
-      body += `<div class="mail ${m.who === P.me ? "me" : ""}"><div class="hd">${face(m.who, "s")}<b>${m.who.short}</b><small>${m.at}</small></div><div class="body">${textOf(m.text)}</div></div>`;
-    }
-    body += `<div class="mail ${drafted(i)}"><div class="hd">${face(P.me, "s")}<b>You</b><small>now</small></div><div class="fld">To Jade Moreau · ${draft.quote ? "Re: " : ""}${subj}</div>${mailBody(draft)}</div>`;
-    return `<div class="win">${head}<div class="scroll">${body}</div></div>`;
+    for (const m of items) body += m.gap ? unrel(m.gap) : `<div class="mail ${m.who === P.me ? "me" : ""}"><div class="hd">${face(m.who, "sm")}<b>${m.who.short}</b><small>${m.at}</small></div><div class="body">${textOf(m.text)}</div></div>`;
+    return win(`${body}<div class="mail ${drafted(i)}"><div class="hd">${face(P.me, "sm")}<b>You</b><small>now</small></div><div class="fld">${mailTo(draft)}</div>${mailBody(draft)}</div>`);
   }
   if (a.flat) {
-    for (const m of items) {
-      if (m.gap) { body += `<div class="unrel">${m.gap} unrelated messages</div>`; continue; }
-      const rx = draft.reaction && m.id === draft.on ? `<div class="rx ${drafted(i)}" style="position:static;display:inline-flex;margin-top:6px">${emo(draft.reaction)}</div>` : "";
-      body += `<div class="row">${face(m.who, "s")}<div class="tx"><div class="nm">${m.who.name}<small>${m.at}</small></div><div class="body">${textOf(m.text)}</div>${rx}</div></div>`;
-    }
-    if (!draft.reaction) body += `<div class="row ${drafted(i)}">${face(P.me, "s")}<div class="tx"><div class="nm">You<small>now</small></div>${draftBody(draft, "flat")}</div></div>`;
-    return `<div class="win">${head}<div class="scroll">${body}</div></div>`;
+    for (const m of items) body += m.gap ? unrel(m.gap) : `<div class="row">${face(m.who, "sm")}<div class="tx"><div class="nm">${m.who.name}<small>${m.at}</small></div><div class="body">${textOf(m.text)}</div>${rxOf(m, i)}</div></div>`;
+    if (!draft.reaction) body += `<div class="row ${drafted(i)}">${face(P.me, "sm")}<div class="tx"><div class="nm">You<small>now</small></div>${draftBody(draft, true)}</div></div>`;
+    return win(body);
   }
+  const clock = (at) => at.replace("Thu ", "");
   let lastWho;
   for (const m of items) {
-    if (m.gap) { body += `<div class="unrel">${m.gap} unrelated messages</div>`; lastWho = null; continue; }
+    if (m.gap) { body += unrel(m.gap); lastWho = null; continue; }
     const me = m.who === P.me;
     const first = m.who !== lastWho;
     lastWho = m.who;
-    if (a.time === "stamp" && first && m === items[0]) body += `<div class="stamp">Thu 18:40</div>`;
-    const rx = draft.reaction && m.id === draft.on ? `<div class="rx ${drafted(i)}">${emo(draft.reaction)}</div>` : "";
-    const who = group && !me && first ? `<div class="who" style="color:${nameCol(m.who)}">${m.who.short}</div>` : "";
-    const t = a.time === "in" ? `<span class="t">${m.at.replace("Thu ", "")}${me ? '<span class="tk">✓✓</span>' : ""}</span>` : "";
-    const bubble = `<div class="m ${me ? "me" : "them"}${a.tail && first ? ` tail ${me ? "me" : "them"}` : ""}${rx ? " has-rx" : ""}">${who}${textOf(m.text, a.brand)}${t}${rx}</div>`;
-    body += a.time === "side" ? (me ? `<div class="side"><span class="t2">Read<br>${m.at.replace("Thu ", "")}</span>${bubble}</div>` : `<div class="side" style="align-self:flex-start">${bubble}<span class="t2" style="text-align:left">${m.at.replace("Thu ", "")}</span></div>`) : bubble;
+    if (a.time === "stamp" && m === items[0]) body += `<div class="stamp">${m.at}</div>`;
+    const rx = rxOf(m, i);
+    const who = group && !me && first ? `<div class="who" style="color:${nameInk(m.who)}">${m.who.short}</div>` : "";
+    const t = a.time === "in" ? `<span class="t">${clock(m.at)}${me ? '<span class="tk">✓✓</span>' : ""}</span>` : "";
+    const bubble = `<div class="m ${me ? "me" : "them"}${a.tail && first ? ` tail ${me ? "me" : "them"}` : ""}${rx ? " has-rx" : ""}">${who}${textOf(m.text)}${t}${rx}</div>`;
+    body += a.time !== "side" ? bubble : me ? `<div class="side"><span class="t2">Read<br>${clock(m.at)}</span>${bubble}</div>` : `<div class="side them">${bubble}<span class="t2">${clock(m.at)}</span></div>`;
   }
   if (!draft.reaction) {
     const sentNow = S.phase[i] === "settled";
     const t = a.time === "in" ? `<span class="t">now${sentNow ? '<span class="tk">✓</span>' : ""}</span>` : "";
-    const q = draft.quote ? `<div class="q" style="--qbar:${a.mail ? "" : "#E8A0BF"}"><b>${draft.quote.who.short}</b>${textOf(draft.quote.text)}</div>` : "";
-    const bubble = `<div class="m me ${drafted(i)}${a.tail && lastWho !== P.me ? " tail me" : ""}">${q}${draftBody(draft, "A")}${t}</div>`;
+    const q = draft.quote ? `<div class="q" style="--qbar:${nameInk(draft.quote.who)}"><b>${draft.quote.who.short}</b>${textOf(draft.quote.text)}</div>` : "";
+    const bubble = `<div class="m me ${drafted(i)}${a.tail && lastWho !== P.me ? " tail me" : ""}">${q}${draftBody(draft)}${t}</div>`;
     body += a.time === "side" ? `<div class="side"><span class="t2">${sentNow ? "now" : ""}</span>${bubble}</div>` : bubble;
-    if (draft.second) body += `<div class="m me ${drafted(i)}">${`<span class="${inked().trim()}">${textOf(draft.second)}</span>`}</div>`;
+    if (draft.second) body += `<div class="m me ${drafted(i)}"><span class="${inked()}">${textOf(draft.second)}</span></div>`;
     if (a.time === "below" && sentNow) body += `<div class="below">Delivered</div>`;
   }
-  return `<div class="win">${head}<div class="scroll">${body}</div></div>`;
-}
-function draftBody(d, v) {
-  if (d.voice) return voice(d.voice);
-  if (d.photo) return `<div class="photo">${ICON.photo}</div>${d.caption ? `<div class="${inked().trim()}" style="margin-top:6px">${textOf(d.caption)}</div>` : ""}`;
-  return `<span class="${inked().trim()}${v === "flat" ? " body" : ""}" style="display:${v === "flat" ? "block" : "inline"}">${textOf(d.text, "currentColor")}</span>`;
-}
-function mailBody(d) {
-  if (d.photo) return `<div class="body${inked()}">${textOf(d.caption ?? "")}</div><div class="att">${ICON.doc}${d.photo} · 840 kB</div>`;
-  return `<div class="body${inked()}">${textOf(d.text)}</div>`;
+  return win(body);
 }
 
 /* ---------- B: Life's thread, the app in its colours ---------- */
 function B(i) {
-  const a = APPS[S.app];
-  const { chat, items, draft, group } = S.conv;
-  let body = `<div class="earlier">Earlier in ${a.name} ↗</div>`;
-  let lastDay = "Thu";
-  if (!group) body += `<div class="day">Thursday</div>`;
+  const a = LOOK[S.app];
+  const { items, draft, group } = S.conv;
+  let body = earlier() + (group ? "" : `<div class="day">Thursday</div>`);
+  let today = group;
   for (const m of items) {
-    if (m.gap) { body += `<div class="unrel">${m.gap} unrelated ${a.mail ? "mails" : "messages"}</div>`; continue; }
-    if (!m.at.startsWith("Thu") && lastDay === "Thu" && !group) { body += `<div class="day">Today</div>`; lastDay = "today"; }
+    if (m.gap) { body += unrel(m.gap); continue; }
+    if (!today && !m.at.startsWith("Thu")) { body += `<div class="day">Today</div>`; today = true; }
     const me = m.who === P.me;
-    const rx = draft.reaction && m.id === draft.on ? `<div class="rx ${drafted(i)}">${emo(draft.reaction)}</div>` : "";
-    const who = group && !me ? `<div class="who">${m.who.short}</div>` : "";
-    const bubble = `<div class="m ${me ? "me" : "them"}${rx ? " has-rx" : ""}">${who}${a.mail ? `<div class="sub">Saturday dinner</div>` : ""}${textOf(m.text)}${rx}</div>`;
-    body += group && !me ? `<div class="grp">${face(m.who, "s")}${bubble}</div>` : bubble;
+    const rx = rxOf(m, i);
+    const bubble = `<div class="m ${me ? "me" : "them"}${rx ? " has-rx" : ""}">${group && !me ? `<div class="who">${m.who.short}</div>` : ""}${a.mail ? `<div class="sub">Saturday dinner</div>` : ""}${textOf(m.text)}${rx}</div>`;
+    body += group && !me ? `<div class="grp">${face(m.who, "sm")}${bubble}</div>` : bubble;
   }
   if (!draft.reaction) {
-    const q = draft.quote ? `<div class="q">${ICON.reply}<span>${draft.quote.who.short}: ${textOf(draft.quote.text.slice(0, 44))}…</span></div>` : "";
-    const fld = a.mail ? `<div class="fld">To Jade Moreau · ${draft.quote ? "Re: " : ""}Saturday dinner</div>` : "";
-    const inner = a.mail ? mailBody(draft) : draftBody(draft, "B");
-    body += `<div class="m me ${drafted(i)}">${fld}${q}${inner}</div>`;
-    if (draft.second) body += `<div class="m me ${drafted(i)}"><span class="${inked().trim()}">${textOf(draft.second)}</span></div>`;
+    body += `<div class="m me ${drafted(i)}">${a.mail ? `<div class="fld">${mailTo(draft)}</div>` : ""}${replyLine(draft.quote)}${a.mail ? mailBody(draft) : draftBody(draft)}</div>`;
+    if (draft.second) body += `<div class="m me ${drafted(i)}"><span class="${inked()}">${textOf(draft.second)}</span></div>`;
   }
-  const head = `<div class="head">${face(chat)}<div><b>${chat.name}</b><small>${appLine(a)}</small></div>${arrow(a)}</div>`;
-  return `${head}<div class="scroll">${body}</div>`;
+  return `${head("head")}<div class="scroll">${body}</div>`;
 }
 
 /* ---------- C: a transcript, who said what ---------- */
 function C(i) {
-  const a = APPS[S.app];
-  const { chat, items, draft } = S.conv;
-  let body = `<div class="earlier" style="align-self:flex-start;padding-left:48px">Earlier in ${a.name} ↗</div>`;
+  const a = LOOK[S.app];
+  const { items, draft } = S.conv;
+  let body = earlier(' style="align-self:flex-start;padding-left:48px"');
   for (const m of items) {
-    if (m.gap) { body += `<div class="unrel">${m.gap} unrelated ${a.mail ? "mails" : "messages"}</div>`; continue; }
+    if (m.gap) { body += unrel(m.gap); continue; }
     const me = m.who === P.me;
-    const rx = draft.reaction && m.id === draft.on ? `<div class="rx ${drafted(i)}">${emo(draft.reaction)}</div>` : "";
-    body += `<div class="row ${me ? "me" : ""}">${face(m.who, "s")}<div class="tx"><div class="nm">${me ? "You" : m.who.short}<small>${m.at}</small></div><div class="body">${textOf(m.text)}</div>${rx}</div></div>`;
+    body += `<div class="row ${me ? "me" : ""}">${face(m.who, "sm")}<div class="tx"><div class="nm">${me ? "You" : m.who.short}<small>${m.at}</small></div><div class="body">${textOf(m.text)}</div>${rxOf(m, i)}</div></div>`;
   }
   if (!draft.reaction) {
-    const q = draft.quote ? `<div class="q">${ICON.reply}<span>${draft.quote.who.short}: ${textOf(draft.quote.text.slice(0, 40))}…</span></div>` : "";
-    const fld = a.mail ? `<div class="q">To Jade Moreau · ${draft.quote ? "Re: " : ""}Saturday dinner</div>` : "";
-    const inner = a.mail ? mailBody(draft) : `<div class="body">${draftBody(draft, "C")}</div>`;
-    body += `<div class="row ${drafted(i)}">${face(P.me, "s")}<div class="tx"><div class="nm">You<small>${S.phase[i] === "settled" ? "now" : "draft"}</small></div>${fld}${q}${inner}${draft.second ? `<div class="body${inked()}" style="margin-top:6px">${textOf(draft.second)}</div>` : ""}</div></div>`;
+    const fld = a.mail ? `<div class="rq">${mailTo(draft)}</div>` : "";
+    const inner = a.mail ? mailBody(draft) : `<div class="body">${draftBody(draft)}</div>`;
+    const second = draft.second ? `<div class="body ${inked()}" style="margin-top:6px">${textOf(draft.second)}</div>` : "";
+    body += `<div class="row ${drafted(i)}">${face(P.me, "sm")}<div class="tx"><div class="nm">You<small>${S.phase[i] === "settled" ? "now" : "draft"}</small></div>${fld}${replyLine(draft.quote)}${inner}${second}</div></div>`;
   }
-  const head = `<div class="head">${face(chat)}<div><b>${chat.name}</b><small>${appLine(a)}</small></div>${arrow(a)}</div>`;
-  return `${head}<div class="scroll">${body}</div>`;
+  return `${head("head")}<div class="scroll">${body}</div>`;
 }
+
+/* ---------- quick edits and answers: card-blocks' EditChips and Answers, in the send's state ---------- */
+function after(i) {
+  const p = S.phase[i];
+  const to = S.conv.chat.to;
+  if (p === "settled") return `<div class="settled"><b>✓</b> Sent to ${to}</div>`;
+  const edits = S.conv.editKey && p === "ready" ? draw([["edits", [...(S.edits.length ? ["back"] : []), ...Object.keys(DRAFTS[S.conv.editKey][1])]]]) : "";
+  const label = S.conv.draft.reaction ? `React to ${to}` : `Send to ${to}`;
+  return edits + draw([["answers", label, p === "ready" ? ["Later"] : []]]);
+}
+const BUTTON = { sending: ['<span class="spin"></span>Sending…', ""], sent: ["✓ Sent", "done"], failed: ["Not sent · Try again", "fail"] };
 
 /* ---------- the page ---------- */
 const VARS = [
@@ -414,27 +370,34 @@ const VARS = [
   ["C", "As a transcript", "Who said what, one row each, face and time, no bubbles. Reads alike in a chat, a group or a mail; the draft is the last row.", C],
 ];
 function paint(i) {
-  const a = APPS[S.app];
+  const a = LOOK[S.app];
+  const app = APPS[S.app];
   const el = document.getElementById(`v${i}`);
-  el.style.cssText = `--brand:${a.brand};--sent:${a.sent};--sent-ink:${a.sentInk ?? "#FFFFFF"};--recv:${a.recv};--paper-app:${a.paper};--bar-app:${a.bar};--ink-app:${a.ink};--meta-app:${a.meta};--r-app:${a.r ?? "12px"};--tick:${a.tick ?? "inherit"};--dash:color-mix(in srgb,${a.brand} 75%,white)`;
-  el.innerHTML = VARS[i][3](i) + quick(i) + answers(i);
+  el.style.cssText = `--app:${app.rgb};--appink:${app.ink};--sent:${a.sent};--sent-ink:${a.sentInk ?? "#FFFFFF"};--recv:${a.recv};--paper-app:${a.paper};--bar-app:${a.bar};--ink-app:${a.ink};--meta-app:${a.meta};--r-app:${a.r ?? "var(--control-radius)"};--tick:${a.tick ?? "inherit"};--dash:color-mix(in srgb,rgb(${app.rgb}) 75%,white)`;
+  el.innerHTML = VARS[i][3](i) + after(i);
+  const prim = el.querySelector(".prim");
+  if (prim) {
+    prim.dataset.send = i;
+    if (BUTTON[S.phase[i]]) [prim.innerHTML, prim.className] = [BUTTON[S.phase[i]][0], `prim ${BUTTON[S.phase[i]][1]}`];
+  }
   const sc = el.querySelector(".scroll");
   sc.scrollTop = sc.scrollHeight; // it opens at the bottom, on the latest
 }
-function render(inked) {
-  S.inked = inked;
+function render(withInk) {
+  S.inked = withInk;
   S.conv = convOf(S.app, S.kind);
+  S.run = S.run.map((r) => r + 1); // a pending send stops
   VARS.forEach((_, i) => paint(i));
   S.inked = false;
   document.querySelectorAll("#apps button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.v === S.app));
   document.querySelectorAll("#kinds button").forEach((b) => {
     b.setAttribute("aria-pressed", b.dataset.v === S.kind);
     b.disabled = !can(S.app, b.dataset.v);
-    b.title = b.disabled ? `${APPS[S.app].name} takes no ${b.textContent.toLowerCase()}` : "";
+    b.title = b.disabled ? `${APPS[S.app].n} takes no ${b.textContent.toLowerCase()}` : "";
   });
   document.querySelectorAll("#phases button").forEach((b) => b.setAttribute("aria-pressed", S.phase.every((p) => p === b.dataset.v)));
-  const t = APPS[S.app].takes;
-  document.getElementById("takes").textContent = `${APPS[S.app].name} takes text${KINDS.slice(1).filter(([k]) => can(S.app, k)).map(([, w]) => `, ${w.toLowerCase()}`).join("")}${t.caption === "second" ? " (a photo's words go as a second message)" : t.file && !t.caption ? " (a photo goes without words)" : ""}${Array.isArray(t.reaction) ? ` (only ${t.reaction.join(" ")})` : ""}.`;
+  const t = LOOK[S.app].takes;
+  document.getElementById("takes").textContent = `${APPS[S.app].n} takes text${KINDS.slice(1).filter(([k]) => can(S.app, k)).map(([, w]) => `, ${w.toLowerCase()}`).join("")}${t.secondMessage ? " (a photo's words go as a second message)" : t.file && !t.caption ? " (a photo goes without words)" : ""}${Array.isArray(t.reaction) ? ` (only ${t.reaction.join(" ")})` : ""}.`;
 }
 const pills = (id, list, onPick) => {
   const box = document.getElementById(id);
@@ -446,31 +409,32 @@ const pills = (id, list, onPick) => {
     box.append(b);
   }
 };
-pills("apps", Object.entries(APPS).map(([k, a]) => [k, a.name]), (v) => { S.app = v; if (!can(v, S.kind)) S.kind = "text"; S.edits = []; S.phase = S.phase.map(() => "ready"); render(); });
-pills("kinds", KINDS, (v) => { S.kind = v; S.edits = []; S.phase = S.phase.map(() => "ready"); render(); });
+const reset = () => { S.edits = []; S.phase = S.phase.map(() => "ready"); render(); };
+pills("apps", Object.keys(LOOK).map((k) => [k, APPS[k].n]), (v) => { S.app = v; if (!can(v, S.kind)) S.kind = "text"; reset(); });
+pills("kinds", KINDS, (v) => { S.kind = v; reset(); });
 pills("phases", PHASES, (v) => { S.phase = S.phase.map(() => v); render(); });
-document.getElementById("vars").innerHTML = VARS.map(([l, t, p], i) => `<section class="var ${l}"><h2>${l} · ${t}</h2><p>${p}</p><div class="comp" id="v${i}"></div></section>`).join("");
+document.getElementById("vars").innerHTML = VARS.map(([l, t, p], i) => `<section class="var ${l}"><h2>${l} · ${t}</h2><p>${p}</p><div class="comp cbf" id="v${i}"></div></section>`).join("");
 document.getElementById("vars").addEventListener("click", (e) => {
   const b = e.target.closest("button");
   if (!b) return;
-  if (b.dataset.edit) { S.edits.push(DRAFTS[S.conv.editKey][1][b.dataset.edit]); render(true); }
-  else if (b.dataset.back !== undefined) { S.edits.pop(); render(true); }
-  else if (b.dataset.send) send(Number(b.dataset.send));
+  if (b.dataset.send) send(Number(b.dataset.send));
+  else if (b.matches(".qe.ic")) { S.edits.pop(); render(true); }
+  else if (b.matches(".qe")) { S.edits.push(DRAFTS[S.conv.editKey][1][b.textContent]); render(true); }
 });
 // A tap shows its result: Sending… until the real outcome, then ✓ Sent for a second, then the item settles and the
-// outline fades. Here every fourth send fails, to show Not sent; a retry goes.
+// outline fades. A picker change during it stops it (S.run).
 let sends = 0;
 function send(i) {
   if (!["ready", "failed"].includes(S.phase[i])) return;
-  const fails = S.phase[i] === "ready" && ++sends % 4 === 0;
-  const step = (p, ms) => new Promise((r) => setTimeout(() => { S.phase[i] = p; paint(i); r(); }, ms));
-  step("sending", 0).then(() => step(fails ? "failed" : "sent", 1400)).then(() => !fails && step("settled", 1000));
+  const fails = S.phase[i] === "ready" && ++sends % FAIL_EVERY === 0;
+  const run = ++S.run[i];
+  const step = (p, ms) => new Promise((ok) => setTimeout(() => { if (S.run[i] === run) { S.phase[i] = p; paint(i); ok(); } }, ms));
+  step("sending", 0).then(() => step(fails ? "failed" : "sent", SENDING_MS)).then(() => !fails && step("settled", SENT_MS));
 }
 document.getElementById("grid").innerHTML = `<tr><th>App</th><th>Reply</th><th>Mention</th><th>Reaction</th><th>File or photo</th><th>Words with a file</th><th>Voice note</th></tr>` +
-  Object.values(APPS).map((a) => {
-    const t = a.takes;
+  Object.entries(LOOK).map(([k, { takes: t, mail }]) => {
     const c = (v, w) => (v ? `<td>${w ?? "✓"}</td>` : '<td class="no">–</td>');
-    return `<tr><td><span style="display:inline-flex;gap:8px;align-items:center"><span class="mk">${MARK[Object.keys(APPS).find((k) => APPS[k] === a)]}</span>${a.name}</span></td>${c(t.reply, a.mail ? "into the thread" : undefined)}${c(t.mentions)}${c(t.reaction, Array.isArray(t.reaction) ? `<span class="emo">${t.reaction.join(" ")}</span>` : undefined)}${c(t.file)}${c(t.caption, t.caption === "second" ? "as a second message" : undefined)}${c(t.voice, t.voice && !t.reply && !t.mentions ? "an audio file" : undefined)}</tr>`;
+    return `<tr><td><span style="display:inline-flex;gap:8px;align-items:center"><span class="mk">${I[APPS[k].mark]}</span>${APPS[k].n}</span></td>${c(t.reply, mail ? "into the thread" : undefined)}${c(t.mentions)}${c(t.reaction, Array.isArray(t.reaction) ? `<span class="emo">${t.reaction.join(" ")}</span>` : undefined)}${c(t.file)}${c(t.caption || t.secondMessage, t.secondMessage ? "as a second message" : undefined)}${c(t.voice)}</tr>`;
   }).join("");
 render();
 </script>
