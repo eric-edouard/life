@@ -106,10 +106,7 @@ function isCopied(p: string, from: string, notCopied: string[]) {
   }
   const f = lstatSync(from);
   try {
-    accessSync(
-      from,
-      f.isDirectory() ? constants.R_OK | constants.X_OK : constants.R_OK
-    );
+    accessSync(from, constants.R_OK);
   } catch {
     notCopied.push(`state/${p}`);
     return false;
@@ -250,6 +247,34 @@ export function stateInDataOf(data: string, state: string) {
   return inData;
 }
 
+/** Each staged state file: a store's side files and Life's leftovers removed, each store copied whole by SQLite. */
+function stageStateFiles(dir: string, notCopied: string[]) {
+  for (const p of filesUnder(join(dir, "state"))) {
+    const staged = join(dir, "state", p);
+    const inProject = p.startsWith(`${PROJECTS_IN_STATE}/`);
+    if (
+      DB_SIDE_FILES.some((e) => p.endsWith(e)) ||
+      (!inProject && KEPT_OUT_END.some((e) => p.endsWith(e)))
+    ) {
+      rmSync(staged, { force: true });
+    } else if (isDb(staged)) {
+      // A store (the photo descriptions, a project's) is written meanwhile, in WAL: copied whole by SQLite like the
+      // archive's, never as a file without its -wal, which no reader opens.
+      rmSync(staged);
+      try {
+        copyDb(join(LIFE_STATE_DIR, p), staged);
+      } catch (e) {
+        // A project's store that won't copy (corrupt, locked) is left out and named; Life's own stops the export.
+        if (!inProject) {
+          throw e;
+        }
+        rmSync(staged, { force: true });
+        notCopied.push(`state/${p}`);
+      }
+    }
+  }
+}
+
 /**
  * Stages everything Life holds in `dir` (made, never one with anything in it), consistent: his data cloned under
  * memory's lock (an APFS clone, in ms), each store copied whole by SQLite, the watcher's cursor before its store (the
@@ -287,30 +312,7 @@ export async function stage(
     filter: (from) => isCopied(pathIn(LIFE_STATE_DIR, from), from, notCopied),
     recursive: true,
   });
-  for (const p of filesUnder(join(dir, "state"))) {
-    const staged = join(dir, "state", p);
-    const inProject = p.startsWith(`${PROJECTS_IN_STATE}/`);
-    if (
-      DB_SIDE_FILES.some((e) => p.endsWith(e)) ||
-      (!inProject && KEPT_OUT_END.some((e) => p.endsWith(e)))
-    ) {
-      rmSync(staged, { force: true });
-    } else if (isDb(staged)) {
-      // A store (the photo descriptions, a project's) is written meanwhile, in WAL: copied whole by SQLite like the
-      // archive's, never as a file without its -wal, which no reader opens.
-      rmSync(staged);
-      try {
-        copyDb(join(LIFE_STATE_DIR, p), staged);
-      } catch (e) {
-        // A project's store that won't copy (corrupt, locked) is left out and named; Life's own stops the export.
-        if (!inProject) {
-          throw e;
-        }
-        rmSync(staged, { force: true });
-        notCopied.push(`state/${p}`);
-      }
-    }
-  }
+  stageStateFiles(dir, notCopied);
   stageNotes(dir);
   const watch = join(dir, "state", relative(LIFE_STATE_DIR, WATCH));
   mkdirSync(watch, { recursive: true });
