@@ -207,6 +207,10 @@ The one list; nothing else leaves. The voice server (`apps/lifelog`), its own pr
 - The connector's `sign_in_to_network` signs a messaging network's bridge in, owner's token only, and only while it is
   signed out or never linked. A client holding his token (a paired assistant) could be steered into signing a
   signed-out network in to another account.
+- The iroh relay (planned, `docs/plans/2026-11-27-private-relay.md`; Life doesn't use it yet) forwards the iPhone
+  app's traffic when a direct path fails. It is encrypted end to end between the Mac's and the phone's keys, so the
+  relay can't read it. It sees metadata: the devices' IP addresses, when they connect and how much data moves.
+  n0's public relays during development, Life's own before launch.
 - Full Disk Access makes Life a high-value target on the Mac.
 - A grant he gives through an access card (Photos, Contacts, Calendars, Accessibility, Full Disk Access) is Life.app's, so
   every agent's: macOS can't tell Life's scripts apart (his decision of 28 Nov 2026, mini projects ticket 04). Accessibility
