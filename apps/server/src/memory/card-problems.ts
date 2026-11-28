@@ -64,10 +64,7 @@ export function cardProblemOf(ask: z.infer<typeof Ask>, now: Date) {
       !ask.draft &&
       "`edits` go only with a `draft`: quick changes to its message") ||
     silenceProblemOf(ask, silence) ||
-    lookProblemOf(ask, silence) ||
-    addsProblemOf(ask, silence) ||
-    runsProblemOf(ask, silence) ||
-    raisesProblemOf(ask, silence) ||
+    marksProblemOf(ask, silence) ||
     planProblemOf(ask) ||
     (ask.draft &&
       ask.options.filter((o) => o.outgoing).length !== 1 &&
@@ -210,6 +207,16 @@ function addsProblemOf(
     eventProblemOf(ask)
   );
 }
+
+/** What breaks the rules of the options Life acts on (`looks`, `adds`, `runs`, `raises`), in words the agent can fix; false when nothing does. */
+const marksProblemOf = (
+  ask: z.infer<typeof Ask>,
+  silence: z.infer<typeof Option> | undefined
+) =>
+  lookProblemOf(ask, silence) ||
+  addsProblemOf(ask, silence) ||
+  runsProblemOf(ask, silence) ||
+  raisesProblemOf(ask, silence);
 
 /** What breaks the rules of a `raises` option (the card a spending stop asks for), in words the agent can fix; false when nothing does. */
 function raisesProblemOf(
