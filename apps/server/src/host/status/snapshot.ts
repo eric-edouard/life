@@ -364,9 +364,7 @@ function pendantCard(r: Reads, d: Descriptor): Card {
       [
         isPhoneSilent,
         {
-          ask: ASK(
-            "that the phone has not reported to the voice server for 12 hours"
-          ),
+          ask: ASK("that the phone has not reported to voice for 12 hours"),
           tone: "bad",
           word: "phone not reporting",
         },
@@ -404,9 +402,7 @@ function voiceServerCard(r: Reads): Card {
       [
         !polling(r),
         {
-          ask: ASK(
-            "that the watcher has not polled the voice server for 15 minutes"
-          ),
+          ask: ASK("that the watcher has not polled voice for 15 minutes"),
           tone: "bad",
           word: "not polling",
         },
