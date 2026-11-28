@@ -220,9 +220,14 @@ append-only memory breaks "Content never runs Life's code". Parsers are mended u
   window.
 - **Rules.** AGENTS.md and `docs/operations.md:160` gain one line each: for a new user, the pick in setup step 6 is
   the yes that "ask first" and "no scheduled backfill until prompts are frozen" call for, within its shown cost.
-- **When a parser fails.** It throws a shape report: file names, keys and column names, counts, never a line's words.
-  The caretaker offers it as its usual card, a mail draft to the developer sent only on the user's Send. The fix ships
-  to everyone through the auto-update; the import resumes on the new version.
+- **When an import fails**, it is never a matter (a matter is something in the user's life, found from their
+  messages) and the user never retries it:
+  - *The user can fix it* (the wrong file, an export missing its messages folder): one card with the exact steps
+    ("Export again with Messages ticked, then drop it here"); the new file resumes the import.
+  - *Life cannot read the format yet:* the parser throws a shape report (file names, keys, column names, counts,
+    never a line's words). The source's integration line says "Import paused: Life is learning this format. It
+    resumes by itself after an update", and the caretaker offers its usual card, a mail draft to the developer sent
+    only on the user's Send. The fixed parser ships through the auto-update and the import resumes on its own.
 
 ### T. Trust (~+400, mostly docs; needs A1 for the privacy lines)
 - Section 5: the privacy-line test, README "Security and privacy", SECURITY.md completed, the release workflow with
