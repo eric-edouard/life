@@ -127,7 +127,7 @@ window.Shell=(function(){
     phone.style.transform='scale('+k+')';box.style.width=390*k+'px';box.style.height=844*k+'px';}
 
   return {
-    mount:function(o){opts=o;scenes=o.scenes;if(window.self!==window.top)document.documentElement.classList.add('embedded');
+    mount:function(o){opts=o;scenes=o.scenes;/* only a comparison page hides the side panel (it brings its own pickers): it asks with #embed */if(/[#&]embed\b/.test(location.hash))document.documentElement.classList.add('embedded');
       document.title=o.title;
       document.body.innerHTML='<main class="shell"><div class="fit"><div class="ph">'+
         '<div class="sbar"><span>9:41</span><span>●●● ▮</span></div>'+

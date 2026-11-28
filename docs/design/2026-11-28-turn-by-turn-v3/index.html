@@ -47,7 +47,7 @@ Object.keys(PICKS).forEach(function(t){PICKS[t].forEach(function(p){var b=docume
     if(t==='scene')msg.scene=p[0];else{msg.vary={};msg.vary[t]=p[0];if(SHOWN[t].indexOf(state.scene)<0)msg.scene=state.scene=SHOWN[t][0];}
     press();frame.contentWindow.postMessage(msg,'*');};
   document.getElementById(t).appendChild(b);});});
-frame.src='turn.html#scene='+state.scene+'&day='+state.day+'&pager='+state.pager;press();
+frame.src='turn.html#embed&scene='+state.scene+'&day='+state.day+'&pager='+state.pager;press();
 </script>
 </body>
 </html>
