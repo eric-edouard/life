@@ -3,8 +3,8 @@ import { newestDays, within } from "../core/lists";
 import { readOwnerName } from "../models/prompt-parts";
 import type { Episode } from "../records/episode";
 import { SubjectRef } from "../records/fields";
-import { speakers, withStore } from "../sources/lifelog";
-import { conversationsWith } from "../sources/lifelog-conversations";
+import { speakers, withStore } from "../sources/voice-server";
+import { conversationsWith } from "../sources/voice-server-conversations";
 import { noMatterChecksByPartyOf } from "./checks";
 import { levelsWith, pagedNow } from "./closeness";
 import { readCommunicationStyle } from "./communication-styles";
@@ -49,7 +49,7 @@ import {
 } from "./read-part";
 import { directoryPartiesOf, isDirectoryNew, OWNER } from "./read-truth";
 import { readSituationNow } from "./situations";
-import { conversationLabel, lifelogNames, nameKey } from "./units";
+import { conversationLabel, nameKey, voiceNames } from "./units";
 import {
   meant,
   namedLike,
@@ -205,7 +205,7 @@ export function personRefOf(known: string | undefined, id: string) {
  * offered by the host while their add-on is on) and `evidence` (their observations, episodes and recorded
  * conversations, newest first by whole days, in a `span` and paged back by `before`), each ending with its next reads,
  * written by code; and `latest`, as data (`readLatest`). A name two people go by gives them as `candidates` with the
- * first's `now`; a name on no page nor directory entry is looked for among lifelog's speakers, and someone only heard
+ * first's `now`; a name on no page nor directory entry is looked for among the voice server's speakers, and someone only heard
  * has no parts (nothing to address them by): `now` is their evidence (`heard`, paged back with `before`); a name no one
  * goes by says so (`noOne`) with the parties near it.
  */
@@ -257,7 +257,7 @@ export async function person(
   const found =
     file && (await file.exists()) ? { text: await file.text() } : null;
   const mapped = truth.people.find((p) => p.id === id);
-  const lifelog = mapped?.handles.lifelog;
+  const voicePersonId = mapped?.handles.lifelog;
   const episodes = await readEpisodesWith(ref, refOf);
   // What each part needs, read before the index opens (nothing awaits while it is).
   const isNow = part === "now" && !!partRef;
@@ -283,7 +283,7 @@ export async function person(
       )
     : undefined;
   return withStore((store) => {
-    // A name on no page nor directory entry: the lifelog speakers it is part of.
+    // A name on no page nor directory entry: the voice server's speakers it is part of.
     const voices = speakers(store);
     const heard = known
       ? []
@@ -302,8 +302,8 @@ export async function person(
         store,
         ref,
         episodes,
-        lifelog ? [lifelog] : heard.map((s) => s.id),
-        lifelogNames(truth)
+        voicePersonId ? [voicePersonId] : heard.map((s) => s.id),
+        voiceNames(truth)
       );
       const page = () => pageBlock(db, found?.text ?? null, "in the evidence");
       const inputs: PartInputs = {
@@ -683,7 +683,7 @@ export function heardEvidence(o: PartInputs) {
   };
 }
 
-/** `heard`: the lifelog speakers a name on no page nor directory entry was found among. */
+/** `heard`: the voice server's speakers a name on no page nor directory entry was found among. */
 const recordedTitle = (heard: { name: string }[]) =>
   `Recorded conversations${heard.length > 0 ? ` with lifelog speakers named ${[...new Set(heard.map((s) => s.name))].join(", ")}` : ""} (\`fetch <id>\`):`;
 
@@ -691,7 +691,7 @@ export const orNone = (lines: string[]) =>
   lines.length > 0 ? lines : ["(none)"];
 
 /**
- * A name no one goes by, as data: the name, and who it is near (`nearNames`; lifelog's speakers too, but one already on
+ * A name no one goes by, as data: the name, and who it is near (`nearNames`; the voice server's speakers too, but one already on
  * the list is that person): a party where Life has a ref, else the name as heard.
  */
 function noOne(

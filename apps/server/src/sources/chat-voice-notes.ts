@@ -2,13 +2,13 @@ import { z } from "zod";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
 import { exec } from "../core/proc";
-import { call } from "./lifelog-call";
+import { call } from "./voice-server-call";
 
-// A message's voice note, heard by lifelog's speech pipeline (`POST /voice-notes/transcript`): Ogg Opus in, words out.
+// A message's voice note, heard by the voice server's speech pipeline (`POST /voice-notes/transcript`): Ogg Opus in, words out.
 
-/** lifelog's answer: its words, empty when nothing was heard. */
+/** The voice server's answer: its words, empty when nothing was heard. */
 export const VoiceNoteWords = z.object({ text: z.string() });
-/** What lifelog takes as it is; anything else (iMessage's CAF, a bridge's M4A) is made Ogg Opus by ffmpeg. */
+/** What the voice server takes as it is; anything else (iMessage's CAF, a bridge's M4A) is made Ogg Opus by ffmpeg. */
 const OGG = new Set(["audio/ogg", "audio/opus"]);
 /**
  * ffmpeg's own words, when it opens the files, for an input it can never make audio of: not a media file, or no audio
@@ -50,7 +50,7 @@ export async function toOggOpus(path: string, mime: string) {
 
 /**
  * A voice note's words, sent at `at` (where he was then routes its Thai turns), `key` its original file's sha256 (a
- * note is paid for once). Not audio lifelog can hear: no words, for good. Busy, down or not set up: nothing (logged),
+ * note is paid for once). Not audio the voice server can hear: no words, for good. Busy, down or not set up: nothing (logged),
  * asked again later.
  */
 export async function readVoiceNoteWords(

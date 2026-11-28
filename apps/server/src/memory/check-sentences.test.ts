@@ -3,7 +3,7 @@ import { rmSync, writeFileSync } from "node:fs";
 import type { Correction } from "../records/observation";
 import type { Unit } from "../records/unit";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelogVoices from "../sources/lifelog-voices";
+import * as voiceSpeakers from "../sources/voice-speakers";
 import {
   type NameRow,
   nameGroupsOf,
@@ -118,9 +118,9 @@ test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the 
     until: null,
     words: [[0, 300, 3]],
   };
-  const lifelog = spyOn(lifelogVoices, "readTurnClip");
+  const clipRead = spyOn(voiceSpeakers, "readTurnClip");
   try {
-    lifelog.mockResolvedValue(clip);
+    clipRead.mockResolvedValue(clip);
     spoken.mockResolvedValue(
       new Map([
         [
@@ -139,7 +139,7 @@ test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the 
     ];
     expect(withClip?.clips).toEqual([clip]);
     expect(withClip?.said.to).toBeNull();
-    lifelog.mockRejectedValue(new Error("down"));
+    clipRead.mockRejectedValue(new Error("down"));
     held = [
       unit({ hash: "h4", key: "conv-1", source: "lifelog", title: "conv-1" }),
     ];
@@ -157,7 +157,7 @@ test("a spoken sentence carries its clip; a clip lifelog cannot give leaves the 
     expect((await readNameContexts(wanted, people, held)).size).toBe(0);
   } finally {
     spoken.mockRestore();
-    lifelog.mockRestore();
+    clipRead.mockRestore();
   }
 });
 
@@ -322,7 +322,7 @@ test("a spoken sentence whose turn he cut words in keeps its line and no clip: t
   const spoken = spyOn(words, "spokenLines").mockResolvedValue(
     new Map([["unit_000000000001", [said]]]) as never
   );
-  const lifelog = spyOn(lifelogVoices, "readTurnClip");
+  const clipRead = spyOn(voiceSpeakers, "readTurnClip");
   const clip = {
     at,
     audio: { end: 4, jobId: "job-1", start: 1 },
@@ -341,17 +341,17 @@ test("a spoken sentence whose turn he cut words in keeps its line and no clip: t
   };
   const held = [unit({ hash: "h6", key: "conv-1", source: "lifelog" })];
   try {
-    lifelog.mockResolvedValue(clip);
+    clipRead.mockResolvedValue(clip);
     writeFileSync(CORRECTIONS, `${JSON.stringify(correction)}\n`, {
       flag: "a",
     });
     const [cut] = [...(await readNameContexts(wanted, people, held)).values()];
     // Its line keeps the words it can show; its clip would play them all, so none is shown.
     expect(cut?.clips).toEqual([]);
-    expect(lifelog).not.toHaveBeenCalled();
+    expect(clipRead).not.toHaveBeenCalled();
   } finally {
     spoken.mockRestore();
-    lifelog.mockRestore();
+    clipRead.mockRestore();
     rmSync(CORRECTIONS, { force: true });
   }
 });

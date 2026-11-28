@@ -50,7 +50,7 @@ export async function init(owner: Owner, data = OWNER_DATA_DIR, now = clock()) {
     writeFile(join(truth, "areas.yaml"), yaml("areas", [])),
     writeFile(join(truth, "projects", ".gitkeep"), ""),
     writeFile(join(truth, "me.md"), `# Me\n\n${owner.name}.\n`),
-    // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with lifelog
+    // Where he is (the phone's zone, else the Mac's). Unlike a tick, a first line must name one, even with the voice server
     // unreadable: there is no earlier zone to stand.
     readZoneHere().then((tz) =>
       noteZones(

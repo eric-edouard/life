@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Payment } from "../payments/contract";
 import type { Episode } from "../records/episode";
-import type { Stay } from "../sources/lifelog";
+import type { Stay } from "../sources/voice-server";
 import { byTime, euros, paid, paymentLine, place } from "./payments";
 import { madeBy } from "./record-fixtures";
 

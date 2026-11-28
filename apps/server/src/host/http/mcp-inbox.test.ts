@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import { clock } from "../../core/clock";
-import { pushIdOf } from "../../sources/lifelog-push";
+import { pushIdOf } from "../../sources/voice-server-push";
 import { rpc, token } from "./mcp-test-harness";
 
 // `read_inbox` over made-up checks: its counts, its pages, its version and a push's one card.

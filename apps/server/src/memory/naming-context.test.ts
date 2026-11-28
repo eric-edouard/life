@@ -143,7 +143,7 @@ test("an organization is never offered as a speaker, whatever its signs", () => 
 });
 
 test("a person with none of the signs is not offered, even when lifelog named the voice by sound", () => {
-  // Lifelog's name is not a sign: a person who lives elsewhere, with no call, no answer, no photo and no fact.
+  // The voice server's name is not a sign: a person who lives elsewhere, with no call, no answer, no photo and no fact.
   expect(possible({})).toEqual([]);
 });
 

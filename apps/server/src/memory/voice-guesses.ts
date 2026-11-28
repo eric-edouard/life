@@ -7,7 +7,7 @@ import {
   readJobMonths,
   readVoiceNames,
   voiceKey,
-} from "../sources/lifelog-voices";
+} from "../sources/voice-speakers";
 import {
   episodesNow,
   READ_REPLIES,
@@ -22,9 +22,9 @@ import { localDate, time } from "./zones";
 
 // The voice guesses (docs/glossary.md, "voice guess"): what the voice naming stored (`memory/voice-naming.ts`), read as
 // a guess for each turn nobody named. A guess is only ever shown: as "probably X" when the words of a conversation are
-// opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when lifelog's
+// opened (`fetch`, behind his `voiceGuessesShown` setting), and as a voice card's question, "Is this X?", when the voice server's
 // suggestion does not contradict it (`withVoiceGuesses`, who.ts `voiceSuggestionOf`). Nothing here names a turn: it never sets a speaker, reaches
-// lifelog, makes or folds a person or touches a line any step reads, and these files never import `forward` or the
+// the voice server, makes or folds a person or touches a line any step reads, and these files never import `forward` or the
 // corrections (`scripts/imports.test.ts` checks).
 
 /** A guess for one voice of one part, as stored. `keys` are the `unnamedTurnKey`s of its turns in the part. */
@@ -115,7 +115,7 @@ function newestOfFiles(files: readonly (readonly ReadReply[])[]) {
 /**
  * The newest stored guess of each unnamed turn key (`unnamedTurnKey`), from the lines of any version of the voice
  * naming's prompt. The newest guess of a key whose person is not known today (`me` and `unknown` aside) leaves the key with none. A key is a turn's only while the turn
- * is still unnamed: a turn named since (his answer, lifelog's match, a relabel) has another key and is never looked up.
+ * is still unnamed: a turn named since (his answer, the voice server's match, a relabel) has another key and is never looked up.
  */
 export function voiceGuessesNow(
   people: Pick<People, "names" | "refOf">,
@@ -204,7 +204,7 @@ export function voiceGuessedPeopleOf(
 
 /**
  * Each queue item as a voice card reads it: with who the voice naming guessed its voices are (`guessed`, with why: `whys`, for
- * `voiceSuggestionOf`: `voiceGuessedPeopleOf` the newest guess of each of its turns, as stored) and the name lifelog gives each
+ * `voiceSuggestionOf`: `voiceGuessedPeopleOf` the newest guess of each of its turns, as stored) and the name the voice server gives each
  * of its person ids (`names`, `readVoiceNames`). Reads only the month files its voices' recordings can be filed under
  * (`readJobMonths`); throws when one cannot be read.
  */

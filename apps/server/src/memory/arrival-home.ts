@@ -3,8 +3,8 @@ import { distanceM } from "../core/distance";
 import { writeJson } from "../core/files";
 import { log } from "../core/log";
 import { errorOf } from "../core/log-line";
-import { visits, whereAt } from "../sources/lifelog";
-import { lifelogMissing } from "../sources/lifelog-call";
+import { visits, whereAt } from "../sources/voice-server";
+import { voiceServerMissing } from "../sources/voice-server-call";
 import { HOME_ARRIVAL, readHomeArrival } from "./home-arrival";
 import { readMatterPins } from "./matters";
 import { dayNow, dayStart } from "./zones";
@@ -39,7 +39,7 @@ async function homeOf(now: Date) {
 
 /**
  * While a Later waits for home (`deferredHome`, in force), keeps his newest arrival home since it in Life's state
- * (`HOME_ARRIVAL`), never his data; nothing of his is written. Never throws: lifelog unreadable leaves them to their 24 hours.
+ * (`HOME_ARRIVAL`), never his data; nothing of his is written. Never throws: the voice server unreadable leaves them to their 24 hours.
  */
 export async function recordArrivalHome(now: Date) {
   const pins = readMatterPins();
@@ -52,7 +52,7 @@ export async function recordArrivalHome(now: Date) {
     )
     .map(([, at]) => at)
     .toSorted();
-  if (!since || lifelogMissing()) {
+  if (!since || voiceServerMissing()) {
     return;
   }
   try {

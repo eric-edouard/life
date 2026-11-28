@@ -7,11 +7,11 @@ import {
   parseTurnRef,
   type Store,
   withStore,
-  writeLifelog,
-} from "./lifelog";
-import { call, lifelogMissing } from "./lifelog-call";
+  writeVoiceServer,
+} from "./voice-server";
+import { call, voiceServerMissing } from "./voice-server-call";
 
-// What lifelog says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
+// What the voice server says of the voices of its recordings: how a conversation's voices were heard (`readVoiceKinds`) and who
 // answered or recognised each (`readVoices`). Read-only.
 
 export const ConversationAnswer = z.object({
@@ -40,9 +40,9 @@ export interface VoiceKind {
 }
 
 /**
- * What lifelog's latest summary of a conversation heard of each voice it could not name, by `voiceKey`: how it was heard
+ * What the voice server's latest summary of a conversation heard of each voice it could not name, by `voiceKey`: how it was heard
  * (live in the room, over a phone, from a screen, an announcement) and whether it talked with him. None for a conversation
- * lifelog no longer has. Read-only.
+ * the voice server no longer has. Read-only.
  */
 export async function readVoiceKinds(conversationId: string) {
   const answer = await call(
@@ -67,7 +67,7 @@ export async function readVoiceKinds(conversationId: string) {
 export const voiceKey = (jobId: string, label: string | null) =>
   `${jobId} ${label}`;
 
-/** One voice of a recording, as `GET /speakers/voices` gives it: who named it (`basis`: his answer, lifelog's sound, nobody), who, and whom it sounds like. */
+/** One voice of a recording, as `GET /speakers/voices` gives it: who named it (`basis`: his answer, the voice server's sound, nobody), who, and whom it sounds like. */
 export const Voices = z.array(
   z.object({
     basis: z.string().nullable(),
@@ -99,7 +99,7 @@ export function ownAnswerOf(row?: VoiceRow) {
 }
 
 /**
- * Every voice of the recordings with a turn starting in [from, to), in windows of the 24 hours lifelog answers at most.
+ * Every voice of the recordings with a turn starting in [from, to), in windows of the 24 hours the voice server answers at most.
  * An older Lifelog Host has no such route (404): that throws.
  */
 export async function readVoices(from: Date, to: Date) {
@@ -124,7 +124,7 @@ export async function readVoices(from: Date, to: Date) {
   return windows.flat();
 }
 
-/** Every turn someone other than the owner spoke in a live conversation since `since`, by lifelog's own speaker (never a model's): who and when. */
+/** Every turn someone other than the owner spoke in a live conversation since `since`, by the voice server's own speaker (never a model's): who and when. */
 export function speakerTurns(store: Store, since: Date) {
   return store.db
     .query<
@@ -144,7 +144,7 @@ export function speakerTurns(store: Store, since: Date) {
     .all(since.toISOString());
 }
 
-/** The newest name lifelog gave each person id, from `speakerTurns`' rows. */
+/** The newest name the voice server gave each person id, from `speakerTurns`' rows. */
 export function voiceNamesOf(
   rows: { at: string; id: string; name: string | null }[]
 ) {
@@ -158,7 +158,7 @@ export function voiceNamesOf(
 }
 
 /**
- * The newest name lifelog gave each of these person ids (`ids`), and each id it gave any of these names (`named`, any
+ * The newest name the voice server gave each of these person ids (`ids`), and each id it gave any of these names (`named`, any
  * case), with its newest name: who an id is when Life's directory does not know it (`voicePersonOf`). Indexed reads
  * (`turns_person`, `turns_person_name`), one per id and name; none without ids or names.
  */
@@ -189,7 +189,7 @@ export async function readVoiceNames(
   });
 }
 
-/** The person id lifelog gives the owner (the newest of its owner's turns), none before it has heard him. */
+/** The person id the voice server gives the owner (the newest of its owner's turns), none before it has heard him. */
 export async function readOwnerVoiceId(): Promise<string | undefined> {
   return await withStore(
     (store) =>
@@ -201,7 +201,7 @@ export async function readOwnerVoiceId(): Promise<string | undefined> {
   );
 }
 
-/** Whether lifelog now names the speaker of a turn (a turn ref): one he answered turn by turn has a name on the turn and no answer on its voice. */
+/** Whether the voice server now names the speaker of a turn (a turn ref): one he answered turn by turn has a name on the turn and no answer on its voice. */
 export function isTurnNamed(store: Store, ref: string) {
   const t = parseTurnRef(ref);
   return Boolean(
@@ -225,7 +225,7 @@ export const Clip = z.object({
   words: z.array(z.array(z.number())),
 });
 
-/** The clip of one turn of a recording, as lifelog cuts it for its cards (`GET /turns/clip`); null once lifelog has no such turn. */
+/** The clip of one turn of a recording, as the voice server cuts it for its cards (`GET /turns/clip`); null once the voice server has no such turn. */
 export const readTurnClip = (jobId: string, turnIndex: number) =>
   call(
     `/turns/clip?jobId=${encodeURIComponent(jobId)}&turnIndex=${turnIndex}`
@@ -239,7 +239,7 @@ export const readTurnClip = (jobId: string, turnIndex: number) =>
     }
   );
 
-/** One voice lifelog asks him to name, as `GET /naming-queue` gives it (`QueueItem`): what Life shows of it and sends back. */
+/** One voice the voice server asks him to name, as `GET /naming-queue` gives it (`QueueItem`): what Life shows of it and sends back. */
 export const NamingQueueItem = z.object({
   clips: z.array(Clip),
   conversations: z.number(),
@@ -267,24 +267,24 @@ export const NamingQueueItem = z.object({
 });
 export type NamingQueueItem = z.infer<typeof NamingQueueItem>;
 
-/** The last queue lifelog gave (none until a read succeeded), the read in flight, the answers sent, and whether reads fail. */
+/** The last queue the voice server gave (none until a read succeeded), the read in flight, the answers sent, and whether reads fail. */
 let kept: NamingQueueItem[] | undefined;
 let reading: Promise<NamingQueueItem[]> | undefined;
 let answered = 0;
 let isDown = false;
 
 /**
- * The queue as lifelog gives it now (`GET /naming-queue`), nothing kept: for an answer, which reads it in its turn
- * (`answerCheck`), never the kept list; throws when lifelog cannot be read.
+ * The queue as the voice server gives it now (`GET /naming-queue`), nothing kept: for an answer, which reads it in its turn
+ * (`answerCheck`), never the kept list; throws when the voice server cannot be read.
  */
 export const readNamingQueueNow = async () =>
-  lifelogMissing()
+  voiceServerMissing()
     ? []
     : z.array(NamingQueueItem).parse(await call("/naming-queue", 30));
 
 /**
  * The one writer of the kept queue: one read at a time, kept unless an answer was sent since it started (its list may
- * hold the answered voice); a failure is logged once while lifelog stays down, and the next read tries again.
+ * hold the answered voice); a failure is logged once while the voice server stays down, and the next read tries again.
  */
 function refresh() {
   const since = answered;
@@ -310,16 +310,16 @@ function refresh() {
 }
 
 /**
- * The voices lifelog asks him to name (`GET /naming-queue`), for the inbox: the last list read, at once, with a read
- * started behind it (lifelog can take seconds to rebuild it), so a changed queue shows on the next read; the first read
- * waits. While lifelog fails the last list stands (none before any), so the inbox never fails or waits on it.
+ * The voices the voice server asks him to name (`GET /naming-queue`), for the inbox: the last list read, at once, with a read
+ * started behind it (the voice server can take seconds to rebuild it), so a changed queue shows on the next read; the first read
+ * waits. While the voice server fails the last list stands (none before any), so the inbox never fails or waits on it.
  */
 export async function readNamingQueue() {
   const next = refresh().catch(() => kept ?? []);
   return kept ?? (await next);
 }
 
-/** The lifelog people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
+/** The voice server's people a queue item's voice may be, its best guess first: the card offers them, his answer assigns to one. */
 export const namingQueueGuessesOf = (item: NamingQueueItem) => [
   ...new Set([item.personId, ...item.likely].filter((x): x is string => !!x)),
 ];
@@ -332,7 +332,7 @@ export async function answerNamingQueue(
     | { kind: "assign"; personId: string }
     | { kind: "ignore" | "media" | "not_relevant" }
 ) {
-  const done = await writeLifelog("POST", "/naming-queue/answer", {
+  const done = await writeVoiceServer("POST", "/naming-queue/answer", {
     answer,
     voices,
   });

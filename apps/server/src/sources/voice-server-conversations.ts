@@ -1,17 +1,17 @@
 import {
   LIVE,
-  type LifelogTurn,
-  type LifelogTurnRow,
-  lifelogTurn,
   nameOf,
   type Store,
-} from "./lifelog";
+  type VoiceTurn,
+  type VoiceTurnRow,
+  voiceTurnOf,
+} from "./voice-server";
 
 // The live conversations Life lists by who spoke or when, each with what its label needs (`conversationLabel`).
 
 /**
  * The live conversations (`c`) matching `rest` (a `where` tail and `order by`), each with the names of the people other
- * than the owner who spoke in it, as the directory names them (`byId`, `lifelogNames`) else as lifelog does.
+ * than the owner who spoke in it, as the directory names them (`byId`, `voiceNames`) else as the voice server does.
  */
 function conversationRows(
   store: Store,
@@ -38,7 +38,7 @@ function conversationRows(
     }));
 }
 
-/** The live conversations where lifelog's person (or one of the people) `personIds` spoke, newest first. */
+/** The live conversations where the voice server's person (or one of the people) `personIds` spoke, newest first. */
 export const conversationsWith = (
   store: Store,
   personIds: string[],
@@ -68,18 +68,18 @@ export const conversationsBetween = (
   );
 
 /**
- * Every turn of the live conversations, oldest first, each with its lifelog conversation (the voice store's, so the
+ * Every turn of the live conversations, oldest first, each with its recorded conversation (the voice store's, so the
  * words of one fetch and the voices it heard are asked of it). The spoken conversations are cut from these
- * (`memory/spoken-conversations.ts`), whatever conversation lifelog put them in.
+ * (`memory/spoken-conversations.ts`), whatever conversation the voice server put them in.
  */
 export const readSpokenTurns = (store: Store, byId: Map<string, string>) =>
   store.db
-    .query<LifelogTurnRow, []>(
+    .query<VoiceTurnRow, []>(
       `select t.* from turns t join conversations c on c.id = t.conversation_id where ${LIVE}
         order by t.start_at, t.job_id, t.turn_index`
     )
     .all()
-    .map((t): LifelogTurn & { conversation: string } => ({
-      ...lifelogTurn(t, byId),
+    .map((t): VoiceTurn & { conversation: string } => ({
+      ...voiceTurnOf(t, byId),
       conversation: t.conversation_id,
     }));

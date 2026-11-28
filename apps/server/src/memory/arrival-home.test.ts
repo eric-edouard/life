@@ -2,9 +2,9 @@ import { afterEach, expect, spyOn, test } from "bun:test";
 import { readFileSync, rmSync } from "node:fs";
 import { clock, HOUR, iso } from "../core/clock";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelog from "../sources/lifelog";
+import * as voiceServer from "../sources/voice-server";
 // biome-ignore lint/performance/noNamespaceImport: a test spies on its functions
-import * as lifelogCall from "../sources/lifelog-call";
+import * as voiceServerCall from "../sources/voice-server-call";
 import { isHomeLaterOf, recordArrivalHome } from "./arrival-home";
 import { HOME_ARRIVAL } from "./home-arrival";
 import { laterUntilOf } from "./matters";
@@ -35,9 +35,9 @@ test("a home Later is the home effect as written, never a mention", () => {
 test("a Later that waits for home ends when read once he arrived home, not elsewhere; nothing of his is written", async () => {
   const start = clock();
   const later = (h: number) => new Date(start.getTime() + h * HOUR);
-  spyOn(lifelogCall, "lifelogMissing").mockReturnValue(undefined);
-  spyOn(lifelog, "whereAt").mockResolvedValue([stay(home, iso(0))]);
-  const seen = spyOn(lifelog, "visits");
+  spyOn(voiceServerCall, "voiceServerMissing").mockReturnValue(undefined);
+  spyOn(voiceServer, "whereAt").mockResolvedValue([stay(home, iso(0))]);
+  const seen = spyOn(voiceServer, "visits");
   await recordCorrection({
     home: true,
     kind: "deferred",
@@ -56,7 +56,7 @@ test("a Later that waits for home ends when read once he arrived home, not elsew
   await recordArrivalHome(later(4));
   expect(laterUntilOf("dec_home", later(4))).toBeUndefined();
   expect(lines()).toBe(1);
-  // Nothing waits any more: lifelog is not asked again.
+  // Nothing waits any more: the voice server is not asked again.
   seen.mockClear();
   await recordArrivalHome(later(5));
   expect(seen).not.toHaveBeenCalled();

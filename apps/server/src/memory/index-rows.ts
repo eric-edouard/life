@@ -44,7 +44,7 @@ export interface Row {
   when: string | null;
 }
 
-/** Who said it, when not him: "by" a sender (exact), "heard as" a voice (lifelog names one wrongly about 5% of the time). Labelled, never filtered. */
+/** Who said it, when not him: "by" a sender (exact), "heard as" a voice (the voice server names one wrongly about 5% of the time). Labelled, never filtered. */
 const byOf = ({ channel, speaker }: Row) =>
   !speaker || speaker === OWNER
     ? ""

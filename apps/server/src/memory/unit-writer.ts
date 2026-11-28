@@ -5,7 +5,7 @@ import { appendJsonl } from "../core/files";
 import type { SourceName } from "../core/names";
 import { Published } from "../records/publication";
 import { Unit } from "../records/unit";
-import type { Store } from "../sources/lifelog";
+import type { Store } from "../sources/voice-server";
 import { type Evidence, voiceUnits } from "./gather";
 import { PUBLICATIONS, readUnitsOf, UNITS } from "./memory-files";
 import { preparePassages } from "./passages";
@@ -89,17 +89,17 @@ export async function writeUnits(
 }
 
 /**
- * Makes the lifelog units in memory/units/ from `since` on the ones the store gives (what the watcher does after a page,
+ * Makes the voice units in memory/units/ from `since` on the ones the store gives (what the watcher does after a page,
  * `since` where the page touched: `apply`); a chapter unit stays as stored while its conversation is live
- * (`frozenUnits`), and goes with it. A day's file is rewritten only when its lifelog units differ; other units in it
+ * (`frozenUnits`), and goes with it. A day's file is rewritten only when its voice units differ; other units in it
  * stay. Returns how many units were built, changed and removed, the units written (`written`), and whether a unit went
  * or a code rule dropped or took one back (`hasGoneOrBack`: the observations on it go or come back).
- * ponytail: `gather` (episodes) and this apply the `duplicate` rule within what they read, so a lifelog unit repeating
+ * ponytail: `gather` (episodes) and this apply the `duplicate` rule within what they read, so a voice unit repeating
  * one from before may flip between the two writers; one writer settles it. A unit id that comes back (a conversation
  * regrouped onto a day it had left) counts as new: its old observations stay gone until the next full rebuild (the
  * night's); compare ids against the index's observations if that day matters.
  */
-export async function syncLifelogUnits(store: Store, since: Date) {
+export async function syncVoiceUnits(store: Store, since: Date) {
   const { built, chapters, have } = await voiceUnits(
     store,
     since,
@@ -152,17 +152,17 @@ export function diffUnits(have: Unit[], want: Unit[]) {
   };
 }
 
-/** What today's write keeps as it is: lifelog's units, and those of a source not read now (off, unreadable or failed). */
+/** What today's write keeps as it is: the voice units, and those of a source not read now (off, unreadable or failed). */
 function keptToday(read: string[], failed: string[]) {
   const fresh = new Set(read.filter((name) => !failed.includes(name)));
   return (u: Unit) => !fresh.has(u.source);
 }
 
 /**
- * Writes today's units from every source but lifelog (under the lock), from the evidence of `gather(today, people, {
+ * Writes today's units from every source but the voice server (under the lock), from the evidence of `gather(today, people, {
  * files: false, log: quietly, voice: false })`: no model call; a file sent today is described on arrival by the watcher
  * (`describeFilesOnArrival`), so a later tick writes its unit with the description.
- * Today's file keeps lifelog's units and those of a source not read; a source that throws is logged by the read and keeps
+ * Today's file keeps the voice units and those of a source not read; a source that throws is logged by the read and keeps
  * its units. The passages are prepared only when a unit changed.
  * ponytail: reads today from every source every few minutes, a per-source cursor (`incoming`) if that ever costs; the
  * `duplicate` rule sees today only (the night's sees 7 days), the night settles it.
