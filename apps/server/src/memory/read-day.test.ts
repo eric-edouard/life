@@ -113,7 +113,7 @@ test("a day opens with what he did: its episodes in plain words, where he was, w
   ).not.toContain("    Talked about: ");
   expect(
     dayLines({ episodes: [{ episode: m, facts: [] }], whereUnknown: true })
-  ).toContain("Where Test was is unknown: lifelog could not be read.");
+  ).toContain("Where Test was is unknown: the voice server could not be read.");
   expect(dayLines({ units: [] })[0]).toStartWith("Units (0;");
   // No units given: no Units section (a day record's lines show none).
   expect(dayLines({}).join("\n")).not.toContain("Units (");

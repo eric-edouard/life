@@ -17,7 +17,6 @@ import {
   PeopleFile,
   type Person,
   Project,
-  voiceHandleOf,
 } from "../records/truth";
 
 /** The owner as an entity ref: the center of his memory. */
@@ -150,8 +149,7 @@ export function phonesAndEmailsOf(
 
 /** Every handle a party has, normalized the way senders are looked up: emails lower-cased. */
 export function handlesOf(p: Pick<DirectoryParty, "handles">): string[] {
-  const { github, telegram } = p.handles;
-  const voice = voiceHandleOf(p.handles);
+  const { github, telegram, voice } = p.handles;
   return [
     ...phonesAndEmailsOf(p),
     ...(github ? [github.toLowerCase()] : []),

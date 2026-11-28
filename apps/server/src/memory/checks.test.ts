@@ -12,6 +12,7 @@ import {
   about,
   DANA_ID,
   decision,
+  ELSEWHERE,
   holdOn,
   inputs,
   line,
@@ -449,6 +450,7 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
     waitingOn: [],
     with: [],
   };
+  const asked = { ...matter, openSteps: [matter.newestOpenStep] };
   const base = inputs([], { matters: [matter] });
   expect(checksOf(base).map(({ misread: _, ...c }) => c)).toEqual([
     {
@@ -566,9 +568,14 @@ test("a new matter an agent could move asks 'Start an agent on this?' for 7 days
         ),
       ],
     }).filter((c) => c.group === "new matter"),
+    // Card sort (28 Nov 2026): its your move card hidden (his own work done elsewhere), it is never offered either.
+    none({ matters: [asked], stepReadingOf: () => ELSEWHERE }).filter(
+      (c) => c.kind !== "your move"
+    ),
   ]) {
     expect(list).toEqual([]);
   }
+  expect(none({ matters: [asked] }).map((c) => c.kind)).toContain("new matter");
   // Dismissed, then re-grouped under a new id with one more step: still dismissed.
   const regrouped = {
     ...matter,

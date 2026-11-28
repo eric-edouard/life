@@ -59,6 +59,7 @@ import { guessedOf, plain } from "./doubts";
 import { isBatchOf, onlyDraftOf } from "./draft";
 import { withDraftConfirms } from "./draft-send";
 import { type Fix, fixesNow, type MonthBudget } from "./fix-checks";
+import { INSTRUCTIONS } from "./instructions";
 import {
   type CardHolders,
   type Check,
@@ -101,6 +102,7 @@ import {
   samePersonPairsOf,
 } from "./same-person";
 import { PROJECT_SITUATIONS } from "./situation-parts";
+import { readStepReadings, STEP_READINGS } from "./step-readings";
 import { voiceChecksOf } from "./voice-checks";
 import { withConversations, withVoiceGuesses } from "./voice-guesses";
 import { readPeople, readUnresolvedPeople } from "./who";
@@ -484,10 +486,12 @@ const CHECKS_READ = [
   APPOINTMENTS,
   CLOSENESS,
   DECISIONS,
+  INSTRUCTIONS,
   MATTER_ICON_PICKS,
   PAGES,
   PERSON_PICTURES_INDEX,
   PROJECT_SITUATIONS,
+  STEP_READINGS,
   ZONES,
 ];
 
@@ -594,6 +598,7 @@ async function readChecks(
     unresolved,
   });
   const today = dayNow();
+  const ask = { ...readStepReadings(matters), today };
   const steps = shownStepsOf({
     answered,
     doubted,
@@ -606,7 +611,7 @@ async function readChecks(
     lines,
     names: nameGroups,
     people,
-    steps: new Set([...steps, ...yourMoveStepsOf(matters)]),
+    steps: new Set([...steps, ...yourMoveStepsOf(matters, ask)]),
   });
   const key = secretIn("pushIdKey");
   const checks = checksOf({
@@ -641,9 +646,11 @@ async function readChecks(
     people,
     places: readPlaces(),
     samePersons: samePersonPairsOf(people),
+    stepReadingOf: ask.stepReadingOf,
     titles,
     today,
     voices,
+    whatToAskOf: ask.whatToAskOf,
     where: new Map([
       ...where,
       ...records.episodes.map((m): [string, Where] => [

@@ -708,7 +708,7 @@ test("lifelog's /status is read whatever its untyped objects hold: absent, null,
   ).toBe(0);
 });
 
-test("the phone's zone: a zone Intl knows, from lifelog's newest heartbeat; none, an offset or lifelog not set up, null; lifelog down, throws", async () => {
+test("the phone's zone: a zone Intl knows, from the voice server's newest heartbeat; none, an offset or the voice server not set up, null; the voice server down, throws", async () => {
   // Days old still counts: the phone's latest zone is where he is.
   let beat: unknown = {
     observedAt: "2026-09-01T11:00:00.000Z",

@@ -54,3 +54,9 @@ export const chosenIconsOf = <V extends Found>(
   find: Finder<V>,
   pins: readonly IconPin[]
 ) => new Map(pinnedOf(find, pins).map(([v, p]) => [v.id, p.icon]));
+
+/** The ids of the matters he dismissed as new matter checks, each found (`find`, over the whole book, so the hand-out, the new matter check and the report agree) by the steps it was pinned to (`pins`). Pure. */
+export const dismissedIdsOf = (
+  find: Finder<Found>,
+  pins: readonly (readonly string[])[]
+) => new Set(pins.flatMap((p) => find(p)?.id ?? []));

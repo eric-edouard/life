@@ -50,7 +50,7 @@ export function recordingOf(kept: RecordedDays | null, day: string): Verdict {
   if (!kept) {
     return {
       state: "unknown",
-      why: "nothing held; lifelog was never asked whether it was recording",
+      why: "nothing held; the voice server was never asked whether it was recording",
     };
   }
   if (kept.days.includes(day)) {
@@ -60,7 +60,7 @@ export function recordingOf(kept: RecordedDays | null, day: string): Verdict {
   if (!since || day < since) {
     return {
       state: "unknown",
-      why: `nothing held; lifelog cannot tell whether it was recording before ${since || "now"}`,
+      why: `nothing held; the voice server cannot tell whether it was recording before ${since || "now"}`,
     };
   }
   const asked = localDate(kept.built);
@@ -68,7 +68,7 @@ export function recordingOf(kept: RecordedDays | null, day: string): Verdict {
     ? { state: "not_seen", why: "the pendant recorded nothing this day" }
     : {
         state: "unknown",
-        why: `nothing held; lifelog was last asked on ${asked}`,
+        why: `nothing held; the voice server was last asked on ${asked}`,
       };
 }
 

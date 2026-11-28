@@ -142,15 +142,15 @@ How it is built, and why: [architecture](docs/architecture.md). Every word Life 
 ## The pendant (optional)
 
 Wear a Limitless Pendant or an Omi and Life also hears your conversations: what was said, who said it and where you
-were. lifelog, in this repository, records them through your phone, and its server on your Mac has them transcribed. It adds a
-summary of each long conversation, the places you stayed, Apple Health from your iPhone, search by meaning (its
-Lifelog Host runs the model Life searches with; without it, search is by words), and "hey" plus your agent's name to
+were. Life's voice layer records them through your phone, and the voice server on your Mac has them transcribed. It adds a
+summary of each long conversation, the places you stayed, Apple Health from your iPhone, search by meaning (Lifelog
+Host runs the model Life searches with; without it, search is by words), and "hey" plus your agent's name to
 hand it a request out loud.
 
-It is the heaviest part to set up today. You need an iPhone on iOS 27, with lifelog's app built in Xcode under your
+It is the heaviest part to set up today. You need an iPhone on iOS 27, with the phone app built in Xcode under your
 own Apple developer team (or an Android phone and the capture app's debug build), Lifelog Host built on a Mac on
 macOS 15, and an [ElevenLabs](https://elevenlabs.io) key for transcription, billed by the hour of speech.
-[lifelog's README](apps/lifelog/README.md) has the steps; then [set up voice](docs/use/voice.md).
+[The voice server's README](apps/lifelog/README.md) has the steps; then [set up voice](docs/use/voice.md).
 
 ## Install
 
@@ -233,7 +233,7 @@ Use Life:
 How Life works:
 
 - [Glossary](docs/glossary.md): every name Life uses for a concept, with what it means
-- [Architecture](docs/architecture.md): the pipeline, the stack, lifelog and Life, why memory stays local
+- [Architecture](docs/architecture.md): the pipeline, the stack, voice and Life, why memory stays local
 - [Sources](docs/sources.md): what each source reads and how
 - [Schema](docs/SCHEMA.md): every file in the memory
 - [The agent, the connector and actions](docs/tasks.md)

@@ -65,7 +65,7 @@ No other file writes a colour: the test also fails on a hex colour anywhere else
   handed on work.
 - **Parked (30 Oct 2026).** The Mac app's UI is the exception to the type, shape and wording rules of this page until
   it is unparked: it keeps its old layout, fonts, capital labels and strokes (`Brand.swift`), with the colours above.
-  Android keeps the old look (`Brand.kt`, lifelog's `docs/design.md`).
+  Android keeps the old look (`Brand.kt`, the voice layer's `docs/design.md`).
 - **Not yet in code (19 Nov 2026).** Three surfaces predate the rules of 19 Nov, and each follows with its next
   change: the phone's capital labels; the pairing page's outlined button and thin title (`oauth.ts`); and the text of
   the asks the server writes, which predates the wording below.
