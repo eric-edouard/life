@@ -53,6 +53,8 @@ const steps: Record<string, string[]> = {
   "lifelog test": [
     "bun",
     "test",
+    // A fresh global per file, so the preload runs for each (`--parallel` below implies it).
+    "--isolate",
     "--timeout",
     "60000",
     ...noteTestFile,
