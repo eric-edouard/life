@@ -217,8 +217,9 @@ then A2; `scripts/app.ts`: D; `apps/mac`: the one-Mac-app bundles 3–4, then M.
 - `bun build --compile --target=bun-windows-x64` for Life and voice; MinGit, `gog.exe`, the embedder beside them.
 - A Bun supervisor with a tray icon replaces launchd and the Swift app: starts the archive, the watcher, the night's
   tick and voice; its menu shows the integrations' dots.
-- The setup (section 2) needs a screen: "Life serves no page" (AGENTS.md) rules out a browser page as is. The owner
-  rules between a loopback-only setup page behind the local key and a native window in the tray app.
+- The setup (section 2) is a local page in the browser, on loopback only, behind the local key, reading
+  `/status/integrations` (the owner's ruling of 28 Nov 2026; no Electron). The PR amends AGENTS.md's "Life serves no
+  page" with this one exception. Windows needs no OS permissions: its steps are browser sign-ins, a key and a folder.
 - Velopack install and updates from GitHub Releases, unsigned for the pilot; servers on 127.0.0.1.
 - Voice all ElevenLabs; local speech and bridges later. The rehearsal checks that voice runs without Python.
 

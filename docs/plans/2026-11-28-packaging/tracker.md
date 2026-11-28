@@ -15,11 +15,12 @@ Status: ⏳ waiting · 🔄 in progress · 👀 in review · ✅ merged.
 | I. iPhone onboarding, day one | #1579 | – | A1, voice rename B2/B3 | A2, G, T, M | ⏳ |
 | Pilots' release + rehearsal (fresh Mac account) | #1582 | – | A2, G, M, I, D | – | ⏳ |
 | I2. Getting to know you | #1580 | – | I | W | ⏳ |
-| W. Windows host | #1581 | – | A1, A2, G; owner's ruling on the setup screen | I2 | ⏳ |
+| W. Windows host | #1581 | – | A1, A2, G | I2 | ⏳ |
 
 Progress: ⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0%
 
 ## Log
 
+- 28 Nov: Windows setup ruled a local page in the browser.
 - 28 Nov: issues #1572–#1582 filed; push through the relay and attested releases approved.
 - 28 Nov: investigation done; game plan and spec written; Fable review reshaped them (A split into A1, A2, G).
