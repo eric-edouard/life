@@ -104,6 +104,21 @@ export const StoredDraft = MessageDraft.extend({
 }).strict();
 export type StoredDraft = z.infer<typeof StoredDraft>;
 
+/**
+ * A card's drafts in order (the owner's decision of 28 Nov 2026: one card may send several, a batch): `drafts` on a
+ * batch, else its one `draft` (a one-draft card is asked and stored as before), else none. The one reader of both.
+ */
+export const draftsOf = <D>(c: { draft?: D | null; drafts?: D[] }): D[] =>
+  c.drafts ?? (c.draft ? [c.draft] : []);
+
+/** Whether a card is a batch: it holds several drafts. */
+export const isBatchOf = (c: { drafts: readonly unknown[] }) =>
+  c.drafts.length > 1;
+
+/** A card's draft when it holds exactly one, else none: what the phone's wire shows until it shows a batch (`Check.draft`). */
+export const onlyDraftOf = <D>(c: { drafts: readonly D[] }): D | undefined =>
+  c.drafts.length === 1 ? c.drafts[0] : undefined;
+
 /** Whether a stored draft is one Life can send: it resolved a source and a chat (or, for mail, a sender). */
 export const isSendable = (d?: StoredDraft): d is StoredDraft =>
   Boolean(d?.channel && (d.chat ?? d.from));

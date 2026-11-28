@@ -56,6 +56,7 @@ import {
 } from "./decision-lines";
 import { decisionsNow, isOnMatter } from "./decisions";
 import { guessedOf, plain } from "./doubts";
+import { isBatchOf, onlyDraftOf } from "./draft";
 import { withDraftConfirms } from "./draft-send";
 import { type Fix, fixesNow, type MonthBudget } from "./fix-checks";
 import {
@@ -161,7 +162,8 @@ const BUILDERS: Record<CheckKind, (c: Ctx) => Ranked[]> = {
           clips: [],
           context: d.context || null,
           deadline: d.deadline,
-          draft: d.draft ?? null,
+          draft: onlyDraftOf(d) ?? null,
+          ...(isBatchOf(d) ? { drafts: d.drafts } : {}),
           goal: null,
           group: "decision",
           // The gate's reading of what is at stake orders it (`inboxOrderOf`): only high moves it.

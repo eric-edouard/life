@@ -232,8 +232,10 @@ export interface Check {
   doneSeen?: ReturnType<typeof doneSeenShownOf>;
   /** How Life sees a decision's step done now (`doneSeenByOf`): `payment`, `access` (its Mac steps), or `tap` (only his word); absent on every other kind. */
   doneSeenBy?: "access" | "payment" | "tap";
-  /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none. */
+  /** The exact message he approves (to whom, on which channel, its text), shown in full; null: none, or a batch (`drafts`). */
   draft: StoredDraft | null;
+  /** A batch's drafts, in order, each shown in full and sent by his one pick of its `outgoing` option; absent on a one-draft card and every other kind. */
+  drafts?: StoredDraft[];
   /** On a plan card: what its plan was gathered from, one line (the source chip), which opens its `context`; null on a decision with none; absent on every other kind. */
   gathered?: { text: string } | null;
   /** A new matter's goal, the one his Start hands the agent (the question words it too); null for every other kind. */

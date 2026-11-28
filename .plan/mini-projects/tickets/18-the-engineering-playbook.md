@@ -59,3 +59,5 @@ landing, bundles, `debt` issues, the architecture naming rigour. Mini projects s
 **Sharpened by the owner on 28 Nov 2026:** mini projects are scrappy, not production: the aim is maximum wow in UI and
 UX, no bugs, and low token cost. Little of `work-on-code` carries over. Reviews are cut to one pass, on the result
 before "done" (the user's approval of the preview replaces the plan review), and every step weighs its token cost.
+
+Built: https://github.com/eric-edouard/life/pull/1588

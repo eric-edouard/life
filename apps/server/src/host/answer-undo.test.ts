@@ -89,7 +89,7 @@ test("Undo of a sent draft: refused where the chat allows no delete, nothing tri
     deliver: () => Promise.resolve("whatsapp:155/1"),
     via: "connector",
   });
-  expect(read(id).send?.kind).toBe("sent");
+  expect(read(id).sends[0]?.kind).toBe("sent");
   // No source in this test deletes: none is offered, and none is tried.
   expect(undoOf(read(id))).toBeNull();
   await expect(undoAnswer(id)).rejects.toThrow("doesn't let Life delete");
@@ -115,12 +115,12 @@ test("Undo while the send his answer started is under way: refused with nothing 
   });
   await delivering;
   expect(read(id).state).toBe("answered");
-  expect(read(id).send).toBeUndefined();
+  expect(read(id).sends).toEqual([]);
   const before = readFileSync(DECISIONS, "utf8");
   expect(undoOf(read(id))).toBeNull();
   await expect(undoAnswer(id)).rejects.toThrow("under way");
   expect(readFileSync(DECISIONS, "utf8")).toBe(before);
   deliver("whatsapp:155/1");
   await sending;
-  expect(read(id).send?.kind).toBe("sent");
+  expect(read(id).sends[0]?.kind).toBe("sent");
 });

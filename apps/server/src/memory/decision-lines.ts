@@ -27,6 +27,8 @@ export const Asked = Ask.extend({
   contests: DecisionId.optional(),
   /** The draft as Life stored it when asked (`resolveDraft`): `to` the chat's name, `chat` and the stamps; a card asked before Life could send has none, and sends nothing. */
   draft: StoredDraft.optional(),
+  /** A batch's drafts as Life stored them, each as `draft` is; never with `draft` (`draftsOf` reads both). */
+  drafts: z.array(StoredDraft).min(2).optional(),
   id: DecisionId,
   /** The ids of his instructions in force on it when asked (`instructionsFor`), the desk's; cards before it, or with none, have none. */
   instructions: z.array(z.string().regex(/^ins_[0-9a-f]{12}$/)).optional(),
@@ -73,6 +75,8 @@ export const Kept = Withdrawn.omit({
 export const Sent = z
   .object({
     at: isoDateTime,
+    /** Which of a batch's drafts (`drafts`, in order) it is the outcome of: absent for the first, and on every line before batches. */
+    draftIndex: z.int().min(1).optional(),
     eventId: z.string().min(1),
     id: DecisionId,
     kind: z.literal("sent"),
@@ -232,7 +236,9 @@ export type DecisionState =
   | "seen"
   | "waiting"
   | "withdrawn";
-export type Decision = Asked & {
+export type Decision = Omit<Asked, "draft" | "drafts"> & {
+  /** Its drafts in order (`draftsOf`): none, one, or a batch's. */
+  drafts: StoredDraft[];
   /** His answer's `adds` outcome (`added`). */
   added?: Added;
   answer?: Answered;
@@ -251,15 +257,14 @@ export type Decision = Asked & {
   notSent?: SendFailed;
   /** The older card this one replaces, once asked after `CONTEST_WAIT` while that one is still open: his Send withdraws it. */
   replaces?: string;
-  send?: Send;
+  /** Its drafts' send outcomes, one line each (`draftIndex`), in the order they ended: the send ended once each draft has one (`isSendEndedOf`). */
+  sends: Send[];
   state: DecisionState;
   /** Every answer a `not sent:` or `not_found` outcome voided, with that outcome, oldest first: a repeat of any of those taps (its `answerKey`) finds its own here. */
   voided?: {
     answer: Answered;
     doneSeen?: DoneSeen;
     notSent?: SendFailed;
-    /** What it had sent, which his Undo deleted. */
-    send?: Send;
     /** His Undo that voided it. */
     undone?: AnswerWithdrawn;
   }[];

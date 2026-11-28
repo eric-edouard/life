@@ -72,7 +72,7 @@ partial: it reads a call's text, so a tab already open on a messaging site, a sc
 or `curl` to a service's API (the door's `/main-session` too, with the local key read from Life's state), `node_repl`, `javascript_tool`, full-screen computer use (it names no app), a shell the agent starts and then types into
 (Codex's `write_stdin`) or another program the agent starts get past it, a turn he types himself into an agent's session runs without the guard unless the Life plugin is installed (it asks the desk's guard before every tool call there, and refuses all but the file tools when the guard fails; there it also approves every permission ask the guard lets through, as the desk's no-ask mode does, never a deny or an organization's ceiling; a session of an agent it never looked up, first opened while Life is down, runs unguarded), and the agent can edit the guard's file in a
 checkout. It also refuses a little too much: any call that names a messaging site, reading Gmail in a browser included. Submitting a form, booking, paying, `gh pr create` and pushes stay its
-instruction only. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
+instruction only, as does a one-off project's first look staying read-only on his things until he approves a preview (the owner's decision of 28 Nov 2026): the guard cannot tell a read from a change on his Mac. A turn that fails keeps the adapter's last error lines in the desk's store; with his environment passed
 in, those lines may hold whatever the adapter printed. Its door
 is on loopback only; each agent's key is derived from the desk's key and reaches the sessions the desk starts in their environment, and the Life plugin's module (never the model) for a session he opens himself: the door's `/session/<ref>` gives it to any process of his that knows the session's id, as `desk.key` already does. The key names an agent; it is no wall between his own processes.
 His complaint (his words through Ask Life; "Wrong…" on a card of Life's opens it) is his hand-over to the caretaker, a
@@ -157,7 +157,9 @@ The one list; nothing else leaves. lifelog (`apps/lifelog`), its own service, ke
   Messages app (iMessage, as he would send it himself: a file is written for a moment to `~/Pictures/Life sends`; the one
   macOS grant is Automation, Life → Messages, asked at the first send): a card's
   draft, its exact text and the one file he approved (it leaves the Mac for the network, through its bridge), once, on
-  his answer to its outgoing option (his decision of 18 Nov 2026; .claude/rules/acts-and-sends.md). Asking a
+  his answer to its outgoing option (his decision of 18 Nov 2026; .claude/rules/acts-and-sends.md); a batch card's
+  drafts, each into its own chat, each exactly as shown and checked on its own, on his one answer (the owner's decision
+  of 28 Nov 2026; refused until his app shows every draft). Asking a
   card for a new WhatsApp chat sends the number to WhatsApp, through its bridge, to ask whether it has an account.
 - By Gmail, through gog, as a mail from one of his accounts: a card's draft (from, to, cc, subject, text and one file he
   approved), once, on his answer to its outgoing option. It goes to Google's Gmail API, then to its recipients; a file is

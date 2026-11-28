@@ -5,7 +5,7 @@ import { isInboxCheck } from "../memory/check-urgency";
 import { rateOffersOf } from "../memory/decision-after-answer";
 import { deliveryOf } from "../memory/decision-delivery";
 import type { Decision } from "../memory/decision-lines";
-import { decisionsNow } from "../memory/decisions";
+import { actOutcomeOf, decisionsNow } from "../memory/decisions";
 import type {
   DeletionCopy,
   ThreadEntriesHolding,
@@ -185,6 +185,14 @@ export const withMatterIcons = <
   };
 };
 
+/** When his answer's send ended with every draft sent (the last one's line); null when it sent nothing, or not all. */
+const sentAtOf = (d: Decision) => {
+  const last = actOutcomeOf(d, "send");
+  return last && d.sends.every((s) => s.kind === "sent")
+    ? { at: last.at }
+    : null;
+};
+
 /** A card he no longer needs to answer, as the thread shows it: what was asked, his answer and what came of it, and his Undo while there is one. */
 const closedCardOf = (
   d: Decision,
@@ -202,7 +210,7 @@ const closedCardOf = (
   question: d.question,
   /** "How am I doing?" on it (`rateOffersOf`): his mark so far, null when none; null when not asked. */
   rate: offers.has(d.id) ? { mark: offers.get(d.id)?.mark ?? null } : null,
-  sent: d.send?.kind === "sent" ? { at: d.send.at } : null,
+  sent: sentAtOf(d),
   title: d.title,
   undo: undoOf(d),
   withdrawn: d.withdrawn
@@ -254,13 +262,7 @@ export async function readThread(o: { before?: string; ifNot?: string } = {}) {
   const looks = await matterLooks();
   const items = [
     ...entries
-      .filter(
-        (e) =>
-          !(
-            gone.has(threadEntryRefOf(e.id)) ||
-            (JSON.parse(e.refs) as string[]).some((r) => gone.has(r))
-          )
-      )
+      .filter((e) => !isGoneOf(gone, e))
       .map((e) => ({
         answer: e.answer,
         answeredAt: e.answered_at,
@@ -354,6 +356,56 @@ const isFix = (x: object) => {
 
 /** A thread entry's ref, as a deletion names it. */
 export const threadEntryRefOf = (id: number) => `thread:${id}`;
+
+/** Whether a thread entry is hidden: a deletion (`gone`, its refs) names it, or its answer cites what one removed. */
+const isGoneOf = (
+  gone: ReadonlySet<string>,
+  e: Pick<EntryRow, "id" | "refs">
+) =>
+  gone.has(threadEntryRefOf(e.id)) ||
+  (JSON.parse(e.refs) as string[]).some((r) => gone.has(r));
+
+/** His thread entry `entry` as he still sees it (its words and when), none when it was deleted (`isGoneOf`): what may leave the thread for an agent or his directory. */
+export function shownEntryOf(db: Database, entry: number) {
+  const e = db
+    .query<Pick<EntryRow, "asked_at" | "id" | "refs" | "words">, [number]>(
+      "select id, asked_at, words, refs from thread_entry where id = ? and deleted_at is null"
+    )
+    .get(entry);
+  return e && !isGoneOf(deletionsNow().refs, e) ? e : undefined;
+}
+
+/** How many of his entries before the one handed an agent reads with it, within `DAY`. */
+const AROUND = 10;
+
+/**
+ * The talk around his thread entry `entry`, as an agent given work from it reads it (`read_handed_conversation`): that
+ * entry and up to `AROUND` before it within a day, his words and Life's answers, oldest first; none he deleted (blanked,
+ * named by a deletion, or citing what one removed), as `readThread` hides them.
+ */
+export function conversationAroundOf(db: Database, entry: number) {
+  const at = shownEntryOf(db, entry)?.asked_at;
+  if (!at) {
+    return [];
+  }
+  const gone = deletionsNow().refs;
+  return db
+    .query<
+      Pick<EntryRow, "answer" | "asked_at" | "id" | "refs" | "words">,
+      [string, string, number, number]
+    >(
+      "select id, asked_at, words, answer, refs from thread_entry where deleted_at is null and asked_at >= ? and (asked_at < ? or id = ?) order by asked_at desc limit ?"
+    )
+    .all(new Date(Date.parse(at) - DAY).toISOString(), at, entry, AROUND + 1)
+    .filter((e) => !isGoneOf(gone, e))
+    .reverse()
+    .map((e) => ({
+      answer: e.answer,
+      at: e.asked_at,
+      id: e.id,
+      words: e.words,
+    }));
+}
 
 /**
  * The thread entries not yet blanked whose words, answer or refs hold what a deletion removes (`holds`): its preview's.

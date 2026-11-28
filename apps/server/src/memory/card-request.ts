@@ -66,6 +66,8 @@ export const CHANGES = [
 /** Whether `changed` says the card is a redraft (`edit:tap` or `edit:words`). */
 export const isRedraftOf = (changed: readonly string[] | undefined) =>
   changed?.some((c) => c.startsWith("edit:")) === true;
+/** The most drafts one card holds (a batch). */
+const MAX_DRAFTS = 20;
 /** What an asker gives (`requestDecision`, the connector's `request_decision`): an `asked` line less what Life stamps. */
 export const Ask = z
   .object({
@@ -83,6 +85,8 @@ export const Ask = z
     /** How Life sees the card's step done: `payment` (it looks in his accounts for the `amount` need paid to the payee), `access` (it checks his Mac for each step of the `access` need), or `tap` (only his word). */
     doneSeenBy: z.enum(DONE_SEEN_BY).optional(),
     draft: MessageDraft.optional(),
+    /** A batch: several drafts, each into its own chat, all sent by his one pick of the `outgoing` option (`draftsOf`); never with `draft`. */
+    drafts: z.array(MessageDraft).min(2).max(MAX_DRAFTS).optional(),
     /** On a draft card: up to three quick changes he can tap, a few words each ("More concise", "Warmer"). */
     edits: z.array(oneLine(30)).min(1).max(3).optional(),
     /** Up to three next asks he may make, each in his own voice ("Book the earliest one"); required of a new card, possibly empty. */

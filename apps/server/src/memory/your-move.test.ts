@@ -112,6 +112,7 @@ test("a pure wait on someone, a closed matter, a parked project or an open decis
       decisions: [
         {
           at: "2026-10-22T09:00:00.000Z",
+          drafts: [],
           id: "dec_000000000081",
           links: [],
           options: [],

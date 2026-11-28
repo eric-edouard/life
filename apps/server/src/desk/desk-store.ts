@@ -7,11 +7,13 @@ import { DESK_STORE } from "../core/paths";
 import { openWritable } from "../core/sqlite";
 import { assignmentOfCard, readCursor } from "../host/desk-read";
 import { isOldShape, NOT_MIGRATED } from "../host/desk-shape";
+import { HANDED_KINDS, type HandedKind } from "../host/desk-turn-reads";
 import type { EventChannel } from "../host/event-channels";
 import type { Messaging } from "../host/events";
 import { ASK_SPOKEN, COMPLAINT_RECEIVED } from "../host/events";
 import type { Decision } from "../memory/decision-lines";
 import { askPlaceOf } from "../memory/memory-files";
+import type { LedgerEntry } from "../records/ledger-entry";
 import type { AgentWait } from "../records/registered-agent";
 import type { Runtime } from "./runtimes/contract";
 
@@ -19,7 +21,7 @@ import type { Runtime } from "./runtimes/contract";
 // `clock()` (`agent-wait.ts`); nothing about an agent is kept in memory between ticks. Readers are bounded: active
 // agents, or one agent's rows. The Life thread's entries are here too (`thread_entry`: one per ask of his to the main
 // session, its words and answer blankable in place, the row, its time and `deleted_at` kept), with the work each handed
-// on (`handed_work`): never `memory/`, since Life's own words are never read back as his life. A new table needs no
+// on (`handed_work`) and each one-off project's handoff (`project_handoff`: the claim on its id, his entry, the notes, the agent that took it): never `memory/`, since Life's own words are never read back as his life. A new table needs no
 // store step: `SCHEMA` makes it on open (as `card` and `handed_step` were, #749).
 
 /** At most one active or stopped agent of each role: the fresh schema's, `stepRoles`' and `stepRoleCheck`'s. */
@@ -219,6 +221,13 @@ create table if not exists handed_work (
   primary key (entry_id, assignment_id)
 );
 create index if not exists handed_work_by_kind on handed_work (kind, handed_at);
+create table if not exists project_handoff (
+  project text primary key,
+  ask text not null unique,
+  entry_id integer not null,
+  notes text,
+  agent_id text
+);
 ${MOVE_TABLES}`;
 
 /** The desk: its store, the runtimes it drives by name, and the message sources it polls (all that are on, unless a test gives its own). */
@@ -338,6 +347,49 @@ export const endWhenIdle = (
         and not exists (select 1 from turn t where t.move = m.ask and t.cause <> 'move_notes' and t.begun_at is not null))`,
     [status, clock().toISOString(), outcome, agent]
   );
+
+/** Work handed on from his thread entry `entry` to assignment `assignment` (`handed_work`), its `kind`, at `at`: once per entry and assignment. The one writer of `handed_work`. */
+export const recordHandedWork = (
+  db: Database,
+  entry: number,
+  assignment: string,
+  kind: HandedKind,
+  at: string
+) =>
+  db.run(
+    "insert or ignore into handed_work (entry_id, assignment_id, kind, handed_at) values (?, ?, ?, ?)",
+    [entry, assignment, kind, at]
+  );
+
+/**
+ * The work told ask `a` handed on (`tell_agent`: his thread entry and its kind, `after.entry` and `after.kind`, kept with
+ * the ask): written by `tellAgent` at once and again by the intake when it queues the ask, so a crash between the ledger
+ * and the store loses nothing. An ask from before they were kept writes nothing.
+ */
+export function recordToldWork(db: Database, a: LedgerEntry) {
+  const { entry, kind, to } = a.after;
+  if (typeof entry === "number" && typeof to === "string") {
+    const k = HANDED_KINDS.find((x) => x === kind) ?? "other";
+    recordHandedWork(db, entry, to, k, a.at);
+  }
+}
+
+/** One-off project `project`'s handoff (`project_handoff`): made of ask `ask` (an ask of the desk's id, or the main session's act's ref) from his thread entry `entry_id`, the old agent's `notes`, `agent_id` the agent its entry was handed to. The row is the claim on the project's id: one ask per project. */
+export interface ProjectHandoff {
+  agent_id: string | null;
+  ask: string;
+  entry_id: number;
+  notes: string | null;
+  project: string;
+}
+
+/** Project `project`'s handoff, if it was made of an ask. */
+export const handoffOf = (db: Database, project: string) =>
+  db
+    .query<ProjectHandoff, [string]>(
+      "select * from project_handoff where project = ?"
+    )
+    .get(project) ?? undefined;
 
 /**
  * Closes assignment `id` once (`outcome`, or `whyNotStarted` for one whose first turn never began), gives back the
